@@ -1,12 +1,8 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import {
-  GEMINI_API_KEY_COOKIE,
-  GEMINI_MODEL_COOKIE,
-  GEMINI_MODEL_OPTIONS,
-} from "@/lib/settings";
+import { AI_COPY } from "@/lib/copy";
+import { getGeminiRuntimeConfig } from "@/lib/settings";
 
 type GeminiResponse = {
   candidates?: Array<{
@@ -24,10 +20,6 @@ const extractedSchema = z.object({
   note: z.string().trim().min(1).max(240).nullable(),
 });
 
-function isGeminiModel(value: string): value is (typeof GEMINI_MODEL_OPTIONS)[number] {
-  return GEMINI_MODEL_OPTIONS.includes(value as (typeof GEMINI_MODEL_OPTIONS)[number]);
-}
-
 function extractJson(text: string) {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
@@ -42,9 +34,13 @@ function extractJson(text: string) {
 function buildPrompt(kind: z.infer<typeof requestSchema>) {
   if (kind === "speedtest") {
     return [
-      "Extrae el valor principal de subida visible en una captura de speedtest para Basket Production.",
+      `Lee una captura de speedtest ${AI_COPY.portalCaptureContext}`,
+      "Tu tarea es extraer SOLO la velocidad de subida principal.",
+      "Busca etiquetas como subida, upload o up.",
+      "Ignora descarga, download, jitter, score, proveedor y cualquier otro número.",
       'Devuelve SOLO JSON válido con el formato {"value":null,"note":null}.',
       'Si encuentras el valor, responde por ejemplo {"value":"22.1 Mbps","note":null}.',
+      "Si aparecen varios números, elige exclusivamente el que corresponda a subida/upload.",
       "No inventes nada.",
       "Si la imagen no permite leer claramente el dato, usa value: null y una note corta.",
     ].join("\n");
@@ -52,7 +48,11 @@ function buildPrompt(kind: z.infer<typeof requestSchema>) {
 
   if (kind === "ping") {
     return [
-      "Extrae el valor de ping o latencia visible en una captura para Basket Production.",
+      `Lee una captura de red ${AI_COPY.portalCaptureContext}`,
+      "Tu tarea es extraer SOLO el ping promedio o average visible.",
+      "Busca etiquetas como ping, average, avg o latencia promedio.",
+      "Si no existe un promedio claro pero sí un único ping principal muy visible, usa ese.",
+      "Ignora subida, descarga, jitter y cualquier otro número que no sea el ping promedio.",
       'Devuelve SOLO JSON válido con el formato {"value":null,"note":null}.',
       'Si encuentras el valor, responde por ejemplo {"value":"60 ms","note":null}.',
       "No inventes nada.",
@@ -61,7 +61,10 @@ function buildPrompt(kind: z.infer<typeof requestSchema>) {
   }
 
   return [
-    "Extrae el valor de GPU o carga porcentual visible en una captura para Basket Production.",
+    `Lee una captura de monitoreo ${AI_COPY.portalCaptureContext}`,
+    "Tu tarea es extraer SOLO el valor de GPU Mem, GPU Memory o memoria GPU visible.",
+    "Si no aparece GPU Mem pero sí un único porcentaje principal de GPU claramente visible, úsalo como fallback.",
+    "Ignora CPU, RAM, FPS, encoder, bitrate, temperatura y cualquier otro dato que no sea GPU Mem o el porcentaje GPU principal.",
     'Devuelve SOLO JSON válido con el formato {"value":null,"note":null}.',
     'Si encuentras el valor, responde por ejemplo {"value":"40%","note":null}.',
     "No inventes nada.",
@@ -70,6 +73,7 @@ function buildPrompt(kind: z.infer<typeof requestSchema>) {
 }
 
 export async function POST(request: Request) {
+  const requestId = crypto.randomUUID();
   const formData = await request.formData();
   const image = formData.get("image");
   const kindResult = requestSchema.safeParse(formData.get("kind"));
@@ -96,19 +100,25 @@ export async function POST(request: Request) {
   }
 
   const bytes = Buffer.from(await image.arrayBuffer()).toString("base64");
-  const store = await cookies();
-  const apiKey = store.get(GEMINI_API_KEY_COOKIE)?.value ?? "";
-  const configuredModel = store.get(GEMINI_MODEL_COOKIE)?.value ?? "gemini-2.5-flash";
-  const model = isGeminiModel(configuredModel)
-    ? configuredModel
-    : "gemini-2.5-flash";
+  const { apiKey, model, source } = await getGeminiRuntimeConfig();
 
   if (!apiKey) {
     return NextResponse.json(
-      { error: "Configura la API key de Gemini en Configuración antes de leer capturas." },
+      {
+        error: AI_COPY.globalGeminiCaptureHint,
+      },
       { status: 400 },
     );
   }
+
+  console.info("[ai][metric-capture] start", {
+    requestId,
+    kind: kindResult.data,
+    mimeType: image.type,
+    size: image.size,
+    model,
+    source,
+  });
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -138,6 +148,14 @@ export async function POST(request: Request) {
 
   if (!response.ok) {
     const detail = await response.text();
+    console.error("[ai][metric-capture] gemini request failed", {
+      requestId,
+      kind: kindResult.data,
+      status: response.status,
+      model,
+      source,
+      detail,
+    });
 
     return NextResponse.json(
       {
@@ -155,6 +173,12 @@ export async function POST(request: Request) {
     .trim();
 
   if (!answer) {
+    console.warn("[ai][metric-capture] empty answer", {
+      requestId,
+      kind: kindResult.data,
+      model,
+      source,
+    });
     return NextResponse.json(
       { error: "Gemini no devolvió contenido para esta captura." },
       { status: 502 },
@@ -164,6 +188,13 @@ export async function POST(request: Request) {
   const jsonText = extractJson(answer);
 
   if (!jsonText) {
+    console.warn("[ai][metric-capture] missing json block", {
+      requestId,
+      kind: kindResult.data,
+      model,
+      source,
+      answer,
+    });
     return NextResponse.json(
       { error: "No pudimos convertir la lectura a datos estructurados." },
       { status: 502 },
@@ -174,7 +205,15 @@ export async function POST(request: Request) {
 
   try {
     parsedJson = JSON.parse(jsonText);
-  } catch {
+  } catch (error) {
+    console.warn("[ai][metric-capture] invalid json", {
+      requestId,
+      kind: kindResult.data,
+      model,
+      source,
+      jsonText,
+      error,
+    });
     return NextResponse.json(
       { error: "La respuesta de Gemini no vino en JSON válido." },
       { status: 502 },
@@ -184,11 +223,27 @@ export async function POST(request: Request) {
   const extracted = extractedSchema.safeParse(parsedJson);
 
   if (!extracted.success) {
+    console.warn("[ai][metric-capture] schema mismatch", {
+      requestId,
+      kind: kindResult.data,
+      model,
+      source,
+      parsedJson,
+    });
     return NextResponse.json(
       { error: "La lectura no devolvió el formato esperado." },
       { status: 502 },
     );
   }
+
+  console.info("[ai][metric-capture] success", {
+    requestId,
+    kind: kindResult.data,
+    model,
+    source,
+    hasValue: Boolean(extracted.data.value),
+    note: extracted.data.note,
+  });
 
   return NextResponse.json(extracted.data);
 }

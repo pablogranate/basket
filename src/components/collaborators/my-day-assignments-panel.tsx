@@ -34,6 +34,12 @@ import { CollaboratorReportForm } from "@/components/collaborators/collaborator-
 import { badgeBaseClassName } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { HoverAvatarBadge } from "@/components/ui/hover-avatar-badge";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { UnderlineTabs } from "@/components/ui/underline-tabs";
+import {
+  PRODUCTION_SHORT_LABEL,
+  RESPONSIBLE_DISPLAY_LABEL,
+} from "@/lib/constants";
 import type {
   CollaboratorAssignmentItem,
   CollaboratorGroupContact,
@@ -46,6 +52,9 @@ type MyDayAssignmentsPanelProps = {
   hasLinkedPerson: boolean;
   isSelectedDateToday: boolean;
   selectedDate: string;
+  periodView: "day" | "month";
+  primaryHeading: string;
+  primaryDescription: string;
   showDemoToday: boolean;
   todayAssignments: CollaboratorAssignmentItem[];
   upcomingAssignments: CollaboratorAssignmentItem[];
@@ -417,7 +426,7 @@ function getAssignmentOperationalItems(assignment: CollaboratorAssignmentItem) {
     assignment.relatorName ?? assignment.talentLabel?.split("/")[0]?.trim() ?? null,
   );
   const producerLabel = abbreviatePersonName(assignment.producerName);
-  const productionLabel = getProductionModeLabel(assignment.productionMode) || "Modo libre";
+  const productionLabel = getProductionModeLabel(assignment.productionMode) || "Sin definir";
   const roleLabel = getRoleDisplayName(assignment.roleName) || "Por definir";
   const cameraLabel =
     assignment.cameraCount > 0
@@ -426,36 +435,42 @@ function getAssignmentOperationalItems(assignment: CollaboratorAssignmentItem) {
 
   return [
     {
+      key: "produ",
       icon: Video,
-      label: "Modo",
+      label: "Produ",
       value: productionLabel,
       tone: "success" as const,
     },
     {
+      key: "responsable",
       icon: ShieldUser,
-      label: "Responsable",
+      label: RESPONSIBLE_DISPLAY_LABEL,
       value: responsibleLabel,
       variant: "person" as const,
     },
     {
+      key: "productor",
       icon: UserRound,
       label: "Productor",
       value: producerLabel,
       variant: "person" as const,
     },
     {
+      key: "relator",
       icon: Mic2,
       label: "Relator",
       value: relatorLabel,
       variant: "person" as const,
     },
     {
+      key: "modo",
       icon: CalendarDays,
-      label: "Modo",
+      label: PRODUCTION_SHORT_LABEL,
       value: roleLabel,
       highlight: true,
     },
     {
+      key: "camaras",
       icon: Camera,
       label: "Cámaras",
       value: cameraLabel,
@@ -483,7 +498,7 @@ function AssignmentOperationalSummary({
     >
       {items.map((item) => (
         <AssignmentDetailPill
-          key={`${assignment.assignmentId}-${item.label}`}
+          key={`${assignment.assignmentId}-${item.key}`}
           compact={compact}
           icon={item.icon}
           label={item.label}
@@ -636,34 +651,33 @@ function AssignmentViewToggle({
   onChange: (value: MyDayViewMode) => void;
 }) {
   return (
-    <div className="flex h-9 items-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] p-1">
-      <button
-        type="button"
-        onClick={() => onChange("table")}
-        className={cn(
-          "inline-flex h-full items-center gap-2 rounded-[calc(var(--panel-radius)-4px)] px-3 text-xs font-bold transition",
-          viewMode === "table"
-            ? "bg-[var(--surface)] text-[var(--foreground)] shadow-sm"
-            : "text-[var(--muted)] hover:text-[var(--foreground)]",
-        )}
-      >
-        <Rows3 className="size-3.5" />
-        Tabla
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange("cards")}
-        className={cn(
-          "inline-flex h-full items-center gap-2 rounded-[calc(var(--panel-radius)-4px)] px-3 text-xs font-bold transition",
-          viewMode === "cards"
-            ? "bg-[var(--surface)] text-[var(--foreground)] shadow-sm"
-            : "text-[var(--muted)] hover:text-[var(--foreground)]",
-        )}
-      >
-        <LayoutGrid className="size-3.5" />
-        Fichas
-      </button>
-    </div>
+    <SegmentedControl
+      size="sm"
+      items={[
+        {
+          key: "table",
+          active: viewMode === "table",
+          onClick: () => onChange("table"),
+          label: (
+            <span className="inline-flex items-center gap-2">
+              <Rows3 className="size-3.5" />
+              Tabla
+            </span>
+          ),
+        },
+        {
+          key: "cards",
+          active: viewMode === "cards",
+          onClick: () => onChange("cards"),
+          label: (
+            <span className="inline-flex items-center gap-2">
+              <LayoutGrid className="size-3.5" />
+              Fichas
+            </span>
+          ),
+        },
+      ]}
+    />
   );
 }
 
@@ -889,7 +903,7 @@ function AssignmentTable({
                   <div>
                     <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#a7b4c8]">
                       <Video className="size-3.5 text-[#a7b4c8]" />
-                      Modo
+                      {PRODUCTION_SHORT_LABEL}
                     </p>
                     <div className="mt-2">
                       <span
@@ -1217,34 +1231,24 @@ function GroupAssistantDrawer({
         </div>
       </div>
 
-      <div className="border-b border-[var(--border)] px-5">
-        <div className="grid grid-cols-2 gap-2 border-b border-[var(--border)]/60">
-          <button
-            type="button"
-            onClick={() => onChangeTab("group")}
-            className={cn(
-              "inline-flex min-w-0 items-center justify-center gap-1.5 border-b-2 px-1 pb-4 pt-3 text-[10px] font-black uppercase tracking-[0.12em] transition",
-              tab === "group"
-                ? "border-[var(--accent)] text-[var(--accent)]"
-                : "border-transparent text-[#94a3b8] hover:text-[#617187]",
-            )}
-          >
-            <span className="truncate">Grupo</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onChangeTab("context")}
-            className={cn(
-              "inline-flex min-w-0 items-center justify-center gap-1.5 border-b-2 px-1 pb-4 pt-3 text-[10px] font-black uppercase tracking-[0.12em] transition",
-              tab === "context"
-                ? "border-[var(--accent)] text-[var(--accent)]"
-                : "border-transparent text-[#94a3b8] hover:text-[#617187]",
-            )}
-          >
-            <span className="truncate">Planilla</span>
-          </button>
-        </div>
-      </div>
+      <UnderlineTabs
+        columns={2}
+        className="px-5"
+        items={[
+          {
+            key: "group",
+            label: "Grupo",
+            active: tab === "group",
+            onClick: () => onChangeTab("group"),
+          },
+          {
+            key: "context",
+            label: "Planilla",
+            active: tab === "context",
+            onClick: () => onChangeTab("context"),
+          },
+        ]}
+      />
 
       <div className="space-y-5 px-5 py-5">
 
@@ -1329,9 +1333,9 @@ function GroupAssistantDrawer({
         ) : (
           <div className="space-y-5">
             <section className="space-y-4">
-              <DrawerSectionHeading>Modo</DrawerSectionHeading>
+              <DrawerSectionHeading>{PRODUCTION_SHORT_LABEL}</DrawerSectionHeading>
               <DrawerHighlightCard
-                label="Modo"
+                label={PRODUCTION_SHORT_LABEL}
                 value={getProductionModeLabel(assignment.productionMode) || "Sin definir"}
               />
               <div className="grid grid-cols-2 gap-3">
@@ -1357,7 +1361,7 @@ function GroupAssistantDrawer({
               <DrawerSectionHeading>Responsables</DrawerSectionHeading>
               <div className="grid grid-cols-2 gap-3">
                 <DrawerPersonCard
-                  label="Responsable"
+                  label={RESPONSIBLE_DISPLAY_LABEL}
                   value={assignment.responsibleName ?? assignment.ownerName ?? "Sin asignar"}
                   tone="accent"
                 />
@@ -1518,6 +1522,9 @@ export function MyDayAssignmentsPanel({
   hasLinkedPerson,
   isSelectedDateToday,
   selectedDate,
+  periodView,
+  primaryHeading,
+  primaryDescription,
   showDemoToday,
   todayAssignments,
   upcomingAssignments,
@@ -1599,18 +1606,26 @@ export function MyDayAssignmentsPanel({
 
         <section className="space-y-4">
           <div className="space-y-3">
-            <MobileDayNavigator
-              selectedDate={selectedDate}
-              isSelectedDateToday={isSelectedDateToday}
-            />
+            {periodView === "day" ? (
+              <MobileDayNavigator
+                selectedDate={selectedDate}
+                isSelectedDateToday={isSelectedDateToday}
+              />
+            ) : (
+              <div className="md:hidden">
+                <h2 className="text-center text-[1.9rem] font-black tracking-tight text-[var(--foreground)]">
+                  {primaryHeading}
+                </h2>
+              </div>
+            )}
 
             <div className="hidden flex-wrap items-center justify-between gap-3 md:flex">
               <div>
                 <h2 className="text-2xl font-black tracking-tight text-[var(--foreground)]">
-                  {`Hoy (${formatDayMonthLabel(selectedDate)})`}
+                  {primaryHeading}
                 </h2>
                 <p className="mt-1 text-sm text-[#617187]">
-                  Tus partidos asignados para la fecha seleccionada.
+                  {primaryDescription}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -1653,19 +1668,23 @@ export function MyDayAssignmentsPanel({
           ) : (
             <Card className="space-y-3 rounded-[var(--panel-radius)] p-6">
               <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#95a3ba]">
-                Sin actividad hoy
+                {periodView === "month" ? "Sin actividad este mes" : "Sin actividad hoy"}
               </p>
               <h3 className="text-2xl font-black tracking-tight text-[var(--foreground)]">
-                No tienes partidos asignados para esta fecha
+                {periodView === "month"
+                  ? "No tienes partidos asignados para este mes"
+                  : "No tienes partidos asignados para esta fecha"}
               </h3>
               <p className="text-sm leading-7 text-[#617187]">
-                Prueba con otro día o revisa la sección de próximos partidos.
+                {periodView === "month"
+                  ? "Prueba con otro mes o vuelve a la vista de hoy."
+                  : "Prueba con otro día o revisa la sección de próximos partidos."}
               </p>
             </Card>
           )}
         </section>
 
-        {upcomingAssignments.length ? (
+        {periodView === "day" && upcomingAssignments.length ? (
           <section className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>

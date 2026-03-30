@@ -33,12 +33,16 @@ export function parseGridSearchParams(searchParams: RawSearchParams) {
   ) as "day" | "month";
   const defaultDate =
     view === "month" ? getMonthInputValue() : getDateInputValue();
+  const dateOrder = (
+    getParam(searchParams, "dateOrder") === "desc" ? "desc" : "asc"
+  ) as "asc" | "desc";
   const rawMode = getParam(searchParams, "mode") ?? "";
   const mode = getProductionModeLabel(normalizeProductionMode(rawMode));
 
   return {
     view,
     date: getParam(searchParams, "date") ?? defaultDate,
+    dateOrder,
     q: getParam(searchParams, "q") ?? "",
     league: getParam(searchParams, "league") ?? "",
     mode,

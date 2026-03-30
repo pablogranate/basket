@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { addDays, addMonths } from "date-fns";
-import { Search } from "lucide-react";
+import { ArrowUpDown } from "lucide-react";
 
 import { SectionAiAssistant } from "@/components/ai/section-ai-assistant";
 import { CreateMatchModal } from "@/components/grid/create-match-modal";
@@ -11,8 +10,10 @@ import { ProductionInsightsPanel } from "@/components/grid/production-insights-p
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 import { SetupPanel } from "@/components/layout/setup-panel";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Input } from "@/components/ui/input";
 import { PageMessage } from "@/components/ui/page-message";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { ToolbarSearchField } from "@/components/ui/toolbar-search-field";
+import { SECTION_COPY } from "@/lib/copy";
 import {
   buildKickoffAt,
   formatMatchDate,
@@ -146,6 +147,26 @@ function formatSummaryDateLabel(params: {
   return label.replaceAll(".", "").toUpperCase();
 }
 
+function sortGridDayGroups(
+  dayGroups: Awaited<ReturnType<typeof getGridData>>["dayGroups"],
+  direction: "asc" | "desc",
+) {
+  const sortedGroups = [...dayGroups].sort((left, right) =>
+    direction === "asc"
+      ? left.key.localeCompare(right.key)
+      : right.key.localeCompare(left.key),
+  );
+
+  return sortedGroups.map((group) => ({
+    ...group,
+    items: [...group.items].sort((left, right) =>
+      direction === "asc"
+        ? left.kickoff_at.localeCompare(right.kickoff_at)
+        : right.kickoff_at.localeCompare(left.kickoff_at),
+    ),
+  }));
+}
+
 export default async function GridPage({ searchParams }: PageProps) {
   const resolvedSearchParams = await searchParams;
   const { intent, notice } = parseNotice(resolvedSearchParams);
@@ -212,6 +233,10 @@ export default async function GridPage({ searchParams }: PageProps) {
     view: filters.view,
     timezone: filters.timezone,
   });
+  const dateOrderToggleHref = buildGridHref(resolvedSearchParams, {
+    dateOrder: filters.dateOrder === "asc" ? "desc" : "asc",
+  });
+  const sortedDayGroups = sortGridDayGroups(dayGroups, filters.dateOrder);
   const aiContext = dayGroups.flatMap((group) =>
     group.items.map((match) => ({
       partido: `${match.home_team} vs ${match.away_team}`,
@@ -227,22 +252,24 @@ export default async function GridPage({ searchParams }: PageProps) {
       ).length,
     })),
   );
-  const visibleMatches = dayGroups.flatMap((group) => group.items);
+  const visibleMatches = sortedDayGroups.flatMap((group) => group.items);
 
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] 2xl:grid-cols-[minmax(0,1fr)_22rem]">
-      <div className="min-w-0 space-y-10">
+      <div className="relative z-0 min-w-0 space-y-10">
         <SectionPageHeader
-          title="Producción"
-          description="Organiza la jornada, asigna roles y supervisa la carga operativa del día."
+          title={SECTION_COPY.grid.title}
+          description={SECTION_COPY.grid.description}
           actions={
             <>
-              <form
+              <ToolbarSearchField
                 action="/grid"
-                className="flex min-w-[320px] flex-1 items-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] p-1.5 shadow-sm"
+                defaultValue={filters.q}
+                placeholder="Buscar partido, ID, liga o responsable..."
               >
                 <input type="hidden" name="view" value={filters.view} />
                 <input type="hidden" name="date" value={filters.date} />
+                <input type="hidden" name="dateOrder" value={filters.dateOrder} />
                 {filters.league ? (
                   <input type="hidden" name="league" value={filters.league} />
                 ) : null}
@@ -258,16 +285,7 @@ export default async function GridPage({ searchParams }: PageProps) {
                 {filters.timezone ? (
                   <input type="hidden" name="timezone" value={filters.timezone} />
                 ) : null}
-                <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[var(--panel-radius)] bg-[var(--background-soft)] px-3">
-                  <Search className="size-4 text-[var(--accent)]" />
-                  <Input
-                    name="q"
-                    defaultValue={filters.q}
-                    placeholder="Buscar partido, ID, liga o responsable..."
-                    className="h-10 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
-                  />
-                </div>
-              </form>
+              </ToolbarSearchField>
               {visibleMatches.length ? (
                 <GridExportButton
                   matches={visibleMatches}
@@ -305,17 +323,34 @@ export default async function GridPage({ searchParams }: PageProps) {
         <PageMessage intent={intent} message={notice} />
 
         <section className="min-w-0 space-y-6">
-          {dayGroups.length ? (
-            dayGroups.map((group, groupIndex) => (
+          {sortedDayGroups.length ? (
+            sortedDayGroups.map((group, groupIndex) => (
               <div key={group.key} className="space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div>
+                  <div className="flex items-center gap-3">
                     <h3 className="text-2xl font-extrabold text-[var(--accent)]">
                       {formatDayHeading(
                         group.items[0].kickoff_at,
                         group.items[0].timezone,
                       )}
                     </h3>
+                    {groupIndex === 0 ? (
+                      <a
+                        href={dateOrderToggleHref}
+                        aria-label={
+                          filters.dateOrder === "asc"
+                            ? "Ordenar desde la fecha más reciente"
+                            : "Ordenar desde la fecha más antigua"
+                        }
+                        className={cn(
+                          "inline-flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-[#7f8ca0] shadow-[0_8px_18px_rgba(15,23,42,0.06)] transition hover:border-[rgba(230,18,56,0.24)] hover:text-[var(--accent)]",
+                          filters.dateOrder === "desc" &&
+                            "border-[rgba(230,18,56,0.18)] bg-[#fff4f6] text-[var(--accent)]",
+                        )}
+                      >
+                        <ArrowUpDown className="size-4" />
+                      </a>
+                    ) : null}
                   </div>
                   <div className="flex flex-wrap items-center justify-end gap-3">
                     <span className="text-sm font-medium text-[var(--muted)]">
@@ -323,30 +358,12 @@ export default async function GridPage({ searchParams }: PageProps) {
                     </span>
                     {groupIndex === 0 ? (
                       <>
-                        <div className="flex h-[52px] rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] p-1">
-                          <Link
-                            href={todayHref}
-                            className={cn(
-                              "inline-flex h-full items-center rounded-[calc(var(--panel-radius)-4px)] px-4 text-sm font-semibold transition",
-                              filters.view === "day"
-                                ? "bg-[var(--surface)] text-[var(--foreground)] shadow-sm"
-                                : "text-[var(--muted)] hover:text-[var(--foreground)]",
-                            )}
-                          >
-                            Hoy
-                          </Link>
-                          <Link
-                            href={monthHref}
-                            className={cn(
-                              "inline-flex h-full items-center rounded-[calc(var(--panel-radius)-4px)] px-4 text-sm font-semibold transition",
-                              filters.view === "month"
-                                ? "bg-[var(--surface)] text-[var(--foreground)] shadow-sm"
-                                : "text-[var(--muted)] hover:text-[var(--foreground)]",
-                            )}
-                          >
-                            Mes
-                          </Link>
-                        </div>
+                        <SegmentedControl
+                          items={[
+                            { key: "day", label: "Hoy", href: todayHref, active: filters.view === "day" },
+                            { key: "month", label: "Mes", href: monthHref, active: filters.view === "month" },
+                          ]}
+                        />
                         <GridCalendarPicker
                           key={calendarPickerKey}
                           selectedDate={filters.view === "day" ? filters.date : null}
@@ -380,7 +397,7 @@ export default async function GridPage({ searchParams }: PageProps) {
         </section>
       </div>
 
-      <aside className="min-w-0 self-start xl:sticky xl:top-24">
+      <aside className="relative z-20 min-w-0 self-start xl:sticky xl:top-24">
         <ProductionInsightsPanel
           matches={dayGroups.flatMap((group) => group.items)}
           timezone={filters.timezone}

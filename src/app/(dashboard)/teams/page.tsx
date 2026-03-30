@@ -1,13 +1,14 @@
 import Link from "next/link";
-import { Search } from "lucide-react";
 
 import { SectionAiAssistant } from "@/components/ai/section-ai-assistant";
 import { CreateTeamModal } from "@/components/teams/create-team-modal";
 import { PageCanvasTone } from "@/components/layout/page-canvas-tone";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 import { TeamsWorkspaceClient } from "@/components/teams/teams-workspace-client";
-import { Input } from "@/components/ui/input";
+import { ToolbarSearchField } from "@/components/ui/toolbar-search-field";
 import { getUserContext } from "@/lib/auth";
+import { SECTION_COPY } from "@/lib/copy";
+import { isCollaboratorLimitedRole } from "@/lib/constants";
 import { getPeopleData } from "@/lib/data/dashboard";
 import { getSettingsSnapshot } from "@/lib/settings";
 import {
@@ -62,6 +63,7 @@ export default async function TeamsPage({ searchParams }: PageProps) {
   const activeLeague = readSearchValue(resolvedSearchParams.league);
   const teams = getTeamDirectoryData({ query, league: activeLeague });
   const people = user.userId ? await getPeopleData() : [];
+  const canManageTeams = user.canEdit && !isCollaboratorLimitedRole(user.role);
   const settings = await getSettingsSnapshot();
   const tabs = getTeamDirectoryTabs();
   const leagueAccent = activeLeague
@@ -86,27 +88,20 @@ export default async function TeamsPage({ searchParams }: PageProps) {
       <PageCanvasTone tone={leagueCanvasTone} />
 
       <SectionPageHeader
-        title="Equipos"
-        description="Consulta ligas, sedes, responsables y cobertura activa de cada equipo."
+        title={SECTION_COPY.teams.title}
+        description={SECTION_COPY.teams.description}
         actions={
           <>
-          <form
+          <ToolbarSearchField
             action="/teams"
-            className="flex w-full items-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] p-1.5 shadow-sm md:min-w-[22rem] md:flex-1"
+            defaultValue={query}
+            placeholder="Buscar equipo, liga o estadio..."
+            className="w-full md:min-w-[22rem] md:flex-1"
           >
             {activeLeague ? (
               <input type="hidden" name="league" value={activeLeague} />
             ) : null}
-            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[var(--panel-radius)] bg-[var(--background-soft)] px-3">
-              <Search className="size-4 text-[var(--accent)]" />
-              <Input
-                name="q"
-                defaultValue={query}
-                placeholder="Buscar equipo, liga o estadio..."
-                className="h-10 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
-              />
-            </div>
-          </form>
+          </ToolbarSearchField>
 
           <SectionAiAssistant
             section="Equipos"
@@ -126,7 +121,7 @@ export default async function TeamsPage({ searchParams }: PageProps) {
           />
 
           <CreateTeamModal
-            canEdit={user.canEdit}
+            canEdit={canManageTeams}
             defaultCompetition={activeLeague}
           />
           </>
@@ -138,7 +133,7 @@ export default async function TeamsPage({ searchParams }: PageProps) {
           <Link
             href={buildTeamsHref(resolvedSearchParams, { league: undefined })}
             className={cn(
-              "whitespace-nowrap border-b-2 px-6 py-3 text-sm font-bold transition",
+              "-mb-px whitespace-nowrap border-b-2 px-6 py-3 text-sm font-bold transition",
               !activeLeague
                 ? "border-[var(--accent)] text-[var(--accent)]"
                 : "border-transparent text-[#617187] hover:text-[var(--accent)]",
@@ -159,7 +154,7 @@ export default async function TeamsPage({ searchParams }: PageProps) {
                   : undefined
               }
               className={cn(
-                "whitespace-nowrap border-b-2 px-6 py-3 text-sm font-bold transition",
+                "-mb-px whitespace-nowrap border-b-2 px-6 py-3 text-sm font-bold transition",
                 activeLeague === tab.value
                   ? "border-[var(--accent)] text-[var(--accent)]"
                   : "border-transparent text-[#617187] hover:text-[var(--accent)]",
@@ -170,15 +165,6 @@ export default async function TeamsPage({ searchParams }: PageProps) {
           ))}
         </div>
 
-        {user.canEdit ? (
-          <div className="shrink-0 pb-3">
-            <CreateTeamModal
-              canEdit={user.canEdit}
-              defaultCompetition={activeLeague}
-              triggerVariant="icon"
-            />
-          </div>
-        ) : null}
       </div>
 
       <TeamsWorkspaceClient
@@ -186,6 +172,7 @@ export default async function TeamsPage({ searchParams }: PageProps) {
         people={people}
         activeLeague={activeLeague}
         query={query}
+        canManageTeams={canManageTeams}
       />
     </div>
   );

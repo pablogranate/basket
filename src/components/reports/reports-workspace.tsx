@@ -22,7 +22,6 @@ import {
   History,
   MapPin,
   Pencil,
-  Search,
   ShieldAlert,
   Sparkles,
   X,
@@ -35,9 +34,15 @@ import { ClientTeamLogoMark } from "@/components/team-logo-mark-client";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 import { MatchSummaryCell } from "@/components/shared/match-summary-cell";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ExpandDivider } from "@/components/ui/expand-divider";
 import { HoverAvatarBadge } from "@/components/ui/hover-avatar-badge";
+import { InsightBarRow } from "@/components/ui/insight-bar-row";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { SeverityBadge } from "@/components/ui/severity-badge";
 import { SectionTableCard } from "@/components/ui/section-table-card";
+import { UnderlineTabs } from "@/components/ui/underline-tabs";
+import { ToolbarIconButton } from "@/components/ui/toolbar-icon-button";
+import { ToolbarSearchField } from "@/components/ui/toolbar-search-field";
 import type {
   ReportActivity,
   ReportRecord,
@@ -2167,27 +2172,13 @@ export function ReportsWorkspace({
 
   const periodSelector = (
     <>
-      <div className="flex h-12 items-center gap-1 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] p-1 shadow-sm">
-        {([
-          ["day", "Día"],
-          ["week", "Semana"],
-          ["month", "Mes"],
-        ] as const).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setPeriodMode(value)}
-            className={cn(
-              "inline-flex h-full items-center rounded-[calc(var(--panel-radius)-4px)] px-4 text-sm font-bold transition",
-              periodMode === value
-                ? "bg-[var(--surface)] text-[var(--foreground)] shadow-sm"
-                : "text-[var(--muted)] hover:text-[var(--foreground)]",
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl
+        items={[
+          { key: "day", label: "Día", active: periodMode === "day", onClick: () => setPeriodMode("day") },
+          { key: "week", label: "Semana", active: periodMode === "week", onClick: () => setPeriodMode("week") },
+          { key: "month", label: "Mes", active: periodMode === "month", onClick: () => setPeriodMode("month") },
+        ]}
+      />
 
       <div className="relative">
         <CalendarDays className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--accent)]" />
@@ -2254,30 +2245,28 @@ export function ReportsWorkspace({
         hasGeminiKey={hasGeminiKey}
         buttonVariant="icon"
       />
-      <button
+      <ToolbarIconButton
         type="button"
         onClick={() => void exportVisibleReports(baseFilteredReports)}
         disabled={!baseFilteredReports.length || isExporting}
         aria-label={isExporting ? "Exportando reportes" : "Exportar reportes"}
         title={isExporting ? "Exportando reportes" : "Exportar reportes"}
-        className="inline-flex size-12 items-center justify-center rounded-[var(--panel-radius)] bg-[#7c3aed] text-white shadow-[0_14px_28px_rgba(124,58,237,0.22)] transition hover:bg-[#6d28d9]"
       >
         <Download className="size-4" />
-      </button>
+      </ToolbarIconButton>
     </>
   );
 
   const controlActions = (
     <>
-      <label className="flex h-[52px] min-w-[280px] items-center gap-3 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-4 shadow-sm">
-        <Search className="size-4 text-[var(--accent)]" />
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Buscar ID feed, ID BP, liga o responsable..."
-          className="w-full bg-transparent text-sm font-medium text-[var(--foreground)] outline-none placeholder:text-[#94a3b8]"
-        />
-      </label>
+      <ToolbarSearchField
+        as="div"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        placeholder="Buscar ID feed, ID BP, liga o responsable..."
+        className="min-w-[280px] flex-none"
+        inputClassName="text-sm font-medium text-[var(--foreground)] placeholder:text-[#94a3b8]"
+      />
       <div className="flex shrink-0 items-center gap-3">
         <SectionAiAssistant
           section="Reportes"
@@ -2295,16 +2284,15 @@ export function ReportsWorkspace({
           hasGeminiKey={hasGeminiKey}
           buttonVariant="icon"
         />
-        <button
+        <ToolbarIconButton
           type="button"
           onClick={() => void exportVisibleReports(sortedReports)}
           disabled={!sortedReports.length || isExporting}
           aria-label={isExporting ? "Exportando reportes" : "Exportar reportes"}
           title={isExporting ? "Exportando reportes" : "Exportar reportes"}
-          className="inline-flex size-[52px] items-center justify-center rounded-[var(--panel-radius)] bg-[#7c3aed] text-white shadow-[0_14px_28px_rgba(124,58,237,0.22)] transition hover:bg-[#6d28d9]"
         >
           <Download className="size-4" />
-        </button>
+        </ToolbarIconButton>
       </div>
     </>
   );
@@ -2335,47 +2323,33 @@ export function ReportsWorkspace({
     );
 
   const tabsNavigation = (
-    <div className="flex items-center gap-8 border-b border-[#edf1f6]">
-      <button
-        type="button"
-        onClick={() => setActiveView("summary")}
-        className={cn(
-          "flex items-center gap-2 border-b-2 pb-3 text-sm font-extrabold transition",
-          activeView === "summary"
-            ? "border-[var(--accent)] text-[var(--accent)]"
-            : "border-transparent text-[#94a3b8] hover:text-[#617187]",
-        )}
-      >
-        <BarChart3 className="size-4" />
-        Resumen
-      </button>
-      <button
-        type="button"
-        onClick={() => setActiveView("control")}
-        className={cn(
-          "flex items-center gap-2 border-b-2 pb-3 text-sm font-bold transition",
-          activeView === "control"
-            ? "border-[var(--accent)] text-[var(--accent)]"
-            : "border-transparent text-[#94a3b8] hover:text-[#617187]",
-        )}
-      >
-        <Filter className="size-4" />
-        Reportes
-      </button>
-      <button
-        type="button"
-        onClick={() => setActiveView("incidents")}
-        className={cn(
-          "flex items-center gap-2 border-b-2 pb-3 text-sm font-bold transition",
-          activeView === "incidents"
-            ? "border-[var(--accent)] text-[var(--accent)]"
-            : "border-transparent text-[#94a3b8] hover:text-[#617187]",
-        )}
-      >
-        <AlertTriangle className="size-4" />
-        Incidencias
-      </button>
-    </div>
+    <UnderlineTabs
+      variant="section"
+      className="border-[#edf1f6]"
+      items={[
+        {
+          key: "summary",
+          label: "Resumen",
+          icon: BarChart3,
+          active: activeView === "summary",
+          onClick: () => setActiveView("summary"),
+        },
+        {
+          key: "control",
+          label: "Reportes",
+          icon: Filter,
+          active: activeView === "control",
+          onClick: () => setActiveView("control"),
+        },
+        {
+          key: "incidents",
+          label: "Incidencias",
+          icon: AlertTriangle,
+          active: activeView === "incidents",
+          onClick: () => setActiveView("incidents"),
+        },
+      ]}
+    />
   );
 
   const controlWorkspaceContent = (
@@ -2437,27 +2411,14 @@ export function ReportsWorkspace({
                 <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#94a3b8]" />
               </div>
 
-              <div className="flex h-10 items-center gap-1 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] p-1 shadow-sm">
-                {([
-                  ["day", "Día"],
-                  ["week", "Semana"],
-                  ["month", "Mes"],
-                ] as const).map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setPeriodMode(value)}
-                    className={cn(
-                      "inline-flex h-full items-center rounded-[calc(var(--panel-radius)-4px)] px-3 text-sm font-bold transition",
-                      periodMode === value
-                        ? "bg-[var(--surface)] text-[var(--foreground)] shadow-sm"
-                        : "text-[var(--muted)] hover:text-[var(--foreground)]",
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl
+                size="sm"
+                items={[
+                  { key: "day", label: "Día", active: periodMode === "day", onClick: () => setPeriodMode("day") },
+                  { key: "week", label: "Semana", active: periodMode === "week", onClick: () => setPeriodMode("week") },
+                  { key: "month", label: "Mes", active: periodMode === "month", onClick: () => setPeriodMode("month") },
+                ]}
+              />
 
               <div className="relative">
                 <CalendarDays className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--accent)]" />
@@ -2629,36 +2590,25 @@ export function ReportsWorkspace({
           </div>
         </div>
 
-        <div className="border-b border-[var(--border)] px-6">
-          <div className="grid grid-cols-2 gap-2 border-b border-[var(--border)]/60">
-            <button
-              type="button"
-              onClick={() => setReportDrawerTab("details")}
-              className={cn(
-                "inline-flex min-w-0 items-center justify-center gap-1.5 border-b-2 px-1 pb-4 pt-3 text-[10px] font-black uppercase tracking-[0.12em] transition",
-                reportDrawerTab === "details"
-                  ? "border-[var(--accent)] text-[var(--accent)]"
-                  : "border-transparent text-[#94a3b8] hover:text-[#617187]",
-              )}
-            >
-              <Eye className="size-3.5 shrink-0" />
-              <span className="truncate">Detalle</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setReportDrawerTab("activity")}
-              className={cn(
-                "inline-flex min-w-0 items-center justify-center gap-1.5 border-b-2 px-1 pb-4 pt-3 text-[10px] font-black uppercase tracking-[0.12em] transition",
-                reportDrawerTab === "activity"
-                  ? "border-[var(--accent)] text-[var(--accent)]"
-                  : "border-transparent text-[#94a3b8] hover:text-[#617187]",
-              )}
-            >
-              <History className="size-3.5 shrink-0" />
-              <span className="truncate">Log</span>
-            </button>
-          </div>
-        </div>
+        <UnderlineTabs
+          columns={2}
+          items={[
+            {
+              key: "details",
+              label: "Detalle",
+              icon: Eye,
+              active: reportDrawerTab === "details",
+              onClick: () => setReportDrawerTab("details"),
+            },
+            {
+              key: "activity",
+              label: "Log",
+              icon: History,
+              active: reportDrawerTab === "activity",
+              onClick: () => setReportDrawerTab("activity"),
+            },
+          ]}
+        />
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 xl:max-h-none">
           {reportDrawerTab === "details" ? (
@@ -2867,43 +2817,40 @@ export function ReportsWorkspace({
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex h-10 items-center gap-1 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] p-1 shadow-sm">
-                      {([
-                        ["count", "Cantidad"],
-                        ["rate", "Tasa %"],
-                      ] as const).map(([value, label]) => (
-                        <button
-                          key={value}
-                          type="button"
-                          onClick={() => setIncidentChartMetric(value)}
-                          className={cn(
-                            "inline-flex h-full items-center rounded-[calc(var(--panel-radius)-4px)] px-3 text-xs font-bold transition",
-                            incidentChartMetric === value
-                              ? "bg-[var(--surface)] text-[var(--foreground)] shadow-sm"
-                              : "text-[var(--muted)] hover:text-[var(--foreground)]",
-                          )}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="flex h-10 items-center gap-1 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] p-1 shadow-sm">
-                      {([5, 10] as const).map((limit) => (
-                        <button
-                          key={limit}
-                          type="button"
-                          onClick={() => setIncidentChartLimit(limit)}
-                          className={cn(
-                            "inline-flex h-full items-center rounded-[calc(var(--panel-radius)-4px)] px-3 text-xs font-bold transition",
-                            incidentChartLimit === limit
-                              ? "bg-[var(--surface)] text-[var(--foreground)] shadow-sm"
-                              : "text-[var(--muted)] hover:text-[var(--foreground)]",
-                          )}
-                        >
-                          Top {limit}
-                        </button>
-                      ))}
-                    </div>
+                    <SegmentedControl
+                      size="sm"
+                      items={[
+                        {
+                          key: "count",
+                          label: "Cantidad",
+                          active: incidentChartMetric === "count",
+                          onClick: () => setIncidentChartMetric("count"),
+                        },
+                        {
+                          key: "rate",
+                          label: "Tasa %",
+                          active: incidentChartMetric === "rate",
+                          onClick: () => setIncidentChartMetric("rate"),
+                        },
+                      ]}
+                    />
+                    <SegmentedControl
+                      size="sm"
+                      items={[
+                        {
+                          key: "top-5",
+                          label: "Top 5",
+                          active: incidentChartLimit === 5,
+                          onClick: () => setIncidentChartLimit(5),
+                        },
+                        {
+                          key: "top-10",
+                          label: "Top 10",
+                          active: incidentChartLimit === 10,
+                          onClick: () => setIncidentChartLimit(10),
+                        },
+                      ]}
+                    />
                   </div>
                 </div>
 
@@ -3081,66 +3028,35 @@ export function ReportsWorkspace({
                     );
 
                     return visibleLeagueDistribution.map((item) => (
-                      <div
+                      <InsightBarRow
                         key={item.league}
-                        className="grid grid-cols-[2.75rem_minmax(0,1fr)] items-center gap-x-3.5"
-                      >
-                        <div className="flex h-full items-center justify-center">
-                          <LeagueLogoMarkClient
-                            league={item.league}
-                            className="size-9"
+                        icon={<LeagueLogoMarkClient league={item.league} className="size-9" />}
+                        label={item.league}
+                        value={`${item.count} reportes`}
+                        bar={
+                          <div
+                            className="h-full rounded-full bg-[#1f2937]"
+                            style={{ width: `${(item.count / maxCount) * 100}%` }}
                           />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="mb-1.5 flex items-center justify-between gap-3 text-sm font-bold leading-tight">
-                            <span className="truncate text-[#617187]">{item.league}</span>
-                            <span className="shrink-0 text-[var(--foreground)]">
-                              {item.count} reportes
-                            </span>
-                          </div>
-                          <div className="h-2.5 overflow-hidden rounded-full bg-[#edf1f6]">
-                            <div
-                              className="h-full rounded-full bg-[#1f2937]"
-                              style={{ width: `${(item.count / maxCount) * 100}%` }}
-                            />
-                          </div>
-                        </div>
-                      </div>
+                        }
+                      />
                     ));
                   })()}
                   {leagueDistribution.length ? (
-                    <div className="relative py-[0.25rem]">
-                      <div className="absolute inset-x-0 top-1/2 border-t border-[#edf1f6]" />
-                      <div className="relative flex justify-center">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            canExpandLeagueDistribution
-                              ? setShowAllLeagueDistribution((current) => !current)
-                              : undefined
-                          }
-                          disabled={!canExpandLeagueDistribution}
-                          className={cn(
-                            "inline-flex size-7 items-center justify-center rounded-full border bg-white shadow-sm transition",
-                            canExpandLeagueDistribution
-                              ? "border-[#d9e1eb] text-[var(--accent)] hover:border-[#efc2cb] hover:bg-[#fff6f8] hover:text-[var(--accent)]"
-                              : "cursor-default border-[#e5eaf1] text-[#b8c2d0]",
-                          )}
-                          aria-expanded={showAllLeagueDistribution}
-                          aria-label={
-                            showAllLeagueDistribution
-                              ? "Mostrar menos ligas"
-                              : "Mostrar más ligas"
-                          }
-                        >
-                          {showAllLeagueDistribution ? (
-                            <ChevronUp className="size-3.5" />
-                          ) : (
-                            <ChevronDown className="size-3.5" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
+                    <ExpandDivider
+                      expanded={showAllLeagueDistribution}
+                      disabled={!canExpandLeagueDistribution}
+                      onToggle={() => setShowAllLeagueDistribution((current) => !current)}
+                      collapsedLabel="Mostrar más ligas"
+                      expandedLabel="Mostrar menos ligas"
+                      className="py-[0.25rem]"
+                      lineClassName="border-[#edf1f6]"
+                      buttonClassName={
+                        canExpandLeagueDistribution
+                          ? "border-[#d9e1eb] text-[var(--accent)] hover:border-[#efc2cb] hover:bg-[#fff6f8] hover:text-[var(--accent)]"
+                          : "cursor-default border-[#e5eaf1] text-[#b8c2d0]"
+                      }
+                    />
                   ) : null}
                 </div>
 
@@ -3157,57 +3073,36 @@ export function ReportsWorkspace({
                       } = getSeverityDistributionMeta(item.severity);
 
                       return (
-                        <div
+                        <InsightBarRow
                           key={item.severity}
-                          className="grid grid-cols-[2.75rem_minmax(0,1fr)] items-center gap-x-3.5"
-                        >
-                          <div className="flex h-full items-center justify-center">
+                          icon={
                             <SeverityIcon
                               className={cn("size-[1.35rem] shrink-0", iconClassName)}
                             />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="mb-1.5 flex items-center justify-between gap-3 text-sm font-bold leading-tight">
-                              <span className="truncate text-[#617187]">{item.severity}</span>
-                              <span className="text-[var(--foreground)]">
-                                {item.percentage}%
-                              </span>
-                            </div>
-                            <div className="h-2.5 overflow-hidden rounded-full bg-[#edf1f6]">
-                              <div
-                                className={cn("h-full rounded-full", barClassName)}
-                                style={{ width: `${item.percentage}%` }}
-                              />
-                            </div>
-                          </div>
-                        </div>
+                          }
+                          label={item.severity}
+                          value={`${item.percentage}%`}
+                          bar={
+                            <div
+                              className={cn("h-full rounded-full", barClassName)}
+                              style={{ width: `${item.percentage}%` }}
+                            />
+                          }
+                        />
                       );
                     })}
                     {canExpandSeverityDistribution ? (
-                      <div className="relative py-[0.25rem]">
-                        <div className="absolute inset-x-0 top-1/2 border-t border-[#edf1f6]" />
-                        <div className="relative flex justify-center">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setShowAllSeverityDistribution((current) => !current)
-                            }
-                            className="inline-flex size-7 items-center justify-center rounded-full border border-[#d9e1eb] bg-white text-[var(--accent)] shadow-sm transition hover:border-[#efc2cb] hover:bg-[#fff6f8] hover:text-[var(--accent)]"
-                            aria-expanded={showAllSeverityDistribution}
-                            aria-label={
-                              showAllSeverityDistribution
-                                ? "Mostrar menos rubros de gravedad"
-                                : "Mostrar más rubros de gravedad"
-                            }
-                          >
-                            {showAllSeverityDistribution ? (
-                              <ChevronUp className="size-3.5" />
-                            ) : (
-                              <ChevronDown className="size-3.5" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
+                      <ExpandDivider
+                        expanded={showAllSeverityDistribution}
+                        onToggle={() =>
+                          setShowAllSeverityDistribution((current) => !current)
+                        }
+                        collapsedLabel="Mostrar más rubros de gravedad"
+                        expandedLabel="Mostrar menos rubros de gravedad"
+                        className="py-[0.25rem]"
+                        lineClassName="border-[#edf1f6]"
+                        buttonClassName="border-[#d9e1eb] text-[var(--accent)] hover:border-[#efc2cb] hover:bg-[#fff6f8] hover:text-[var(--accent)]"
+                      />
                     ) : null}
                   </div>
                 </div>
@@ -3224,32 +3119,24 @@ export function ReportsWorkspace({
                   <div className="mt-3.5 space-y-3.5">
                     {visibleVenueRecurrence.length ? (
                       visibleVenueRecurrence.map((item) => (
-                        <div
+                        <InsightBarRow
                           key={item.venue}
-                          className="grid grid-cols-[2.75rem_minmax(0,1fr)] items-center gap-x-3.5"
-                        >
-                          <div
-                            title={item.venue}
-                            className="flex h-full items-center justify-center"
-                          >
-                            <ClientTeamLogoMark
-                              teamName={item.teamName}
-                              competition={item.competition}
-                              className="size-9 rounded-[12px] border-transparent bg-transparent shadow-none"
-                              imageClassName="object-contain p-0.5"
-                              initialsClassName="text-[10px] tracking-[0.12em] text-[#70819b]"
-                            />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="mb-1.5 flex items-center justify-between gap-3 leading-tight">
-                              <span className="truncate text-sm font-bold text-[#617187]">
-                                {item.venue}
-                              </span>
-                              <span className="shrink-0 text-sm font-black text-[var(--foreground)]">
-                                {item.total}
-                              </span>
+                          icon={
+                            <div title={item.venue} className="flex h-full items-center justify-center">
+                              <ClientTeamLogoMark
+                                teamName={item.teamName}
+                                competition={item.competition}
+                                className="size-9 rounded-[12px] border-transparent bg-transparent shadow-none"
+                                imageClassName="object-contain p-0.5"
+                                initialsClassName="text-[10px] tracking-[0.12em] text-[#70819b]"
+                              />
                             </div>
-                            <div className="flex h-2.5 overflow-hidden rounded-full bg-[#edf1f6]">
+                          }
+                          label={item.venue}
+                          value={item.total}
+                          barContainerClassName="bg-transparent p-0"
+                          bar={
+                            <div className="flex h-full overflow-hidden rounded-full bg-[#edf1f6]">
                               {item.severities["Crítica"] ? (
                                 <div
                                   className="h-full bg-[#a12ad6]"
@@ -3283,8 +3170,8 @@ export function ReportsWorkspace({
                                 />
                               ) : null}
                             </div>
-                          </div>
-                        </div>
+                          }
+                        />
                       ))
                     ) : (
                       <p className="text-sm font-medium text-[#94a3b8]">
@@ -3292,28 +3179,15 @@ export function ReportsWorkspace({
                       </p>
                     )}
                     {canExpandVenueRecurrence ? (
-                      <div className="relative py-[0.25rem]">
-                        <div className="absolute inset-x-0 top-1/2 border-t border-[#edf1f6]" />
-                        <div className="relative flex justify-center">
-                          <button
-                            type="button"
-                            onClick={() => setShowAllVenueRecurrence((current) => !current)}
-                            className="inline-flex size-7 items-center justify-center rounded-full border border-[#d9e1eb] bg-white text-[var(--accent)] shadow-sm transition hover:border-[#efc2cb] hover:bg-[#fff6f8] hover:text-[var(--accent)]"
-                            aria-expanded={showAllVenueRecurrence}
-                            aria-label={
-                              showAllVenueRecurrence
-                                ? "Mostrar menos sedes"
-                                : "Mostrar más sedes"
-                            }
-                          >
-                            {showAllVenueRecurrence ? (
-                              <ChevronUp className="size-3.5" />
-                            ) : (
-                              <ChevronDown className="size-3.5" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
+                      <ExpandDivider
+                        expanded={showAllVenueRecurrence}
+                        onToggle={() => setShowAllVenueRecurrence((current) => !current)}
+                        collapsedLabel="Mostrar más sedes"
+                        expandedLabel="Mostrar menos sedes"
+                        className="py-[0.25rem]"
+                        lineClassName="border-[#edf1f6]"
+                        buttonClassName="border-[#d9e1eb] text-[var(--accent)] hover:border-[#efc2cb] hover:bg-[#fff6f8] hover:text-[var(--accent)]"
+                      />
                     ) : null}
                   </div>
                 </div>

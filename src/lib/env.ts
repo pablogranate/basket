@@ -5,6 +5,8 @@ export const appEnv = {
   appTimezone: process.env.NEXT_PUBLIC_APP_TIMEZONE ?? "America/Bogota",
   appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
   allowGuestMiJornadaAccess: process.env.ALLOW_GUEST_MI_JORNADA === "true",
+  portalGeminiApiKey: process.env.PORTAL_GEMINI_API_KEY ?? "",
+  portalGeminiModel: process.env.PORTAL_GEMINI_MODEL ?? "gemini-2.5-flash",
 };
 
 export const isSupabaseConfigured = Boolean(

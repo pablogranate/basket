@@ -4,7 +4,6 @@ import { useState } from "react";
 
 import {
   CalendarClock,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Hash,
@@ -14,6 +13,8 @@ import {
 import Link from "next/link";
 
 import { Card } from "@/components/ui/card";
+import { ExpandDivider } from "@/components/ui/expand-divider";
+import { RESPONSIBLE_DISPLAY_LABEL } from "@/lib/constants";
 import { formatMatchTime } from "@/lib/date";
 import { getRoleDisplayName } from "@/lib/display";
 import type { MatchListItem } from "@/lib/types";
@@ -62,7 +63,7 @@ const SAMPLE_TOP_PEOPLE = [
     id: "sample-natalia-ramirez",
     fullName: "Natalia Ramírez",
     totalMatches: 5,
-    roleLabel: "Responsable en cancha",
+    roleLabel: RESPONSIBLE_DISPLAY_LABEL,
   },
   {
     id: "sample-sergio-mora",
@@ -423,22 +424,15 @@ export function ProductionInsightsPanel({
               );
             })}
           {canExpandPeople ? (
-            <div className="relative py-[0.55rem]">
-              <div className="absolute inset-x-0 top-1/2 border-t border-[var(--border)]" />
-              <div className="relative flex justify-center">
-                <button
-                  type="button"
-                  onClick={() => setShowAllPeople((current) => !current)}
-                  className="inline-flex size-7 items-center justify-center rounded-full border border-[#d9e1eb] bg-white text-[#7d8ca1] shadow-sm transition hover:border-[#efc2cb] hover:bg-[#fff6f8] hover:text-[var(--accent)]"
-                  aria-expanded={showAllPeople}
-                  aria-label={showAllPeople ? "Mostrar menos personal" : "Mostrar más personal"}
-                >
-                  <ChevronDown
-                    className={`size-3.5 transition-transform ${showAllPeople ? "rotate-180" : ""}`}
-                  />
-                </button>
-              </div>
-            </div>
+            <ExpandDivider
+              expanded={showAllPeople}
+              onToggle={() => setShowAllPeople((current) => !current)}
+              collapsedLabel="Mostrar más personal"
+              expandedLabel="Mostrar menos personal"
+              className="py-[0.55rem]"
+              lineClassName="border-[var(--border)]"
+              buttonClassName="border-[#d9e1eb] text-[#7d8ca1] hover:border-[#efc2cb] hover:bg-[#fff6f8] hover:text-[var(--accent)]"
+            />
           ) : null}
         </div>
       </section>

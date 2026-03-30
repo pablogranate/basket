@@ -1,8 +1,12 @@
+import {
+  RELATOS_DISPLAY_LABEL,
+  RESPONSIBLE_DISPLAY_LABEL,
+} from "@/lib/constants";
 import type { AppRole } from "@/lib/database.types";
 import type { PersonListItem } from "@/lib/types";
 
 const ROLE_DISPLAY_NAMES: Record<string, string> = {
-  Responsable: "Responsable",
+  Responsable: RESPONSIBLE_DISPLAY_LABEL,
   Realizador: "Realizador",
   Productor: "Productor",
   "Operador de Control": "Operador de control",
@@ -22,7 +26,7 @@ const ROLE_DISPLAY_NAMES: Record<string, string> = {
 const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
   Coordinacion: "Coordinación",
   Produccion: "Producción",
-  Talento: "Talento",
+  Talento: RELATOS_DISPLAY_LABEL,
   Transmision: "Transmisión",
   Camaras: "Cámaras",
 };

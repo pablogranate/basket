@@ -1,12 +1,8 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import {
-  GEMINI_API_KEY_COOKIE,
-  GEMINI_MODEL_COOKIE,
-  GEMINI_MODEL_OPTIONS,
-} from "@/lib/settings";
+import { AI_COPY } from "@/lib/copy";
+import { getGeminiRuntimeConfig } from "@/lib/settings";
 
 type GeminiResponse = {
   candidates?: Array<{
@@ -27,10 +23,6 @@ const extractedSchema = z.object({
   dateTime: z.string().trim().min(1).max(120).nullable(),
   note: z.string().trim().min(1).max(240).nullable(),
 });
-
-function isGeminiModel(value: string): value is (typeof GEMINI_MODEL_OPTIONS)[number] {
-  return GEMINI_MODEL_OPTIONS.includes(value as (typeof GEMINI_MODEL_OPTIONS)[number]);
-}
 
 function extractJson(text: string) {
   const start = text.indexOf("{");
@@ -62,22 +54,20 @@ export async function POST(request: Request) {
   }
 
   const bytes = Buffer.from(await image.arrayBuffer()).toString("base64");
-  const store = await cookies();
-  const apiKey = store.get(GEMINI_API_KEY_COOKIE)?.value ?? "";
-  const configuredModel = store.get(GEMINI_MODEL_COOKIE)?.value ?? "gemini-2.5-flash";
-  const model = isGeminiModel(configuredModel)
-    ? configuredModel
-    : "gemini-2.5-flash";
+  const requestId = crypto.randomUUID();
+  const { apiKey, model, source } = await getGeminiRuntimeConfig();
 
   if (!apiKey) {
     return NextResponse.json(
-      { error: "Configura la API key de Gemini en Configuración antes de leer capturas." },
+      {
+        error: AI_COPY.globalGeminiCaptureHint,
+      },
       { status: 400 },
     );
   }
 
   const prompt = [
-    "Extrae datos visibles de una captura de speedtest para Basket Production.",
+    `Extrae datos visibles de una captura de speedtest ${AI_COPY.portalCaptureContext}`,
     "Responde SOLO JSON válido.",
     "No inventes nada.",
     "Si un dato no está visible, usa null.",
@@ -93,6 +83,14 @@ export async function POST(request: Request) {
     "Devuelve exactamente este objeto:",
     '{"ping":null,"upload":null,"download":null,"provider":null,"locationServer":null,"dateTime":null,"note":null}',
   ].join("\n");
+
+  console.info("[ai][speedtest] start", {
+    requestId,
+    mimeType: image.type,
+    size: image.size,
+    model,
+    source,
+  });
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -122,6 +120,13 @@ export async function POST(request: Request) {
 
   if (!response.ok) {
     const detail = await response.text();
+    console.error("[ai][speedtest] gemini request failed", {
+      requestId,
+      model,
+      source,
+      status: response.status,
+      detail,
+    });
 
     return NextResponse.json(
       {
@@ -140,6 +145,11 @@ export async function POST(request: Request) {
     .trim();
 
   if (!answer) {
+    console.warn("[ai][speedtest] empty answer", {
+      requestId,
+      model,
+      source,
+    });
     return NextResponse.json(
       { error: "Gemini no devolvió contenido para esta captura." },
       { status: 502 },
@@ -149,6 +159,12 @@ export async function POST(request: Request) {
   const jsonText = extractJson(answer);
 
   if (!jsonText) {
+    console.warn("[ai][speedtest] missing json block", {
+      requestId,
+      model,
+      source,
+      answer,
+    });
     return NextResponse.json(
       { error: "No pudimos convertir la lectura del speedtest a datos estructurados." },
       { status: 502 },
@@ -159,7 +175,14 @@ export async function POST(request: Request) {
 
   try {
     parsedJson = JSON.parse(jsonText);
-  } catch {
+  } catch (error) {
+    console.warn("[ai][speedtest] invalid json", {
+      requestId,
+      model,
+      source,
+      jsonText,
+      error,
+    });
     return NextResponse.json(
       { error: "La respuesta de Gemini no vino en JSON válido." },
       { status: 502 },
@@ -169,11 +192,26 @@ export async function POST(request: Request) {
   const extracted = extractedSchema.safeParse(parsedJson);
 
   if (!extracted.success) {
+    console.warn("[ai][speedtest] schema mismatch", {
+      requestId,
+      model,
+      source,
+      parsedJson,
+    });
     return NextResponse.json(
       { error: "La lectura del speedtest no devolvió el formato esperado." },
       { status: 502 },
     );
   }
+
+  console.info("[ai][speedtest] success", {
+    requestId,
+    model,
+    source,
+    hasUpload: Boolean(extracted.data.upload),
+    hasPing: Boolean(extracted.data.ping),
+    hasDownload: Boolean(extracted.data.download),
+  });
 
   return NextResponse.json({
     extracted: extracted.data,

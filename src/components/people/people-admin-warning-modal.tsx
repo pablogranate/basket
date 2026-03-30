@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, PencilLine, X } from "lucide-react";
+import { Info, PencilLine, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function PeopleAdminWarningModal({
@@ -60,14 +60,14 @@ export function PeopleAdminWarningModal({
             <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-4">
               <div className="flex items-start gap-3">
                 <span className="mt-0.5 inline-flex size-10 items-center justify-center rounded-2xl bg-[#fff1f4] text-[var(--accent)]">
-                  <AlertTriangle className="size-5" />
+                  <Info className="size-5" />
                 </span>
                 <div>
                   <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">
-                    Vista admin
+                    Edición
                   </p>
                   <h3 className="mt-2 text-xl font-extrabold text-[var(--foreground)]">
-                    Ten cuidado al editar personal
+                    Selecciona una persona para editar
                   </h3>
                 </div>
               </div>
@@ -83,14 +83,20 @@ export function PeopleAdminWarningModal({
 
             <div className="space-y-4 px-6 py-5 text-sm leading-6 text-[#5f6c80]">
               <p>
-                Como administrador puedes editar o eliminar contactos desde la
-                tabla. Algunos cambios pueden afectar futuras asignaciones y la
-                eliminación puede ser permanente.
+                Este lápiz edita el registro que tengas seleccionado en
+                <strong className="font-semibold text-[var(--foreground)]">
+                  {" "}Tabla{" "}
+                </strong>
+                o
+                <strong className="font-semibold text-[var(--foreground)]">
+                  {" "}Directorio
+                </strong>
+                .
               </p>
               <p>
-                Antes de borrar un registro, verifica nombre, rol, responsable,
-                contacto y estado. Si el personal ya participa en operación,
-                conviene validar primero con el equipo.
+                Haz clic primero sobre una persona del listado para abrir su
+                edición, o usa el lápiz de la fila si prefieres entrar directo
+                desde ahí.
               </p>
             </div>
 

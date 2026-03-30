@@ -6,47 +6,32 @@ export type AnnouncementSummary = Pick<
   "id" | "title" | "body" | "active" | "updated_at" | "created_at"
 >;
 
-function isAnnouncementsUnavailable(error: unknown) {
-  if (typeof error !== "object" || error === null) {
-    return false;
-  }
-
-  const code = "code" in error ? error.code : null;
-  const message =
-    "message" in error && typeof error.message === "string"
-      ? error.message.toLowerCase()
-      : "";
-
-  return (
-    code === "42P01" ||
-    code === "42501" ||
-    message.includes("permission denied") ||
-    message.includes("row-level security")
-  );
-}
-
 async function fetchLatestAnnouncementQuery(activeOnly: boolean) {
-  const supabase = await createSupabaseServerClient();
-  let query = supabase
-    .from("announcements")
-    .select("id, title, body, active, updated_at, created_at")
-    .order("updated_at", { ascending: false })
-    .limit(1);
+  try {
+    const supabase = await createSupabaseServerClient();
+    let query = supabase
+      .from("announcements")
+      .select("id, title, body, active, updated_at, created_at")
+      .order("updated_at", { ascending: false })
+      .limit(1);
 
-  if (activeOnly) {
-    query = query.eq("active", true);
-  }
-
-  const result = await query.maybeSingle();
-
-  if (result.error) {
-    if (!isAnnouncementsUnavailable(result.error)) {
-      console.error("[announcements] failed to load announcement", result.error);
+    if (activeOnly) {
+      query = query.eq("active", true);
     }
+
+    const result = await query.maybeSingle();
+
+    // Announcements are optional for the dashboard shell. If the table,
+    // policies, or feature wiring are not available yet, fail closed and
+    // keep the rest of the app interactive without noisy overlays.
+    if (result.error) {
+      return null;
+    }
+
+    return (result.data as AnnouncementSummary | null) ?? null;
+  } catch {
     return null;
   }
-
-  return (result.data as AnnouncementSummary | null) ?? null;
 }
 
 export async function getActiveAnnouncement() {

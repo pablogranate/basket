@@ -48,11 +48,13 @@ export function TeamsWorkspaceClient({
   people,
   activeLeague,
   query,
+  canManageTeams = false,
 }: {
   initialTeams: TeamDirectoryItem[];
   people: PersonListItem[];
   activeLeague: string;
   query: string;
+  canManageTeams?: boolean;
 }) {
   const [customTeams, setCustomTeams] = useState<TeamDirectoryItem[]>([]);
 
@@ -75,8 +77,9 @@ export function TeamsWorkspaceClient({
   );
 
   const mergedTeams = useMemo(() => {
-    const seenIds = new Set(initialTeams.map((team) => team.id));
-    const nextTeams = [...initialTeams];
+    const customById = new Map(visibleCustomTeams.map((team) => [team.id, team]));
+    const nextTeams = initialTeams.map((team) => customById.get(team.id) ?? team);
+    const seenIds = new Set(nextTeams.map((team) => team.id));
 
     visibleCustomTeams.forEach((team) => {
       if (!seenIds.has(team.id)) {
@@ -120,11 +123,12 @@ export function TeamsWorkspaceClient({
               team.manager,
               responsibleLookup,
             )}
+            canEdit={canManageTeams}
           />
         ))}
       </div>
 
-      <section className="panel-surface grid gap-4 border border-[var(--border)] bg-[var(--background-soft)] p-6 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="panel-surface grid gap-4 border border-[var(--border)] bg-white p-6 sm:grid-cols-2 xl:grid-cols-4">
         <div className="text-center">
           <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#94a3b8]">
             Equipos visibles

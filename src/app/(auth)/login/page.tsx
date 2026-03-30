@@ -9,14 +9,15 @@ import {
   Video,
 } from "lucide-react";
 
-import { loginAction, loginToDashboardAction } from "@/app/actions/auth";
+import { loginAction } from "@/app/actions/auth";
 import { SetupPanel } from "@/components/layout/setup-panel";
 import { PageMessage } from "@/components/ui/page-message";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { APP_NAME } from "@/lib/constants";
+import { PRODUCT_COPY } from "@/lib/copy";
+import { getDefaultDashboardHrefForRole, APP_NAME } from "@/lib/constants";
 import { isSupabaseConfigured } from "@/lib/env";
 import { parseNotice } from "@/lib/search-params";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getUserContext } from "@/lib/auth";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -77,19 +78,16 @@ export default async function LoginPage({ searchParams }: PageProps) {
     );
   }
 
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUserContext();
 
-  if (user) {
-    redirect("/mi-jornada");
+  if (user.userId) {
+    redirect(getDefaultDashboardHrefForRole(user.role));
   }
 
   const redirectTo =
     typeof resolvedSearchParams.redirectTo === "string"
       ? resolvedSearchParams.redirectTo
-      : "/mi-jornada";
+      : "/grid";
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
@@ -109,16 +107,15 @@ export default async function LoginPage({ searchParams }: PageProps) {
           <div className="relative z-10 max-w-2xl space-y-6 xl:space-y-8">
             <div className="space-y-4 xl:space-y-5">
               <p className="text-xs font-bold uppercase tracking-[0.32em] text-[var(--muted)]">
-                Operación en vivo
+                {PRODUCT_COPY.loginHero.eyebrow}
               </p>
               <h1 className="text-4xl font-black leading-[1.02] tracking-[-0.04em] text-[var(--foreground)] xl:text-5xl 2xl:text-6xl">
-                Basket
+                {PRODUCT_COPY.loginHero.titleLine1}
                 <br />
-                Production.
+                {PRODUCT_COPY.loginHero.titleLine2}.
               </h1>
               <p className="max-w-xl text-base font-medium leading-relaxed text-[var(--muted)] xl:text-lg">
-                Coordinación ejecutiva para transmisiones en vivo, gestión integral de
-                talento y monitoreo del equipo técnico en tiempo real.
+                {PRODUCT_COPY.loginHero.description}
               </p>
             </div>
 
@@ -241,20 +238,12 @@ export default async function LoginPage({ searchParams }: PageProps) {
                   </label>
                 </div>
 
-                <div className="grid gap-3 pt-3">
+                <div className="pt-3">
                   <SubmitButton
                     pendingLabel="Ingresando..."
                     className="h-[52px] w-full gap-2 text-[15px] font-bold shadow-[0_8px_24px_rgba(230,18,56,0.26)] xl:h-14 xl:text-base"
                   >
-                    Entrar a Mi jornada
-                    <ArrowRight className="size-5" />
-                  </SubmitButton>
-                  <SubmitButton
-                    formAction={loginToDashboardAction}
-                    pendingLabel="Ingresando..."
-                    className="h-[52px] w-full gap-2 bg-[#1faa52] text-[15px] font-bold text-white shadow-[0_12px_28px_rgba(31,170,82,0.22)] hover:bg-[#189346] xl:h-14 xl:text-base"
-                  >
-                    Entrar al dashboard
+                    Entrar
                     <ArrowRight className="size-5" />
                   </SubmitButton>
                 </div>

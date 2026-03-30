@@ -1,7 +1,6 @@
 import type { CSSProperties } from "react";
-import Link from "next/link";
+import Image from "next/image";
 import {
-  ArrowRight,
   ExternalLink,
   Globe,
   Instagram,
@@ -13,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { ClientTeamLogoMark } from "@/components/team-logo-mark-client";
+import { CreateTeamModal } from "@/components/teams/create-team-modal";
 import type { TeamResponsibleContact } from "@/lib/team-responsibles";
 import {
   getTeamLeagueAccentColor,
@@ -74,10 +74,12 @@ export function TeamCard({
   team,
   activeLeague,
   responsibleContact,
+  canEdit = false,
 }: {
   team: TeamDirectoryItem;
   activeLeague?: string;
   responsibleContact?: TeamResponsibleContact | null;
+  canEdit?: boolean;
 }) {
   const leagueBadges = splitTeamCompetitions(team.competition);
   const primaryLeague = activeLeague || leagueBadges[0] || team.competition;
@@ -95,13 +97,26 @@ export function TeamCard({
       className="panel-surface group overflow-hidden border border-[var(--border)] bg-white transition duration-300 hover:-translate-y-0.5 sm:flex"
     >
       <div className="relative flex h-56 flex-col items-center justify-center gap-5 bg-white p-8 sm:h-auto sm:w-44 sm:border-r sm:border-[var(--border)]">
-        <ClientTeamLogoMark
-          teamName={team.official_name}
-          competition={team.competition}
-          className="panel-surface relative z-10 size-28 border-[#ebe6e8] bg-white"
-          imageClassName="p-3"
-          initialsClassName="text-base tracking-[0.14em]"
-        />
+        {team.logo_data_url ? (
+          <div className="panel-surface relative z-10 size-28 overflow-hidden border-[#ebe6e8] bg-white">
+            <Image
+              src={team.logo_data_url}
+              alt={`Escudo de ${team.official_name}`}
+              fill
+              unoptimized
+              sizes="112px"
+              className="object-contain p-3"
+            />
+          </div>
+        ) : (
+          <ClientTeamLogoMark
+            teamName={team.official_name}
+            competition={team.competition}
+            className="panel-surface relative z-10 size-28 border-[#ebe6e8] bg-white"
+            imageClassName="p-3"
+            initialsClassName="text-base tracking-[0.14em]"
+          />
+        )}
 
         <div className="flex items-center gap-3">
           <TeamLinkIcon href={team.website}>
@@ -130,15 +145,26 @@ export function TeamCard({
                 </span>
               ))}
             </div>
-            <span
-              className={cn(
-                "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold",
-                getIncidentBadgeClass(team.incident_count),
-              )}
-            >
-              <ShieldAlert className="size-3.5" />
-              {team.incident_count}
-            </span>
+            <div className="flex items-center gap-2">
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold",
+                  getIncidentBadgeClass(team.incident_count),
+                )}
+              >
+                <ShieldAlert className="size-3.5" />
+                {team.incident_count}
+              </span>
+              {canEdit ? (
+                <CreateTeamModal
+                  canEdit={canEdit}
+                  defaultCompetition={activeLeague || team.competition}
+                  initialTeam={team}
+                  triggerVariant="icon"
+                  triggerClassName="h-[26px] min-w-[26px] px-2.5 py-1"
+                />
+              ) : null}
+            </div>
           </div>
 
           <h3 className="text-xl font-extrabold tracking-tight text-[var(--foreground)] transition group-hover:text-[var(--team-league-accent)]">
@@ -175,16 +201,6 @@ export function TeamCard({
               ) : null}
             </div>
           </div>
-        </div>
-
-        <div className="mt-6 flex items-center justify-between gap-4">
-          <Link
-            href={`/teams/${team.slug}`}
-            className="ml-auto inline-flex items-center gap-2 text-sm font-bold text-[var(--accent)] transition group-hover:translate-x-1"
-          >
-            Ver equipo
-            <ArrowRight className="size-4" />
-          </Link>
         </div>
       </div>
     </article>

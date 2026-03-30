@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { resolveDashboardAccessRole } from "@/lib/constants";
 import type { AppRole, ProfileRow } from "@/lib/database.types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -49,11 +50,16 @@ export async function getUserContext() {
 
   if (profileQuery.error) {
     console.error("[auth] failed to load profile", profileQuery.error);
+    const resolvedRole = resolveDashboardAccessRole({
+      profileRole: fallbackProfile.role,
+      appMetadata: user.app_metadata,
+    });
+
     return {
       userId: user.id,
       email: user.email ?? null,
       profile: fallbackProfile,
-      role: fallbackProfile.role,
+      role: resolvedRole,
       canEdit: false,
     };
   }
@@ -80,16 +86,21 @@ export async function getUserContext() {
     }
   }
 
+  const resolvedRole = resolveDashboardAccessRole({
+    profileRole: profile.role,
+    appMetadata: user.app_metadata,
+  });
+
   return {
     userId: user.id,
     email: user.email ?? null,
     profile,
-    role: profile.role,
+    role: resolvedRole,
     canEdit:
-      profile.role === "admin" ||
-      profile.role === "editor" ||
-      profile.role === "coordinator" ||
-      profile.role === "collaborator",
+      resolvedRole === "admin" ||
+      resolvedRole === "editor" ||
+      resolvedRole === "coordinator" ||
+      resolvedRole === "collaborator",
   };
 }
 

@@ -128,7 +128,7 @@ export async function getGridData(filters: GridFilters) {
         .order("kickoff_at", { ascending: false }),
       supabase
         .from("people")
-        .select("id, full_name, phone")
+        .select("id, full_name, phone, email")
         .eq("active", true)
         .order("full_name"),
       supabase
@@ -229,7 +229,7 @@ export async function getGridData(filters: GridFilters) {
 
   return {
     dayGroups,
-    owners: (ownersResult.data ?? []) as Pick<PersonRow, "id" | "full_name" | "phone">[],
+    owners: (ownersResult.data ?? []) as Pick<PersonRow, "id" | "full_name" | "phone" | "email">[],
     leagueOptions,
     modeOptions,
   };

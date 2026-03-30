@@ -10,6 +10,7 @@ import {
   Clock3,
   Home,
   MapPin,
+  Megaphone,
   PencilLine,
   Plus,
   RadioTower,
@@ -40,6 +41,7 @@ import {
   getProductionModeLabel,
   MATCH_STATUS_OPTIONS,
   PRODUCTION_MODE_OPTIONS,
+  PRODUCTION_SHORT_LABEL,
 } from "@/lib/constants";
 import { getMatchDetailData } from "@/lib/data/dashboard";
 import { formatMatchDate, formatMatchTime } from "@/lib/date";
@@ -477,7 +479,7 @@ export default async function MatchDetailPage({
                 {match.status}
               </Badge>
               <Badge>{match.competition ?? "Sin liga"}</Badge>
-              <Badge>{getProductionModeLabel(match.production_mode) || "Modo libre"}</Badge>
+              <Badge>{getProductionModeLabel(match.production_mode) || "Sin definir"}</Badge>
             </div>
             <div className="flex flex-wrap items-center gap-4">
               <TeamLogoMark
@@ -530,6 +532,13 @@ export default async function MatchDetailPage({
             >
               <UsersRound className="size-4" />
               GRUPO
+            </Link>
+            <Link
+              href={`/match/${match.id}/notificar`}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#f0c8d1] bg-[#fff7f8] px-4 text-sm font-semibold text-[var(--accent)] transition hover:bg-[#ffecef]"
+            >
+              <Megaphone className="size-4" />
+              Notificar
             </Link>
             <a
               href="#operativa"
@@ -637,14 +646,14 @@ export default async function MatchDetailPage({
               </label>
               <label className="space-y-2">
                 <span className="text-xs font-bold uppercase tracking-[0.22em] text-[var(--muted)]">
-                  Modo
+                  {PRODUCTION_SHORT_LABEL}
                 </span>
                 <Select
                   name="productionMode"
                   defaultValue={getProductionModeLabel(match.production_mode)}
                   disabled={!user.canEdit}
                 >
-                  <option value="">Sin modo</option>
+                  <option value="">Sin definir</option>
                   {PRODUCTION_MODE_OPTIONS.map((mode) => (
                     <option key={mode} value={mode}>
                       {mode}

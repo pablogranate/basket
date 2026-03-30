@@ -7,6 +7,7 @@ import {
   redirectWithNotice,
   rethrowNavigationError,
 } from "@/app/actions/helpers";
+import type { Database } from "@/lib/database.types";
 import {
   MATCH_STATUS_OPTIONS,
   normalizeProductionMode,
@@ -46,6 +47,16 @@ const STAFF_ROLE_FIELD_MAP = [
     roleName: "Comentario 2",
   },
 ] as const;
+
+const OPTIONAL_MATCH_COLUMNS = new Set([
+  "external_match_id",
+  "production_code",
+  "commentary_plan",
+  "transport",
+]);
+
+type MatchInsert = Database["public"]["Tables"]["matches"]["Insert"];
+type MatchUpdate = Database["public"]["Tables"]["matches"]["Update"];
 
 function assertMatchStatus(value: string) {
   if (!MATCH_STATUS_OPTIONS.includes(value as (typeof MATCH_STATUS_OPTIONS)[number])) {
@@ -117,6 +128,72 @@ function buildStaffAssignments(params: {
   });
 }
 
+function getMissingOptionalMatchColumn(error: unknown) {
+  const message = ensureErrorMessage(error);
+  const columnMatch = message.match(/Could not find the '([^']+)' column of 'matches'/i);
+  const columnName = columnMatch?.[1] ?? null;
+
+  if (!columnName || !OPTIONAL_MATCH_COLUMNS.has(columnName)) {
+    return null;
+  }
+
+  return columnName;
+}
+
+async function insertMatchWithOptionalColumnFallback(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  payload: MatchInsert,
+) {
+  const currentPayload = { ...payload };
+
+  while (true) {
+    const result = await supabase
+      .from("matches")
+      .insert(currentPayload)
+      .select("id")
+      .single();
+
+    if (!result.error) {
+      return result;
+    }
+
+    const missingColumn = getMissingOptionalMatchColumn(result.error);
+
+    if (!missingColumn || !(missingColumn in currentPayload)) {
+      return result;
+    }
+
+    delete currentPayload[missingColumn as keyof MatchInsert];
+  }
+}
+
+async function updateMatchWithOptionalColumnFallback(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  matchId: string,
+  payload: MatchUpdate,
+) {
+  const currentPayload = { ...payload };
+
+  while (true) {
+    const result = await supabase
+      .from("matches")
+      .update(currentPayload)
+      .eq("id", matchId);
+
+    if (!result.error) {
+      return result;
+    }
+
+    const missingColumn = getMissingOptionalMatchColumn(result.error);
+
+    if (!missingColumn || !(missingColumn in currentPayload)) {
+      return result;
+    }
+
+    delete currentPayload[missingColumn as keyof MatchUpdate];
+  }
+}
+
 export async function createMatchAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData, "/grid");
   const createdMatchGridRedirect = getGridRedirectForCreatedMatch(formData, redirectTo);
@@ -130,29 +207,25 @@ export async function createMatchAction(formData: FormData) {
       timezone: String(formData.get("timezone") ?? ""),
     });
 
-    const result = await supabase
-      .from("matches")
-      .insert({
-        competition: maybeNull(String(formData.get("competition") ?? "")),
-        external_match_id: maybeNull(String(formData.get("externalMatchId") ?? "")),
-        production_code: maybeNull(String(formData.get("productionCode") ?? "")),
-        production_mode: assertProductionMode(
-          String(formData.get("productionMode") ?? ""),
-        ),
-        status: assertMatchStatus(String(formData.get("status") ?? "Pendiente")),
-        home_team: String(formData.get("homeTeam") ?? "").trim(),
-        away_team: String(formData.get("awayTeam") ?? "").trim(),
-        venue: maybeNull(String(formData.get("venue") ?? "")),
-        commentary_plan: maybeNull(String(formData.get("commentaryPlan") ?? "")),
-        transport: maybeNull(String(formData.get("transport") ?? "")),
-        kickoff_at: kickoffAt,
-        duration_minutes: Number(formData.get("durationMinutes") ?? 150),
-        timezone: String(formData.get("timezone") ?? ""),
-        owner_id: getCreateOwnerId(formData),
-        notes: maybeNull(String(formData.get("notes") ?? "")),
-      })
-      .select("id")
-      .single();
+    const result = await insertMatchWithOptionalColumnFallback(supabase, {
+      competition: maybeNull(String(formData.get("competition") ?? "")),
+      external_match_id: maybeNull(String(formData.get("externalMatchId") ?? "")),
+      production_code: maybeNull(String(formData.get("productionCode") ?? "")),
+      production_mode: assertProductionMode(
+        String(formData.get("productionMode") ?? ""),
+      ),
+      status: assertMatchStatus(String(formData.get("status") ?? "Pendiente")),
+      home_team: String(formData.get("homeTeam") ?? "").trim(),
+      away_team: String(formData.get("awayTeam") ?? "").trim(),
+      venue: maybeNull(String(formData.get("venue") ?? "")),
+      commentary_plan: maybeNull(String(formData.get("commentaryPlan") ?? "")),
+      transport: maybeNull(String(formData.get("transport") ?? "")),
+      kickoff_at: kickoffAt,
+      duration_minutes: Number(formData.get("durationMinutes") ?? 150),
+      timezone: String(formData.get("timezone") ?? ""),
+      owner_id: getCreateOwnerId(formData),
+      notes: maybeNull(String(formData.get("notes") ?? "")),
+    });
 
     if (result.error) {
       throw result.error;
@@ -190,6 +263,7 @@ export async function createMatchAction(formData: FormData) {
 
     revalidatePath("/grid");
     revalidatePath(`/match/${result.data.id}`);
+    revalidatePath(`/match/${result.data.id}/notificar`);
     redirectWithNotice({
       redirectTo: createdMatchGridRedirect,
       intent: "success",
@@ -218,7 +292,7 @@ export async function updateMatchAction(formData: FormData) {
       time: String(formData.get("time") ?? ""),
       timezone: String(formData.get("timezone") ?? ""),
     });
-    const payload: Record<string, string | number | null> = {
+    const payload: MatchUpdate = {
       competition: maybeNull(String(formData.get("competition") ?? "")),
       production_mode: assertProductionMode(
         String(formData.get("productionMode") ?? ""),
@@ -250,10 +324,11 @@ export async function updateMatchAction(formData: FormData) {
       payload.transport = maybeNull(String(formData.get("transport") ?? ""));
     }
 
-    const result = await supabase
-      .from("matches")
-      .update(payload)
-      .eq("id", matchId);
+    const result = await updateMatchWithOptionalColumnFallback(
+      supabase,
+      matchId,
+      payload,
+    );
 
     if (result.error) {
       throw result.error;

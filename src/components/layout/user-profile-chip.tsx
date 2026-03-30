@@ -49,16 +49,25 @@ export function UserProfileChip({
     [email, fullName, userId],
   );
 
-  const [avatarSrc, setAvatarSrc] = useState<string | null>(() => {
-    if (!storageKey || typeof window === "undefined") {
-      return null;
-    }
-
-    return window.localStorage.getItem(storageKey);
-  });
+  const [isHydrated, setIsHydrated] = useState(false);
+  const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!storageKey || typeof window === "undefined") {
+    const frameId = window.requestAnimationFrame(() => {
+      setIsHydrated(true);
+      if (!storageKey || typeof window === "undefined") {
+        setAvatarSrc(null);
+        return;
+      }
+
+      setAvatarSrc(window.localStorage.getItem(storageKey));
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (!isHydrated || !storageKey || typeof window === "undefined") {
       return;
     }
 
@@ -73,7 +82,7 @@ export function UserProfileChip({
       window.removeEventListener("storage", syncAvatar);
       window.removeEventListener(AVATAR_CHANGE_EVENT, syncAvatar);
     };
-  }, [storageKey]);
+  }, [isHydrated, storageKey]);
 
   useEffect(() => {
     if (!mobileMenu || !menuOpen) {

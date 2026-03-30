@@ -5,14 +5,16 @@ import { createPortal } from "react-dom";
 import {
   CalendarDays,
   Camera,
-  CircleAlert,
-  Loader2,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Mail,
   MapPin,
+  MessageCircleMore,
   Mic2,
   Plus,
   Sparkles,
-  Users,
-  WandSparkles,
   X,
 } from "lucide-react";
 
@@ -24,6 +26,7 @@ import {
 import { LeagueLogoMarkClient } from "@/components/league-logo-mark-client";
 import { ClientTeamLogoMark } from "@/components/team-logo-mark-client";
 import { Button } from "@/components/ui/button";
+import { HoverAvatarBadge } from "@/components/ui/hover-avatar-badge";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -35,12 +38,14 @@ import {
   DEFAULT_TIMEZONE,
   normalizeCommentaryPlan,
   PRODUCTION_MODE_OPTIONS,
+  RESPONSIBLE_DISPLAY_LABEL,
 } from "@/lib/constants";
 import { formatMatchDate, formatMatchTime } from "@/lib/date";
+import { getRoleDisplayName } from "@/lib/display";
 import { getTeamCompetitionByName, getTeamVenueByName } from "@/lib/team-directory";
 import type { PersonRow } from "@/lib/database.types";
 import type { MatchListItem } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { buildWhatsAppUrl, cn } from "@/lib/utils";
 
 const CORE_REQUIRED_FIELDS = [
   "productionCode",
@@ -65,7 +70,7 @@ const CORE_FIELD_LABELS: Record<(typeof CORE_REQUIRED_FIELDS)[number], string> =
 };
 
 type CreateMatchModalProps = {
-  people: Pick<PersonRow, "id" | "full_name">[];
+  people: Pick<PersonRow, "id" | "full_name" | "phone" | "email">[];
   redirectTo: string;
   canEdit: boolean;
   initialDate: string;
@@ -114,12 +119,164 @@ const CAMERA_FIELD_CONFIGS = [
   { label: "Cámara 5", name: "camara5Id" },
 ] as const;
 
+const IDENTIFICATION_FIELDS = [
+  "productionCode",
+  "competition",
+  "homeTeam",
+  "awayTeam",
+  "date",
+  "time",
+  "venue",
+] as const;
+
+const CONTEXT_FIELDS = [
+  "productionMode",
+  "commentaryPlan",
+  "transport",
+  "notes",
+] as const;
+
+const STAFF_FIELDS = [
+  "responsableId",
+  "realizadorId",
+  "graficaId",
+  "controlId",
+  "soporteId",
+  "relatorId",
+] as const;
+
+const ADVANCED_FIELDS = [
+  "camara1Id",
+  "camara2Id",
+  "camara3Id",
+  "camara4Id",
+  "camara5Id",
+  "comentario1Id",
+  "comentario2Id",
+] as const;
+
+const NOTIFICATION_ROLE_FIELDS = [
+  { field: "responsableId", label: RESPONSIBLE_DISPLAY_LABEL },
+  { field: "realizadorId", label: "Realizador" },
+  { field: "graficaId", label: "Operador de gráfica" },
+  { field: "controlId", label: "Operador de control" },
+  { field: "soporteId", label: "Soporte técnico" },
+  { field: "relatorId", label: "Relator" },
+  { field: "comentario1Id", label: "Comentario 1" },
+  { field: "comentario2Id", label: "Comentario 2" },
+  { field: "camara1Id", label: "Cámara 1" },
+  { field: "camara2Id", label: "Cámara 2" },
+  { field: "camara3Id", label: "Cámara 3" },
+  { field: "camara4Id", label: "Cámara 4" },
+  { field: "camara5Id", label: "Cámara 5" },
+] as const;
+
+type NotificationRecipient = {
+  id: string;
+  fullName: string;
+  phone: string | null;
+  email: string | null;
+  roles: string[];
+  emailHref: string;
+  whatsappHref: string;
+  message: string;
+};
+
+const MATCH_PREVIEW_EXAMPLE = {
+  competition: "Liga Nacional",
+  homeTeam: "Bochas Sport Club",
+  awayTeam: "River Plate",
+  date: "2026-03-05",
+  time: "19:00",
+  venue: "Luis Conde, Buenos Aires",
+  roles: {
+    [RESPONSIBLE_DISPLAY_LABEL]: "Juan Pérez",
+    Realizador: "Mauro Ruiz",
+    Relatos: "Leonardo Chianese",
+    Produ: "TV",
+  },
+  assignedPeopleCount: 3,
+} as const;
+
 function getVisibleCameraCount(fields: MatchIntakeFields) {
   const highestFilledIndex = CAMERA_FIELD_CONFIGS.reduce((highest, field, index) => {
     return fields[field.name].trim() ? index + 1 : highest;
   }, 0);
 
   return Math.max(2, highestFilledIndex);
+}
+
+function countCompletedFields<
+  TFieldName extends keyof MatchIntakeFields,
+>(fields: MatchIntakeFields, fieldNames: readonly TFieldName[]) {
+  return fieldNames.reduce(
+    (count, fieldName) => count + Number(Boolean(fields[fieldName].trim())),
+    0,
+  );
+}
+
+function formatDraftDateLabel(date: string) {
+  if (!date) {
+    return "Sin fecha";
+  }
+
+  const parsed = new Date(`${date}T00:00:00`);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return date;
+  }
+
+  return new Intl.DateTimeFormat("es-CO", {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+  })
+    .format(parsed)
+    .replaceAll(".", "");
+}
+
+function formatDraftTimeLabel(time: string) {
+  return time.trim() || "--:--";
+}
+
+function shouldShowAdvancedByDefault(fields: MatchIntakeFields) {
+  return ADVANCED_FIELDS.some((fieldName) => fields[fieldName].trim());
+}
+
+function getAssignedPeopleCount(fields: MatchIntakeFields) {
+  return new Set(
+    [
+      fields.responsableId,
+      fields.realizadorId,
+      fields.graficaId,
+      fields.controlId,
+      fields.soporteId,
+      fields.relatorId,
+      fields.comentario1Id,
+      fields.comentario2Id,
+      fields.camara1Id,
+      fields.camara2Id,
+      fields.camara3Id,
+      fields.camara4Id,
+      fields.camara5Id,
+    ].filter(Boolean),
+  ).size;
+}
+
+function getInitials(value: string) {
+  const parts = value
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2);
+
+  if (!parts.length) {
+    return "?";
+  }
+
+  return parts
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("")
+    .slice(0, 2);
 }
 
 function buildInitialFields(initialDate: string): MatchIntakeFields {
@@ -149,7 +306,7 @@ function buildInitialFields(initialDate: string): MatchIntakeFields {
     comentario2Id: "",
     controlId: "",
     soporteId: "",
-    transport: "",
+    transport: "No aplica",
     notes: "",
   };
 }
@@ -159,6 +316,27 @@ function getAssignedPersonId(match: MatchListItem, roleName: string) {
     match.assignments.find((assignment) => assignment.role.name === roleName)?.person?.id ??
     ""
   );
+}
+
+function normalizeTransportFieldValue(value?: string | null) {
+  const normalized = value?.trim();
+
+  if (!normalized) {
+    return "No aplica";
+  }
+
+  const lowerValue = normalized.toLowerCase();
+
+  if (
+    lowerValue === "x" ||
+    lowerValue === "n/a" ||
+    lowerValue === "na" ||
+    lowerValue === "no aplica"
+  ) {
+    return "No aplica";
+  }
+
+  return normalized;
 }
 
 function buildFieldsFromMatch(match: MatchListItem): MatchIntakeFields {
@@ -191,40 +369,37 @@ function buildFieldsFromMatch(match: MatchListItem): MatchIntakeFields {
     comentario2Id: getAssignedPersonId(match, "Comentario 2"),
     controlId: getAssignedPersonId(match, "Operador de Control"),
     soporteId: getAssignedPersonId(match, "Soporte tecnico"),
-    transport: match.transport ?? "",
+    transport: normalizeTransportFieldValue(match.transport),
     notes: match.notes ?? "",
   };
 }
 
 function SectionBlock({
-  icon,
+  step,
   title,
-  description,
+  status,
   children,
 }: {
-  icon: React.ReactNode;
+  step: string;
   title: string;
-  description?: string;
-  children: React.ReactNode;
+  status?: string;
+  children: ReactNode;
 }) {
   return (
-    <section className="relative overflow-visible">
-      <div className="relative z-[1] space-y-4 rounded-[20px] border border-[var(--border)] bg-[var(--surface)] px-6 py-6 shadow-[0_12px_32px_rgba(15,23,42,0.06)]">
-        <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-full bg-[var(--background-soft)] text-[var(--accent)]">
-            {icon}
-          </div>
-          <div>
-            <h3 className="text-base font-extrabold uppercase tracking-[0.12em] text-[var(--foreground)]">
-              {title}
-            </h3>
-            {description ? (
-              <p className="mt-1 text-sm text-[var(--muted)]">{description}</p>
-            ) : null}
-          </div>
+    <section className="space-y-5 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-6 py-6 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-[0.98rem] font-extrabold uppercase tracking-[0.2em] text-[#8ea0bb]">
+            {step}. {title}
+          </p>
         </div>
-        {children}
+        {status ? (
+          <span className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--background-soft)] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#617089]">
+            {status}
+          </span>
+        ) : null}
       </div>
+      {children}
     </section>
   );
 }
@@ -238,15 +413,15 @@ function LabeledField({
   label: string;
   required?: boolean;
   alert?: boolean;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <label className="space-y-2">
-      <span className="flex items-center gap-2 text-sm font-bold text-[var(--foreground)]">
+      <span className="flex items-center gap-2 text-[0.82rem] font-semibold text-[#5f6d84]">
         {label}
         {required ? <span className="text-[var(--accent)]">*</span> : null}
         {alert ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-[#fff4f6] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.2em] text-[#c12d4d]">
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#fff4f6] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[#c12d4d]">
             Falta
           </span>
         ) : null}
@@ -289,6 +464,122 @@ function PersonSelectField({
   );
 }
 
+function buildNotificationSubject(fields: MatchIntakeFields) {
+  const homeTeam = fields.homeTeam.trim() || "Equipo local";
+  const awayTeam = fields.awayTeam.trim() || "Equipo visitante";
+  return `Convocatoria · ${homeTeam} vs ${awayTeam}`;
+}
+
+function buildNotificationMessage(params: {
+  fields: MatchIntakeFields;
+  personName?: string | null;
+  roles?: string[];
+}) {
+  const homeTeam = params.fields.homeTeam.trim() || "Equipo local";
+  const awayTeam = params.fields.awayTeam.trim() || "Equipo visitante";
+  const league = params.fields.competition.trim() || "Sin liga";
+  const venue = params.fields.venue.trim() || "Sede por definir";
+  const productionMode = params.fields.productionMode.trim() || "Sin definir";
+  const recipientName = params.personName?.trim() || "equipo";
+  const rolesLabel = params.roles?.length ? params.roles.join(", ") : "equipo asignado";
+  const appUrl =
+    typeof window !== "undefined" ? `${window.location.origin}/mi-jornada` : "/mi-jornada";
+
+  return [
+    `Hola ${recipientName},`,
+    "",
+    `Has sido convocado para ${homeTeam} vs ${awayTeam}.`,
+    `Rol asignado: ${rolesLabel}.`,
+    "",
+    `Liga: ${league}`,
+    `Fecha: ${formatDraftDateLabel(params.fields.date)}`,
+    `Hora: ${formatDraftTimeLabel(params.fields.time)}`,
+    `Lugar: ${venue}`,
+    `Produ: ${productionMode}`,
+    "",
+    `Por favor confirma tu disponibilidad respondiendo este mensaje o revisando tu asignación en el portal: ${appUrl}`,
+  ].join("\n");
+}
+
+function buildNotificationMailtoHref(params: {
+  email: string | null;
+  fields: MatchIntakeFields;
+  personName?: string | null;
+  roles?: string[];
+}) {
+  if (!params.email) {
+    return "";
+  }
+
+  const query = new URLSearchParams({
+    subject: buildNotificationSubject(params.fields),
+    body: buildNotificationMessage({
+      fields: params.fields,
+      personName: params.personName,
+      roles: params.roles,
+    }),
+  });
+
+  return `mailto:${params.email}?${query.toString()}`;
+}
+
+function buildBulkNotificationMailtoHref(params: {
+  emails: string[];
+  fields: MatchIntakeFields;
+}) {
+  const recipients = [...new Set(params.emails.map((email) => email.trim()).filter(Boolean))];
+
+  if (!recipients.length) {
+    return "";
+  }
+
+  const query = new URLSearchParams({
+    bcc: recipients.join(","),
+    subject: buildNotificationSubject(params.fields),
+    body: buildNotificationMessage({ fields: params.fields }),
+  });
+
+  return `mailto:?${query.toString()}`;
+}
+
+function buildNotificationWhatsAppHref(params: {
+  phone: string | null;
+  fields: MatchIntakeFields;
+  personName?: string | null;
+  roles?: string[];
+}) {
+  const baseUrl = buildWhatsAppUrl(params.phone);
+
+  if (!baseUrl) {
+    return "";
+  }
+
+  return `${baseUrl}?text=${encodeURIComponent(
+    buildNotificationMessage({
+      fields: params.fields,
+      personName: params.personName,
+      roles: params.roles,
+    }),
+  )}`;
+}
+
+async function copyToClipboard(value: string) {
+  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.setAttribute("readonly", "true");
+  textarea.style.position = "absolute";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textarea);
+}
+
 export function CreateMatchModal({
   people,
   redirectTo,
@@ -307,12 +598,13 @@ export function CreateMatchModal({
   );
   const [isOpen, setIsOpen] = useState(false);
   const [fields, setFields] = useState<MatchIntakeFields>(defaultFields);
-  const [lookupMessage, setLookupMessage] = useState("");
-  const [lookupAttempted, setLookupAttempted] = useState(false);
-  const [isLookingUp, setIsLookingUp] = useState(false);
   const [competitionTouched, setCompetitionTouched] = useState(false);
   const [venueTouched, setVenueTouched] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(() =>
+    shouldShowAdvancedByDefault(defaultFields),
+  );
+  const [copiedNotificationKey, setCopiedNotificationKey] = useState<string | null>(null);
   const [visibleCameraCount, setVisibleCameraCount] = useState(() =>
     getVisibleCameraCount(defaultFields),
   );
@@ -320,6 +612,7 @@ export function CreateMatchModal({
   useEffect(() => {
     setFields(defaultFields);
     setVisibleCameraCount(getVisibleCameraCount(defaultFields));
+    setShowAdvanced(shouldShowAdvancedByDefault(defaultFields));
   }, [defaultFields]);
 
   useEffect(() => {
@@ -352,15 +645,13 @@ export function CreateMatchModal({
     };
   }, [isOpen]);
 
-  const missingFields = lookupAttempted
-    ? CORE_REQUIRED_FIELDS.filter((field) => !fields[field].trim())
-    : [];
-
-  const visibleMissingFieldLabels = missingFields.map(
+  const missingFields = CORE_REQUIRED_FIELDS.filter((field) => !fields[field].trim());
+  const highlightedMissingFields = missingFields;
+  const missingFieldLabels = missingFields.map(
     (field) => CORE_FIELD_LABELS[field],
   );
 
-  const fieldSurfaceClass = "h-11 bg-[var(--background-soft)]";
+  const fieldSurfaceClass = "h-[54px] bg-[var(--background-soft)] text-[15px]";
   const missingFieldClass =
     "border-[#efbcc7] bg-[#fff5f7] focus:border-[#df5575] focus:ring-[rgba(223,85,117,0.12)]";
 
@@ -370,6 +661,156 @@ export function CreateMatchModal({
         left.full_name.localeCompare(right.full_name, "es"),
       ),
     [people],
+  );
+  const competitionOptions = useMemo(() => {
+    const options = new Set<string>(CLUB_COMPETITIONS);
+
+    if (fields.competition.trim()) {
+      options.add(fields.competition.trim());
+    }
+
+    return [...options];
+  }, [fields.competition]);
+  const peopleById = useMemo(
+    () => new Map(peopleOptions.map((person) => [person.id, person])),
+    [peopleOptions],
+  );
+  const identificationCompleted = countCompletedFields(fields, IDENTIFICATION_FIELDS);
+  const contextCompleted = countCompletedFields(fields, CONTEXT_FIELDS);
+  const staffCompleted = countCompletedFields(fields, STAFF_FIELDS);
+  const assignedPeopleCount = getAssignedPeopleCount(fields);
+  const requiredCompletionRatio = missingFields.length
+    ? ((CORE_REQUIRED_FIELDS.length - missingFields.length) / CORE_REQUIRED_FIELDS.length) * 100
+    : 100;
+  const previewHomeTeamLabel =
+    fields.homeTeam.trim() || MATCH_PREVIEW_EXAMPLE.homeTeam;
+  const previewAwayTeamLabel =
+    fields.awayTeam.trim() || MATCH_PREVIEW_EXAMPLE.awayTeam;
+  const previewCompetitionLabel =
+    fields.competition.trim() || MATCH_PREVIEW_EXAMPLE.competition;
+  const previewVenueLabel =
+    fields.venue.trim() || MATCH_PREVIEW_EXAMPLE.venue;
+  const previewDateLabel = formatDraftDateLabel(
+    fields.date || MATCH_PREVIEW_EXAMPLE.date,
+  );
+  const previewTimeLabel = formatDraftTimeLabel(
+    fields.time || MATCH_PREVIEW_EXAMPLE.time,
+  );
+  const getPersonRecord = (personId: string) =>
+    personId ? peopleById.get(personId) ?? null : null;
+  const summaryRoles = [
+    {
+      label: RESPONSIBLE_DISPLAY_LABEL,
+      value:
+        getPersonRecord(fields.responsableId)?.full_name ??
+        MATCH_PREVIEW_EXAMPLE.roles[RESPONSIBLE_DISPLAY_LABEL],
+      initials: getInitials(
+        getPersonRecord(fields.responsableId)?.full_name ??
+          MATCH_PREVIEW_EXAMPLE.roles[RESPONSIBLE_DISPLAY_LABEL],
+      ),
+    },
+    {
+      label: "Realizador",
+      value:
+        getPersonRecord(fields.realizadorId)?.full_name ??
+        MATCH_PREVIEW_EXAMPLE.roles.Realizador,
+      initials: getInitials(
+        getPersonRecord(fields.realizadorId)?.full_name ??
+          MATCH_PREVIEW_EXAMPLE.roles.Realizador,
+      ),
+    },
+    {
+      label: "Relatos",
+      value:
+        getPersonRecord(fields.relatorId)?.full_name ??
+        MATCH_PREVIEW_EXAMPLE.roles.Relatos,
+      initials: getInitials(
+        getPersonRecord(fields.relatorId)?.full_name ??
+          MATCH_PREVIEW_EXAMPLE.roles.Relatos,
+      ),
+    },
+    {
+      label: "Produ",
+      value: fields.productionMode.trim() || MATCH_PREVIEW_EXAMPLE.roles.Produ,
+      initials: getInitials(
+        fields.productionMode.trim() || MATCH_PREVIEW_EXAMPLE.roles.Produ,
+      ),
+    },
+  ];
+  const previewAssignedPeopleCount =
+    assignedPeopleCount || MATCH_PREVIEW_EXAMPLE.assignedPeopleCount;
+  const notificationRecipients = useMemo(() => {
+    const recipientsMap = new Map<string, NotificationRecipient>();
+
+    NOTIFICATION_ROLE_FIELDS.forEach(({ field, label }) => {
+      const personId = fields[field];
+      const person = personId ? peopleById.get(personId) ?? null : null;
+
+      if (!person) {
+        return;
+      }
+
+      const existing = recipientsMap.get(person.id);
+
+      if (existing) {
+        if (!existing.roles.includes(label)) {
+          existing.roles.push(label);
+        }
+        return;
+      }
+
+      recipientsMap.set(person.id, {
+        id: person.id,
+        fullName: person.full_name,
+        phone: person.phone ?? null,
+        email: person.email ?? null,
+        roles: [label],
+        emailHref: "",
+        whatsappHref: "",
+        message: "",
+      });
+    });
+
+    return [...recipientsMap.values()]
+      .map((recipient) => {
+        const roles = recipient.roles.map((role) => getRoleDisplayName(role));
+        const message = buildNotificationMessage({
+          fields,
+          personName: recipient.fullName,
+          roles,
+        });
+
+        return {
+          ...recipient,
+          roles,
+          emailHref: buildNotificationMailtoHref({
+            email: recipient.email,
+            fields,
+            personName: recipient.fullName,
+            roles,
+          }),
+          whatsappHref: buildNotificationWhatsAppHref({
+            phone: recipient.phone,
+            fields,
+            personName: recipient.fullName,
+            roles,
+          }),
+          message,
+        };
+      })
+      .sort((left, right) => left.fullName.localeCompare(right.fullName, "es"));
+  }, [fields, peopleById]);
+  const batchNotificationMessage = useMemo(
+    () => buildNotificationMessage({ fields }),
+    [fields],
+  );
+  const bulkNotificationMailtoHref = useMemo(
+    () =>
+      buildBulkNotificationMailtoHref({
+        emails: notificationRecipients.map((recipient) => recipient.email).filter(Boolean) as string[],
+        fields,
+      }),
+    [fields, notificationRecipients],
   );
 
   function updateField(name: keyof MatchIntakeFields, value: string) {
@@ -393,98 +834,36 @@ export function CreateMatchModal({
     }));
   }
 
-  async function handleLookup() {
-    const externalId = fields.externalMatchId.trim();
-
-    if (!externalId) {
-      setLookupAttempted(true);
-      setLookupMessage("Ingresa un ID antes de intentar autocompletar.");
-      return;
-    }
-
-    setIsLookingUp(true);
-    setLookupAttempted(true);
-    setLookupMessage("");
-
-    try {
-      const response = await fetch("/api/matches/intake", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ externalId }),
-      });
-
-      const payload = (await response.json()) as {
-        configured?: boolean;
-        message?: string;
-        match?: Partial<MatchIntakeFields>;
-      };
-
-      if (!response.ok || !payload.match) {
-        setLookupMessage(
-          payload.message ??
-            "No se pudo completar la consulta externa. Continúa la carga manualmente.",
-        );
-        return;
-      }
-
-      const matchPayload = payload.match;
-
-      setFields((current) => {
-        const nextHomeTeam = matchPayload.homeTeam?.trim() || current.homeTeam;
-        const suggestedCompetition =
-          matchPayload.competition?.trim() ||
-          getTeamCompetitionByName(nextHomeTeam) ||
-          current.competition;
-        const suggestedVenue =
-          matchPayload.venue?.trim() ||
-          getTeamVenueByName(nextHomeTeam) ||
-          current.venue;
-
-        return {
-          ...current,
-          externalMatchId:
-            matchPayload.externalMatchId?.trim() || current.externalMatchId,
-          productionCode:
-            matchPayload.productionCode?.trim() || current.productionCode,
-          competition:
-            competitionTouched
-              ? current.competition
-              : suggestedCompetition,
-          homeTeam: nextHomeTeam,
-          awayTeam: matchPayload.awayTeam?.trim() || current.awayTeam,
-          date: matchPayload.date?.trim() || current.date,
-          time: matchPayload.time?.trim() || current.time,
-          venue: venueTouched ? current.venue : suggestedVenue,
-        };
-      });
-
-      setLookupMessage(
-        payload.configured === false
-          ? payload.message ??
-            "La API todavía no está configurada. Revisa los campos faltantes."
-          : "Partido autocompletado. Revisa los campos marcados antes de guardar.",
-      );
-    } catch (error) {
-      setLookupMessage(
-        error instanceof Error
-          ? error.message
-          : "No se pudo consultar el ID externo.",
-      );
-    } finally {
-      setIsLookingUp(false);
-    }
-  }
-
   function resetAndClose() {
     setIsOpen(false);
     setFields(defaultFields);
     setVisibleCameraCount(getVisibleCameraCount(defaultFields));
-    setLookupMessage("");
-    setLookupAttempted(false);
+    setShowAdvanced(shouldShowAdvancedByDefault(defaultFields));
     setCompetitionTouched(false);
     setVenueTouched(false);
+    setCopiedNotificationKey(null);
+  }
+
+  async function handleCopyNotification(value: string, key: string) {
+    try {
+      await copyToClipboard(value);
+      setCopiedNotificationKey(key);
+      window.setTimeout(() => {
+        setCopiedNotificationKey((current) => (current === key ? null : current));
+      }, 1800);
+    } catch {
+      setCopiedNotificationKey(null);
+    }
+  }
+
+  function handleBulkWhatsApp() {
+    notificationRecipients
+      .filter((recipient) => recipient.whatsappHref)
+      .forEach((recipient, index) => {
+        window.setTimeout(() => {
+          window.open(recipient.whatsappHref, "_blank", "noopener,noreferrer");
+        }, index * 180);
+      });
   }
 
   return (
@@ -540,18 +919,13 @@ export function CreateMatchModal({
             aria-hidden="true"
             onClick={resetAndClose}
           />
-          <div className="relative z-[1] flex max-h-[calc(100vh-4rem)] w-full max-w-[1120px] flex-col overflow-hidden rounded-[24px] border border-[var(--border)] bg-[var(--surface)] shadow-[0_32px_80px_rgba(15,23,42,0.22)]">
+          <div className="relative z-[1] flex max-h-[calc(100vh-4rem)] w-full max-w-[1120px] flex-col overflow-hidden rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] shadow-[0_32px_80px_rgba(15,23,42,0.22)]">
               <div className="flex items-start justify-between gap-6 border-b border-[var(--border)] px-7 py-6">
                 <div className="space-y-2">
                   <div>
                     <h2 className="text-3xl font-extrabold tracking-tight text-[var(--foreground)]">
                       {isEditing ? "Editar partido" : "Crear partido"}
                     </h2>
-                    <p className="mt-1 text-sm text-[var(--muted)]">
-                      {isEditing
-                        ? "Modifica la producción, actualiza asignaciones o elimina la tarjeta si ya no corresponde."
-                        : "Completa la producción operativa o pega un ID externo para precargar el juego."}
-                    </p>
                   </div>
                 </div>
               <button
@@ -572,81 +946,19 @@ export function CreateMatchModal({
               <input type="hidden" name="timezone" value={DEFAULT_TIMEZONE} />
               {isEditing ? <input type="hidden" name="matchId" value={match?.id} /> : null}
 
-              <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
-                <div className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(20rem,0.8fr)]">
-                <div className="space-y-6">
+              <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">
+                <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,24rem)]">
+                  <div className="space-y-6">
                     <SectionBlock
-                      icon={<WandSparkles className="size-4.5" />}
-                      title="Autocompletar por ID"
+                      step="1"
+                      title="Identificación"
+                      status={`${identificationCompleted}/${IDENTIFICATION_FIELDS.length} listos`}
                     >
-                      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-                        <LabeledField label="ID externo">
-                          <Input
-                            name="externalMatchId"
-                            value={fields.externalMatchId}
-                            onChange={(event) =>
-                              updateField("externalMatchId", event.target.value)
-                            }
-                            placeholder="GB56789"
-                            className={fieldSurfaceClass}
-                          />
-                        </LabeledField>
-                        <div className="flex items-end">
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            className="h-11 min-w-[12rem] gap-2"
-                            onClick={handleLookup}
-                            disabled={isLookingUp || isEditing}
-                          >
-                            {isLookingUp ? (
-                              <Loader2 className="size-4 animate-spin" />
-                            ) : (
-                              <Sparkles className="size-4" />
-                            )}
-                            Autocompletar
-                          </Button>
-                        </div>
-                      </div>
-                      {lookupMessage ? (
-                        <div
-                          className={cn(
-                            "rounded-[16px] border px-4 py-3 text-sm",
-                            missingFields.length
-                              ? "border-[#efc8d0] bg-[#fff7f9] text-[#ad3650]"
-                              : "border-[#dbe6ff] bg-[#f5f8ff] text-[#46608e]",
-                          )}
-                        >
-                          {lookupMessage}
-                        </div>
-                      ) : null}
-                      {visibleMissingFieldLabels.length ? (
-                        <div className="flex flex-wrap items-center gap-2 rounded-[16px] border border-[#f3d6dc] bg-[#fff7f9] px-4 py-3">
-                          <CircleAlert className="size-4 text-[#c12d4d]" />
-                          <span className="text-xs font-bold uppercase tracking-[0.24em] text-[#c12d4d]">
-                            Faltan datos
-                          </span>
-                          {visibleMissingFieldLabels.map((label) => (
-                            <span
-                              key={label}
-                              className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#8c2d43]"
-                            >
-                              {label}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
-                    </SectionBlock>
-
-                    <SectionBlock
-                      icon={<CalendarDays className="size-4.5" />}
-                      title="Partido"
-                    >
-                      <div className="grid gap-4 md:grid-cols-2">
+                      <div className="grid gap-4 lg:grid-cols-2">
                         <LabeledField
-                          label="ID"
+                          label="ID de Produ"
                           required
-                          alert={missingFields.includes("productionCode")}
+                          alert={highlightedMissingFields.includes("productionCode")}
                         >
                           <Input
                             name="productionCode"
@@ -657,50 +969,44 @@ export function CreateMatchModal({
                             placeholder="PRD-EC39-E909"
                             className={cn(
                               fieldSurfaceClass,
-                              missingFields.includes("productionCode") &&
+                              highlightedMissingFields.includes("productionCode") &&
                                 missingFieldClass,
                             )}
                           />
                         </LabeledField>
                         <LabeledField
-                          label="Nombre de la liga"
+                          label="Liga"
                           required
-                          alert={missingFields.includes("competition")}
+                          alert={highlightedMissingFields.includes("competition")}
                         >
-                          <div className="relative">
-                            <Input
-                              name="competition"
-                              list="match-competition-catalog"
-                              value={fields.competition}
-                              onChange={(event) => {
-                                setCompetitionTouched(true);
-                                updateField("competition", event.target.value);
-                              }}
-                              placeholder="Liga Nacional"
-                              className={cn(
-                                fieldSurfaceClass,
-                                "pr-16",
-                                missingFields.includes("competition") &&
-                                  missingFieldClass,
-                              )}
-                            />
-                            {fields.competition.trim() ? (
-                              <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-                                <LeagueLogoMarkClient
-                                  league={fields.competition}
-                                  className="size-9 rounded-[10px]"
-                                />
-                              </div>
-                            ) : null}
-                          </div>
+                          <Select
+                            name="competition"
+                            value={fields.competition}
+                            onChange={(event) => {
+                              setCompetitionTouched(true);
+                              updateField("competition", event.target.value);
+                            }}
+                            className={cn(
+                              fieldSurfaceClass,
+                              highlightedMissingFields.includes("competition") &&
+                                missingFieldClass,
+                            )}
+                          >
+                            <option value="">Selecciona una liga</option>
+                            {competitionOptions.map((competition) => (
+                              <option key={competition} value={competition}>
+                                {competition}
+                              </option>
+                            ))}
+                          </Select>
                         </LabeledField>
                       </div>
 
-                      <div className="grid gap-4 md:grid-cols-2">
+                      <div className="grid gap-4 lg:grid-cols-2">
                         <LabeledField
-                          label="Local"
+                          label="Equipo local"
                           required
-                          alert={missingFields.includes("homeTeam")}
+                          alert={highlightedMissingFields.includes("homeTeam")}
                         >
                           <div className="relative">
                             <Input
@@ -710,11 +1016,11 @@ export function CreateMatchModal({
                               onChange={(event) =>
                                 handleHomeTeamChange(event.target.value)
                               }
-                              placeholder="Equipo local"
+                              placeholder="Nombre del equipo local"
                               className={cn(
                                 fieldSurfaceClass,
                                 "pr-16",
-                                missingFields.includes("homeTeam") &&
+                                highlightedMissingFields.includes("homeTeam") &&
                                   missingFieldClass,
                               )}
                             />
@@ -732,9 +1038,9 @@ export function CreateMatchModal({
                           </div>
                         </LabeledField>
                         <LabeledField
-                          label="Visitante"
+                          label="Equipo visitante"
                           required
-                          alert={missingFields.includes("awayTeam")}
+                          alert={highlightedMissingFields.includes("awayTeam")}
                         >
                           <div className="relative">
                             <Input
@@ -744,11 +1050,11 @@ export function CreateMatchModal({
                               onChange={(event) =>
                                 updateField("awayTeam", event.target.value)
                               }
-                              placeholder="Equipo visitante"
+                              placeholder="Nombre del equipo visitante"
                               className={cn(
                                 fieldSurfaceClass,
                                 "pr-16",
-                                missingFields.includes("awayTeam") &&
+                                highlightedMissingFields.includes("awayTeam") &&
                                   missingFieldClass,
                               )}
                             />
@@ -767,11 +1073,11 @@ export function CreateMatchModal({
                         </LabeledField>
                       </div>
 
-                      <div className="grid gap-4 md:grid-cols-3">
+                      <div className="grid gap-4 lg:grid-cols-2">
                         <LabeledField
-                          label="Día"
+                          label="Fecha"
                           required
-                          alert={missingFields.includes("date")}
+                          alert={highlightedMissingFields.includes("date")}
                         >
                           <Input
                             type="date"
@@ -782,7 +1088,7 @@ export function CreateMatchModal({
                             }
                             className={cn(
                               fieldSurfaceClass,
-                              missingFields.includes("date") &&
+                              highlightedMissingFields.includes("date") &&
                                 missingFieldClass,
                             )}
                           />
@@ -790,7 +1096,7 @@ export function CreateMatchModal({
                         <LabeledField
                           label="Hora"
                           required
-                          alert={missingFields.includes("time")}
+                          alert={highlightedMissingFields.includes("time")}
                         >
                           <Input
                             type="time"
@@ -801,14 +1107,47 @@ export function CreateMatchModal({
                             }
                             className={cn(
                               fieldSurfaceClass,
-                              missingFields.includes("time") && missingFieldClass,
+                              highlightedMissingFields.includes("time") &&
+                                missingFieldClass,
                             )}
                           />
                         </LabeledField>
+                      </div>
+
+                      <div className="grid gap-4">
                         <LabeledField
-                          label="Producción"
+                          label="Sede"
                           required
-                          alert={missingFields.includes("productionMode")}
+                          alert={highlightedMissingFields.includes("venue")}
+                        >
+                          <Input
+                            name="venue"
+                            value={fields.venue}
+                            onChange={(event) => {
+                              setVenueTouched(true);
+                              updateField("venue", event.target.value);
+                            }}
+                            placeholder="Sede del local o ubicación remota"
+                            className={cn(
+                              fieldSurfaceClass,
+                              highlightedMissingFields.includes("venue") &&
+                                missingFieldClass,
+                            )}
+                          />
+                        </LabeledField>
+                      </div>
+                    </SectionBlock>
+
+                    <SectionBlock
+                      step="2"
+                      title="Contexto operativo"
+                      status={`${contextCompleted}/${CONTEXT_FIELDS.length} listos`}
+                    >
+                      <div className="grid gap-4 lg:grid-cols-3">
+                        <LabeledField
+                          label="Produ"
+                          required
+                          alert={highlightedMissingFields.includes("productionMode")}
                         >
                           <Select
                             name="productionMode"
@@ -818,11 +1157,11 @@ export function CreateMatchModal({
                             }
                             className={cn(
                               fieldSurfaceClass,
-                              missingFields.includes("productionMode") &&
+                              highlightedMissingFields.includes("productionMode") &&
                                 missingFieldClass,
                             )}
                           >
-                            <option value="">Selecciona un modo</option>
+                            <option value="">Selecciona una Produ</option>
                             {PRODUCTION_MODE_OPTIONS.map((mode) => (
                               <option key={mode} value={mode}>
                                 {mode}
@@ -830,39 +1169,60 @@ export function CreateMatchModal({
                             ))}
                           </Select>
                         </LabeledField>
+                        <LabeledField label="Tipo de relato">
+                          <Select
+                            name="commentaryPlan"
+                            value={fields.commentaryPlan}
+                            onChange={(event) =>
+                              updateField("commentaryPlan", event.target.value)
+                            }
+                            aria-label="Modalidad de relatos"
+                            className={fieldSurfaceClass}
+                          >
+                            <option value="">Sin definir</option>
+                            {COMMENTARY_PLAN_OPTIONS.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </Select>
+                        </LabeledField>
+                        <LabeledField label="Transporte">
+                          <Input
+                            name="transport"
+                            value={fields.transport}
+                            onChange={(event) =>
+                              updateField("transport", event.target.value)
+                            }
+                            placeholder="Proveedor o movilidad"
+                            className={fieldSurfaceClass}
+                          />
+                        </LabeledField>
                       </div>
-                      <input type="hidden" name="status" value={fields.status} />
 
                       <div className="grid gap-4">
-                        <LabeledField
-                          label="Sede"
-                          required
-                          alert={missingFields.includes("venue")}
-                        >
-                          <Input
-                            name="venue"
-                            value={fields.venue}
-                            onChange={(event) => {
-                              setVenueTouched(true);
-                              updateField("venue", event.target.value);
-                            }}
-                            placeholder="Sede del local / remoto"
-                            className={cn(
-                              fieldSurfaceClass,
-                              missingFields.includes("venue") && missingFieldClass,
-                            )}
+                        <LabeledField label="Observación inicial">
+                          <Textarea
+                            name="notes"
+                            value={fields.notes}
+                            onChange={(event) =>
+                              updateField("notes", event.target.value)
+                            }
+                            placeholder="Cualquier contexto editorial, técnico o logístico que convenga dejar visible desde el inicio."
+                            className="min-h-28 bg-[var(--background-soft)] text-[15px]"
                           />
                         </LabeledField>
                       </div>
                     </SectionBlock>
 
                     <SectionBlock
-                      icon={<Users className="size-4.5" />}
-                      title="Staff en cancha"
+                      step="3"
+                      title="Personal"
+                      status={`${staffCompleted}/${STAFF_FIELDS.length} roles`}
                     >
-                      <div className="grid gap-4 md:grid-cols-2">
+                      <div className="grid gap-4 lg:grid-cols-2">
                         <PersonSelectField
-                          label="Responsable en cancha"
+                          label={RESPONSIBLE_DISPLAY_LABEL}
                           name="responsableId"
                           value={fields.responsableId}
                           people={peopleOptions}
@@ -896,78 +1256,6 @@ export function CreateMatchModal({
                           people={peopleOptions}
                           onChange={updateField}
                         />
-                        <LabeledField label="Transporte">
-                          <Input
-                            name="transport"
-                            value={fields.transport}
-                            onChange={(event) =>
-                              updateField("transport", event.target.value)
-                            }
-                            placeholder="Proveedor / movilidad"
-                            className={fieldSurfaceClass}
-                          />
-                        </LabeledField>
-                      </div>
-                    </SectionBlock>
-                  </div>
-
-                  <div className="space-y-6">
-                    <SectionBlock
-                      icon={<Camera className="size-4.5" />}
-                      title="Cámaras"
-                    >
-                      <div className="grid gap-4">
-                        {CAMERA_FIELD_CONFIGS.slice(0, visibleCameraCount).map((field) => (
-                          <PersonSelectField
-                            key={field.name}
-                            label={field.label}
-                            name={field.name}
-                            value={fields[field.name]}
-                            people={peopleOptions}
-                            onChange={updateField}
-                          />
-                        ))}
-                        {visibleCameraCount < CAMERA_FIELD_CONFIGS.length ? (
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            className="h-11 justify-center gap-2 border-dashed border-[#d7dde7] text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
-                            onClick={() =>
-                              setVisibleCameraCount((current) =>
-                                Math.min(current + 1, CAMERA_FIELD_CONFIGS.length),
-                              )
-                            }
-                          >
-                            <Plus className="size-4" />
-                            Agregar cámara
-                          </Button>
-                        ) : null}
-                      </div>
-                    </SectionBlock>
-
-                    <SectionBlock
-                      icon={<Mic2 className="size-4.5" />}
-                      title="Relatos / comentarios"
-                    >
-                      <div className="grid gap-4">
-                        <LabeledField label="Tipo de relato">
-                          <Select
-                            name="commentaryPlan"
-                            value={fields.commentaryPlan}
-                            onChange={(event) =>
-                              updateField("commentaryPlan", event.target.value)
-                            }
-                            aria-label="Modalidad de relatos"
-                            className={fieldSurfaceClass}
-                          >
-                            <option value="">Sin definir</option>
-                            {COMMENTARY_PLAN_OPTIONS.map((option) => (
-                              <option key={option} value={option}>
-                                {option}
-                              </option>
-                            ))}
-                          </Select>
-                        </LabeledField>
                         <PersonSelectField
                           label="Relator"
                           name="relatorId"
@@ -975,46 +1263,407 @@ export function CreateMatchModal({
                           people={peopleOptions}
                           onChange={updateField}
                         />
-                        <PersonSelectField
-                          label="Comentarista 1"
-                          name="comentario1Id"
-                          value={fields.comentario1Id}
-                          people={peopleOptions}
-                          onChange={updateField}
-                        />
-                        <PersonSelectField
-                          label="Comentarista 2"
-                          name="comentario2Id"
-                          value={fields.comentario2Id}
-                          people={peopleOptions}
-                          onChange={updateField}
-                        />
                       </div>
                     </SectionBlock>
 
                     <SectionBlock
-                      icon={<MapPin className="size-4.5" />}
-                      title="Observación"
+                      step="4"
+                      title="Notificar"
+                      status={`${notificationRecipients.length} contactos`}
                     >
-                      <LabeledField label="Observación">
-                        <Textarea
-                          name="notes"
-                          value={fields.notes}
-                          onChange={(event) =>
-                            updateField("notes", event.target.value)
-                          }
-                          placeholder="Contexto editorial, técnico o logístico del juego"
-                        />
-                      </LabeledField>
-                    </SectionBlock>
-                  </div>
-                </div>
+                      <div className="space-y-4">
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            className="gap-2"
+                            disabled={!bulkNotificationMailtoHref}
+                            onClick={() => {
+                              if (bulkNotificationMailtoHref) {
+                                window.location.assign(bulkNotificationMailtoHref);
+                              }
+                            }}
+                          >
+                            <Mail className="size-4" />
+                            Correo a todos
+                          </Button>
+                          <Button
+                            type="button"
+                            className="gap-2 bg-[#12b76a] shadow-[0_10px_24px_rgba(18,183,106,0.18)] hover:bg-[#0f9f5c]"
+                            disabled={!notificationRecipients.some((recipient) => recipient.whatsappHref)}
+                            onClick={handleBulkWhatsApp}
+                          >
+                            <MessageCircleMore className="size-4" />
+                            WhatsApp a todos
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            className="gap-2"
+                            onClick={() => handleCopyNotification(batchNotificationMessage, "batch")}
+                          >
+                            <Copy className="size-4" />
+                            {copiedNotificationKey === "batch" ? "Copiado" : "Copiar texto"}
+                          </Button>
+                        </div>
 
-                <datalist id="match-competition-catalog">
-                  {CLUB_COMPETITIONS.map((competition) => (
-                    <option key={competition} value={competition} />
-                  ))}
-                </datalist>
+                        <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-4">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#8ea0bb]">
+                            Mensaje base
+                          </p>
+                          <pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-6 text-[var(--foreground)]">
+                            {batchNotificationMessage}
+                          </pre>
+                        </div>
+
+                        {notificationRecipients.length ? (
+                          <div className="space-y-4">
+                            {notificationRecipients.map((recipient, index) => (
+                              <div
+                                key={recipient.id}
+                                className={cn(
+                                  "flex flex-wrap items-center justify-between gap-4",
+                                  index === notificationRecipients.length - 1
+                                    ? ""
+                                    : "border-b border-[var(--border)] pb-4",
+                                )}
+                              >
+                                <div className="flex min-w-0 items-center gap-3">
+                                  <HoverAvatarBadge
+                                    initials={getInitials(recipient.fullName)}
+                                    roleLabel={recipient.roles.join(" · ")}
+                                    showTooltip={false}
+                                    tone="neutral"
+                                    size="md"
+                                  />
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm font-bold text-[var(--foreground)]">
+                                      {recipient.fullName}
+                                    </p>
+                                    <p className="mt-1 truncate text-[10px] font-bold uppercase tracking-[0.16em] text-[#7587a1]">
+                                      {recipient.roles.join(" · ")}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex shrink-0 items-center gap-2">
+                                  <Button
+                                    type="button"
+                                    variant="secondary"
+                                    className="gap-2 px-3"
+                                    onClick={() => handleCopyNotification(recipient.message, recipient.id)}
+                                  >
+                                    <Copy className="size-4" />
+                                    {copiedNotificationKey === recipient.id ? "Copiado" : "Copiar"}
+                                  </Button>
+                                  <button
+                                    type="button"
+                                    aria-label={`Enviar correo a ${recipient.fullName}`}
+                                    disabled={!recipient.emailHref}
+                                    onClick={() => {
+                                      if (recipient.emailHref) {
+                                        window.location.assign(recipient.emailHref);
+                                      }
+                                    }}
+                                    className={cn(
+                                      "inline-flex size-11 items-center justify-center rounded-full border transition",
+                                      recipient.emailHref
+                                        ? "border-[#c9d8fb] bg-[#eef4ff] text-[#2b6be7] hover:brightness-105"
+                                        : "cursor-not-allowed border-[var(--border)] bg-[#f4f6fa] text-[#b1bccd]",
+                                    )}
+                                  >
+                                    <Mail className="size-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    aria-label={`Abrir WhatsApp de ${recipient.fullName}`}
+                                    disabled={!recipient.whatsappHref}
+                                    onClick={() => {
+                                      if (recipient.whatsappHref) {
+                                        window.open(recipient.whatsappHref, "_blank", "noopener,noreferrer");
+                                      }
+                                    }}
+                                    className={cn(
+                                      "inline-flex size-11 items-center justify-center rounded-full border transition",
+                                      recipient.whatsappHref
+                                        ? "border-[#c9ead8] bg-[#eefbf3] text-[#1b8b56] hover:brightness-105"
+                                        : "cursor-not-allowed border-[var(--border)] bg-[#f4f6fa] text-[#b1bccd]",
+                                    )}
+                                  >
+                                    <MessageCircleMore className="size-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-5 text-sm font-semibold text-[#7d8ca4]">
+                            Primero asigna al menos una persona en el bloque de Personal para poder
+                            preparar la convocatoria.
+                          </div>
+                        )}
+                      </div>
+                    </SectionBlock>
+
+                    <div className="overflow-hidden rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left"
+                        onClick={() => setShowAdvanced((current) => !current)}
+                      >
+                        <div>
+                          <p className="text-[11px] font-extrabold uppercase tracking-[0.24em] text-[#8ea0bb]">
+                            Detalles adicionales
+                          </p>
+                        </div>
+                        <span className="inline-flex size-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--background-soft)] text-[#617089]">
+                          {showAdvanced ? (
+                            <ChevronUp className="size-4.5" />
+                          ) : (
+                            <ChevronDown className="size-4.5" />
+                          )}
+                        </span>
+                      </button>
+
+                      {showAdvanced ? (
+                        <div className="space-y-5 border-t border-[var(--border)] px-6 py-6">
+                          <div className="grid gap-5 xl:grid-cols-2">
+                            <div className="space-y-4 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] p-5">
+                              <div className="flex items-start gap-3">
+                                <div className="flex size-10 items-center justify-center rounded-full bg-white text-[var(--accent)] shadow-[0_6px_18px_rgba(15,23,42,0.08)]">
+                                  <Camera className="size-4.5" />
+                                </div>
+                                <div>
+                                  <h3 className="text-sm font-extrabold uppercase tracking-[0.18em] text-[var(--foreground)]">
+                                    Cámaras
+                                  </h3>
+                                </div>
+                              </div>
+                              <div className="grid gap-4">
+                                {CAMERA_FIELD_CONFIGS.slice(0, visibleCameraCount).map((field) => (
+                                  <PersonSelectField
+                                    key={field.name}
+                                    label={field.label}
+                                    name={field.name}
+                                    value={fields[field.name]}
+                                    people={peopleOptions}
+                                    onChange={updateField}
+                                  />
+                                ))}
+                                {visibleCameraCount < CAMERA_FIELD_CONFIGS.length ? (
+                                  <Button
+                                    type="button"
+                                    variant="secondary"
+                                    className="h-11 justify-center gap-2 border-dashed border-[#d7dde7] text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                                    onClick={() =>
+                                      setVisibleCameraCount((current) =>
+                                        Math.min(current + 1, CAMERA_FIELD_CONFIGS.length),
+                                      )
+                                    }
+                                  >
+                                    <Plus className="size-4" />
+                                    Agregar cámara
+                                  </Button>
+                                ) : null}
+                              </div>
+                            </div>
+
+                            <div className="space-y-4 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] p-5">
+                              <div className="flex items-start gap-3">
+                                <div className="flex size-10 items-center justify-center rounded-full bg-white text-[var(--accent)] shadow-[0_6px_18px_rgba(15,23,42,0.08)]">
+                                  <Mic2 className="size-4.5" />
+                                </div>
+                                <div>
+                                  <h3 className="text-sm font-extrabold uppercase tracking-[0.18em] text-[var(--foreground)]">
+                                    Comentarios extra
+                                  </h3>
+                                </div>
+                              </div>
+                              <div className="grid gap-4">
+                                <PersonSelectField
+                                  label="Comentarista 1"
+                                  name="comentario1Id"
+                                  value={fields.comentario1Id}
+                                  people={peopleOptions}
+                                  onChange={updateField}
+                                />
+                                <PersonSelectField
+                                  label="Comentarista 2"
+                                  name="comentario2Id"
+                                  value={fields.comentario2Id}
+                                  people={peopleOptions}
+                                  onChange={updateField}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <aside className="order-first space-y-4 self-start xl:order-last xl:sticky xl:top-0">
+                    <div className="overflow-hidden rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] shadow-[0_22px_48px_rgba(15,23,42,0.08)]">
+                      <div className="space-y-4 px-5 py-5">
+                        <div className="rounded-[var(--panel-radius)] bg-[var(--background-soft)] p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex min-w-0 items-center gap-3">
+                              <LeagueLogoMarkClient
+                                league={previewCompetitionLabel}
+                                className="size-10 shrink-0 rounded-[var(--panel-radius)]"
+                              />
+                              <div className="min-w-0">
+                                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#8ea0bb]">
+                                  Liga
+                                </p>
+                                <p className="truncate text-sm font-bold text-[var(--foreground)]">
+                                  {previewCompetitionLabel}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#8ea0bb]">
+                                Hora
+                              </p>
+                              <p className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">
+                                {previewTimeLabel}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-white p-4">
+                          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center">
+                            <div className="space-y-2">
+                              <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-[var(--background-soft)] shadow-[0_8px_18px_rgba(15,23,42,0.06)]">
+                                <ClientTeamLogoMark
+                                  teamName={previewHomeTeamLabel}
+                                  competition={previewCompetitionLabel}
+                                  className="size-14 rounded-full"
+                                  imageClassName="p-2"
+                                  initialsClassName="text-[11px] tracking-[0.14em]"
+                                />
+                              </div>
+                              <p className="text-sm font-bold leading-tight text-[var(--foreground)]">
+                                {previewHomeTeamLabel}
+                              </p>
+                            </div>
+                            <p className="text-lg font-extrabold text-[var(--accent)]">VS</p>
+                            <div className="space-y-2">
+                              <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-[var(--background-soft)] shadow-[0_8px_18px_rgba(15,23,42,0.06)]">
+                                <ClientTeamLogoMark
+                                  teamName={previewAwayTeamLabel}
+                                  competition={previewCompetitionLabel}
+                                  className="size-14 rounded-full"
+                                  imageClassName="p-2"
+                                  initialsClassName="text-[11px] tracking-[0.14em]"
+                                />
+                              </div>
+                              <p className="text-sm font-bold leading-tight text-[var(--foreground)]">
+                                {previewAwayTeamLabel}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="mt-4 space-y-2 text-sm text-[var(--muted)]">
+                            <div className="flex items-center gap-2">
+                              <CalendarDays className="size-4" />
+                              <span>{previewDateLabel}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <MapPin className="size-4" />
+                              <span>{previewVenueLabel}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-white p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-[11px] font-extrabold uppercase tracking-[0.24em] text-[#8ea0bb]">
+                              Checklist rápido
+                            </p>
+                            <span className="text-sm font-bold text-[var(--foreground)]">
+                              {CORE_REQUIRED_FIELDS.length - missingFields.length}/
+                              {CORE_REQUIRED_FIELDS.length}
+                            </span>
+                          </div>
+                          <div className="mt-3 h-2 overflow-hidden rounded-full bg-[var(--background-soft)]">
+                            <div
+                              className="h-full rounded-full bg-[var(--accent)] transition-all"
+                              style={{ width: `${requiredCompletionRatio}%` }}
+                            />
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {missingFieldLabels.length ? (
+                              missingFieldLabels.map((label) => (
+                                <span
+                                  key={label}
+                                  className="rounded-full bg-[var(--background-soft)] px-3 py-1 text-[11px] font-semibold text-[#617089]"
+                                >
+                                  {label}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="inline-flex items-center gap-2 rounded-full bg-[#eff9f3] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#1a8b4f]">
+                                <CheckCircle2 className="size-3.5" />
+                                Listo para guardar
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-white p-4">
+                          <p className="text-[11px] font-extrabold uppercase tracking-[0.24em] text-[#8ea0bb]">
+                            Roles clave
+                          </p>
+                          <div className="mt-3 grid gap-x-5 gap-y-4 sm:grid-cols-2">
+                            {summaryRoles.map((role) => (
+                              <div
+                                key={role.label}
+                                className="flex items-center gap-3"
+                              >
+                                <HoverAvatarBadge
+                                  initials={role.initials}
+                                  roleLabel={role.label}
+                                  showTooltip={false}
+                                  tone="neutral"
+                                  size="md"
+                                />
+                                <div className="min-w-0">
+                                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#8ea0bb]">
+                                    {role.label}
+                                  </p>
+                                  <p className="mt-1 truncate text-sm font-semibold text-[var(--foreground)]">
+                                    {role.value}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="mt-5 grid gap-3 border-t border-[var(--border)] pt-4 sm:grid-cols-2 xl:grid-cols-1">
+                            <div className="space-y-1">
+                              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#8ea0bb]">
+                                Personal asignado
+                              </p>
+                              <p className="mt-1 text-xl font-extrabold text-[var(--foreground)]">
+                                {previewAssignedPeopleCount}
+                              </p>
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#8ea0bb]">
+                                Detalle técnico
+                              </p>
+                              <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">
+                                {showAdvanced ? "Abierto" : "Compacto"}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </aside>
+                </div>
+                <input type="hidden" name="status" value={fields.status} />
+
                 <datalist id="match-club-catalog">
                   {ALL_CLUB_OPTIONS.map((club) => (
                     <option key={club} value={club} />
@@ -1024,12 +1673,12 @@ export function CreateMatchModal({
 
               <div className="flex items-center justify-between gap-4 border-t border-[var(--border)] bg-[var(--background-soft)] px-7 py-5">
                 <div className="text-sm text-[var(--muted)]">
-                  {visibleMissingFieldLabels.length ? (
+                  {missingFieldLabels.length ? (
                     <>
                       Revisa antes de guardar:
                       {" "}
                       <span className="font-bold text-[var(--foreground)]">
-                        {visibleMissingFieldLabels.join(", ")}
+                        {missingFieldLabels.join(", ")}
                       </span>
                     </>
                   ) : (

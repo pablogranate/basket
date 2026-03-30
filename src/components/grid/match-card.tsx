@@ -17,7 +17,11 @@ import { LeagueLogoMarkClient } from "@/components/league-logo-mark-client";
 import { QuickMatchFieldEditor } from "@/components/grid/quick-match-field-editor";
 import { badgeBaseClassName } from "@/components/ui/badge";
 import { HoverAvatarBadge } from "@/components/ui/hover-avatar-badge";
-import { getProductionModeLabel } from "@/lib/constants";
+import {
+  getProductionModeLabel,
+  PRODUCTION_SHORT_LABEL,
+  RESPONSIBLE_DISPLAY_LABEL,
+} from "@/lib/constants";
 import { formatMatchTime } from "@/lib/date";
 import { getRoleDisplayName } from "@/lib/display";
 import { getTeamLeagueLabel } from "@/lib/team-directory";
@@ -33,12 +37,25 @@ type SectionRow = {
 };
 
 function formatGridDate(kickoffAt: string, timezone: string) {
-  return new Intl.DateTimeFormat("es-AR", {
+  const parts = new Intl.DateTimeFormat("es-AR", {
+    weekday: "short",
     day: "2-digit",
-    month: "long",
+    month: "short",
     year: "numeric",
     timeZone: timezone,
-  }).format(new Date(kickoffAt));
+  }).formatToParts(new Date(kickoffAt));
+
+  const weekday = parts.find((part) => part.type === "weekday")?.value ?? "";
+  const day = parts.find((part) => part.type === "day")?.value ?? "";
+  const month = parts.find((part) => part.type === "month")?.value ?? "";
+  const year = parts.find((part) => part.type === "year")?.value ?? "";
+
+  return [weekday, day, month, year]
+    .filter(Boolean)
+    .join(" ")
+    .replaceAll(".", "")
+    .replaceAll(",", "")
+    .toUpperCase();
 }
 
 function buildProductionId(id: string) {
@@ -72,7 +89,7 @@ function buildProductionRows(match: MatchListItem): SectionRow[] {
 
   return [
     {
-      label: "Responsable en cancha",
+      label: RESPONSIBLE_DISPLAY_LABEL,
       value: responsible.value,
       muted: responsible.muted,
       compactValue: true,
@@ -177,6 +194,16 @@ function formatProductionModeLabel(mode: string | null | undefined) {
   return getProductionModeLabel(mode);
 }
 
+function isUnassignedLeagueLabel(value: string) {
+  return (
+    value
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim() === "sin liga"
+  );
+}
+
 function Section({
   title,
   icon: Icon,
@@ -239,6 +266,8 @@ export function MatchCard({
   people: Array<{
     id: string;
     full_name: string;
+    phone: string | null;
+    email: string | null;
   }>;
 }) {
   const cameraRows = buildCategoryRows(match, "Camaras");
@@ -260,6 +289,7 @@ export function MatchCard({
   const commentator2 = getAssignmentValue(match, "Comentario 2");
   const commentator = commentator1.muted ? commentator2 : commentator1;
   const leagueLabel = getTeamLeagueLabel(match.competition ?? "Sin liga");
+  const isUnassignedLeague = isUnassignedLeagueLabel(leagueLabel);
   const venueLabel = match.venue ?? "Sede sin definir";
   const statusAccentClass =
     match.status === "Realizado" ? "bg-[#26b36a]" : "bg-[#d7dde7]";
@@ -283,8 +313,19 @@ export function MatchCard({
         <div className="relative z-10 overflow-visible rounded-t-[10px] rounded-b-[10px]">
           <div className="overflow-hidden rounded-t-[10px] rounded-b-[10px] flex flex-col xl:grid xl:grid-cols-[6.5rem_minmax(12.5rem,17rem)_repeat(4,minmax(10rem,1fr))_4.75rem] xl:items-stretch 2xl:grid-cols-[7rem_minmax(17.5rem,25rem)_repeat(4,minmax(10.25rem,1fr))_4.75rem]">
           <div className="relative z-10 flex flex-col items-center justify-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-5 text-center xl:border-b-0 xl:border-r">
-            <LeagueLogoMarkClient league={leagueLabel} className="h-16 w-16" />
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#70819b]">
+            <LeagueLogoMarkClient
+              league={leagueLabel}
+              className={cn(
+                "h-16 w-16",
+                isUnassignedLeague && "rounded-2xl bg-[#e4eaf1]",
+              )}
+            />
+            <p
+              className={cn(
+                "text-[10px] font-bold uppercase tracking-[0.18em] text-[#70819b]",
+                isUnassignedLeague && "text-[#7f8ca0]",
+              )}
+            >
               {leagueLabel}
             </p>
           </div>
@@ -380,7 +421,7 @@ export function MatchCard({
             <div className="flex items-center gap-3">
               <HoverAvatarBadge
                 initials={getInitials(responsible.value)}
-                roleLabel="Responsable general"
+                roleLabel={RESPONSIBLE_DISPLAY_LABEL}
                 showTooltip={false}
                 tone="neutral"
                 size="sm"
@@ -395,7 +436,7 @@ export function MatchCard({
                   {getCompactPersonName(responsible.value)}
                 </p>
                 <p className="text-xs font-semibold text-[var(--muted)]">
-                  Responsable General
+                  {RESPONSIBLE_DISPLAY_LABEL}
                 </p>
               </div>
             </div>
@@ -435,7 +476,7 @@ export function MatchCard({
                 initials={getInitials(narrator.value)}
                 roleLabel="Relatos"
                 showTooltip={false}
-                tone="accent"
+                tone="neutral"
                 size="sm"
               />
               <div className="min-w-0">
@@ -452,7 +493,7 @@ export function MatchCard({
                 initials={getInitials(commentator.value)}
                 roleLabel="Comentarios"
                 showTooltip={false}
-                tone="accent"
+                tone="neutral"
                 size="sm"
               />
               <div className="min-w-0">
@@ -491,7 +532,7 @@ export function MatchCard({
             <div>
               <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#a7b4c8]">
                 <Video className="size-3.5 text-[#a7b4c8]" />
-                Modo
+                {PRODUCTION_SHORT_LABEL}
               </p>
               <div className="mt-2">
                 <span
@@ -512,7 +553,7 @@ export function MatchCard({
                 <CalendarDays className="size-3.5 text-[#a7b4c8]" />
                 Fecha
               </p>
-              <p className="mt-2 text-sm font-bold text-[var(--foreground)]">
+              <p className="mt-2 text-[1.12rem] font-extrabold leading-tight tracking-[-0.03em] text-[var(--foreground)]">
                 {formatGridDate(match.kickoff_at, match.timezone)}
               </p>
             </div>

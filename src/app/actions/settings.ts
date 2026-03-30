@@ -12,14 +12,29 @@ import { requireUserContext } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   GEMINI_API_KEY_COOKIE,
+  GEMINI_GLOBAL_SETTING_KEY,
   GEMINI_MODEL_COOKIE,
   GEMINI_MODEL_OPTIONS,
   UI_DENSITY_COOKIE,
   UI_DENSITY_OPTIONS,
+  isGeminiModel,
 } from "@/lib/settings";
 
 function isAllowedValue<T extends readonly string[]>(value: string, options: T) {
   return options.includes(value as T[number]);
+}
+
+function isMissingAppSettingsError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const maybeCode =
+    "code" in error && typeof error.code === "string" ? error.code : "";
+  const maybeMessage =
+    "message" in error && typeof error.message === "string" ? error.message : "";
+
+  return maybeCode === "42P01" || maybeMessage.includes("app_settings");
 }
 
 const isSecureCookie = process.env.NODE_ENV === "production";
@@ -33,12 +48,13 @@ const ANNOUNCEMENT_REVALIDATE_PATHS = [
 
 export async function saveGeminiSettingsAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData, "/settings");
-  await requireUserContext();
+  const user = await requireUserContext();
 
   try {
     const apiKey = String(formData.get("geminiApiKey") ?? "").trim();
     const model = String(formData.get("geminiModel") ?? "gemini-2.5-flash").trim();
     const store = await cookies();
+    const resolvedModel = isGeminiModel(model) ? model : "gemini-2.5-flash";
 
     if (apiKey) {
       store.set(GEMINI_API_KEY_COOKIE, apiKey, {
@@ -60,13 +76,64 @@ export async function saveGeminiSettingsAction(formData: FormData) {
       });
     }
 
+    let notice = apiKey
+      ? "Configuración de Gemini actualizada."
+      : "Clave de Gemini eliminada.";
+
+    if (user.role === "admin") {
+      const supabase = await createSupabaseServerClient();
+
+      if (apiKey) {
+        const upsertResult = await supabase
+          .from("app_settings")
+          .upsert(
+            {
+              setting_key: GEMINI_GLOBAL_SETTING_KEY,
+              secret_value: apiKey,
+              public_value: resolvedModel,
+            },
+            { onConflict: "setting_key" },
+          );
+
+        if (upsertResult.error) {
+          if (isMissingAppSettingsError(upsertResult.error)) {
+            notice =
+              "Configuración personal guardada. Aplica la migración 0008 para compartir Gemini con todo el portal.";
+          } else {
+            throw upsertResult.error;
+          }
+        } else {
+          notice = "Gemini actualizado para tu sesión y para todo el portal.";
+        }
+      } else {
+        const deleteResult = await supabase
+          .from("app_settings")
+          .delete()
+          .eq("setting_key", GEMINI_GLOBAL_SETTING_KEY);
+
+        if (deleteResult.error) {
+          if (isMissingAppSettingsError(deleteResult.error)) {
+            notice =
+              "Clave personal eliminada. Aplica la migración 0008 para administrar la clave global del portal.";
+          } else {
+            throw deleteResult.error;
+          }
+        } else {
+          notice = "Clave de Gemini eliminada de tu sesión y del portal.";
+        }
+      }
+    }
+
     revalidatePath("/settings");
+    ANNOUNCEMENT_REVALIDATE_PATHS.forEach((path) => {
+      revalidatePath(path);
+    });
+    revalidatePath("/people");
+    revalidatePath("/teams");
     redirectWithNotice({
       redirectTo,
       intent: "success",
-      notice: apiKey
-        ? "Configuración de Gemini actualizada."
-        : "Clave de Gemini eliminada.",
+      notice,
     });
   } catch (error) {
     rethrowNavigationError(error);

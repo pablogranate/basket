@@ -1,17 +1,17 @@
 import { redirect } from "next/navigation";
 
+import { getUserContext } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/lib/env";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getDefaultDashboardHrefForRole } from "@/lib/constants";
 
 export default async function Home() {
   if (!isSupabaseConfigured) {
     redirect("/mi-jornada");
   }
 
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUserContext();
 
-  redirect(user ? "/mi-jornada" : "/login");
+  redirect(
+    user.userId ? getDefaultDashboardHrefForRole(user.role) : "/login",
+  );
 }

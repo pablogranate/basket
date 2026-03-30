@@ -7,12 +7,14 @@ import {
   AlertTriangle,
   Building2,
   CalendarDays,
+  Camera,
   ChevronDown,
   CheckCircle2,
   Circle,
   CircleEllipsis,
   Clock3,
   ImageIcon,
+  Images,
   Layers3,
   Loader2,
   MapPin,
@@ -41,6 +43,7 @@ type IncidentLevel = "sin" | "baja" | "alta" | "critica";
 type TechnicalCaptureKind = "speedtest" | "ping" | "gpu";
 type ReadingState = "idle" | "loading" | "error" | "done";
 type SignalOption = "BP" | "BP / IMG";
+type CaptureSource = "camera" | "gallery";
 
 type DraftState = {
   incidentLevel: IncidentLevel;
@@ -97,6 +100,11 @@ const SIGNAL_OPTIONS: SignalOption[] = ["BP", "BP / IMG"];
 
 const REPORT_ICON_BUBBLE_BASE =
   "inline-flex items-center justify-center rounded-full border border-[#ece6df] bg-[#faf7f3] shadow-[0_4px_12px_rgba(43,30,17,0.06)]";
+const REPORT_FIELD_LABEL_CLASS =
+  "text-[13px] font-semibold tracking-[-0.01em] text-[#617187]";
+const MAX_CAPTURE_BYTES = 1024 * 1024;
+const JPEG_QUALITY_STEPS = [0.9, 0.82, 0.74, 0.66, 0.58, 0.5];
+const SCALE_STEPS = [1, 0.92, 0.84, 0.76, 0.68, 0.6];
 
 const INCIDENT_LEVEL_OPTIONS: Array<{
   value: IncidentLevel;
@@ -177,6 +185,99 @@ function buildDefaultDraft(): DraftState {
   };
 }
 
+function getCaptureDisplayName(kind: TechnicalCaptureKind) {
+  if (kind === "speedtest") {
+    return "Speed Test.jpg";
+  }
+
+  if (kind === "ping") {
+    return "Ping.jpg";
+  }
+
+  return "GPU.jpg";
+}
+
+async function loadImageFromFile(file: File) {
+  const objectUrl = URL.createObjectURL(file);
+
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const nextImage = new Image();
+
+      nextImage.onload = () => resolve(nextImage);
+      nextImage.onerror = () => reject(new Error("No pudimos abrir la imagen."));
+      nextImage.src = objectUrl;
+    });
+
+    return image;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function canvasToJpegBlob(
+  image: HTMLImageElement,
+  scale: number,
+  quality: number,
+) {
+  const canvas = document.createElement("canvas");
+  const width = Math.max(1, Math.round(image.naturalWidth * scale));
+  const height = Math.max(1, Math.round(image.naturalHeight * scale));
+
+  canvas.width = width;
+  canvas.height = height;
+
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    throw new Error("No pudimos preparar la imagen.");
+  }
+
+  context.drawImage(image, 0, 0, width, height);
+
+  return await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error("No pudimos convertir la imagen."));
+          return;
+        }
+
+        resolve(blob);
+      },
+      "image/jpeg",
+      quality,
+    );
+  });
+}
+
+async function normalizeCaptureFile(file: File, kind: TechnicalCaptureKind) {
+  const image = await loadImageFromFile(file);
+  let smallestBlob: Blob | null = null;
+
+  for (const scale of SCALE_STEPS) {
+    for (const quality of JPEG_QUALITY_STEPS) {
+      const blob = await canvasToJpegBlob(image, scale, quality);
+
+      if (!smallestBlob || blob.size < smallestBlob.size) {
+        smallestBlob = blob;
+      }
+
+      if (blob.size <= MAX_CAPTURE_BYTES) {
+        return new File([blob], getCaptureDisplayName(kind), {
+          type: "image/jpeg",
+          lastModified: Date.now(),
+        });
+      }
+    }
+  }
+
+  return new File([smallestBlob ?? file], getCaptureDisplayName(kind), {
+    type: "image/jpeg",
+    lastModified: Date.now(),
+  });
+}
+
 function parseSavedDraft(raw: string | null): DraftState | null {
   if (!raw) {
     return null;
@@ -213,7 +314,7 @@ function SegmentedToggle<T extends string>({
 }) {
   return (
     <div className="space-y-2">
-      <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#95a3ba]">
+      <p className={REPORT_FIELD_LABEL_CLASS}>
         {label}
       </p>
       <div
@@ -263,7 +364,7 @@ function IncidentLevelSelector({
 }) {
   return (
     <div className="space-y-2">
-      <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#95a3ba]">
+      <p className={REPORT_FIELD_LABEL_CLASS}>
         Tipo de incidencia
       </p>
       <div className="grid grid-cols-4 gap-2">
@@ -318,7 +419,7 @@ function BinaryStateButton({
 }) {
   return (
     <div className="space-y-2">
-      <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#95a3ba]">
+      <p className={REPORT_FIELD_LABEL_CLASS}>
         {label}
       </p>
       <button
@@ -361,36 +462,33 @@ function SelectStateField({
   options: readonly string[];
   onChange: (value: string) => void;
 }) {
-  const currentIndex = Math.max(
-    0,
-    options.findIndex((option) => option === value),
-  );
-
   return (
     <div className="space-y-2">
-      <span className="block text-[11px] font-black uppercase tracking-[0.2em] text-[#95a3ba]">
+      <span className={cn("block", REPORT_FIELD_LABEL_CLASS)}>
         {label}
       </span>
-      <button
-        type="button"
-        onClick={() => onChange(options[(currentIndex + 1) % options.length] ?? options[0])}
-        className="flex h-[62px] w-full items-center justify-between gap-3 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-4 text-left transition hover:border-[#d7d0ca] focus:border-[var(--accent)]"
-      >
-        <span className="flex min-w-0 items-center gap-3">
-          <span
-            className={cn(
-              REPORT_ICON_BUBBLE_BASE,
-              "size-9 shrink-0 text-[#6b5d5f]",
-            )}
-          >
-            <Icon className="size-4" />
-          </span>
-          <span className="truncate text-sm font-black uppercase tracking-[0.12em] text-[#6b5d5f]">
-            {value}
-          </span>
+      <label className="relative block">
+        <select
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="h-[62px] w-full appearance-none rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] pl-16 pr-11 text-left text-sm font-black uppercase tracking-[0.12em] text-[#6b5d5f] outline-none transition hover:border-[#d7d0ca] focus:border-[var(--accent)]"
+        >
+          {options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+        <span
+          className={cn(
+            REPORT_ICON_BUBBLE_BASE,
+            "pointer-events-none absolute left-4 top-1/2 size-9 shrink-0 -translate-y-1/2 text-[#6b5d5f]",
+          )}
+        >
+          <Icon className="size-4" />
         </span>
-        <ChevronDown className="size-4 shrink-0 text-[#8b96aa]" />
-      </button>
+        <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 shrink-0 -translate-y-1/2 text-[#8b96aa]" />
+      </label>
     </div>
   );
 }
@@ -442,11 +540,12 @@ export function CollaboratorReportForm({
   assignment: CollaboratorAssignmentItem;
   showMatchSummary?: boolean;
 }) {
-  const speedtestInputRef = useRef<HTMLInputElement | null>(null);
-  const pingInputRef = useRef<HTMLInputElement | null>(null);
-  const gpuInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const galleryInputRef = useRef<HTMLInputElement | null>(null);
   const hasHydratedRef = useRef(false);
   const router = useRouter();
+  const [capturePickerKind, setCapturePickerKind] =
+    useState<TechnicalCaptureKind | null>(null);
   const [draft, setDraft] = useState<DraftState>(() => {
     if (typeof window === "undefined") {
       return buildDefaultDraft();
@@ -588,44 +687,61 @@ export function CollaboratorReportForm({
     kind: TechnicalCaptureKind,
     file: File,
   ) => {
-    const formData = new FormData();
-    formData.append("image", file);
-    formData.append("kind", kind);
-
-    setCaptureState((previous) => ({
-      ...previous,
-      [kind]: {
-        state: "loading",
-        message: "Leyendo captura con IA...",
-      },
-    }));
-    updateDraft((previous) => ({
-      ...previous,
-      speedtestAttachmentName:
-        kind === "speedtest" ? file.name : previous.speedtestAttachmentName,
-      pingAttachmentName: kind === "ping" ? file.name : previous.pingAttachmentName,
-      gpuAttachmentName: kind === "gpu" ? file.name : previous.gpuAttachmentName,
-    }));
-
     try {
+      const normalizedFile = await normalizeCaptureFile(file, kind);
+      const formData = new FormData();
+      formData.append("image", normalizedFile);
+      formData.append("kind", kind);
+
+      setCaptureState((previous) => ({
+        ...previous,
+        [kind]: {
+          state: "loading",
+          message: "Leyendo captura con IA...",
+        },
+      }));
+      updateDraft((previous) => ({
+        ...previous,
+        speedtestAttachmentName:
+          kind === "speedtest"
+            ? normalizedFile.name
+            : previous.speedtestAttachmentName,
+        pingAttachmentName:
+          kind === "ping" ? normalizedFile.name : previous.pingAttachmentName,
+        gpuAttachmentName:
+          kind === "gpu" ? normalizedFile.name : previous.gpuAttachmentName,
+      }));
+
       const response = await fetch("/api/ai/metric-capture", {
         method: "POST",
         body: formData,
       });
 
-      const payload = (await response.json()) as
+      const responseText = await response.text();
+      let payload:
         | { value: string | null; note?: string | null }
-        | { error?: string };
+        | { error?: string }
+        | null = null;
 
-      if (!response.ok || !("value" in payload)) {
+      try {
+        payload = responseText
+          ? ((JSON.parse(responseText) as
+              | { value: string | null; note?: string | null }
+              | { error?: string }))
+          : null;
+      } catch {
+        payload = null;
+      }
+
+      if (!response.ok || !payload || !("value" in payload)) {
         setCaptureState((previous) => ({
           ...previous,
           [kind]: {
             state: "error",
             message:
-              "error" in payload
+              payload && "error" in payload
                 ? (payload.error ?? "No pudimos leer la captura.")
-                : "No pudimos leer la captura.",
+                : "No pudimos leer la captura. Intenta de nuevo.",
           },
         }));
         return;
@@ -656,6 +772,37 @@ export function CollaboratorReportForm({
         },
       }));
     }
+  };
+
+  const openCapturePicker = (kind: TechnicalCaptureKind) => {
+    setCapturePickerKind(kind);
+  };
+
+  const triggerCaptureSource = (source: CaptureSource) => {
+    if (!capturePickerKind) {
+      return;
+    }
+
+    if (source === "camera") {
+      cameraInputRef.current?.click();
+      return;
+    }
+
+    galleryInputRef.current?.click();
+  };
+
+  const handlePickedCapture = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    const kind = capturePickerKind;
+
+    event.currentTarget.value = "";
+
+    if (!file || !kind) {
+      return;
+    }
+
+    setCapturePickerKind(null);
+    await handleUploadCapture(kind, file);
   };
 
   return (
@@ -778,7 +925,7 @@ export function CollaboratorReportForm({
         </h4>
         <div className="grid gap-4">
           <label className="space-y-2">
-            <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#95a3ba]">
+            <span className={cn("block", REPORT_FIELD_LABEL_CLASS)}>
               Hora
             </span>
             <input
@@ -885,127 +1032,112 @@ export function CollaboratorReportForm({
         </div>
 
         <div className="grid grid-cols-3 gap-x-2 gap-y-3">
-          <button
-            type="button"
-            onClick={() => speedtestInputRef.current?.click()}
-            aria-label="Subir captura de speedtest"
-            className="flex min-w-0 flex-col items-center justify-center gap-3 rounded-[var(--panel-radius)] border border-dashed border-[var(--border)] bg-[var(--background-soft)] px-2 py-3 text-center transition hover:border-[var(--accent)] hover:bg-[var(--surface)]"
-          >
-            <div className="flex min-w-0 flex-col items-center gap-2">
-              <span
-                className={cn(
-                  REPORT_ICON_BUBBLE_BASE,
-                  "size-10",
-                  draft.speedtestAttachmentName ? "text-[#1faa52]" : "text-[#8a6a43]",
-                )}
-              >
-                {draft.speedtestAttachmentName ? (
-                  <CheckCircle2 className="size-5" />
-                ) : (
-                  <Upload className="size-5" />
-                )}
-              </span>
-            </div>
-            {captureState.speedtest.state === "loading" ? (
-              <Loader2 className="size-4 animate-spin text-[var(--accent)]" />
-            ) : null}
-          </button>
-          <button
-            type="button"
-            onClick={() => pingInputRef.current?.click()}
-            aria-label="Subir captura de ping"
-            className="flex min-w-0 flex-col items-center justify-center gap-3 rounded-[var(--panel-radius)] border border-dashed border-[var(--border)] bg-[var(--background-soft)] px-2 py-3 text-center transition hover:border-[var(--accent)] hover:bg-[var(--surface)]"
-          >
-            <div className="flex min-w-0 flex-col items-center gap-2">
-              <span
-                className={cn(
-                  REPORT_ICON_BUBBLE_BASE,
-                  "size-10",
-                  draft.pingAttachmentName ? "text-[#1faa52]" : "text-[#8a6a43]",
-                )}
-              >
-                {draft.pingAttachmentName ? (
-                  <CheckCircle2 className="size-5" />
-                ) : (
-                  <Upload className="size-5" />
-                )}
-              </span>
-            </div>
-            {captureState.ping.state === "loading" ? (
-              <Loader2 className="size-4 animate-spin text-[var(--accent)]" />
-            ) : null}
-          </button>
-          <button
-            type="button"
-            onClick={() => gpuInputRef.current?.click()}
-            aria-label="Subir captura de GPU"
-            className="flex min-w-0 flex-col items-center justify-center gap-3 rounded-[var(--panel-radius)] border border-dashed border-[var(--border)] bg-[var(--background-soft)] px-2 py-3 text-center transition hover:border-[var(--accent)] hover:bg-[var(--surface)]"
-          >
-            <div className="flex min-w-0 flex-col items-center gap-2">
-              <span
-                className={cn(
-                  REPORT_ICON_BUBBLE_BASE,
-                  "size-10",
-                  draft.gpuAttachmentName ? "text-[#1faa52]" : "text-[#8a6a43]",
-                )}
-              >
-                {draft.gpuAttachmentName ? (
-                  <CheckCircle2 className="size-5" />
-                ) : (
-                  <Upload className="size-5" />
-                )}
-              </span>
-            </div>
-            {captureState.gpu.state === "loading" ? (
-              <Loader2 className="size-4 animate-spin text-[var(--accent)]" />
-            ) : null}
-          </button>
+          <div className="min-w-0 space-y-2">
+            <p className="text-center text-[13px] font-semibold tracking-[-0.01em] text-[#617187]">
+              Speed Test
+            </p>
+            <button
+              type="button"
+              onClick={() => openCapturePicker("speedtest")}
+              aria-label="Subir captura de speedtest"
+              className="flex w-full min-w-0 flex-col items-center justify-center gap-3 rounded-[var(--panel-radius)] border border-dashed border-[var(--border)] bg-[var(--background-soft)] px-2 py-3 text-center transition hover:border-[var(--accent)] hover:bg-[var(--surface)]"
+            >
+              <div className="flex min-w-0 flex-col items-center gap-2">
+                <span
+                  className={cn(
+                    REPORT_ICON_BUBBLE_BASE,
+                    "size-10",
+                    draft.speedtestAttachmentName ? "text-[#1faa52]" : "text-[#8a6a43]",
+                  )}
+                >
+                  {draft.speedtestAttachmentName ? (
+                    <CheckCircle2 className="size-5" />
+                  ) : (
+                    <Upload className="size-5" />
+                  )}
+                </span>
+              </div>
+              {captureState.speedtest.state === "loading" ? (
+                <Loader2 className="size-4 animate-spin text-[var(--accent)]" />
+              ) : null}
+            </button>
+          </div>
+          <div className="min-w-0 space-y-2">
+            <p className="text-center text-[13px] font-semibold tracking-[-0.01em] text-[#617187]">
+              Ping
+            </p>
+            <button
+              type="button"
+              onClick={() => openCapturePicker("ping")}
+              aria-label="Subir captura de ping"
+              className="flex w-full min-w-0 flex-col items-center justify-center gap-3 rounded-[var(--panel-radius)] border border-dashed border-[var(--border)] bg-[var(--background-soft)] px-2 py-3 text-center transition hover:border-[var(--accent)] hover:bg-[var(--surface)]"
+            >
+              <div className="flex min-w-0 flex-col items-center gap-2">
+                <span
+                  className={cn(
+                    REPORT_ICON_BUBBLE_BASE,
+                    "size-10",
+                    draft.pingAttachmentName ? "text-[#1faa52]" : "text-[#8a6a43]",
+                  )}
+                >
+                  {draft.pingAttachmentName ? (
+                    <CheckCircle2 className="size-5" />
+                  ) : (
+                    <Upload className="size-5" />
+                  )}
+                </span>
+              </div>
+              {captureState.ping.state === "loading" ? (
+                <Loader2 className="size-4 animate-spin text-[var(--accent)]" />
+              ) : null}
+            </button>
+          </div>
+          <div className="min-w-0 space-y-2">
+            <p className="text-center text-[13px] font-semibold tracking-[-0.01em] text-[#617187]">
+              GPU
+            </p>
+            <button
+              type="button"
+              onClick={() => openCapturePicker("gpu")}
+              aria-label="Subir captura de GPU"
+              className="flex w-full min-w-0 flex-col items-center justify-center gap-3 rounded-[var(--panel-radius)] border border-dashed border-[var(--border)] bg-[var(--background-soft)] px-2 py-3 text-center transition hover:border-[var(--accent)] hover:bg-[var(--surface)]"
+            >
+              <div className="flex min-w-0 flex-col items-center gap-2">
+                <span
+                  className={cn(
+                    REPORT_ICON_BUBBLE_BASE,
+                    "size-10",
+                    draft.gpuAttachmentName ? "text-[#1faa52]" : "text-[#8a6a43]",
+                  )}
+                >
+                  {draft.gpuAttachmentName ? (
+                    <CheckCircle2 className="size-5" />
+                  ) : (
+                    <Upload className="size-5" />
+                  )}
+                </span>
+              </div>
+              {captureState.gpu.state === "loading" ? (
+                <Loader2 className="size-4 animate-spin text-[var(--accent)]" />
+              ) : null}
+            </button>
+          </div>
         </div>
 
         <input
-          ref={speedtestInputRef}
+          ref={cameraInputRef}
           type="file"
-          accept="image/png,image/jpeg,image/webp"
+          accept="image/*"
+          capture="environment"
           className="hidden"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (!file) {
-              return;
-            }
-
-            void handleUploadCapture("speedtest", file);
-            event.currentTarget.value = "";
-          }}
+          onChange={(event) => void handlePickedCapture(event)}
         />
         <input
-          ref={pingInputRef}
+          ref={galleryInputRef}
           type="file"
-          accept="image/png,image/jpeg,image/webp"
+          accept="image/*"
           className="hidden"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (!file) {
-              return;
-            }
-
-            void handleUploadCapture("ping", file);
-            event.currentTarget.value = "";
-          }}
-        />
-        <input
-          ref={gpuInputRef}
-          type="file"
-          accept="image/png,image/jpeg,image/webp"
-          className="hidden"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (!file) {
-              return;
-            }
-
-            void handleUploadCapture("gpu", file);
-            event.currentTarget.value = "";
-          }}
+          onChange={(event) => void handlePickedCapture(event)}
         />
 
         <div className="grid gap-3">
@@ -1098,6 +1230,71 @@ export function CollaboratorReportForm({
         </div>
       </Card>
 
+      {capturePickerKind ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(15,23,42,0.26)] p-4 sm:items-center">
+          <div className="w-full max-w-sm rounded-[calc(var(--panel-radius)+4px)] bg-white p-5 shadow-[0_24px_60px_rgba(15,23,42,0.18)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h4 className="text-lg font-black tracking-tight text-[var(--foreground)]">
+                  Subir {capturePickerKind === "speedtest"
+                    ? "Speed Test"
+                    : capturePickerKind === "ping"
+                      ? "Ping"
+                      : "GPU"}
+                </h4>
+                <p className="mt-1 text-sm text-[#617187]">
+                  Elige si quieres tomar una foto ahora o subirla desde la galería.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCapturePickerKind(null)}
+                className="inline-flex size-10 items-center justify-center rounded-full bg-[#f8fafc] text-[#94a3b8] transition hover:bg-[#eef2f6] hover:text-[#52627a]"
+                aria-label="Cerrar selector de captura"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <div className="mt-5 grid gap-3">
+              <button
+                type="button"
+                onClick={() => triggerCaptureSource("camera")}
+                className="flex items-center gap-3 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-4 py-4 text-left transition hover:border-[var(--accent)] hover:bg-[#fff7f9]"
+              >
+                <span className={cn(REPORT_ICON_BUBBLE_BASE, "size-10 text-[var(--accent)]")}>
+                  <Camera className="size-4" />
+                </span>
+                <span>
+                  <span className="block text-sm font-bold text-[var(--foreground)]">
+                    Tomar foto
+                  </span>
+                  <span className="block text-xs text-[#617187]">
+                    Abre la cámara del celular.
+                  </span>
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => triggerCaptureSource("gallery")}
+                className="flex items-center gap-3 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-4 py-4 text-left transition hover:border-[var(--accent)] hover:bg-[#fff7f9]"
+              >
+                <span className={cn(REPORT_ICON_BUBBLE_BASE, "size-10 text-[#617187]")}>
+                  <Images className="size-4" />
+                </span>
+                <span>
+                  <span className="block text-sm font-bold text-[var(--foreground)]">
+                    Subir desde galería
+                  </span>
+                  <span className="block text-xs text-[#617187]">
+                    El archivo se convierte a JPG y se comprime antes de leerlo.
+                  </span>
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <Card className="space-y-5 p-5">
         <div className="space-y-1">
           <h4 className="text-sm font-black uppercase tracking-[0.22em] text-[#95a3ba]">
@@ -1106,7 +1303,7 @@ export function CollaboratorReportForm({
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
-            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#95a3ba]">
+            <p className={REPORT_FIELD_LABEL_CLASS}>
               Observaciones técnicas
             </p>
             <Textarea
@@ -1121,7 +1318,7 @@ export function CollaboratorReportForm({
             />
           </div>
           <div className="space-y-2">
-            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#95a3ba]">
+            <p className={REPORT_FIELD_LABEL_CLASS}>
               Observaciones edilicias
             </p>
             <Textarea
@@ -1136,7 +1333,7 @@ export function CollaboratorReportForm({
             />
           </div>
           <div className="space-y-2">
-            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#95a3ba]">
+            <p className={REPORT_FIELD_LABEL_CLASS}>
               Observaciones generales
             </p>
             <Textarea
@@ -1150,41 +1347,47 @@ export function CollaboratorReportForm({
               }
             />
           </div>
-          <div className="grid grid-cols-3 gap-3 sm:col-span-2">
-            <ObservationFlagToggle
-              label="OTRO"
-              icon={CircleEllipsis}
-              active={Boolean(draft.otherObservation.trim())}
-              onToggle={() =>
-                updateDraft((previous) => ({
-                  ...previous,
-                  otherObservation: previous.otherObservation.trim() ? "" : "X",
-                }))
-              }
-            />
-            <ObservationFlagToggle
-              label="ST"
-              icon={ShieldAlert}
-              active={Boolean(draft.stObservation.trim())}
-              onToggle={() =>
-                updateDraft((previous) => ({
-                  ...previous,
-                  stObservation: previous.stObservation.trim() ? "" : "X",
-                }))
-              }
-            />
-            <ObservationFlagToggle
-              label="CLUB"
-              icon={Building2}
-              active={Boolean(draft.clubObservation.trim())}
-              onToggle={() =>
-                updateDraft((previous) => ({
-                  ...previous,
-                  clubObservation: previous.clubObservation.trim() ? "" : "X",
-                }))
-              }
-            />
-          </div>
+        </div>
+      </Card>
+
+      <Card className="space-y-5 p-5">
+        <h4 className="text-sm font-black uppercase tracking-[0.22em] text-[#95a3ba]">
+          Otras novedades
+        </h4>
+        <div className="grid grid-cols-3 gap-3">
+          <ObservationFlagToggle
+            label="OTRO"
+            icon={CircleEllipsis}
+            active={Boolean(draft.otherObservation.trim())}
+            onToggle={() =>
+              updateDraft((previous) => ({
+                ...previous,
+                otherObservation: previous.otherObservation.trim() ? "" : "X",
+              }))
+            }
+          />
+          <ObservationFlagToggle
+            label="ST"
+            icon={ShieldAlert}
+            active={Boolean(draft.stObservation.trim())}
+            onToggle={() =>
+              updateDraft((previous) => ({
+                ...previous,
+                stObservation: previous.stObservation.trim() ? "" : "X",
+              }))
+            }
+          />
+          <ObservationFlagToggle
+            label="CLUB"
+            icon={Building2}
+            active={Boolean(draft.clubObservation.trim())}
+            onToggle={() =>
+              updateDraft((previous) => ({
+                ...previous,
+                clubObservation: previous.clubObservation.trim() ? "" : "X",
+              }))
+            }
+          />
         </div>
       </Card>
 

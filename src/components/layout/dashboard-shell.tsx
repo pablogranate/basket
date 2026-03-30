@@ -1,13 +1,14 @@
-import Link from "next/link";
-import { LogOut, Settings2 } from "lucide-react";
+import { LogOut } from "lucide-react";
 
 import { signOutAction } from "@/app/actions/auth";
-import { DashboardAnnouncementBell } from "@/components/layout/dashboard-announcement-bell";
 import { DashboardFooterMeta } from "@/components/layout/dashboard-footer-meta";
 import { DashboardNav } from "@/components/layout/dashboard-nav";
 import { UserProfileChip } from "@/components/layout/user-profile-chip";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { APP_NAME } from "@/lib/constants";
+import {
+  APP_NAME,
+  APP_PORTAL_LABEL,
+} from "@/lib/constants";
 import type { AnnouncementSummary } from "@/lib/data/announcements";
 import { getAppRoleDisplayName } from "@/lib/display";
 import type { UserContext } from "@/lib/types";
@@ -35,21 +36,17 @@ function BasketMark() {
   );
 }
 
-export function DashboardShell({
-  children,
-  user,
-  announcement,
-}: {
+export function DashboardShell(props: {
   children: React.ReactNode;
   user: UserContext | null;
   announcement: AnnouncementSummary | null;
 }) {
+  const { children, user } = props;
   const displayName =
     user?.profile?.full_name?.trim() ||
     user?.email?.split("@")[0] ||
     "Usuario";
   const roleLabel = getAppRoleDisplayName(user?.role).toUpperCase();
-  const limitedCollaborator = user?.role === "collaborator";
 
   return (
     <div className="min-h-screen bg-[var(--page-canvas)]">
@@ -60,10 +57,10 @@ export function DashboardShell({
               <BasketMark />
               <div className="min-w-0">
                 <p className="text-[1.5rem] font-extrabold leading-none tracking-[-0.04em] text-white">
-                  BASKET
+                  {APP_NAME}
                 </p>
                 <p className="mt-1 text-[11px] font-black uppercase tracking-[0.28em] text-[#9eb0cc]">
-                  Novedades Portal
+                  {APP_PORTAL_LABEL}
                 </p>
               </div>
             </div>
@@ -87,17 +84,6 @@ export function DashboardShell({
               </div>
 
               <div className="ml-auto flex items-center gap-4 sm:gap-5">
-                <DashboardAnnouncementBell announcement={announcement} />
-                {!limitedCollaborator ? (
-                  <Link
-                    href="/settings"
-                    className="hidden size-11 items-center justify-center rounded-2xl bg-[var(--surface)] text-[#52627b] transition hover:bg-[var(--background-soft)] hover:text-[var(--foreground)] sm:flex"
-                    title="Configuración"
-                  >
-                    <Settings2 className="size-5" />
-                  </Link>
-                ) : null}
-                <div className="hidden h-10 w-px bg-[var(--border)] sm:block" />
                 <UserProfileChip
                   userId={user?.userId ?? null}
                   fullName={displayName}

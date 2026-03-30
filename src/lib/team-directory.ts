@@ -11,6 +11,7 @@ export type TeamDirectoryItem = {
   instagram: string | null;
   official_url: string | null;
   incident_count: number;
+  logo_data_url?: string | null;
 };
 
 const LEAGUE_URL = "https://www.laliganacional.com.ar/";

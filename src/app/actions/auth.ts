@@ -2,6 +2,12 @@
 
 import { redirect } from "next/navigation";
 
+import {
+  getDefaultDashboardHrefForRole,
+  isDashboardPathAllowedForRole,
+  resolveDashboardAccessRole,
+} from "@/lib/constants";
+import type { Database } from "@/lib/database.types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { appEnv } from "@/lib/env";
 import { ensureErrorMessage } from "@/lib/utils";
@@ -12,7 +18,7 @@ import {
 } from "@/app/actions/helpers";
 
 async function loginWithFallback(formData: FormData, fallbackRedirect: string) {
-  const redirectTo = getRedirectTarget(formData, fallbackRedirect);
+  const requestedRedirect = getRedirectTarget(formData, fallbackRedirect);
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
 
@@ -32,7 +38,28 @@ async function loginWithFallback(formData: FormData, fallbackRedirect: string) {
       throw result.error;
     }
 
-    redirect(redirectTo);
+    const signedUser = result.data.user;
+    let role: Database["public"]["Enums"]["app_role"] | null = null;
+
+    if (signedUser) {
+      const profileQuery = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", signedUser.id)
+        .maybeSingle();
+
+      role = resolveDashboardAccessRole({
+        profileRole: profileQuery.data?.role ?? null,
+        appMetadata: signedUser.app_metadata,
+      });
+    }
+
+    const defaultRedirect = getDefaultDashboardHrefForRole(role);
+    const resolvedRedirect = isDashboardPathAllowedForRole(requestedRedirect, role)
+      ? requestedRedirect
+      : defaultRedirect;
+
+    redirect(resolvedRedirect);
   } catch (error) {
     rethrowNavigationError(error);
     redirectWithNotice({
@@ -44,10 +71,6 @@ async function loginWithFallback(formData: FormData, fallbackRedirect: string) {
 }
 
 export async function loginAction(formData: FormData) {
-  return loginWithFallback(formData, "/mi-jornada");
-}
-
-export async function loginToDashboardAction(formData: FormData) {
   return loginWithFallback(formData, "/grid");
 }
 

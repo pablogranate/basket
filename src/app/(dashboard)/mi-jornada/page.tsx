@@ -1,25 +1,27 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
 import { addDays, format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
-import { CalendarDays, ChevronLeft, ChevronRight, Hash, Sparkles, UserRound } from "lucide-react";
+import { Hash, Sparkles, UserRound } from "lucide-react";
 
 import { SectionAiAssistant } from "@/components/ai/section-ai-assistant";
 import { MyDayAssignmentsPanel } from "@/components/collaborators/my-day-assignments-panel";
+import { MyDayPeriodCalendarButton } from "@/components/collaborators/my-day-period-calendar-button";
 import { SetupPanel } from "@/components/layout/setup-panel";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { getUserContext } from "@/lib/auth";
 import {
   type CollaboratorAssignmentItem,
   type CollaboratorGroupContact,
   getCollaboratorDayData,
 } from "@/lib/data/collaborators";
+import { getDateInputValue, getMonthInputValue, isInDisplayedMonth } from "@/lib/date";
 import { appEnv, isSupabaseConfigured } from "@/lib/env";
 import { getSettingsSnapshot } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 
 type PageProps = {
-  searchParams: Promise<{ date?: string }>;
+  searchParams: Promise<{ date?: string; view?: string }>;
 };
 
 function capitalizeSentence(value: string) {
@@ -84,9 +86,16 @@ function getTodayDateKey() {
   return `${year}-${month}-${day}`;
 }
 
-function buildDayHref(dateValue: string, offset: number) {
-  const nextDate = addDays(parseISO(`${dateValue}T00:00:00`), offset);
-  return `/mi-jornada?date=${format(nextDate, "yyyy-MM-dd")}`;
+function formatMonthHeading(monthValue: string) {
+  return capitalizeSentence(
+    format(parseISO(`${monthValue}-01T00:00:00`), "MMMM yyyy", {
+      locale: es,
+    }),
+  );
+}
+
+function buildMyDayHref(params: { view: "day" | "month"; date: string }) {
+  return `/mi-jornada?view=${params.view}&date=${params.date}`;
 }
 
 function DaySummaryCard({
@@ -230,13 +239,14 @@ export default async function CollaboratorDayPage({ searchParams }: PageProps) {
     return <SetupPanel />;
   }
 
-  const { date } = await searchParams;
+  const { date, view } = await searchParams;
   const user = await getUserContext();
   const guestMode = appEnv.allowGuestMiJornadaAccess && !user.userId;
   const settings = await getSettingsSnapshot();
   const emptyData = {
     person: null,
     linkedBy: null,
+    allAssignments: [],
     todayAssignments: [],
     upcomingAssignments: [],
     summary: {
@@ -251,33 +261,56 @@ export default async function CollaboratorDayPage({ searchParams }: PageProps) {
     : await getCollaboratorDayData({
         email: user.email,
         profileName: user.profile?.full_name ?? null,
-        selectedDate: date,
+        selectedDate:
+          view === "month" && /^\d{4}-\d{2}$/.test(date ?? "")
+            ? `${date}-01`
+            : date,
       }).catch((error) => {
         console.error("[mi-jornada] failed to load collaborator data", error);
         return emptyData;
       });
 
-  const selectedDate = date ?? new Date().toISOString().slice(0, 10);
+  const todayDateKey = getTodayDateKey();
+  const todayMonthKey = getMonthInputValue(parseISO(`${todayDateKey}T00:00:00`));
+  const periodView = view === "month" ? "month" : "day";
+  const selectedDate =
+    periodView === "day" && /^\d{4}-\d{2}-\d{2}$/.test(date ?? "")
+      ? (date as string)
+      : todayDateKey;
+  const selectedMonth =
+    periodView === "month" && /^\d{4}-\d{2}$/.test(date ?? "")
+      ? (date as string)
+      : todayMonthKey;
+  const panelSelectedDate =
+    periodView === "month" ? `${selectedMonth}-01` : selectedDate;
   const fallbackCollaboratorName =
     user.profile?.full_name?.trim() || "Modo invitado";
   const fallbackUpcomingDate = format(
-    addDays(parseISO(`${selectedDate}T00:00:00`), 1),
+    addDays(parseISO(`${panelSelectedDate}T00:00:00`), 1),
     "yyyy-MM-dd",
   );
   const greetingName = capitalizeSentence(
     data.person?.full_name?.trim() || fallbackCollaboratorName,
   );
-  const showDemoToday = guestMode || !data.person || data.todayAssignments.length === 0;
-  const todayAssignments = showDemoToday
+  const monthAssignments = data.allAssignments.filter((assignment) =>
+    isInDisplayedMonth(assignment.kickoffAt, selectedMonth, assignment.timezone),
+  );
+  const rawPrimaryAssignments =
+    periodView === "month" ? monthAssignments : data.todayAssignments;
+  const showDemoToday =
+    guestMode || !data.person || rawPrimaryAssignments.length === 0;
+  const primaryAssignments = showDemoToday
     ? [
         buildDemoAssignment({
-          date: selectedDate,
+          date: panelSelectedDate,
           collaboratorName: data.person?.full_name ?? fallbackCollaboratorName,
         }),
       ]
-    : data.todayAssignments;
+    : rawPrimaryAssignments;
   const upcomingAssignments =
-    (guestMode || !data.person) && data.upcomingAssignments.length === 0
+    periodView === "month"
+      ? []
+      : (guestMode || !data.person) && data.upcomingAssignments.length === 0
       ? [
           buildDemoAssignment({
             date: fallbackUpcomingDate,
@@ -285,18 +318,37 @@ export default async function CollaboratorDayPage({ searchParams }: PageProps) {
           }),
         ]
       : data.upcomingAssignments;
-  const totalToday = showDemoToday ? todayAssignments.length : data.summary.totalToday;
-  const pendingToday = showDemoToday ? 1 : data.summary.pendingToday;
-  const isSelectedDateToday = selectedDate === getTodayDateKey();
-  const previousDateHref = buildDayHref(selectedDate, -1);
-  const nextDateHref = buildDayHref(selectedDate, 1);
+  const totalToday = primaryAssignments.length;
+  const pendingToday = primaryAssignments.filter((assignment) => !assignment.confirmed).length;
+  const isSelectedDateToday = selectedDate === todayDateKey;
   const contentUpdatedLabel = formatContentUpdatedLabel();
+  const primaryHeading =
+    periodView === "month"
+      ? formatMonthHeading(selectedMonth)
+      : isSelectedDateToday
+        ? `Hoy (${formatSelectedDate(selectedDate)})`
+        : formatSelectedDate(selectedDate);
+  const primaryDescription =
+    periodView === "month"
+      ? "Tus partidos asignados dentro del mes seleccionado."
+      : "Tus partidos asignados para la fecha seleccionada.";
+  const todayHref = buildMyDayHref({
+    view: "day",
+    date: getDateInputValue(parseISO(`${todayDateKey}T00:00:00`)),
+  });
+  const monthHref = buildMyDayHref({
+    view: "month",
+    date: todayMonthKey,
+  });
   const aiContext = [
-    ...todayAssignments.map((assignment) => ({
-      bloque: "Hoy",
+    ...primaryAssignments.map((assignment) => ({
+      bloque: periodView === "month" ? "Mes" : "Hoy",
       partido: `${assignment.homeTeam} vs ${assignment.awayTeam}`,
       liga: assignment.competition ?? "Sin liga",
-      fecha: formatSelectedDate(selectedDate),
+      fecha:
+        periodView === "month"
+          ? formatAssignmentDateLabel(assignment.kickoffAt)
+          : formatSelectedDate(selectedDate),
       hora: assignment.timeLabel,
       sede: assignment.venue ?? "Sede por definir",
       responsable: assignment.responsibleName ?? assignment.ownerName ?? "Sin asignar",
@@ -305,7 +357,8 @@ export default async function CollaboratorDayPage({ searchParams }: PageProps) {
       camaras: assignment.cameraCount,
       pendiente: !assignment.confirmed,
     })),
-    ...upcomingAssignments.map((assignment) => ({
+    ...(periodView === "day"
+      ? upcomingAssignments.map((assignment) => ({
       bloque: "Próximamente",
       partido: `${assignment.homeTeam} vs ${assignment.awayTeam}`,
       liga: assignment.competition ?? "Sin liga",
@@ -317,43 +370,25 @@ export default async function CollaboratorDayPage({ searchParams }: PageProps) {
       rol: assignment.roleName,
       camaras: assignment.cameraCount,
       pendiente: !assignment.confirmed,
-    })),
+        }))
+      : []),
   ];
-  const dateControls = (
+  const periodControls = (
     <div className="hidden items-center gap-3 md:flex md:justify-end">
-      <Link
-        href={previousDateHref}
-        aria-label="Ir al día anterior"
-        className="inline-flex size-[52px] shrink-0 items-center justify-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] text-[#617187] shadow-sm transition hover:border-[#f0d9de] hover:bg-[#fff7f8] hover:text-[var(--accent)]"
-      >
-        <ChevronLeft className="size-4" />
-      </Link>
-      <form
-        className="flex shrink-0 flex-wrap items-center gap-3 sm:flex-nowrap xl:flex-nowrap"
-        method="get"
-      >
-        <label className="flex min-w-[190px] items-center gap-3 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3 text-sm font-semibold text-[var(--foreground)]">
-          <CalendarDays className="size-4 text-[var(--accent)]" />
-          <input
-            type="date"
-            name="date"
-            defaultValue={selectedDate}
-            className="min-w-0 bg-transparent text-sm font-semibold outline-none"
-          />
-        </label>
-        <button
-          type="submit"
-          className="inline-flex h-[52px] items-center justify-center rounded-[var(--panel-radius)] bg-[var(--accent)] px-4 text-sm font-black text-white shadow-[0_14px_28px_rgba(230,18,56,0.18)] transition hover:bg-[var(--accent-strong)]"
-        >
-          Ver día
-        </button>
-        <Link
-          href={nextDateHref}
-          aria-label="Ir al día siguiente"
-          className="inline-flex size-[52px] items-center justify-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] text-[#617187] shadow-sm transition hover:border-[#f0d9de] hover:bg-[#fff7f8] hover:text-[var(--accent)]"
-        >
-          <ChevronRight className="size-4" />
-        </Link>
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-3">
+        <span className="text-sm font-medium text-[var(--muted)]">
+          {primaryAssignments.length} partidos
+        </span>
+        <SegmentedControl
+          items={[
+            { key: "day", label: "Hoy", href: todayHref, active: periodView === "day" },
+            { key: "month", label: "Mes", href: monthHref, active: periodView === "month" },
+          ]}
+        />
+        <MyDayPeriodCalendarButton
+          view={periodView}
+          value={periodView === "month" ? selectedMonth : selectedDate}
+        />
         <SectionAiAssistant
           section="Mi jornada"
           title="Consulta tu jornada visible"
@@ -370,7 +405,7 @@ export default async function CollaboratorDayPage({ searchParams }: PageProps) {
           hasGeminiKey={settings.hasGeminiKey}
           buttonVariant="icon"
         />
-      </form>
+      </div>
     </div>
   );
 
@@ -379,9 +414,12 @@ export default async function CollaboratorDayPage({ searchParams }: PageProps) {
       <MyDayAssignmentsPanel
         hasLinkedPerson={Boolean(data.person)}
         isSelectedDateToday={isSelectedDateToday}
-        selectedDate={selectedDate}
+        selectedDate={panelSelectedDate}
+        periodView={periodView}
+        primaryHeading={primaryHeading}
+        primaryDescription={primaryDescription}
         showDemoToday={showDemoToday}
-        todayAssignments={todayAssignments}
+        todayAssignments={primaryAssignments}
         upcomingAssignments={upcomingAssignments}
         topContent={
           <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
@@ -401,7 +439,7 @@ export default async function CollaboratorDayPage({ searchParams }: PageProps) {
               contentClassName="mx-auto text-center md:mx-0 md:text-left"
               descriptionClassName="mt-3 block w-full max-w-none text-center text-xs font-bold uppercase tracking-[0.14em] text-[#95a3ba] md:mx-0 md:text-left md:text-sm md:font-medium md:normal-case md:tracking-normal"
             />
-            <div className="order-3 md:order-2 md:justify-self-end">{dateControls}</div>
+            <div className="order-3 md:order-2 md:justify-self-end">{periodControls}</div>
             <div className="order-2 grid grid-cols-2 gap-3 md:order-3 md:col-span-2">
               <DaySummaryCard label="Partidos asignados" value={totalToday} icon={Hash} />
               <DaySummaryCard

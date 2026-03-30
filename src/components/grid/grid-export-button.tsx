@@ -6,6 +6,7 @@ import { Download } from "lucide-react";
 import {
   getProductionModeLabel,
   normalizeCommentaryPlan,
+  RESPONSIBLE_DISPLAY_LABEL,
 } from "@/lib/constants";
 import { formatMatchDate } from "@/lib/date";
 import type { MatchListItem } from "@/lib/types";
@@ -22,7 +23,7 @@ type GridExportRow = {
   Liga: string;
   Partido: string;
   Hora: string;
-  "Responsable en Cancha": string;
+  Responsable: string;
   Realizador: string;
   "Operador de Grafica": string;
   "Camara 1": string;
@@ -50,7 +51,7 @@ const GRID_EXPORT_COLUMNS: Array<{
   { key: "Liga", label: "Liga" },
   { key: "Partido", label: "Partido" },
   { key: "Hora", label: "Hora" },
-  { key: "Responsable en Cancha", label: "Responsable en Cancha" },
+  { key: "Responsable", label: RESPONSIBLE_DISPLAY_LABEL },
   { key: "Realizador", label: "Realizador" },
   { key: "Operador de Grafica", label: "Operador de Grafica" },
   { key: "Camara 1", label: "Camara 1" },
@@ -114,7 +115,7 @@ function toExportRows(matches: MatchListItem[]): GridExportRow[] {
     Liga: match.competition ?? "",
     Partido: `${match.home_team} vs ${match.away_team}`,
     Hora: formatMatchDate(match.kickoff_at, match.timezone, "HH:mm"),
-    "Responsable en Cancha":
+    Responsable:
       getAssignmentName(
         match,
         "Responsable",

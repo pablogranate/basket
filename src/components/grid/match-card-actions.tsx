@@ -13,7 +13,7 @@ type MatchCardActionsProps = {
   canEdit: boolean;
   detailsId: string;
   match: MatchListItem;
-  people: Pick<PersonRow, "id" | "full_name">[];
+  people: Pick<PersonRow, "id" | "full_name" | "phone" | "email">[];
   redirectTo: string;
   className?: string;
 };

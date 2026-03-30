@@ -22,7 +22,6 @@ import {
   MapPin,
   Palette,
   ScanText,
-  Search,
   Sparkles,
   Upload,
   Wifi,
@@ -37,6 +36,9 @@ import { badgeBaseClassName } from "@/components/ui/badge";
 import { HoverAvatarBadge } from "@/components/ui/hover-avatar-badge";
 import { SeverityBadge } from "@/components/ui/severity-badge";
 import { SectionTableCard } from "@/components/ui/section-table-card";
+import { UnderlineTabs } from "@/components/ui/underline-tabs";
+import { ToolbarIconButton } from "@/components/ui/toolbar-icon-button";
+import { ToolbarSearchField } from "@/components/ui/toolbar-search-field";
 import type {
   IncidentProblem,
   IncidentRecord,
@@ -1471,15 +1473,14 @@ export function IncidentsWorkspace({
 
   const workspaceActions = (
     <div className="flex flex-wrap items-center gap-3 md:justify-end">
-      <label className="flex h-[52px] min-w-[280px] items-center gap-3 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-4 shadow-sm">
-        <Search className="size-4 text-[var(--accent)]" />
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Buscar incidencia, partido u operador..."
-          className="w-full bg-transparent text-sm font-medium text-[var(--foreground)] outline-none placeholder:text-[#94a3b8]"
-        />
-      </label>
+      <ToolbarSearchField
+        as="div"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        placeholder="Buscar incidencia, partido u operador..."
+        className="min-w-[280px] flex-none"
+        inputClassName="text-sm font-medium text-[var(--foreground)] placeholder:text-[#94a3b8]"
+      />
 
       <div className="flex shrink-0 items-center gap-3">
         <SectionAiAssistant
@@ -1499,16 +1500,15 @@ export function IncidentsWorkspace({
           hasGeminiKey={hasGeminiKey}
           buttonVariant="icon"
         />
-        <button
+        <ToolbarIconButton
           type="button"
           onClick={() => void exportVisibleIncidents(sortedIncidents)}
           disabled={!sortedIncidents.length || isExporting}
           aria-label={isExporting ? "Exportando incidencias" : "Exportar incidencias"}
           title={isExporting ? "Exportando incidencias" : "Exportar incidencias"}
-          className="inline-flex size-[52px] items-center justify-center rounded-[var(--panel-radius)] bg-[#7c3aed] text-white shadow-[0_14px_28px_rgba(124,58,237,0.22)] transition hover:bg-[#6d28d9]"
         >
           <Download className="size-4" />
-        </button>
+        </ToolbarIconButton>
       </div>
     </div>
   );
@@ -1757,62 +1757,39 @@ export function IncidentsWorkspace({
         </div>
         </div>
 
-        <div className="border-b border-[var(--border)] px-6">
-          <div className="grid grid-cols-4 gap-2 border-b border-[var(--border)]/60">
-            <button
-              type="button"
-              onClick={() => setDrawerTab("details")}
-              className={cn(
-                "inline-flex min-w-0 items-center justify-center gap-1.5 border-b-2 px-1 pb-4 pt-3 text-[10px] font-black uppercase tracking-[0.12em] transition",
-                drawerTab === "details"
-                  ? "border-[var(--accent)] text-[var(--accent)]"
-                  : "border-transparent text-[#94a3b8] hover:text-[#617187]",
-              )}
-            >
-              <Eye className="size-3.5 shrink-0" />
-              <span className="truncate">Detalle</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setDrawerTab("activity")}
-              className={cn(
-                "inline-flex min-w-0 items-center justify-center gap-1.5 border-b-2 px-1 pb-4 pt-3 text-[10px] font-black uppercase tracking-[0.12em] transition",
-                drawerTab === "activity"
-                  ? "border-[var(--accent)] text-[var(--accent)]"
-                  : "border-transparent text-[#94a3b8] hover:text-[#617187]",
-              )}
-            >
-              <History className="size-3.5 shrink-0" />
-              <span className="truncate">Log</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setDrawerTab("notes")}
-              className={cn(
-                "inline-flex min-w-0 items-center justify-center gap-1.5 border-b-2 px-1 pb-4 pt-3 text-[10px] font-black uppercase tracking-[0.12em] transition",
-                drawerTab === "notes"
-                  ? "border-[var(--accent)] text-[var(--accent)]"
-                  : "border-transparent text-[#94a3b8] hover:text-[#617187]",
-              )}
-            >
-              <FileText className="size-3.5 shrink-0" />
-              <span className="truncate">Notas</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setDrawerTab("images")}
-              className={cn(
-                "inline-flex min-w-0 items-center justify-center gap-1.5 border-b-2 px-1 pb-4 pt-3 text-[10px] font-black uppercase tracking-[0.12em] transition",
-                drawerTab === "images"
-                  ? "border-[var(--accent)] text-[var(--accent)]"
-                  : "border-transparent text-[#94a3b8] hover:text-[#617187]",
-              )}
-            >
-              <ImageIcon className="size-3.5 shrink-0" />
-              <span className="truncate">Imgs</span>
-            </button>
-          </div>
-        </div>
+        <UnderlineTabs
+          columns={4}
+          items={[
+            {
+              key: "details",
+              label: "Detalle",
+              icon: Eye,
+              active: drawerTab === "details",
+              onClick: () => setDrawerTab("details"),
+            },
+            {
+              key: "activity",
+              label: "Log",
+              icon: History,
+              active: drawerTab === "activity",
+              onClick: () => setDrawerTab("activity"),
+            },
+            {
+              key: "notes",
+              label: "Notas",
+              icon: FileText,
+              active: drawerTab === "notes",
+              onClick: () => setDrawerTab("notes"),
+            },
+            {
+              key: "images",
+              label: "Imgs",
+              icon: ImageIcon,
+              active: drawerTab === "images",
+              onClick: () => setDrawerTab("images"),
+            },
+          ]}
+        />
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 xl:max-h-none">
           {drawerTab === "details" ? (

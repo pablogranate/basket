@@ -1,10 +1,11 @@
+import { PRODUCTION_SHORT_LABEL } from "@/lib/constants";
 import type { Json } from "@/lib/database.types";
 import { getRoleDisplayName } from "@/lib/display";
 import type { AuditEntry, AssignmentDetail } from "@/lib/types";
 
 const FIELD_LABELS: Record<string, string> = {
   competition: "Liga",
-  production_mode: "Modo",
+  production_mode: PRODUCTION_SHORT_LABEL,
   status: "Estado",
   home_team: "Local",
   away_team: "Visitante",

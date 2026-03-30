@@ -1,6 +1,7 @@
 import { Radio, UsersRound, Video } from "lucide-react";
 
 import { APP_NAME } from "@/lib/constants";
+import { PRODUCT_COPY } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
 type AuthPageShellProps = {
@@ -38,16 +39,15 @@ export function AuthPageShell({
           <div className="relative z-10 max-w-2xl space-y-6 xl:space-y-8">
             <div className="space-y-4 xl:space-y-5">
               <p className="text-xs font-bold uppercase tracking-[0.32em] text-[var(--muted)]">
-                Operación en vivo
+                {PRODUCT_COPY.loginHero.eyebrow}
               </p>
               <h1 className="text-4xl font-black leading-[1.02] tracking-[-0.04em] text-[var(--foreground)] xl:text-5xl 2xl:text-6xl">
-                Basket
+                {PRODUCT_COPY.loginHero.titleLine1}
                 <br />
-                Production.
+                {PRODUCT_COPY.loginHero.titleLine2}.
               </h1>
               <p className="max-w-xl text-base font-medium leading-relaxed text-[var(--muted)] xl:text-lg">
-                Coordinación ejecutiva para transmisiones en vivo, gestión integral de
-                talento y monitoreo del equipo técnico en tiempo real.
+                {PRODUCT_COPY.loginHero.description}
               </p>
             </div>
 

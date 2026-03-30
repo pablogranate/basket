@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { PageMessage } from "@/components/ui/page-message";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { requireUserContext } from "@/lib/auth";
+import { SECTION_COPY } from "@/lib/copy";
 import { getRolesData } from "@/lib/data/dashboard";
 import { getRoleCategoryDisplayName, getRoleDisplayName } from "@/lib/display";
 import { isSupabaseConfigured } from "@/lib/env";
@@ -40,8 +41,8 @@ export default async function RolesPage({ searchParams }: PageProps) {
   return (
     <div className="space-y-10">
       <SectionPageHeader
-        title="Roles"
-        description="Administra categorías, orden y disponibilidad de los roles del sistema."
+        title={SECTION_COPY.roles.title}
+        description={SECTION_COPY.roles.description}
         actions={
           <SectionAiAssistant
             section="Roles"

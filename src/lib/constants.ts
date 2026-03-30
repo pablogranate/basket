@@ -1,10 +1,17 @@
 import type { AppRole, Database } from "@/lib/database.types";
+import { BUSINESS_LABELS, PRODUCT_COPY, SECTION_COPY } from "@/lib/copy";
 
-export const APP_NAME = "Basket Production";
-export const APP_RELEASE_LABEL = "Consola operativa v0.1.0";
+export const APP_NAME = PRODUCT_COPY.appName;
+export const APP_PORTAL_LABEL = PRODUCT_COPY.portalLabel;
+export const APP_RELEASE_LABEL = PRODUCT_COPY.releaseLabel;
+export const PRODUCTION_SHORT_LABEL = BUSINESS_LABELS.productionShort;
+export const RESPONSIBLE_DISPLAY_LABEL = BUSINESS_LABELS.responsible;
+export const RELATOS_DISPLAY_LABEL = BUSINESS_LABELS.relatos;
 export const DEFAULT_TIMEZONE =
   process.env.NEXT_PUBLIC_APP_TIMEZONE ?? "America/Bogota";
 export const DEFAULT_MATCH_DURATION_MINUTES = 150;
+export const ADMIN_DEFAULT_DASHBOARD_HREF = "/grid";
+export const COLLABORATOR_DEFAULT_DASHBOARD_HREF = "/mi-jornada";
 
 export const MATCH_STATUS_OPTIONS: Database["public"]["Enums"]["match_status"][] =
   ["Pendiente", "Confirmado", "Realizado"];
@@ -75,14 +82,14 @@ export function normalizeCommentaryPlan(
 }
 
 export const DASHBOARD_NAV = [
-  { href: "/grid", label: "Producción" },
-  { href: "/mi-jornada", label: "Mi jornada" },
+  { href: "/grid", label: SECTION_COPY.grid.title },
+  { href: "/mi-jornada", label: SECTION_COPY.myDay.title },
   { href: "/incidents", label: "Incidencias" },
   { href: "/reports", label: "Reportes" },
-  { href: "/teams", label: "Equipos" },
-  { href: "/people", label: "Personal" },
-  { href: "/roles", label: "Roles" },
-  { href: "/settings", label: "Configuración" },
+  { href: "/teams", label: SECTION_COPY.teams.title },
+  { href: "/people", label: SECTION_COPY.people.title },
+  { href: "/roles", label: SECTION_COPY.roles.title },
+  { href: "/settings", label: SECTION_COPY.settings.title },
 ] as const;
 
 const COLLABORATOR_ALLOWED_DASHBOARD_PREFIXES = [
@@ -90,15 +97,57 @@ const COLLABORATOR_ALLOWED_DASHBOARD_PREFIXES = [
   "/teams",
 ] as const;
 
+function isAppRole(value: unknown): value is AppRole {
+  return (
+    value === "admin" ||
+    value === "editor" ||
+    value === "coordinator" ||
+    value === "collaborator" ||
+    value === "viewer"
+  );
+}
+
+export function getRoleFromAppMetadata(
+  appMetadata?: Record<string, unknown> | null,
+) {
+  const metadataRole = appMetadata?.bp_access_role;
+
+  if (isAppRole(metadataRole)) {
+    return metadataRole;
+  }
+
+  return null;
+}
+
+export function resolveDashboardAccessRole({
+  profileRole,
+  appMetadata,
+}: {
+  profileRole?: AppRole | null;
+  appMetadata?: Record<string, unknown> | null;
+}) {
+  const metadataRole = getRoleFromAppMetadata(appMetadata);
+
+  if (metadataRole === "collaborator") {
+    return metadataRole;
+  }
+
+  return profileRole ?? "viewer";
+}
+
+export function hasFullDashboardAccessRole(role?: AppRole | null) {
+  return role === "admin" || role === "editor" || role === "coordinator";
+}
+
 export function isCollaboratorLimitedRole(role?: AppRole | null) {
-  return role === "collaborator";
+  return !hasFullDashboardAccessRole(role);
 }
 
 export function isDashboardPathAllowedForRole(
   pathname: string,
   role?: AppRole | null,
 ) {
-  if (!isCollaboratorLimitedRole(role)) {
+  if (hasFullDashboardAccessRole(role)) {
     return true;
   }
 
@@ -112,6 +161,14 @@ export function isDashboardNavHrefAllowedForRole(
   role?: AppRole | null,
 ) {
   return isDashboardPathAllowedForRole(href, role);
+}
+
+export function getDefaultDashboardHrefForRole(role?: AppRole | null) {
+  if (hasFullDashboardAccessRole(role)) {
+    return ADMIN_DEFAULT_DASHBOARD_HREF;
+  }
+
+  return COLLABORATOR_DEFAULT_DASHBOARD_HREF;
 }
 
 export const RESERVED_IMPORT_HEADERS = new Set([

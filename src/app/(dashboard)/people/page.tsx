@@ -6,40 +6,49 @@ import {
   Mic2,
   PencilLine,
   Rows3,
-  Search,
-  Trash2,
+  ShieldCheck,
   UserRoundX,
   Users,
   Video,
+  X,
 } from "lucide-react";
 
-import { deletePersonAction, upsertPersonAction } from "@/app/actions/people";
+import { upsertPersonAction } from "@/app/actions/people";
 import { SectionAiAssistant } from "@/components/ai/section-ai-assistant";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 import { SetupPanel } from "@/components/layout/setup-panel";
 import { PeopleDirectoryView } from "@/components/people/people-directory-view";
+import { PeopleAdminWarningModal } from "@/components/people/people-admin-warning-modal";
 import { CreatePersonModal } from "@/components/people/create-person-modal";
+import { PersonDeleteButton } from "@/components/people/person-delete-button";
+import { PersonRevokeAccessButton } from "@/components/people/person-revoke-access-button";
 import { PeopleTable } from "@/components/people/people-table";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { PageMessage } from "@/components/ui/page-message";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Select } from "@/components/ui/select";
 import { SectionTableCard } from "@/components/ui/section-table-card";
-import { SubmitButton } from "@/components/ui/submit-button";
+import { StatCard } from "@/components/ui/stat-card";
 import { Textarea } from "@/components/ui/textarea";
+import { getToolbarIconButtonClassName } from "@/components/ui/toolbar-icon-button";
+import { ToolbarSearchField } from "@/components/ui/toolbar-search-field";
 import { requireUserContext } from "@/lib/auth";
-import { ROLE_SEED } from "@/lib/constants";
+import { SECTION_COPY } from "@/lib/copy";
+import { resolveDashboardAccessRole, ROLE_SEED } from "@/lib/constants";
 import { getPeopleData } from "@/lib/data/dashboard";
+import type { AppRole } from "@/lib/database.types";
 import { getAssignmentStateDisplayName, getRoleDisplayName } from "@/lib/display";
 import { isSupabaseConfigured } from "@/lib/env";
 import type { PeopleAiContextItem } from "@/lib/people-ai";
 import { parsePersonNotesMeta } from "@/lib/people-notes";
 import { parseNotice } from "@/lib/search-params";
 import { getSettingsSnapshot } from "@/lib/settings";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { TEAM_DIRECTORY } from "@/lib/team-directory";
 import type { PersonListItem } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -138,54 +147,6 @@ function buildPeopleHref(
   return query ? `/people?${query}` : "/people";
 }
 
-function StatCard({
-  label,
-  value,
-  icon: Icon,
-  tone = "neutral",
-}: {
-  label: string;
-  value: number;
-  icon: typeof Users;
-  tone?: "neutral" | "accent" | "danger" | "info";
-}) {
-  const toneClassName =
-    tone === "accent"
-      ? "border-[#d9efe3] bg-[#f4fbf7] text-[#177245]"
-      : tone === "danger"
-        ? "border-[#f1d3da] bg-[#fff5f7] text-[#b42343]"
-        : tone === "info"
-          ? "border-[#dbe6f6] bg-[#f7faff] text-[#315e9d]"
-          : "border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]";
-
-  const iconToneClassName =
-    tone === "accent"
-      ? "bg-[#e6f6ed] text-[#179a56]"
-      : tone === "danger"
-        ? "bg-[#fff0f3] text-[var(--accent)]"
-        : tone === "info"
-          ? "bg-[#eef4ff] text-[#315e9d]"
-          : "bg-[var(--background-soft)] text-[#6b7a90]";
-
-  return (
-    <div className={`rounded-[var(--panel-radius)] border px-5 py-4 ${toneClassName}`}>
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#95a3ba]">
-            {label}
-          </p>
-          <p className="mt-3 text-[2rem] font-black leading-none">
-            {value}
-          </p>
-        </div>
-        <span className={`inline-flex size-11 items-center justify-center rounded-2xl ${iconToneClassName}`}>
-          <Icon className="size-5" />
-        </span>
-      </div>
-    </div>
-  );
-}
-
 export default async function PeoplePage({ searchParams }: PageProps) {
   const resolvedSearchParams = await searchParams;
   const { intent, notice } = parseNotice(resolvedSearchParams);
@@ -247,6 +208,46 @@ export default async function PeoplePage({ searchParams }: PageProps) {
   const selectedMeta = selectedPerson
     ? parsePersonNotesMeta(selectedPerson.notes)
     : null;
+  let selectedPersonHasPlatformAccess = false;
+
+  if (selectedPerson?.email && user.role === "admin") {
+    try {
+      const supabaseAdmin = createSupabaseAdminClient();
+      const usersResult = await supabaseAdmin.auth.admin.listUsers({
+        page: 1,
+        perPage: 1000,
+      });
+
+      if (!usersResult.error) {
+        const authUser = usersResult.data.users.find(
+          (candidate) =>
+            candidate.email?.toLowerCase() ===
+            selectedPerson.email?.toLowerCase(),
+        );
+
+        if (authUser) {
+          const profileQuery = await supabaseAdmin
+            .from("profiles")
+            .select("role")
+            .eq("id", authUser.id)
+            .maybeSingle();
+
+          if (!profileQuery.error) {
+            selectedPersonHasPlatformAccess =
+              resolveDashboardAccessRole({
+                profileRole:
+                  (profileQuery.data?.role as AppRole | null | undefined) ?? null,
+                appMetadata:
+                  (authUser.app_metadata as Record<string, unknown> | null) ?? null,
+              }) === "collaborator";
+          }
+        }
+      }
+    } catch {
+      selectedPersonHasPlatformAccess = false;
+    }
+  }
+
   const currentPeopleHref = buildPeopleHref(resolvedSearchParams, {
     edit: undefined,
   });
@@ -260,27 +261,23 @@ export default async function PeoplePage({ searchParams }: PageProps) {
   return (
     <div className="space-y-10">
       <SectionPageHeader
-        title="Personal"
-        description="Gestiona contactos, roles y disponibilidad del personal operativo."
+        title={
+          viewMode === "directory"
+            ? SECTION_COPY.people.directoryTitle
+            : SECTION_COPY.people.title
+        }
+        description={SECTION_COPY.people.description}
         actions={
           <>
-            <form
+            <ToolbarSearchField
               action="/people"
-              className="flex min-w-[320px] flex-1 items-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] p-1.5 shadow-sm"
+              defaultValue={query}
+              placeholder="Buscar nombre, rol, responsable o ciudad..."
             >
               {viewMode === "directory" ? (
                 <input type="hidden" name="view" value="directory" />
               ) : null}
-              <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[var(--panel-radius)] bg-[var(--background-soft)] px-3">
-                <Search className="size-4 text-[var(--accent)]" />
-                <Input
-                  name="q"
-                  defaultValue={query}
-                  placeholder="Buscar nombre, rol, responsable o ciudad..."
-                  className="h-10 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
-                />
-              </div>
-            </form>
+            </ToolbarSearchField>
             {people.length ? (
               <>
                 <a
@@ -288,7 +285,7 @@ export default async function PeoplePage({ searchParams }: PageProps) {
                   download="basket-production-personal.csv"
                   aria-label="Descargar lista de personal"
                   title="Descargar lista de personal"
-                  className="inline-flex size-[52px] items-center justify-center rounded-[var(--panel-radius)] bg-[#7c3aed] text-white shadow-[0_14px_28px_rgba(124,58,237,0.22)] transition hover:bg-[#6d28d9]"
+                  className={getToolbarIconButtonClassName({ tone: "violet" })}
                 >
                   <Download className="size-4" />
                 </a>
@@ -313,6 +310,7 @@ export default async function PeoplePage({ searchParams }: PageProps) {
             {user.canEdit ? (
               <CreatePersonModal
                 canEdit={user.canEdit}
+                canManageAccess={user.role === "admin"}
                 redirectTo={currentPeopleHref}
                 roleOptions={ROLE_OPTIONS}
                 teamOptions={TEAM_OPTIONS}
@@ -358,41 +356,44 @@ export default async function PeoplePage({ searchParams }: PageProps) {
       </div>
 
       <SectionTableCard
-        title={viewMode === "directory" ? "Directorio de Personal" : "Personal de Basquetpass"}
+        title={
+          viewMode === "directory"
+            ? SECTION_COPY.people.directoryTitle
+            : SECTION_COPY.people.tableTitle
+        }
         badge={
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-[#d8dee8] bg-[#f6f8fb] px-3 py-1 text-xs font-bold text-[#596980]">
               <span className="size-1.5 rounded-full bg-[#8ea0b7]" />
               {activeCount} Activos
             </span>
-            <div className="flex h-9 items-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] p-1">
-              <Link
-                href={buildPeopleHref(resolvedSearchParams, {
-                  view: undefined,
-                })}
-                className={`inline-flex h-full items-center gap-2 rounded-[calc(var(--panel-radius)-4px)] px-3 text-xs font-bold transition ${
-                  viewMode === "table"
-                    ? "bg-[var(--surface)] text-[var(--foreground)] shadow-sm"
-                    : "text-[var(--muted)] hover:text-[var(--foreground)]"
-                }`}
-              >
-                <Rows3 className="size-3.5" />
-                Tabla
-              </Link>
-              <Link
-                href={buildPeopleHref(resolvedSearchParams, {
-                  view: "directory",
-                })}
-                className={`inline-flex h-full items-center gap-2 rounded-[calc(var(--panel-radius)-4px)] px-3 text-xs font-bold transition ${
-                  viewMode === "directory"
-                    ? "bg-[var(--surface)] text-[var(--foreground)] shadow-sm"
-                    : "text-[var(--muted)] hover:text-[var(--foreground)]"
-                }`}
-              >
-                <LayoutGrid className="size-3.5" />
-                Directorio
-              </Link>
-            </div>
+            <SegmentedControl
+              size="sm"
+              items={[
+                {
+                  key: "table",
+                  href: buildPeopleHref(resolvedSearchParams, { view: undefined }),
+                  active: viewMode === "table",
+                  label: (
+                    <span className="inline-flex items-center gap-2">
+                      <Rows3 className="size-3.5" />
+                      Tabla
+                    </span>
+                  ),
+                },
+                {
+                  key: "directory",
+                  href: buildPeopleHref(resolvedSearchParams, { view: "directory" }),
+                  active: viewMode === "directory",
+                  label: (
+                    <span className="inline-flex items-center gap-2">
+                      <LayoutGrid className="size-3.5" />
+                      Directorio
+                    </span>
+                  ),
+                },
+              ]}
+            />
             {user.canEdit ? (
               <>
                 {selectedPerson ? (
@@ -404,37 +405,14 @@ export default async function PeoplePage({ searchParams }: PageProps) {
                     <PencilLine className="size-4" />
                   </Link>
                 ) : (
-                  <span
-                    aria-label="Selecciona una persona para editar"
-                    title="Selecciona una persona para editar"
-                    className="inline-flex size-9 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[#c2cad7] opacity-70"
-                  >
-                    <PencilLine className="size-4" />
-                  </span>
+                  <PeopleAdminWarningModal />
                 )}
                 {selectedPerson ? (
-                  <form
-                    action={deletePersonAction}
-                    onSubmit={(event) => {
-                      const confirmed = window.confirm(
-                        `Vas a eliminar el registro de ${selectedPerson.full_name}. Este cambio puede ser permanente y afectar futuras asignaciones. ¿Quieres continuar?`,
-                      );
-
-                      if (!confirmed) {
-                        event.preventDefault();
-                      }
-                    }}
-                  >
-                    <input type="hidden" name="personId" value={selectedPerson.id} />
-                    <input type="hidden" name="redirectTo" value={currentPeopleHref} />
-                    <button
-                      type="submit"
-                      className="inline-flex size-9 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[#7b8798] transition hover:border-[#f0d9de] hover:bg-[#fff0f3] hover:text-[#bf1e41]"
-                      title={`Eliminar ${selectedPerson.full_name}`}
-                    >
-                      <Trash2 className="size-4" />
-                    </button>
-                  </form>
+                  <PersonDeleteButton
+                    personId={selectedPerson.id}
+                    fullName={selectedPerson.full_name}
+                    redirectTo={currentPeopleHref}
+                  />
                 ) : null}
               </>
             ) : null}
@@ -463,149 +441,253 @@ export default async function PeoplePage({ searchParams }: PageProps) {
       </SectionTableCard>
 
       {selectedPerson ? (
-        <Card className="space-y-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--accent)]">
-                Edición
-              </p>
-              <h3 className="mt-2 text-xl font-extrabold text-[var(--foreground)]">
-                Editar registro de personal
-              </h3>
-            </div>
-            <Link
-              href={currentPeopleHref}
-              className="inline-flex h-10 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-semibold text-[#5c697d] transition hover:bg-[var(--background-soft)]"
-            >
-              Cerrar
-            </Link>
-          </div>
-
-          <form action={upsertPersonAction} className="space-y-4">
-            <input
-              type="hidden"
-              name="redirectTo"
-              value={
-                selectedPerson
-                  ? selectedPeopleHref ?? currentPeopleHref
-                  : currentPeopleHref
-              }
-            />
-            <input type="hidden" name="personId" value={selectedPerson.id} />
-            <input type="hidden" name="active" value="off" />
-
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <label className="space-y-2">
-                <span className="text-xs font-bold uppercase tracking-[0.22em] text-[var(--muted)]">
-                  Nombre
-                </span>
-                <Input name="fullName" defaultValue={selectedPerson.full_name} disabled={!user.canEdit} />
-              </label>
-              <label className="space-y-2">
-                <span className="text-xs font-bold uppercase tracking-[0.22em] text-[var(--muted)]">
-                  Teléfono
-                </span>
-                <Input name="phone" defaultValue={selectedPerson.phone ?? ""} disabled={!user.canEdit} />
-              </label>
-              <label className="space-y-2">
-                <span className="text-xs font-bold uppercase tracking-[0.22em] text-[var(--muted)]">
-                  Correo
-                </span>
-                <Input name="email" defaultValue={selectedPerson.email ?? ""} disabled={!user.canEdit} />
-              </label>
-              <label className="space-y-2">
-                <span className="text-xs font-bold uppercase tracking-[0.22em] text-[var(--muted)]">
-                  Ciudad
-                </span>
-                <Input name="city" defaultValue={selectedMeta?.city ?? ""} disabled={!user.canEdit} />
-              </label>
-              <label className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3 text-sm font-semibold text-[var(--foreground)]">
-                <input
-                  type="checkbox"
-                  name="active"
-                  value="on"
-                  defaultChecked={selectedPerson.active}
-                  disabled={!user.canEdit}
-                  className="size-4"
-                />
-                Activo para asignación
-              </label>
-              <label className="space-y-2">
-                <span className="text-xs font-bold uppercase tracking-[0.22em] text-[var(--muted)]">
-                  Rol principal
-                </span>
-                <Select
-                  name="roleName"
-                  defaultValue={selectedMeta?.role ?? ""}
-                  disabled={!user.canEdit}
-                >
-                  <option value="">Seleccionar rol...</option>
-                  {ROLE_OPTIONS.map((roleName) => (
-                    <option key={roleName} value={roleName}>
-                      {getRoleDisplayName(roleName)}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-              <label className="space-y-2 md:col-span-2 xl:col-span-2">
-                <span className="text-xs font-bold uppercase tracking-[0.22em] text-[var(--muted)]">
-                  Responsable
-                </span>
-                <>
-                  <Input
-                    name="coverageTeams"
-                    list="people-team-options-edit"
-                    defaultValue={selectedMeta?.coverage ?? ""}
-                    placeholder="Escribe o pega equipos y el sistema te sugerirá coincidencias"
-                    disabled={!user.canEdit}
-                  />
-                  <datalist id="people-team-options-edit">
-                    {TEAM_OPTIONS.map((teamName) => (
-                      <option key={teamName} value={teamName} />
-                    ))}
-                  </datalist>
-                </>
-              </label>
-            </div>
-
-            <label className="space-y-2">
-              <span className="text-xs font-bold uppercase tracking-[0.22em] text-[var(--muted)]">
-                Notas
-              </span>
-              <Textarea
-                name="notes"
-                defaultValue={selectedMeta?.notes ?? ""}
-                disabled={!user.canEdit}
-              />
-            </label>
-
-            <div className="flex flex-wrap gap-3">
-              {user.canEdit ? (
-                <>
-                  <SubmitButton pendingLabel="Guardando...">
-                    Guardar cambios
-                  </SubmitButton>
-                </>
-              ) : (
-                <Button variant="secondary" disabled>
-                  Solo lectura
-                </Button>
-              )}
-            </div>
-          </form>
-          {user.canEdit ? (
-            <form action={deletePersonAction}>
-              <input type="hidden" name="personId" value={selectedPerson.id} />
-              <input type="hidden" name="redirectTo" value={currentPeopleHref} />
-              <button
-                type="submit"
-                className="inline-flex items-center justify-center rounded-xl border border-[#f0c8d1] bg-[#fff4f6] px-4 py-2 text-sm font-semibold text-[#ad1d39] transition hover:bg-[#ffe9ee]"
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[rgba(15,23,42,0.48)] p-4 backdrop-blur-sm">
+          <div className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-[1000px] flex-col overflow-hidden rounded-[var(--panel-radius)] border border-[#e6e8ec] bg-white shadow-[0_32px_80px_rgba(15,23,42,0.26)]">
+            <div className="flex items-center justify-between border-b border-[#f1f3f5] px-8 py-6">
+              <div className="space-y-1">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--accent)]">
+                  Personal
+                </p>
+                <h3 className="text-[2rem] font-extrabold tracking-[-0.04em] text-[#1b1520]">
+                  Editar personal
+                </h3>
+              </div>
+              <Link
+                href={currentPeopleHref}
+                className="inline-flex size-10 items-center justify-center rounded-xl text-[#98a2b3] transition hover:bg-[#f7f5f6] hover:text-[#5b6472]"
+                aria-label="Cerrar modal"
               >
-                Eliminar
-              </button>
-            </form>
-          ) : null}
-        </Card>
+                <X className="size-5" />
+              </Link>
+            </div>
+
+            <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto bg-[#faf7f7]">
+              <form id="edit-person-form" action={upsertPersonAction}>
+                <input type="hidden" name="redirectTo" value={currentPeopleHref} />
+                <input type="hidden" name="personId" value={selectedPerson.id} />
+                <input type="hidden" name="active" value="off" />
+
+                <section className="bg-white px-8 py-8">
+                  <div className="grid gap-8 lg:grid-cols-3">
+                    <div className="space-y-6 lg:col-span-2">
+                      <div className="grid gap-6 md:grid-cols-2">
+                        <label className="space-y-2">
+                          <span className="text-sm font-semibold text-[#334155]">
+                            Nombre completo
+                          </span>
+                          <Input
+                            name="fullName"
+                            defaultValue={selectedPerson.full_name}
+                            disabled={!user.canEdit}
+                            className="h-12 rounded-[var(--panel-radius)] border-[#e5e7eb] bg-[#f9f9f9] text-[15px] font-medium text-[#1f2937] placeholder:text-[#98a2b3] shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(230,18,56,0.08)]"
+                          />
+                        </label>
+                        <label className="space-y-2">
+                          <span className="text-sm font-semibold text-[#334155]">
+                            Teléfono
+                          </span>
+                          <Input
+                            name="phone"
+                            defaultValue={selectedPerson.phone ?? ""}
+                            disabled={!user.canEdit}
+                            className="h-12 rounded-[var(--panel-radius)] border-[#e5e7eb] bg-[#f9f9f9] text-[15px] font-medium text-[#1f2937] placeholder:text-[#98a2b3] shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(230,18,56,0.08)]"
+                          />
+                        </label>
+                        <label className="space-y-2">
+                          <span className="text-sm font-semibold text-[#334155]">
+                            Correo electrónico
+                          </span>
+                          <Input
+                            name="email"
+                            defaultValue={selectedPerson.email ?? ""}
+                            disabled={!user.canEdit}
+                            className="h-12 rounded-[var(--panel-radius)] border-[#e5e7eb] bg-[#f9f9f9] text-[15px] font-medium text-[#1f2937] placeholder:text-[#98a2b3] shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(230,18,56,0.08)]"
+                          />
+                        </label>
+                        <label className="space-y-2">
+                          <span className="text-sm font-semibold text-[#334155]">
+                            Ciudad
+                          </span>
+                          <Input
+                            name="city"
+                            defaultValue={selectedMeta?.city ?? ""}
+                            disabled={!user.canEdit}
+                            className="h-12 rounded-[var(--panel-radius)] border-[#e5e7eb] bg-[#f9f9f9] text-[15px] font-medium text-[#1f2937] placeholder:text-[#98a2b3] shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(230,18,56,0.08)]"
+                          />
+                        </label>
+                        <label className="space-y-2">
+                          <span className="text-sm font-semibold text-[#334155]">
+                            Rol principal
+                          </span>
+                          <Select
+                            name="roleName"
+                            defaultValue={selectedMeta?.role ?? ""}
+                            disabled={!user.canEdit}
+                            className="h-12 rounded-[var(--panel-radius)] border-[#e5e7eb] bg-[#f9f9f9] text-[15px] font-medium text-[#1f2937] shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(230,18,56,0.08)]"
+                          >
+                            <option value="">Seleccionar rol...</option>
+                            {ROLE_OPTIONS.map((roleName) => (
+                              <option key={roleName} value={roleName}>
+                                {getRoleDisplayName(roleName)}
+                              </option>
+                            ))}
+                          </Select>
+                        </label>
+                        <label className="flex items-center gap-3 rounded-[var(--panel-radius)] border border-[#e5e7eb] bg-[#f9f9f9] px-4 py-3 text-sm font-semibold text-[#1f2937] shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)]">
+                          <input
+                            type="checkbox"
+                            name="active"
+                            value="on"
+                            defaultChecked={selectedPerson.active}
+                            disabled={!user.canEdit}
+                            className="size-4"
+                          />
+                          Activo para asignación
+                        </label>
+                        <label className="space-y-2 md:col-span-2">
+                          <span className="text-sm font-semibold text-[#334155]">
+                            Responsable
+                          </span>
+                          <>
+                            <Input
+                              name="coverageTeams"
+                              list="people-team-options-edit"
+                              defaultValue={selectedMeta?.coverage ?? ""}
+                              placeholder="Escribe o pega equipos y el sistema te sugerirá coincidencias"
+                              disabled={!user.canEdit}
+                              className="h-12 rounded-[var(--panel-radius)] border-[#e5e7eb] bg-[#f9f9f9] text-[15px] font-medium text-[#1f2937] placeholder:text-[#98a2b3] shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(230,18,56,0.08)]"
+                            />
+                            <datalist id="people-team-options-edit">
+                              {TEAM_OPTIONS.map((teamName) => (
+                                <option key={teamName} value={teamName} />
+                              ))}
+                            </datalist>
+                          </>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <span className="text-sm font-semibold text-[#334155]">
+                        Notas
+                      </span>
+                      <Textarea
+                        name="notes"
+                        defaultValue={selectedMeta?.notes ?? ""}
+                        disabled={!user.canEdit}
+                        className="min-h-[260px] rounded-[var(--panel-radius)] border-[#e5e7eb] bg-[#f9f9f9] text-[15px] font-medium text-[#1f2937] placeholder:text-[#98a2b3] shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(230,18,56,0.08)]"
+                      />
+                    </div>
+                  </div>
+                </section>
+              </form>
+
+              {user.role === "admin" ? (
+                <section className="border-t border-[#f1f3f5] bg-[#faf7f7] px-8 py-8">
+                  <div className="rounded-[var(--panel-radius)] border-2 border-[rgba(211,49,49,0.10)] bg-white p-6 shadow-sm">
+                    <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="flex gap-4">
+                        <div className="inline-flex size-12 items-center justify-center rounded-2xl bg-[rgba(211,49,49,0.1)] text-[var(--accent)]">
+                          <ShieldCheck className="size-6" />
+                        </div>
+
+                        <div className="space-y-1">
+                          <h4 className="font-bold text-[#111827]">
+                            Acceso a la plataforma
+                          </h4>
+                          <p className="max-w-xl text-sm text-[#667085]">
+                            {selectedPerson.email
+                              ? selectedPersonHasPlatformAccess
+                                ? "Este colaborador puede iniciar sesión y entrar directo a Mi jornada."
+                                : "Este colaborador no tiene acceso activo a la plataforma en este momento."
+                              : "Primero debes guardar un correo electrónico para poder gestionar acceso."}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-start gap-2 lg:items-end">
+                        <span
+                          className={cn(
+                            "relative inline-flex h-7 w-14 items-center rounded-full transition",
+                            selectedPersonHasPlatformAccess
+                              ? "bg-[var(--accent)]"
+                              : "bg-[#d8dee8]",
+                          )}
+                          aria-hidden="true"
+                        >
+                          <span
+                            className={cn(
+                              "inline-block size-6 rounded-full border border-white bg-white transition",
+                              selectedPersonHasPlatformAccess
+                                ? "translate-x-7"
+                                : "translate-x-0.5",
+                            )}
+                          />
+                        </span>
+
+                        <span className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--accent)]">
+                          {selectedPersonHasPlatformAccess
+                            ? "Acceso habilitado"
+                            : "Acceso desactivado"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {selectedPersonHasPlatformAccess ? (
+                      <div className="mt-4 flex justify-end">
+                        <PersonRevokeAccessButton
+                          personId={selectedPerson.id}
+                          redirectTo={selectedPeopleHref ?? currentPeopleHref}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                </section>
+              ) : null}
+            </div>
+
+            <div className="flex items-center justify-between gap-4 border-t border-[#f1f3f5] bg-white px-8 py-5">
+              <div>
+                {user.canEdit ? (
+                  <PersonDeleteButton
+                    personId={selectedPerson.id}
+                    fullName={selectedPerson.full_name}
+                    redirectTo={currentPeopleHref}
+                    className="h-11 w-auto rounded-[var(--panel-radius)] border-[#111827] bg-[#111827] px-5 text-sm font-bold text-white hover:border-black hover:bg-black hover:text-white"
+                    label="Eliminar usuario"
+                  />
+                ) : null}
+              </div>
+
+              <div className="flex items-center gap-4">
+                <Link
+                  href={currentPeopleHref}
+                  className="inline-flex h-11 items-center justify-center rounded-[var(--panel-radius)] px-6 text-sm font-bold text-[#667085] transition hover:bg-[#f2f4f7]"
+                >
+                  Cancelar
+                </Link>
+
+                {user.canEdit ? (
+                  <Button
+                    type="submit"
+                    form="edit-person-form"
+                    className="h-11 rounded-[var(--panel-radius)] px-8 text-sm font-bold shadow-[0_14px_32px_rgba(230,18,56,0.18)]"
+                  >
+                    Guardar cambios
+                  </Button>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    disabled
+                    className="h-11 rounded-[var(--panel-radius)] px-7"
+                  >
+                    Solo lectura
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );

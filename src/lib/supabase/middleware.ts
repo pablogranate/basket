@@ -1,6 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import {
+  getDefaultDashboardHrefForRole,
+  resolveDashboardAccessRole,
+} from "@/lib/constants";
 import type { Database } from "@/lib/database.types";
 import { appEnv, isSupabaseConfigured } from "@/lib/env";
 
@@ -10,6 +14,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   const pathname = request.nextUrl.pathname;
+  const isApiRoute = pathname.startsWith("/api/");
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-pathname", pathname);
   const response = NextResponse.next({
@@ -39,9 +44,26 @@ export async function updateSession(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  let role: Database["public"]["Enums"]["app_role"] | null = null;
+
+  if (user) {
+    const profileQuery = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    role = resolveDashboardAccessRole({
+      profileRole: profileQuery.data?.role ?? null,
+      appMetadata: user.app_metadata,
+    });
+  }
 
   const allowsGuestMiJornada =
-    appEnv.allowGuestMiJornadaAccess && pathname === "/mi-jornada";
+    appEnv.allowGuestMiJornadaAccess &&
+    (pathname === "/mi-jornada" ||
+      pathname === "/api/ai/metric-capture" ||
+      pathname === "/api/ai/section");
   const isLoginRoute = pathname === "/login";
   const isPublicAuthRoute =
     isLoginRoute ||
@@ -50,6 +72,13 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/auth/");
 
   if (!user && !isPublicAuthRoute && !allowsGuestMiJornada) {
+    if (isApiRoute) {
+      return NextResponse.json(
+        { error: "Tu sesión no está activa para usar este endpoint." },
+        { status: 401 },
+      );
+    }
+
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("redirectTo", request.nextUrl.pathname);
@@ -58,7 +87,7 @@ export async function updateSession(request: NextRequest) {
 
   if (user && isLoginRoute) {
     const appUrl = request.nextUrl.clone();
-    appUrl.pathname = "/mi-jornada";
+    appUrl.pathname = getDefaultDashboardHrefForRole(role);
     return NextResponse.redirect(appUrl);
   }
 

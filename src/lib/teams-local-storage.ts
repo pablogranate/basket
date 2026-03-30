@@ -20,7 +20,10 @@ function isTeamDirectoryItem(value: unknown): value is TeamDirectoryItem {
     (typeof candidate.website === "string" || candidate.website === null) &&
     (typeof candidate.instagram === "string" || candidate.instagram === null) &&
     (typeof candidate.official_url === "string" || candidate.official_url === null) &&
-    typeof candidate.incident_count === "number"
+    typeof candidate.incident_count === "number" &&
+    (typeof candidate.logo_data_url === "string" ||
+      candidate.logo_data_url === null ||
+      candidate.logo_data_url === undefined)
   );
 }
 

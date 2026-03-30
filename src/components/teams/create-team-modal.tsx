@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Pencil, Plus, Save, Shield, X } from "lucide-react";
+import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { ImagePlus, Pencil, Plus, Save, Shield, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +16,7 @@ import {
 } from "@/lib/teams-local-storage";
 import { CLUB_COMPETITIONS } from "@/lib/club-catalog";
 import type { TeamDirectoryItem } from "@/lib/team-directory";
+import { cn } from "@/lib/utils";
 
 function defaultLeagueUrl(competition: string) {
   if (!competition.trim()) {
@@ -27,10 +30,14 @@ export function CreateTeamModal({
   canEdit,
   defaultCompetition = "",
   triggerVariant = "default",
+  initialTeam = null,
+  triggerClassName,
 }: {
   canEdit: boolean;
   defaultCompetition?: string;
   triggerVariant?: "default" | "icon";
+  initialTeam?: TeamDirectoryItem | null;
+  triggerClassName?: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [officialName, setOfficialName] = useState("");
@@ -40,7 +47,10 @@ export function CreateTeamModal({
   const [website, setWebsite] = useState("");
   const [instagram, setInstagram] = useState("");
   const [officialUrl, setOfficialUrl] = useState("");
+  const [logoPreview, setLogoPreview] = useState<string | null>(initialTeam?.logo_data_url ?? null);
   const [errorMessage, setErrorMessage] = useState("");
+  const isEditMode = Boolean(initialTeam);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!isOpen) {
@@ -65,19 +75,44 @@ export function CreateTeamModal({
   }, [defaultCompetition, isOpen]);
 
   function resetForm() {
-    setOfficialName("");
-    setCompetition(defaultCompetition);
-    setStadium("");
-    setManager("");
-    setWebsite("");
-    setInstagram("");
-    setOfficialUrl("");
+    setOfficialName(initialTeam?.official_name ?? "");
+    setCompetition(initialTeam?.competition ?? defaultCompetition);
+    setStadium(initialTeam?.stadium ?? "");
+    setManager(initialTeam?.manager ?? "");
+    setWebsite(initialTeam?.website ?? "");
+    setInstagram(initialTeam?.instagram ?? "");
+    setOfficialUrl(initialTeam?.official_url ?? "");
+    setLogoPreview(initialTeam?.logo_data_url ?? null);
     setErrorMessage("");
   }
 
   function closeModal() {
     setIsOpen(false);
     resetForm();
+  }
+
+  function handleLogoChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const nextValue = typeof reader.result === "string" ? reader.result : null;
+      setLogoPreview(nextValue);
+    };
+
+    reader.readAsDataURL(file);
+  }
+
+  function clearLogo() {
+    setLogoPreview(null);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -96,7 +131,7 @@ export function CreateTeamModal({
     }
 
     const nextTeam: TeamDirectoryItem = {
-      id: buildCustomTeamId(trimmedName, trimmedCompetition),
+      id: initialTeam?.id ?? buildCustomTeamId(trimmedName, trimmedCompetition),
       slug: slugifyTeamValue(`${trimmedName}-${trimmedCompetition}`),
       official_name: trimmedName,
       competition: trimmedCompetition,
@@ -106,6 +141,7 @@ export function CreateTeamModal({
       instagram: instagram.trim() || null,
       official_url: officialUrl.trim() || defaultLeagueUrl(trimmedCompetition) || null,
       incident_count: 0,
+      logo_data_url: logoPreview,
     };
 
     const currentTeams = readCustomTeams();
@@ -128,12 +164,14 @@ export function CreateTeamModal({
           disabled={!canEdit}
           onClick={() => {
             resetForm();
-            setCompetition(defaultCompetition);
             setIsOpen(true);
           }}
-          aria-label="Editar equipos"
-          title="Editar equipos"
-          className="inline-flex size-11 items-center justify-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] text-[#617187] shadow-sm transition hover:border-[#efc2cb] hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+          aria-label={isEditMode ? "Editar equipo" : "Editar equipos"}
+          title={isEditMode ? "Editar equipo" : "Editar equipos"}
+          className={cn(
+            "inline-flex items-center justify-center rounded-full bg-[#f4f7fb] text-[#70819b] transition hover:bg-[#eef2f6] hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60",
+            triggerClassName,
+          )}
         >
           <Pencil className="size-4" />
         </button>
@@ -143,19 +181,19 @@ export function CreateTeamModal({
           disabled={!canEdit}
           onClick={() => {
             resetForm();
-            setCompetition(defaultCompetition);
             setIsOpen(true);
           }}
           className="inline-flex h-[52px] items-center gap-2 rounded-[var(--panel-radius)] bg-[var(--accent)] px-5 text-sm font-extrabold text-white shadow-[0_14px_28px_rgba(230,18,56,0.18)] transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <Plus className="size-4" />
-          Registrar equipo
+          {isEditMode ? <Pencil className="size-4" /> : <Plus className="size-4" />}
+          {isEditMode ? "Editar equipo" : "Registrar equipo"}
         </button>
       )}
 
-      {isOpen ? (
+      {isOpen && typeof document !== "undefined"
+        ? createPortal(
         <div
-          className="fixed inset-0 z-[90] flex items-center justify-center bg-[#101828]/60 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[300] flex items-center justify-center bg-[#101828]/60 p-4 backdrop-blur-sm"
           onClick={closeModal}
         >
           <div
@@ -173,10 +211,12 @@ export function CreateTeamModal({
                       Equipos
                     </p>
                     <h3 className="mt-2 text-2xl font-extrabold tracking-tight text-[var(--foreground)]">
-                      Registrar equipo
+                      {isEditMode ? "Editar equipo" : "Registrar equipo"}
                     </h3>
                     <p className="mt-1 text-sm text-[var(--muted)]">
-                      Se guardará en este navegador y aparecerá de inmediato en el directorio.
+                      {isEditMode
+                        ? "Los cambios se guardarán en este navegador y se verán de inmediato en el directorio."
+                        : "Se guardará en este navegador y aparecerá de inmediato en el directorio."}
                     </p>
                   </div>
                 </div>
@@ -192,6 +232,67 @@ export function CreateTeamModal({
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6 p-6">
+              <section className="rounded-[var(--panel-radius)] border border-[#eef1f4] bg-[#fbfbfb] p-5">
+                <div className="flex flex-col gap-5 md:flex-row md:items-center">
+                  <div className="flex items-center gap-4">
+                    <div className="relative flex size-24 items-center justify-center overflow-hidden rounded-[var(--panel-radius)] border border-[#e5e7eb] bg-white shadow-sm">
+                      {logoPreview ? (
+                        <Image
+                          src={logoPreview}
+                          alt="Preview del escudo"
+                          fill
+                          unoptimized
+                          sizes="96px"
+                          className="object-contain p-2"
+                        />
+                      ) : (
+                        <div className="flex size-full items-center justify-center bg-[#f3f4f6] text-[#98a2b3]">
+                          <Shield className="size-9" />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-[#344054]">
+                        Escudo del equipo
+                      </p>
+                      <p className="max-w-[18rem] text-sm leading-6 text-[#667085]">
+                        Sube el escudo en PNG 500 x 500, idealmente sin fondo.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-3 md:ml-auto">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={!canEdit}
+                      className="inline-flex h-11 items-center gap-2 rounded-[var(--panel-radius)] border border-[#e5e7eb] bg-white px-4 text-sm font-semibold text-[#344054] transition hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <ImagePlus className="size-4 text-[var(--accent)]" />
+                      Subir escudo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearLogo}
+                      disabled={!logoPreview || !canEdit}
+                      className="inline-flex h-11 items-center gap-2 rounded-[var(--panel-radius)] border border-[#f0d5da] bg-[#fff7f8] px-4 text-sm font-semibold text-[#ad1d39] transition hover:bg-[#fff0f3] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Trash2 className="size-4" />
+                      Quitar
+                    </button>
+                  </div>
+                </div>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/webp,image/svg+xml,image/*"
+                  onChange={handleLogoChange}
+                  className="hidden"
+                />
+              </section>
+
               <div className="grid gap-6 md:grid-cols-2">
                 <label className="space-y-2">
                   <span className="text-sm font-bold text-[#334155]">
@@ -299,12 +400,13 @@ export function CreateTeamModal({
                   className="inline-flex h-11 items-center gap-2 rounded-xl bg-[var(--accent)] px-5 text-sm font-bold text-white shadow-[0_14px_28px_rgba(230,18,56,0.18)] transition hover:bg-[var(--accent-strong)]"
                 >
                   <Save className="size-4" />
-                  Guardar equipo
+                  {isEditMode ? "Guardar cambios" : "Guardar equipo"}
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body,
       ) : null}
     </>
   );

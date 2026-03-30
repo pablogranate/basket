@@ -13,6 +13,7 @@ import { Select } from "@/components/ui/select";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Textarea } from "@/components/ui/textarea";
 import { requireUserContext } from "@/lib/auth";
+import { SECTION_COPY } from "@/lib/copy";
 import { getLatestAnnouncement } from "@/lib/data/announcements";
 import { isSupabaseConfigured } from "@/lib/env";
 import { ProfileAvatarSettings } from "@/components/settings/profile-avatar-settings";
@@ -43,11 +44,10 @@ export default async function SettingsPage({ searchParams }: PageProps) {
     <div className="space-y-8">
       <section className="space-y-2">
         <h2 className="text-4xl font-black tracking-tight text-[var(--foreground)]">
-          Configuración
+          {SECTION_COPY.settings.title}
         </h2>
         <p className="max-w-2xl text-sm font-medium leading-6 text-[#617187]">
-          Ajusta tu perfil, la configuración de IA y algunas preferencias de
-          interfaz para Basket Production.
+          {SECTION_COPY.settings.description}
         </p>
       </section>
 
@@ -84,8 +84,8 @@ export default async function SettingsPage({ searchParams }: PageProps) {
               Gemini
             </h3>
             <p className="text-sm text-[#617187]">
-              Configura la clave para habilitar el panel &ldquo;Pregúntale a la
-              IA&rdquo; en Personal.
+              Configura la clave para habilitar la IA del portal. Si eres admin,
+              también quedará disponible para colaboradores y módulos operativos.
             </p>
           </div>
         </div>
@@ -95,9 +95,19 @@ export default async function SettingsPage({ searchParams }: PageProps) {
           <span className="font-bold text-[var(--foreground)]">
             {settings.hasGeminiKey ? "Configurado" : "Sin configurar"}
           </span>
-          {settings.hasGeminiKey ? (
+          {settings.geminiSource === "personal" ? (
             <span className="ml-2 font-mono text-xs text-[#94a3b8]">
-              cookie segura activa
+              config personal activa
+            </span>
+          ) : null}
+          {settings.geminiSource === "portal" ? (
+            <span className="ml-2 font-mono text-xs text-[#94a3b8]">
+              config global del portal activa
+            </span>
+          ) : null}
+          {settings.geminiSource === "env" ? (
+            <span className="ml-2 font-mono text-xs text-[#94a3b8]">
+              variable del servidor activa
             </span>
           ) : null}
         </div>
@@ -117,6 +127,9 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                 className="h-11 rounded-xl bg-[var(--background-soft)] pl-11"
               />
             </div>
+            <span className="block text-xs text-[#94a3b8]">
+              Prioridad efectiva: configuración personal, luego portal, luego variable del servidor.
+            </span>
           </label>
           <label className="space-y-2">
             <span className="text-sm font-bold text-[#334155]">Modelo</span>

@@ -31,8 +31,7 @@ type AssignmentRow = {
     home_team: string;
     away_team: string;
     venue: string | null;
-    commentary_plan: string | null;
-    transport: string | null;
+    transport?: string | null;
     notes: string | null;
     kickoff_at: string;
     duration_minutes: number;
@@ -113,6 +112,7 @@ export type CollaboratorGroupContact = {
 export type CollaboratorDayData = {
   person: LinkedPerson | null;
   linkedBy: "email" | "name" | null;
+  allAssignments: CollaboratorAssignmentItem[];
   todayAssignments: CollaboratorAssignmentItem[];
   upcomingAssignments: CollaboratorAssignmentItem[];
   summary: {
@@ -252,7 +252,7 @@ function buildAssignmentItem(params: {
     relatorName: params.relatorName ?? null,
     cameraCount: params.cameraCount ?? 0,
     talentLabel: params.talentLabel ?? null,
-    commentaryPlan: match.commentary_plan ?? null,
+    commentaryPlan: null,
     transport: match.transport ?? null,
     matchNotes: match.notes ?? null,
     contacts: params.contacts ?? [],
@@ -386,7 +386,7 @@ async function getAssignmentsForPerson(personId: string) {
   const assignmentsResult = await supabase
     .from("assignments")
     .select(
-      "id, confirmed, notes, role:roles!assignments_role_id_fkey(id, name, category, sort_order), match:matches!assignments_match_id_fkey(id, competition, production_mode, status, home_team, away_team, venue, commentary_plan, transport, notes, kickoff_at, duration_minutes, timezone, owner:people!matches_owner_id_fkey(id, full_name, phone, email))",
+      "id, confirmed, notes, role:roles!assignments_role_id_fkey(id, name, category, sort_order), match:matches!assignments_match_id_fkey(id, competition, production_mode, status, home_team, away_team, venue, notes, kickoff_at, duration_minutes, timezone, owner:people!matches_owner_id_fkey(id, full_name, phone, email))",
     )
     .eq("person_id", personId);
 
@@ -463,7 +463,6 @@ async function getFallbackAssignmentForMatch(params: {
         home_team: "Boca Juniors",
         away_team: "Atenas de Córdoba",
         venue: "Luis Conde, Buenos Aires",
-        commentary_plan: null,
         transport: "Llegar 45 minutos antes. La sede suele abrir tarde.",
         notes: "Vista demo para validar el asistente de grupo y sus contactos.",
         kickoff_at: demoKickoffAt,
@@ -521,7 +520,7 @@ async function getFallbackAssignmentForMatch(params: {
   const matchResult = await supabase
     .from("matches")
     .select(
-      "id, competition, production_mode, status, home_team, away_team, venue, commentary_plan, transport, notes, kickoff_at, duration_minutes, timezone, owner:people!matches_owner_id_fkey(id, full_name, phone, email)",
+      "id, competition, production_mode, status, home_team, away_team, venue, notes, kickoff_at, duration_minutes, timezone, owner:people!matches_owner_id_fkey(id, full_name, phone, email)",
     )
     .eq("id", params.matchId)
     .maybeSingle();
@@ -597,6 +596,7 @@ export async function getCollaboratorDayData(params: {
     return {
       person: null,
       linkedBy: null,
+      allAssignments: [],
       todayAssignments: [],
       upcomingAssignments: [],
       summary: {
@@ -632,6 +632,7 @@ export async function getCollaboratorDayData(params: {
   return {
     person,
     linkedBy,
+    allAssignments: assignments,
     todayAssignments,
     upcomingAssignments,
     summary: {

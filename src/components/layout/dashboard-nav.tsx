@@ -7,9 +7,9 @@ import {
   CalendarDays,
   CircleHelp,
   ClipboardList,
-  FileText,
   Settings2,
   Shield,
+  Users,
 } from "lucide-react";
 
 import type { AppRole } from "@/lib/database.types";
@@ -19,9 +19,9 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { href: "/grid", label: "Producción", icon: CalendarDays },
   { href: "/mi-jornada", label: "Mi jornada", icon: ClipboardList },
-  { href: "/reports", label: "Operaciones", icon: FileText },
+  { href: "/reports", label: "Operaciones", icon: BriefcaseBusiness },
   { href: "/teams", label: "Equipos", icon: Shield },
-  { href: "/people", label: "Personal", icon: BriefcaseBusiness },
+  { href: "/people", label: "Personal", icon: Users },
   { href: "/settings", label: "Configuración", icon: Settings2 },
   { href: "/support", label: "Soporte", icon: CircleHelp },
 ] as const;
