@@ -6,6 +6,7 @@ import { AuthPageShell } from "@/components/auth/auth-page-shell";
 import { PageMessage } from "@/components/ui/page-message";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { parseNotice } from "@/lib/search-params";
+import { getSupabaseUserSafely } from "@/lib/supabase/auth-session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type PageProps = {
@@ -16,9 +17,7 @@ export default async function ResetPasswordPage({ searchParams }: PageProps) {
   const resolvedSearchParams = await searchParams;
   const { intent, notice } = parseNotice(resolvedSearchParams);
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await getSupabaseUserSafely(supabase);
 
   if (!user) {
     return (

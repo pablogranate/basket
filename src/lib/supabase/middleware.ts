@@ -7,6 +7,10 @@ import {
 } from "@/lib/constants";
 import type { Database } from "@/lib/database.types";
 import { appEnv, isSupabaseConfigured } from "@/lib/env";
+import {
+  clearSupabaseAuthCookies,
+  getSupabaseUserSafely,
+} from "@/lib/supabase/auth-session";
 
 export async function updateSession(request: NextRequest) {
   if (!isSupabaseConfigured) {
@@ -41,9 +45,11 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, staleSession } = await getSupabaseUserSafely(supabase);
+
+  if (staleSession) {
+    clearSupabaseAuthCookies(request.cookies, response.cookies);
+  }
   let role: Database["public"]["Enums"]["app_role"] | null = null;
 
   if (user) {

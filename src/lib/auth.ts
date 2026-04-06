@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { resolveDashboardAccessRole } from "@/lib/constants";
 import type { AppRole, ProfileRow } from "@/lib/database.types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseUserSafely } from "@/lib/supabase/auth-session";
 
 function buildFallbackProfile(user: {
   id: string;
@@ -26,9 +27,7 @@ function buildFallbackProfile(user: {
 
 export async function getUserContext() {
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await getSupabaseUserSafely(supabase);
 
   if (!user) {
     return {

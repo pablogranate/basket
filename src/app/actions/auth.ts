@@ -9,6 +9,7 @@ import {
 } from "@/lib/constants";
 import type { Database } from "@/lib/database.types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseUserSafely } from "@/lib/supabase/auth-session";
 import { appEnv } from "@/lib/env";
 import { ensureErrorMessage } from "@/lib/utils";
 import {
@@ -141,9 +142,7 @@ export async function updatePasswordAction(formData: FormData) {
 
   try {
     const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { user } = await getSupabaseUserSafely(supabase);
 
     if (!user) {
       throw new Error("El enlace de recuperación expiró. Solicita uno nuevo.");
