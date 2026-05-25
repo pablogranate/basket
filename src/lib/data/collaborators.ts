@@ -171,7 +171,8 @@ async function findLinkedPerson(params: {
   const candidates = await supabase
     .from("people")
     .select("id, full_name, email, phone, active")
-    .eq("active", true);
+    .eq("active", true)
+    .ilike("full_name", `%${params.profileName.trim()}%`);
 
   if (candidates.error) {
     throw candidates.error;

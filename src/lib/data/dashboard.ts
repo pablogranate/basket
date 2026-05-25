@@ -1,4 +1,4 @@
-import { parseISO } from "date-fns";
+import { parseISO, addDays, subDays } from "date-fns";
 
 import { PRODUCTION_MODE_OPTIONS, ROLE_CATEGORY_ORDER } from "@/lib/constants";
 import {
@@ -125,6 +125,7 @@ export async function getGridData(filters: GridFilters) {
       supabase
         .from("matches")
         .select("competition")
+        .gte("kickoff_at", new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString())
         .order("kickoff_at", { ascending: false }),
       supabase
         .from("people")
@@ -451,23 +452,42 @@ async function getAssignmentConflicts(params: {
     return [];
   }
 
+  const currentStart = parseISO(params.match.kickoff_at);
+  const currentEnd = parseISO(
+    getMatchEndIso(params.match.kickoff_at, params.match.duration_minutes),
+  );
+  const windowStart = subDays(currentStart, 1).toISOString();
+  const windowEnd = addDays(currentEnd, 1).toISOString();
+
   const supabase = await createSupabaseServerClient();
+
+  const matchesInWindow = await supabase
+    .from("matches")
+    .select("id")
+    .gte("kickoff_at", windowStart)
+    .lte("kickoff_at", windowEnd)
+    .neq("id", params.match.id);
+
+  if (matchesInWindow.error) {
+    throw matchesInWindow.error;
+  }
+
+  const nearbyMatchIds = (matchesInWindow.data ?? []).map((m) => m.id);
+  if (!nearbyMatchIds.length) {
+    return [];
+  }
+
   const result = await supabase
     .from("assignments")
     .select(
       "id, person_id, role_id, match_id, role:roles!assignments_role_id_fkey(id, name, category, sort_order, active), person:people!assignments_person_id_fkey(id, full_name, phone, email), match:matches!assignments_match_id_fkey(id, home_team, away_team, kickoff_at, duration_minutes, timezone)",
     )
     .in("person_id", personIds)
-    .neq("match_id", params.match.id);
+    .in("match_id", nearbyMatchIds);
 
   if (result.error) {
     throw result.error;
   }
-
-  const currentStart = parseISO(params.match.kickoff_at);
-  const currentEnd = parseISO(
-    getMatchEndIso(params.match.kickoff_at, params.match.duration_minutes),
-  );
 
   const overlappingAssignments = (result.data ?? []) as Array<{
     person_id: string | null;
