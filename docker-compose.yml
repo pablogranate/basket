@@ -1,0 +1,17 @@
+# docker-compose.yml
+services:
+  basket-auth-db:
+    image: postgres:17
+    container_name: basket-auth-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: basket_auth
+      POSTGRES_USER: ${AUTH_DB_USER:-basket_auth}
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD:?set AUTH_DB_PASSWORD}
+    ports:
+      - "${AUTH_DB_PORT:-5433}:5432"   # 5433 host-side to avoid colliding with a local Supabase/Postgres on 5432
+    volumes:
+      - basket-auth-data:/var/lib/postgresql/data
+
+volumes:
+  basket-auth-data:
