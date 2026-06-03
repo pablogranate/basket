@@ -4,14 +4,14 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Phase 1 context gathered
-last_updated: "2026-06-03T16:55:44.134Z"
+last_updated: "2026-06-03T16:58:50.757Z"
 last_activity: 2026-06-03 — Completed 01-01-PLAN.md (auth_* schema + migration + env + docker-compose)
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 2
   completed_plans: 1
-  percent: 50
+  percent: 0
 ---
 
 # Project State
@@ -73,6 +73,7 @@ None yet.
 - [Phase 4] User migration is the highest-risk requirement — flagged for deeper research: prod password-hash format (bcrypt vs scrypt) and email/password-vs-OAuth user counts must be inspected live before choosing migrate-vs-reset.
 - [Phase 2] Open-on-RLS-drop paths verified: all `api/ai/*` routes, `api/matches/intake` (no auth at all), and `(dashboard)/people` (service-role read) have no app-layer guard — these must be closed before cutover.
 - [Phase 6] Auth DB final placement (dedicated `basket_auth` DB vs schema) and explicit `trustedOrigins` list (no verified wildcard support) to resolve in phase research.
+- Plan 01-02 Task 2 (blocking human-action checkpoint): operator must set AUTH_DB_PASSWORD + AUTH_DATABASE_URL in .env.local, run 'docker compose up -d basket-auth-db', apply drizzle/auth/0000_*.sql via psql, then confirm the four auth_* tables (with D-07 columns) + SELECT 1. Claude cannot perform: needs local Docker/Podman daemon, operator secret, psql.
 
 ## Deferred Items
 
@@ -84,6 +85,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-03T16:55:20.296Z
+Last session: 2026-06-03T16:58:34.484Z
 Stopped at: Phase 1 context gathered
 Resume file: .planning/phases/01-shared-identity-database/01-CONTEXT.md
