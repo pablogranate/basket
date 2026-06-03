@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { withAuth } from "@/lib/api/with-auth";
 import { AI_COPY } from "@/lib/copy";
 import { getGeminiRuntimeConfig } from "@/lib/settings";
 
@@ -35,7 +36,7 @@ function extractJson(text: string) {
   return text.slice(start, end + 1);
 }
 
-export async function POST(request: Request) {
+export const POST = withAuth({}, async (request) => {
   const formData = await request.formData();
   const image = formData.get("image");
 
@@ -216,4 +217,4 @@ export async function POST(request: Request) {
   return NextResponse.json({
     extracted: extracted.data,
   });
-}
+});

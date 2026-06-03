@@ -1,8 +1,20 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { consumeGuestRateLimit } from "@/lib/api/rate-limit";
+import { withAuth } from "@/lib/api/with-auth";
 import { AI_COPY } from "@/lib/copy";
 import { getGeminiRuntimeConfig } from "@/lib/settings";
+
+function getClientKey(request: Request) {
+  const forwarded = request.headers.get("x-forwarded-for");
+
+  if (forwarded) {
+    return forwarded.split(",")[0]?.trim() || "unknown";
+  }
+
+  return request.headers.get("x-real-ip")?.trim() || "unknown";
+}
 
 const requestSchema = z.object({
   section: z.string().trim().min(2).max(80),
@@ -22,7 +34,18 @@ type GeminiResponse = {
   }>;
 };
 
-export async function POST(request: Request) {
+export const POST = withAuth({ allowGuest: true }, async (request, ctx) => {
+  if (!ctx.userId) {
+    const limit = await consumeGuestRateLimit(getClientKey(request));
+
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: "Demasiadas solicitudes, intenta más tarde." },
+        { status: 429 },
+      );
+    }
+  }
+
   const payload = requestSchema.safeParse(await request.json());
 
   if (!payload.success) {
@@ -131,4 +154,4 @@ export async function POST(request: Request) {
     answer:
       answer || "No pude generar una respuesta útil con el contexto disponible.",
   });
-}
+});

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { withAuth } from "@/lib/api/with-auth";
 import { AI_COPY } from "@/lib/copy";
 import { getGeminiRuntimeConfig } from "@/lib/settings";
 
@@ -32,7 +33,9 @@ type GeminiResponse = {
   }>;
 };
 
-export async function POST(request: Request) {
+export const POST = withAuth(
+  { roles: ["admin", "editor", "coordinator"] },
+  async (request) => {
   const payload = requestSchema.safeParse(await request.json());
 
   if (!payload.success) {
@@ -115,4 +118,5 @@ export async function POST(request: Request) {
     answer:
       answer || "No pude generar una respuesta útil con el contexto disponible.",
   });
-}
+  },
+);
