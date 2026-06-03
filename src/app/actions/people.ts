@@ -8,6 +8,7 @@ import {
   rethrowNavigationError,
 } from "@/app/actions/helpers";
 import { requireEditor } from "@/lib/auth";
+import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
 import { requireAdminAccessManager } from "@/lib/auth-access";
 import {
   hasFullDashboardAccessRole,
@@ -97,7 +98,7 @@ async function revokeCollaboratorAccessByEmail(email: string) {
 
 export async function upsertPersonAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData, "/people");
-  await requireEditor();
+  const ctx = await requireEditor();
   const hasActiveField = formData.has("active");
   const createPlatformAccess =
     String(formData.get("createPlatformAccess") ?? "off") === "on";
@@ -141,12 +142,29 @@ export async function upsertPersonAction(formData: FormData) {
     const supabase = await createSupabaseServerClient();
     const personId = String(formData.get("personId") ?? "");
     const result = personId
-      ? await supabase.from("people").update(payload).eq("id", personId)
-      : await supabase.from("people").insert(payload);
+      ? await supabase
+          .from("people")
+          .update(stampUpdate(ctx, payload))
+          .eq("id", personId)
+          .select("id")
+          .single()
+      : await supabase
+          .from("people")
+          .insert(stampInsert(ctx, payload))
+          .select("id")
+          .single();
 
     if (result.error) {
       throw result.error;
     }
+
+    await writeAudit(supabase, ctx, {
+      table: "people",
+      recordId: result.data.id,
+      action: personId ? "UPDATE" : "INSERT",
+      before: null,
+      after: { id: result.data.id, ...payload },
+    });
 
     let accessNotice: string | null = null;
     let accessEmailSent = false;
@@ -316,6 +334,14 @@ export async function deletePersonAction(formData: FormData) {
       throw result.error;
     }
 
+    await writeAudit(supabase, context, {
+      table: "people",
+      recordId: personId,
+      action: "DELETE",
+      before: { id: person.id, full_name: person.full_name },
+      after: null,
+    });
+
     revalidatePath("/people");
     redirectWithNotice({
       redirectTo,
@@ -383,7 +409,7 @@ export async function revokePersonAccessAction(formData: FormData) {
 }
 
 export async function togglePersonActiveAction(formData: FormData) {
-  await requireEditor();
+  const ctx = await requireEditor();
 
   const personId = String(formData.get("personId") ?? "").trim();
   const nextActive = String(formData.get("active") ?? "") === "on";
@@ -392,12 +418,20 @@ export async function togglePersonActiveAction(formData: FormData) {
     const supabase = await createSupabaseServerClient();
     const result = await supabase
       .from("people")
-      .update({ active: nextActive })
+      .update(stampUpdate(ctx, { active: nextActive }))
       .eq("id", personId);
 
     if (result.error) {
       throw result.error;
     }
+
+    await writeAudit(supabase, ctx, {
+      table: "people",
+      recordId: personId,
+      action: "UPDATE",
+      before: null,
+      after: { id: personId, active: nextActive },
+    });
 
     revalidatePath("/people");
   } catch (error) {

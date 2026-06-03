@@ -8,13 +8,14 @@ import {
   rethrowNavigationError,
 } from "@/app/actions/helpers";
 import { requireEditor } from "@/lib/auth";
+import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
 import { normalizeRoleCategoryInput, normalizeRoleNameInput } from "@/lib/display";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ensureErrorMessage } from "@/lib/utils";
 
 export async function upsertRoleAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData, "/roles");
-  await requireEditor();
+  const ctx = await requireEditor();
 
   const payload = {
     name: normalizeRoleNameInput(String(formData.get("name") ?? "")),
@@ -29,12 +30,29 @@ export async function upsertRoleAction(formData: FormData) {
     const supabase = await createSupabaseServerClient();
     const roleId = String(formData.get("roleId") ?? "");
     const result = roleId
-      ? await supabase.from("roles").update(payload).eq("id", roleId)
-      : await supabase.from("roles").insert(payload);
+      ? await supabase
+          .from("roles")
+          .update(stampUpdate(ctx, payload))
+          .eq("id", roleId)
+          .select("id")
+          .single()
+      : await supabase
+          .from("roles")
+          .insert(stampInsert(ctx, payload))
+          .select("id")
+          .single();
 
     if (result.error) {
       throw result.error;
     }
+
+    await writeAudit(supabase, ctx, {
+      table: "roles",
+      recordId: result.data.id,
+      action: roleId ? "UPDATE" : "INSERT",
+      before: null,
+      after: { id: result.data.id, ...payload },
+    });
 
     revalidatePath("/roles");
     revalidatePath("/grid");
@@ -55,18 +73,24 @@ export async function upsertRoleAction(formData: FormData) {
 
 export async function deleteRoleAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData, "/roles");
-  await requireEditor();
+  const ctx = await requireEditor();
 
   try {
     const supabase = await createSupabaseServerClient();
-    const result = await supabase
-      .from("roles")
-      .delete()
-      .eq("id", String(formData.get("roleId") ?? ""));
+    const roleId = String(formData.get("roleId") ?? "");
+    const result = await supabase.from("roles").delete().eq("id", roleId);
 
     if (result.error) {
       throw result.error;
     }
+
+    await writeAudit(supabase, ctx, {
+      table: "roles",
+      recordId: roleId,
+      action: "DELETE",
+      before: { id: roleId },
+      after: null,
+    });
 
     revalidatePath("/roles");
     revalidatePath("/grid");

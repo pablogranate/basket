@@ -15,6 +15,7 @@ import {
 import { buildKickoffAt } from "@/lib/date";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireEditor } from "@/lib/auth";
+import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
 import { ensureErrorMessage, maybeNull, pickFirstString } from "@/lib/utils";
 
 const STAFF_ROLE_FIELD_MAP = [
@@ -144,6 +145,7 @@ async function insertMatchWithOptionalColumnFallback(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   payload: MatchInsert,
 ) {
+  // stampInsert applied by caller (createMatchAction) before this helper runs.
   const currentPayload = { ...payload };
 
   while (true) {
@@ -172,6 +174,7 @@ async function updateMatchWithOptionalColumnFallback(
   matchId: string,
   payload: MatchUpdate,
 ) {
+  // stampUpdate applied by caller (updateMatchAction) before this helper runs.
   const currentPayload = { ...payload };
 
   while (true) {
@@ -197,7 +200,7 @@ async function updateMatchWithOptionalColumnFallback(
 export async function createMatchAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData, "/grid");
   const createdMatchGridRedirect = getGridRedirectForCreatedMatch(formData, redirectTo);
-  await requireEditor();
+  const ctx = await requireEditor();
 
   try {
     const supabase = await createSupabaseServerClient();
@@ -207,7 +210,7 @@ export async function createMatchAction(formData: FormData) {
       timezone: String(formData.get("timezone") ?? ""),
     });
 
-    const result = await insertMatchWithOptionalColumnFallback(supabase, {
+    const result = await insertMatchWithOptionalColumnFallback(supabase, stampInsert(ctx, {
       competition: maybeNull(String(formData.get("competition") ?? "")),
       external_match_id: maybeNull(String(formData.get("externalMatchId") ?? "")),
       production_code: maybeNull(String(formData.get("productionCode") ?? "")),
@@ -225,11 +228,19 @@ export async function createMatchAction(formData: FormData) {
       timezone: String(formData.get("timezone") ?? ""),
       owner_id: getCreateOwnerId(formData),
       notes: maybeNull(String(formData.get("notes") ?? "")),
-    });
+    }));
 
     if (result.error) {
       throw result.error;
     }
+
+    await writeAudit(supabase, ctx, {
+      table: "matches",
+      recordId: result.data.id,
+      action: "INSERT",
+      before: null,
+      after: { id: result.data.id },
+    });
 
     const roleNames = STAFF_ROLE_FIELD_MAP.map((item) => item.roleName);
     const rolesResult = await supabase
@@ -254,11 +265,23 @@ export async function createMatchAction(formData: FormData) {
     if (assignments.length) {
       const assignmentsResult = await supabase
         .from("assignments")
-        .upsert(assignments, { onConflict: "match_id,role_id" });
+        .upsert(
+          assignments.map((assignment) => stampInsert(ctx, assignment)),
+          { onConflict: "match_id,role_id" },
+        );
 
       if (assignmentsResult.error) {
         throw assignmentsResult.error;
       }
+
+      await writeAudit(supabase, ctx, {
+        table: "assignments",
+        recordId: result.data.id,
+        matchId: result.data.id,
+        action: "INSERT",
+        before: null,
+        after: { match_id: result.data.id, count: assignments.length },
+      });
     }
 
     revalidatePath("/grid");
@@ -281,7 +304,7 @@ export async function createMatchAction(formData: FormData) {
 
 export async function updateMatchAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData, "/grid");
-  await requireEditor();
+  const ctx = await requireEditor();
 
   const matchId = String(formData.get("matchId") ?? "");
 
@@ -327,12 +350,20 @@ export async function updateMatchAction(formData: FormData) {
     const result = await updateMatchWithOptionalColumnFallback(
       supabase,
       matchId,
-      payload,
+      stampUpdate(ctx, payload),
     );
 
     if (result.error) {
       throw result.error;
     }
+
+    await writeAudit(supabase, ctx, {
+      table: "matches",
+      recordId: matchId,
+      action: "UPDATE",
+      before: null,
+      after: { id: matchId, ...payload },
+    });
 
     const roleNames = STAFF_ROLE_FIELD_MAP.map((item) => item.roleName);
     const rolesResult = await supabase
@@ -370,11 +401,23 @@ export async function updateMatchAction(formData: FormData) {
     if (assignments.length) {
       const assignmentsResult = await supabase
         .from("assignments")
-        .upsert(assignments, { onConflict: "match_id,role_id" });
+        .upsert(
+          assignments.map((assignment) => stampInsert(ctx, assignment)),
+          { onConflict: "match_id,role_id" },
+        );
 
       if (assignmentsResult.error) {
         throw assignmentsResult.error;
       }
+
+      await writeAudit(supabase, ctx, {
+        table: "assignments",
+        recordId: matchId,
+        matchId,
+        action: "UPDATE",
+        before: null,
+        after: { match_id: matchId, count: assignments.length },
+      });
     }
 
     revalidatePath("/grid");
@@ -396,7 +439,7 @@ export async function updateMatchAction(formData: FormData) {
 
 export async function quickUpdateMatchFieldAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData, "/grid");
-  await requireEditor();
+  const ctx = await requireEditor();
 
   const matchId = String(formData.get("matchId") ?? "");
   const field = String(formData.get("field") ?? "");
@@ -426,11 +469,22 @@ export async function quickUpdateMatchFieldAction(formData: FormData) {
         throw new Error("Campo de edición rápida no soportado.");
     }
 
-    const result = await supabase.from("matches").update(payload).eq("id", matchId);
+    const result = await supabase
+      .from("matches")
+      .update(stampUpdate(ctx, payload))
+      .eq("id", matchId);
 
     if (result.error) {
       throw result.error;
     }
+
+    await writeAudit(supabase, ctx, {
+      table: "matches",
+      recordId: matchId,
+      action: "UPDATE",
+      before: null,
+      after: { id: matchId, ...payload },
+    });
 
     revalidatePath("/grid");
     revalidatePath(`/match/${matchId}`);
@@ -451,7 +505,7 @@ export async function quickUpdateMatchFieldAction(formData: FormData) {
 
 export async function deleteMatchAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData, "/grid");
-  await requireEditor();
+  const ctx = await requireEditor();
   const matchId = String(formData.get("matchId") ?? "");
 
   try {
@@ -461,6 +515,14 @@ export async function deleteMatchAction(formData: FormData) {
     if (result.error) {
       throw result.error;
     }
+
+    await writeAudit(supabase, ctx, {
+      table: "matches",
+      recordId: matchId,
+      action: "DELETE",
+      before: { id: matchId },
+      after: null,
+    });
 
     revalidatePath("/grid");
     redirectWithNotice({
@@ -480,26 +542,40 @@ export async function deleteMatchAction(formData: FormData) {
 
 export async function upsertAssignmentAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData, "/grid");
-  await requireEditor();
+  const ctx = await requireEditor();
 
   try {
     const supabase = await createSupabaseServerClient();
-    const result = await supabase.from("assignments").upsert(
-      {
-        match_id: String(formData.get("matchId") ?? ""),
-        role_id: String(formData.get("roleId") ?? ""),
-        person_id: maybeNull(String(formData.get("personId") ?? "")),
-        confirmed: String(formData.get("confirmed") ?? "") === "on",
-        notes: maybeNull(String(formData.get("notes") ?? "")),
-      },
-      {
-        onConflict: "match_id,role_id",
-      },
-    );
+    const assignmentMatchId = String(formData.get("matchId") ?? "");
+    const result = await supabase
+      .from("assignments")
+      .upsert(
+        stampInsert(ctx, {
+          match_id: assignmentMatchId,
+          role_id: String(formData.get("roleId") ?? ""),
+          person_id: maybeNull(String(formData.get("personId") ?? "")),
+          confirmed: String(formData.get("confirmed") ?? "") === "on",
+          notes: maybeNull(String(formData.get("notes") ?? "")),
+        }),
+        {
+          onConflict: "match_id,role_id",
+        },
+      )
+      .select("id, match_id")
+      .single();
 
     if (result.error) {
       throw result.error;
     }
+
+    await writeAudit(supabase, ctx, {
+      table: "assignments",
+      recordId: result.data.id,
+      matchId: result.data.match_id,
+      action: "INSERT",
+      before: null,
+      after: { id: result.data.id, match_id: result.data.match_id },
+    });
 
     revalidatePath(redirectTo);
     redirectWithNotice({

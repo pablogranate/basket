@@ -9,6 +9,7 @@ import {
   rethrowNavigationError,
 } from "@/app/actions/helpers";
 import { requireUserContext } from "@/lib/auth";
+import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   GEMINI_API_KEY_COOKIE,
@@ -87,13 +88,15 @@ export async function saveGeminiSettingsAction(formData: FormData) {
         const upsertResult = await supabase
           .from("app_settings")
           .upsert(
-            {
+            stampInsert(user, {
               setting_key: GEMINI_GLOBAL_SETTING_KEY,
               secret_value: apiKey,
               public_value: resolvedModel,
-            },
+            }),
             { onConflict: "setting_key" },
-          );
+          )
+          .select("id")
+          .single();
 
         if (upsertResult.error) {
           if (isMissingAppSettingsError(upsertResult.error)) {
@@ -103,13 +106,27 @@ export async function saveGeminiSettingsAction(formData: FormData) {
             throw upsertResult.error;
           }
         } else {
+          // secret_value is redacted by writeAudit for the app_settings table.
+          await writeAudit(supabase, user, {
+            table: "app_settings",
+            recordId: upsertResult.data.id,
+            action: "UPDATE",
+            before: null,
+            after: {
+              setting_key: GEMINI_GLOBAL_SETTING_KEY,
+              secret_value: apiKey,
+              public_value: resolvedModel,
+            },
+          });
           notice = "Gemini actualizado para tu sesión y para todo el portal.";
         }
       } else {
         const deleteResult = await supabase
           .from("app_settings")
           .delete()
-          .eq("setting_key", GEMINI_GLOBAL_SETTING_KEY);
+          .eq("setting_key", GEMINI_GLOBAL_SETTING_KEY)
+          .select("id")
+          .maybeSingle();
 
         if (deleteResult.error) {
           if (isMissingAppSettingsError(deleteResult.error)) {
@@ -119,6 +136,15 @@ export async function saveGeminiSettingsAction(formData: FormData) {
             throw deleteResult.error;
           }
         } else {
+          if (deleteResult.data) {
+            await writeAudit(supabase, user, {
+              table: "app_settings",
+              recordId: deleteResult.data.id,
+              action: "DELETE",
+              before: { setting_key: GEMINI_GLOBAL_SETTING_KEY },
+              after: null,
+            });
+          }
           notice = "Clave de Gemini eliminada de tu sesión y del portal.";
         }
       }
@@ -210,11 +236,7 @@ export async function saveAnnouncementAction(formData: FormData) {
     if (announcementId) {
       const updateResult = await supabase
         .from("announcements")
-        .update({
-          title,
-          body,
-          active,
-        })
+        .update(stampUpdate(user, { title, body, active }))
         .eq("id", announcementId)
         .select("id")
         .single();
@@ -224,14 +246,18 @@ export async function saveAnnouncementAction(formData: FormData) {
       }
 
       persistedAnnouncementId = updateResult.data.id;
+
+      await writeAudit(supabase, user, {
+        table: "announcements",
+        recordId: persistedAnnouncementId,
+        action: "UPDATE",
+        before: null,
+        after: { id: persistedAnnouncementId, title, body, active },
+      });
     } else {
       const insertResult = await supabase
         .from("announcements")
-        .insert({
-          title,
-          body,
-          active,
-        })
+        .insert(stampInsert(user, { title, body, active }))
         .select("id")
         .single();
 
@@ -240,18 +266,34 @@ export async function saveAnnouncementAction(formData: FormData) {
       }
 
       persistedAnnouncementId = insertResult.data.id;
+
+      await writeAudit(supabase, user, {
+        table: "announcements",
+        recordId: persistedAnnouncementId,
+        action: "INSERT",
+        before: null,
+        after: { id: persistedAnnouncementId, title, body, active },
+      });
     }
 
     if (active) {
       const deactivateOthers = await supabase
         .from("announcements")
-        .update({ active: false })
+        .update(stampUpdate(user, { active: false }))
         .eq("active", true)
         .neq("id", persistedAnnouncementId);
 
       if (deactivateOthers.error) {
         throw deactivateOthers.error;
       }
+
+      await writeAudit(supabase, user, {
+        table: "announcements",
+        recordId: persistedAnnouncementId,
+        action: "UPDATE",
+        before: null,
+        after: { deactivated_others: true },
+      });
     }
 
     ANNOUNCEMENT_REVALIDATE_PATHS.forEach((path) => {
