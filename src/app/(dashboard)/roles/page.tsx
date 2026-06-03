@@ -29,7 +29,7 @@ export default async function RolesPage({ searchParams }: PageProps) {
   }
 
   const user = await requireUserContext();
-  const { roles, grouped } = await getRolesData();
+  const { roles, grouped } = await getRolesData(user);
   const settings = await getSettingsSnapshot();
   const aiContext = roles.map((role) => ({
     nombre: getRoleDisplayName(role.name),

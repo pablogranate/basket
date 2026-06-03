@@ -62,7 +62,7 @@ export default async function TeamsPage({ searchParams }: PageProps) {
   const query = readSearchValue(resolvedSearchParams.q);
   const activeLeague = readSearchValue(resolvedSearchParams.league);
   const teams = getTeamDirectoryData({ query, league: activeLeague });
-  const people = user.userId ? await getPeopleData() : [];
+  const people = user.userId ? await getPeopleData(user) : [];
   const canManageTeams = user.canEdit && !isCollaboratorLimitedRole(user.role);
   const settings = await getSettingsSnapshot();
   const tabs = getTeamDirectoryTabs();

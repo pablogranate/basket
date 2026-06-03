@@ -21,7 +21,7 @@ export default async function DashboardLayout({
   const user = isSupabaseConfigured ? await getUserContext() : null;
   const announcement =
     isSupabaseConfigured && user?.userId
-      ? await getActiveAnnouncement()
+      ? await getActiveAnnouncement(user)
       : null;
   const allowsGuestMiJornada = appEnv.allowGuestMiJornadaAccess && !user?.userId;
 

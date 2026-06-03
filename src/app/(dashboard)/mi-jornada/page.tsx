@@ -258,7 +258,7 @@ export default async function CollaboratorDayPage({ searchParams }: PageProps) {
   } satisfies Awaited<ReturnType<typeof getCollaboratorDayData>>;
   const data = guestMode
     ? emptyData
-    : await getCollaboratorDayData({
+    : await getCollaboratorDayData(user, {
         email: user.email,
         profileName: user.profile?.full_name ?? null,
         selectedDate:

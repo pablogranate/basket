@@ -1,3 +1,4 @@
+import type { UserContext } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AnnouncementRow } from "@/lib/database.types";
 
@@ -34,10 +35,12 @@ async function fetchLatestAnnouncementQuery(activeOnly: boolean) {
   }
 }
 
-export async function getActiveAnnouncement() {
+export async function getActiveAnnouncement(ctx: UserContext) {
+  void ctx;
   return fetchLatestAnnouncementQuery(true);
 }
 
-export async function getLatestAnnouncement() {
+export async function getLatestAnnouncement(ctx: UserContext) {
+  void ctx;
   return fetchLatestAnnouncementQuery(false);
 }

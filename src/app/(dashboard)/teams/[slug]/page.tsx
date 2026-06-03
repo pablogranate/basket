@@ -70,7 +70,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
   }
 
   const user = await getUserContext();
-  const people = user.userId ? await getPeopleData() : [];
+  const people = user.userId ? await getPeopleData(user) : [];
   const responsibleLookup = buildTeamResponsibleLookup(people);
   const responsibleContact = getTeamResponsibleContact(
     team.official_name,

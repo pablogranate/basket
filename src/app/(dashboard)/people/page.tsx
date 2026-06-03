@@ -166,7 +166,7 @@ export default async function PeoplePage({ searchParams }: PageProps) {
   }
 
   const user = await requireUserContext();
-  const allPeople = await getPeopleData();
+  const allPeople = await getPeopleData(user);
   const people = allPeople.filter((person) => {
     if (!query) {
       return true;

@@ -94,7 +94,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const access = await getCollaboratorMatchData({
+    const access = await getCollaboratorMatchData(user, {
       email: user.email,
       profileName: user.profile?.full_name ?? null,
       matchId,

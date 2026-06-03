@@ -20,7 +20,7 @@ export default async function CollaboratorReportPage({ params }: PageProps) {
 
   const { matchId } = await params;
   const user = await requireUserContext();
-  const data = await getCollaboratorMatchData({
+  const data = await getCollaboratorMatchData(user, {
     email: user.email,
     profileName: user.profile?.full_name ?? null,
     matchId,

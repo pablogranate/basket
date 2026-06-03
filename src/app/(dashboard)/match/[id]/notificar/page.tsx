@@ -90,7 +90,7 @@ export default async function MatchNotifyPage({ params, searchParams }: PageProp
   let data: Awaited<ReturnType<typeof getMatchDetailData>>;
 
   try {
-    data = await getMatchDetailData(id);
+    data = await getMatchDetailData(user, id);
   } catch {
     notFound();
   }

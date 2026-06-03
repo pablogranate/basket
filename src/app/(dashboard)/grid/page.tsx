@@ -182,8 +182,8 @@ export default async function GridPage({ searchParams }: PageProps) {
     filters,
   );
   const [{ dayGroups, owners }, initialCalendarSummary] = await Promise.all([
-    getGridData(filters),
-    getGridCalendarData({
+    getGridData(user, filters),
+    getGridCalendarData(user, {
       month: initialCalendarMonth,
       q: filters.q,
       league: filters.league,

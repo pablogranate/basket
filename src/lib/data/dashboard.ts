@@ -6,6 +6,7 @@ import {
   resolveDateWindow,
   toDateKey,
 } from "@/lib/date";
+import type { UserContext } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { MatchRow, PersonRow, RoleRow } from "@/lib/database.types";
 import type {
@@ -74,7 +75,8 @@ function normalizeGridAssignments(params: {
   });
 }
 
-export async function getGridData(filters: GridFilters) {
+export async function getGridData(ctx: UserContext, filters: GridFilters) {
+  void ctx;
   const supabase = await createSupabaseServerClient();
   const window = resolveDateWindow({
     view: filters.view,
@@ -236,17 +238,21 @@ export async function getGridData(filters: GridFilters) {
   };
 }
 
-export async function getGridCalendarData({
-  month,
-  q,
-  league,
-  mode,
-  status,
-  owner,
-  timezone,
-}: Pick<GridFilters, "q" | "league" | "mode" | "status" | "owner" | "timezone"> & {
-  month: string;
-}) {
+export async function getGridCalendarData(
+  ctx: UserContext,
+  {
+    month,
+    q,
+    league,
+    mode,
+    status,
+    owner,
+    timezone,
+  }: Pick<GridFilters, "q" | "league" | "mode" | "status" | "owner" | "timezone"> & {
+    month: string;
+  },
+) {
+  void ctx;
   const supabase = await createSupabaseServerClient();
   const window = resolveDateWindow({
     view: "month",
@@ -327,7 +333,8 @@ export async function getGridCalendarData({
   );
 }
 
-export async function getMatchDetailData(matchId: string) {
+export async function getMatchDetailData(ctx: UserContext, matchId: string) {
+  void ctx;
   const supabase = await createSupabaseServerClient();
 
   const [matchResult, assignmentsResult, peopleResult, rolesResult, historyResult] =
@@ -526,7 +533,8 @@ async function getAssignmentConflicts(params: {
     }));
 }
 
-export async function getPeopleData(): Promise<PersonListItem[]> {
+export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]> {
+  void ctx;
   const supabase = await createSupabaseServerClient();
   const [peopleResult, assignmentsResult] = await Promise.all([
     supabase
@@ -619,10 +627,11 @@ export async function getPeopleData(): Promise<PersonListItem[]> {
   });
 }
 
-export async function getRolesData(): Promise<{
+export async function getRolesData(ctx: UserContext): Promise<{
   roles: RoleRow[];
   grouped: Array<{ category: string; roles: RoleRow[] }>;
 }> {
+  void ctx;
   const supabase = await createSupabaseServerClient();
   const result = await supabase
     .from("roles")

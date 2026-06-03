@@ -423,7 +423,9 @@ export default async function MatchDetailPage({
 
   const user = await requireUserContext();
   const redirectTo = `/match/${resolvedParams.id}`;
-  const data = await getMatchDetailData(resolvedParams.id).catch(() => null);
+  const data = await getMatchDetailData(user, resolvedParams.id).catch(
+    () => null,
+  );
 
   if (!data) {
     notFound();

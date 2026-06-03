@@ -7,6 +7,7 @@ import {
   getMatchEndIso,
   toDateKey,
 } from "@/lib/date";
+import type { UserContext } from "@/lib/auth";
 import type { MatchStatus, PersonRow } from "@/lib/database.types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { normalizeText } from "@/lib/utils";
@@ -581,12 +582,16 @@ async function getFallbackAssignmentForMatch(params: {
   });
 }
 
-export async function getCollaboratorDayData(params: {
-  email: string | null;
-  profileName: string | null;
-  selectedDate?: string;
-  timezone?: string;
-}): Promise<CollaboratorDayData> {
+export async function getCollaboratorDayData(
+  ctx: UserContext,
+  params: {
+    email: string | null;
+    profileName: string | null;
+    selectedDate?: string;
+    timezone?: string;
+  },
+): Promise<CollaboratorDayData> {
+  void ctx;
   const selectedDate = params.selectedDate ?? getDateInputValue();
   const { person, linkedBy } = await findLinkedPerson({
     email: params.email,
@@ -651,11 +656,15 @@ export async function getCollaboratorDayData(params: {
   };
 }
 
-export async function getCollaboratorMatchData(params: {
-  email: string | null;
-  profileName: string | null;
-  matchId: string;
-}): Promise<CollaboratorMatchData> {
+export async function getCollaboratorMatchData(
+  ctx: UserContext,
+  params: {
+    email: string | null;
+    profileName: string | null;
+    matchId: string;
+  },
+): Promise<CollaboratorMatchData> {
+  void ctx;
   const { person, linkedBy } = await findLinkedPerson({
     email: params.email,
     profileName: params.profileName,

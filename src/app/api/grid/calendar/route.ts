@@ -30,7 +30,7 @@ export async function GET(request: Request) {
       ? fallbackMonth
       : getMonthInputValue();
 
-  const days = await getGridCalendarData({
+  const days = await getGridCalendarData(user, {
     month,
     q: filters.q,
     league: filters.league,
