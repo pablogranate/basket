@@ -7,7 +7,7 @@
 
 ### Shared Identity & SSO
 
-- [ ] **AUTH-01**: Stand up a dedicated `basket_auth` database on the company-server Postgres with Better Auth tables (user/session/account/verification) and a Drizzle schema/migrations
+- [x] **AUTH-01**: Stand up a dedicated `basket_auth` database on the company-server Postgres with Better Auth tables (user/session/account/verification) and a Drizzle schema/migrations
 - [ ] **AUTH-02**: Configure cross-subdomain SSO — identical `BETTER_AUTH_SECRET`, `crossSubDomainCookies` with domain `.basket-app.com`, and explicit `trustedOrigins` across portal + analytics
 - [ ] **AUTH-03**: A session created on any subdomain is recognized on the others, and logout propagates across subdomains
 
@@ -66,7 +66,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | Phase 1 | Pending |
+| AUTH-01 | Phase 1 | Complete |
 | AUTH-02 | Phase 6 | Pending |
 | AUTH-03 | Phase 6 | Pending |
 | PAUTH-01 | Phase 3 | Pending |
@@ -84,6 +84,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CUT-02 | Phase 6 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 16 total
 - Mapped to phases: 16 ✓
 - Unmapped: 0 ✓
