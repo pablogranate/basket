@@ -4,7 +4,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { withAuth } from "@/lib/api/with-auth";
 import { consumeGuestRateLimit } from "@/lib/api/rate-limit";
 import { getUserContext } from "@/lib/auth";
+import type { UserContext } from "@/lib/auth";
 import { makeGuestContext, makeUserContext } from "@/test/fixtures/user-context";
+
+function makeHandler() {
+  return vi.fn(
+    async (_request: Request, _context: UserContext) =>
+      NextResponse.json({ ok: true }) as Response,
+  );
+}
 
 vi.mock("@/lib/auth", () => ({
   getUserContext: vi.fn(),
@@ -37,7 +45,7 @@ describe("withAuth", () => {
   it("calls the handler with the guest context when allowGuest is set", async () => {
     const guest = makeGuestContext();
     mockedGetUserContext.mockResolvedValue(guest);
-    const handler = vi.fn(async () => NextResponse.json({ ok: true }));
+    const handler = makeHandler();
 
     const wrapped = withAuth({ allowGuest: true }, handler);
     const response = await wrapped(buildRequest());
@@ -66,7 +74,7 @@ describe("withAuth", () => {
   it("calls the handler and passes the resolved context through on the success path", async () => {
     const context = makeUserContext({ userId: "user-42", role: "editor" });
     mockedGetUserContext.mockResolvedValue(context);
-    const handler = vi.fn(async () => NextResponse.json({ ok: true }));
+    const handler = makeHandler();
 
     const wrapped = withAuth({ roles: ["admin", "editor"] }, handler);
     const response = await wrapped(buildRequest());

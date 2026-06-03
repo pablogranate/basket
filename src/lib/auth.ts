@@ -25,6 +25,8 @@ function buildFallbackProfile(user: {
   };
 }
 
+export type UserContext = Awaited<ReturnType<typeof getUserContext>>;
+
 export async function getUserContext() {
   const supabase = await createSupabaseServerClient();
   const { user } = await getSupabaseUserSafely(supabase);
