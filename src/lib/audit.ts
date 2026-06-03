@@ -1,6 +1,8 @@
+import type { UserContext } from "@/lib/auth";
 import { PRODUCTION_SHORT_LABEL } from "@/lib/constants";
-import type { Json } from "@/lib/database.types";
+import type { Database, Json } from "@/lib/database.types";
 import { getRoleDisplayName } from "@/lib/display";
+import type { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AuditEntry, AssignmentDetail } from "@/lib/types";
 
 const FIELD_LABELS: Record<string, string> = {
@@ -133,4 +135,134 @@ export function formatAuditEntry(
     headline,
     changes,
   };
+}
+
+// ---------------------------------------------------------------------------
+// App-side actor stamping + audit writer (AUTHZ-03)
+//
+// Ports the dropped Postgres triggers set_row_metadata + log_audit_event into
+// the app layer. Once Wave 4 drops those triggers, auth.uid() is gone, so the
+// app MUST set created_by/updated_by and write audit_log rows itself. A missed
+// write site silently yields NULL changed_by post-teardown (Pitfall 1).
+// ---------------------------------------------------------------------------
+
+type SupabaseServerClient = Awaited<
+  ReturnType<typeof createSupabaseServerClient>
+>;
+
+type AuditAction = Database["public"]["Tables"]["audit_log"]["Row"]["action"];
+
+type WriteAuditArgs = {
+  table: string;
+  recordId: string;
+  matchId?: string | null;
+  action: AuditAction;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+};
+
+const REDACTED_SECRET = "[redacted]";
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+// Mirrors set_row_metadata (INSERT branch): stamp the actor + timestamps,
+// coalescing an existing created_at exactly like the trigger did.
+export function stampInsert<T extends Record<string, unknown>>(
+  ctx: UserContext,
+  payload: T,
+): T & {
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+} {
+  const timestamp = nowIso();
+  const existingCreatedAt =
+    typeof payload.created_at === "string" ? payload.created_at : null;
+
+  return {
+    ...payload,
+    created_by: ctx.userId,
+    updated_by: ctx.userId,
+    created_at: existingCreatedAt ?? timestamp,
+    updated_at: timestamp,
+  };
+}
+
+// Mirrors set_row_metadata (UPDATE branch): refresh updated_by + updated_at.
+export function stampUpdate<T extends Record<string, unknown>>(
+  ctx: UserContext,
+  payload: T,
+): T & { updated_by: string | null; updated_at: string } {
+  return {
+    ...payload,
+    updated_by: ctx.userId,
+    updated_at: nowIso(),
+  };
+}
+
+// log_audit_event match_id rule (lines 122-136): matches -> record id,
+// assignments -> row match_id, else null.
+function deriveAuditMatchId(args: WriteAuditArgs): string | null {
+  if (args.table === "matches") {
+    return args.recordId;
+  }
+
+  if (args.table === "assignments") {
+    if (args.matchId) {
+      return args.matchId;
+    }
+
+    const fromRow = args.after?.match_id ?? args.before?.match_id ?? null;
+
+    return typeof fromRow === "string" && fromRow.length > 0 ? fromRow : null;
+  }
+
+  return args.matchId ?? null;
+}
+
+// Never persist secret columns in plaintext in the audit trail (CONCERNS LOW).
+function redactAuditSecrets(
+  payload: Record<string, unknown> | null,
+): Record<string, unknown> | null {
+  if (!payload || !("secret_value" in payload)) {
+    return payload;
+  }
+
+  return { ...payload, secret_value: REDACTED_SECRET };
+}
+
+// Ports log_audit_event to the app layer: every domain mutation writes one
+// audit_log row with changed_by = ctx.userId (NEVER NULL when an actor exists).
+// On insert failure we log + rethrow — a silent audit failure is unacceptable.
+export async function writeAudit(
+  supabase: SupabaseServerClient,
+  ctx: UserContext,
+  args: WriteAuditArgs,
+): Promise<void> {
+  const isSettings = args.table === "app_settings";
+  const before = isSettings ? redactAuditSecrets(args.before) : args.before;
+  const after = isSettings ? redactAuditSecrets(args.after) : args.after;
+
+  const { error } = await supabase.from("audit_log").insert({
+    table_name: args.table,
+    record_id: args.recordId,
+    match_id: deriveAuditMatchId(args),
+    action: args.action,
+    changed_by: ctx.userId,
+    before: (before ?? null) as Json,
+    after: (after ?? null) as Json,
+  });
+
+  if (error) {
+    console.error("[audit] failed to write audit_log row", {
+      table: args.table,
+      recordId: args.recordId,
+      action: args.action,
+      error,
+    });
+    throw error;
+  }
 }
