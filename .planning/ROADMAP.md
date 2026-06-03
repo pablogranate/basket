@@ -29,7 +29,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   1. A dedicated `basket_auth` database (or dedicated schema, if a separate DB is infeasible) exists on the company-server Postgres with Better Auth `user`/`session`/`account`/`verification` tables created via Drizzle migrations.
   2. A Drizzle/postgres-js client can connect to the auth DB using a dedicated `AUTH_DATABASE_URL`, separate from any Supabase connection.
   3. The auth schema and migrations live in a path isolated from any domain-table Drizzle config, so auth migrations never touch domain data.
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — auth_* Drizzle schema, isolated drizzle-kit config, docker-compose basket_auth service, AUTH_DATABASE_URL env wiring, and generated/committed SQL migration
+- [ ] 01-02-PLAN.md — server-only postgres-js/Drizzle auth client + provision/apply/verify the basket_auth container
 
 ### Phase 2: RLS Removal & Guard Coverage Audit
 **Goal**: Portal authorization is enforced entirely in the app layer — every data path runs a guard before any query, actor stamping is app-side, and Supabase is treated as plain Postgres — so removing RLS later opens no doors. This phase runs while Supabase Auth is still live, against the existing app, so guards can be verified end-to-end.
@@ -93,7 +97,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Shared Identity Database | 0/TBD | Not started | - |
+| 1. Shared Identity Database | 0/2 | Planned | - |
 | 2. RLS Removal & Guard Coverage Audit | 0/TBD | Not started | - |
 | 3. Portal Better Auth Wiring | 0/TBD | Not started | - |
 | 4. User Migration | 0/TBD | Not started | - |
