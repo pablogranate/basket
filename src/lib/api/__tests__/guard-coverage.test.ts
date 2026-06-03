@@ -1,5 +1,5 @@
-import { globSync, readFileSync } from "node:fs";
-import { dirname, join, sep } from "node:path";
+import { readdirSync, readFileSync } from "node:fs";
+import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
@@ -22,6 +22,32 @@ const repoRoot = join(here, "..", "..", "..", "..");
 
 function toPosix(p: string): string {
   return p.split(sep).join("/");
+}
+
+// Recursive readdir collecting absolute file paths under `dir` whose basename
+// matches `predicate`. Used in place of node:fs globSync, which is runtime-only
+// on Node 22+ but not declared by the project's @types/node baseline (^20) —
+// so a tsc --noEmit gate would reject globSync. A manual walk keeps the test
+// typecheck-clean and portable.
+function walkFiles(dir: string, predicate: (name: string) => boolean): string[] {
+  const out: string[] = [];
+
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      out.push(...walkFiles(full, predicate));
+    } else if (entry.isFile() && predicate(entry.name)) {
+      out.push(full);
+    }
+  }
+
+  return out;
+}
+
+// Repo-relative POSIX path for stable allowlist comparison + diff-readable
+// offender messages.
+function repoRel(absPath: string): string {
+  return toPosix(relative(repoRoot, absPath));
 }
 
 // --- Route coverage ----------------------------------------------------------
@@ -121,8 +147,11 @@ describe("guard-coverage predicate self-check", () => {
 // --- Route enumeration -------------------------------------------------------
 
 describe("every api/*/route.ts is wrapped in a guard marker (D-07)", () => {
-  const routeFiles = globSync("src/app/api/**/route.ts", { cwd: repoRoot })
-    .map(toPosix)
+  const routeFiles = walkFiles(
+    join(repoRoot, "src", "app", "api"),
+    (name) => name === "route.ts",
+  )
+    .map(repoRel)
     .sort();
 
   it("found api route files to scan", () => {
@@ -158,8 +187,9 @@ describe("every api/*/route.ts is wrapped in a guard marker (D-07)", () => {
 // --- Loader enumeration ------------------------------------------------------
 
 describe("every src/lib/data/* exported async loader takes a ctx arg (D-07)", () => {
-  const loaderFiles = globSync("src/lib/data/*.ts", { cwd: repoRoot })
-    .map(toPosix)
+  const loaderFiles = readdirSync(join(repoRoot, "src", "lib", "data"))
+    .filter((name) => name.endsWith(".ts"))
+    .map((name) => `src/lib/data/${name}`)
     .sort();
 
   it("found data loader files to scan", () => {
