@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
+status: executing
 stopped_at: Phase 2 context gathered
-last_updated: "2026-06-03T18:19:44.956Z"
-last_activity: 2026-06-03 — Completed 01-02-PLAN.md (server-only auth client + basket_auth container provisioned/applied/verified)
+last_updated: "2026-06-03T19:39:37.572Z"
+last_activity: 2026-06-03 -- Phase 02 execution started
 progress:
   total_phases: 6
   completed_phases: 1
-  total_plans: 2
+  total_plans: 8
   completed_plans: 2
   percent: 17
 ---
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-03)
 
 **Core value:** A single sign-on across `*.basket-app.com` where identity is shared but each app authorizes its own users independently — without breaking portal's existing role-based access.
-**Current focus:** Phase 1 — Shared Identity Database
+**Current focus:** Phase 02 — rls-removal-guard-coverage-audit
 
 ## Current Position
 
-Phase: 1 of 6 (Shared Identity Database)
-Plan: 2 of 2 complete in current phase
-Status: Phase 1 complete (Plans 01-01 and 01-02 done; auth DB provisioned + verified)
-Last activity: 2026-06-03 — Completed 01-02-PLAN.md (server-only auth client + basket_auth container provisioned/applied/verified)
+Phase: 02 (rls-removal-guard-coverage-audit) — EXECUTING
+Plan: 1 of 6
+Status: Executing Phase 02
+Last activity: 2026-06-03 -- Phase 02 execution started
 
 Progress: [██████████] 100% (Phase 1)
 

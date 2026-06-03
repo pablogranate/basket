@@ -59,7 +59,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 02-01-PLAN.md — Wave 0 test infra (Vitest + config + CI), `withAuth` HOF + rate limiter, exported `UserContext` type, admin-gated `secret_value` read (D-08)
+- [x] 02-01-PLAN.md — Wave 0 test infra (Vitest + config + CI), `withAuth` HOF + rate limiter, exported `UserContext` type, admin-gated `secret_value` read (D-08)
 
 **Wave 2** *(blocked on 02-01)*
 
@@ -139,7 +139,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Shared Identity Database | 2/2 | Complete   | 2026-06-03 |
-| 2. RLS Removal & Guard Coverage Audit | 0/6 | Planned | - |
+| 2. RLS Removal & Guard Coverage Audit | 1/6 | In Progress|  |
 | 3. Portal Better Auth Wiring | 0/TBD | Not started | - |
 | 4. User Migration | 0/TBD | Not started | - |
 | 5. Cutover | 0/TBD | Not started | - |
