@@ -8,6 +8,7 @@ export const appEnv = {
   portalGeminiApiKey: process.env.PORTAL_GEMINI_API_KEY ?? "",
   portalGeminiModel: process.env.PORTAL_GEMINI_MODEL ?? "gemini-2.5-flash",
   authDatabaseUrl: process.env.AUTH_DATABASE_URL ?? "",
+  intakeApiKey: process.env.INTAKE_API_KEY ?? "",
 };
 
 export const isSupabaseConfigured = Boolean(

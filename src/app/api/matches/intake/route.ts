@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { withApiKey } from "@/lib/api/with-api-key";
+
 function firstString(...values: unknown[]) {
   for (const value of values) {
     if (typeof value === "string" && value.trim()) {
@@ -136,7 +138,7 @@ function normalizeLookupPayload(payload: unknown, externalId: string) {
   };
 }
 
-export async function POST(request: Request) {
+export const POST = withApiKey(async (request) => {
   const { externalId } = (await request.json()) as { externalId?: string };
   const normalizedExternalId = externalId?.trim() ?? "";
 
@@ -199,4 +201,4 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
-}
+});
