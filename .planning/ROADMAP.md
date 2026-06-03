@@ -55,7 +55,25 @@ Plans:
   3. Supabase RLS is no longer the authorization backstop: Supabase is used as plain Postgres, the privileged/service-role client is confined to `server-only` modules, and the `(dashboard)/people` page no longer reads via the admin client.
   4. Actor stamping (`created_by`/`changed_by`/audit) is written from the app layer; triggers no longer call `auth.uid()`, and post-write `audit_log.changed_by` is populated (never NULL).
 
-**Plans**: TBD
+**Plans**: 6 plans
+Plans:
+**Wave 1**
+
+- [ ] 02-01-PLAN.md — Wave 0 test infra (Vitest + config + CI), `withAuth` HOF + rate limiter, exported `UserContext` type, admin-gated `secret_value` read (D-08)
+
+**Wave 2** *(blocked on 02-01)*
+
+- [ ] 02-02-PLAN.md — wrap every `api/ai/*` route in `withAuth` + guest rate limiting (D-04/D-05); machine-auth for `matches/intake` (Open Q1)
+- [ ] 02-03-PLAN.md — pure loaders + typed `ctx` (D-06); `(dashboard)/people` drops the admin client + server-only platform-access helper (D-09)
+- [ ] 02-04-PLAN.md — app-side stamping `src/lib/audit.ts` + wire `stampInsert`/`stampUpdate`/`writeAudit` into every write path (AUTHZ-03)
+
+**Wave 3** *(blocked on 02-02, 02-03, 02-04)*
+
+- [ ] 02-05-PLAN.md — structural guard-coverage test (D-07) + full-suite/check gate + manual verification (D-02 step 3)
+
+**Wave 4** *(blocked on 02-05 — destructive migration LAST per D-02)*
+
+- [ ] 02-06-PLAN.md — `0010` teardown migration (drop RLS policies + `auth.uid()` triggers, D-01/D-03) + `supabase db push` [BLOCKING] + post-push stamping verification
 
 ### Phase 3: Portal Better Auth Wiring
 
@@ -121,7 +139,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Shared Identity Database | 2/2 | Complete   | 2026-06-03 |
-| 2. RLS Removal & Guard Coverage Audit | 0/TBD | Not started | - |
+| 2. RLS Removal & Guard Coverage Audit | 0/6 | Planned | - |
 | 3. Portal Better Auth Wiring | 0/TBD | Not started | - |
 | 4. User Migration | 0/TBD | Not started | - |
 | 5. Cutover | 0/TBD | Not started | - |
