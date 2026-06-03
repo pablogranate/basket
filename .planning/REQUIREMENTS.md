@@ -66,28 +66,28 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | TBD | Pending |
-| AUTH-02 | TBD | Pending |
-| AUTH-03 | TBD | Pending |
-| PAUTH-01 | TBD | Pending |
-| PAUTH-02 | TBD | Pending |
-| PAUTH-03 | TBD | Pending |
-| PAUTH-04 | TBD | Pending |
-| PAUTH-05 | TBD | Pending |
-| AUTHZ-01 | TBD | Pending |
-| AUTHZ-02 | TBD | Pending |
-| AUTHZ-03 | TBD | Pending |
-| MIG-01 | TBD | Pending |
-| MIG-02 | TBD | Pending |
-| MIG-03 | TBD | Pending |
-| CUT-01 | TBD | Pending |
-| CUT-02 | TBD | Pending |
+| AUTH-01 | Phase 1 | Pending |
+| AUTH-02 | Phase 6 | Pending |
+| AUTH-03 | Phase 6 | Pending |
+| PAUTH-01 | Phase 3 | Pending |
+| PAUTH-02 | Phase 3 | Pending |
+| PAUTH-03 | Phase 3 | Pending |
+| PAUTH-04 | Phase 3 | Pending |
+| PAUTH-05 | Phase 3 | Pending |
+| AUTHZ-01 | Phase 2 | Pending |
+| AUTHZ-02 | Phase 2 | Pending |
+| AUTHZ-03 | Phase 2 | Pending |
+| MIG-01 | Phase 4 | Pending |
+| MIG-02 | Phase 4 | Pending |
+| MIG-03 | Phase 4 | Pending |
+| CUT-01 | Phase 5 | Pending |
+| CUT-02 | Phase 6 | Pending |
 
 **Coverage:**
 - v1 requirements: 16 total
-- Mapped to phases: 0 (set during roadmap)
-- Unmapped: 16 ⚠️
+- Mapped to phases: 16 ✓
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-06-03*
-*Last updated: 2026-06-03 after initial definition*
+*Last updated: 2026-06-03 after roadmap creation*
