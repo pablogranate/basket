@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Phase 2 context gathered
-last_updated: "2026-06-03T20:04:54.267Z"
+last_updated: "2026-06-03T20:13:43.169Z"
 last_activity: 2026-06-03 -- Phase 02 execution started
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 8
-  completed_plans: 4
+  completed_plans: 5
   percent: 17
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-06-03)
 ## Current Position
 
 Phase: 02 (rls-removal-guard-coverage-audit) — EXECUTING
-Plan: 2 of 6
+Plan: 3 of 6
 Status: Ready to execute
 Last activity: 2026-06-03 -- Phase 02 execution started
 
@@ -54,6 +54,7 @@ Progress: [██████████] 100% (Phase 1)
 *Updated after each plan completion*
 | Phase 01 P02 | 30min | 2 tasks | 1 files |
 | Phase 02 P03 | ~20 min | 3 tasks | 20 files |
+| Phase 02 P02 | ~12 min | 4 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -68,6 +69,7 @@ Recent decisions affecting current work:
 - [Phase ?]: Loaders take a required ctx: UserContext leading param (D-06); the ctx arg is the structural authorization contract, decided at the boundary not from cookies.
 - [Phase ?]: Service-role people platform-access read moved to server-only src/lib/data/platform-access.ts; (dashboard)/people no longer imports the admin client (D-09).
 - [Phase ?]: vitest aliases the server-only package to a node stub so server-only modules unit-test directly.
+- [Phase ?]: Open Q1: matches/intake machine-auth = api-key-header (withApiKey, x-intake-key header, INTAKE_API_KEY env); fail-closed 401.
 
 ### Pending Todos
 
@@ -90,6 +92,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-03T20:04:26.647Z
+Last session: 2026-06-03T20:13:18.743Z
 Stopped at: Phase 2 context gathered
 Resume file: .planning/phases/02-rls-removal-guard-coverage-audit/02-CONTEXT.md

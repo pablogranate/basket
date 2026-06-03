@@ -63,7 +63,7 @@ Plans:
 
 **Wave 2** *(blocked on 02-01)*
 
-- [ ] 02-02-PLAN.md — wrap every `api/ai/*` route in `withAuth` + guest rate limiting (D-04/D-05); machine-auth for `matches/intake` (Open Q1)
+- [x] 02-02-PLAN.md — wrap every `api/ai/*` route in `withAuth` + guest rate limiting (D-04/D-05); machine-auth for `matches/intake` (Open Q1)
 - [x] 02-03-PLAN.md — pure loaders + typed `ctx` (D-06); `(dashboard)/people` drops the admin client + server-only platform-access helper (D-09)
 - [ ] 02-04-PLAN.md — app-side stamping `src/lib/audit.ts` + wire `stampInsert`/`stampUpdate`/`writeAudit` into every write path (AUTHZ-03)
 
@@ -139,7 +139,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Shared Identity Database | 2/2 | Complete   | 2026-06-03 |
-| 2. RLS Removal & Guard Coverage Audit | 2/6 | In Progress|  |
+| 2. RLS Removal & Guard Coverage Audit | 3/6 | In Progress|  |
 | 3. Portal Better Auth Wiring | 0/TBD | Not started | - |
 | 4. User Migration | 0/TBD | Not started | - |
 | 5. Cutover | 0/TBD | Not started | - |
