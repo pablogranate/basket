@@ -23,7 +23,7 @@
 
 - [x] **AUTHZ-01**: Every data path (server actions, API route handlers incl. `ai/*` and `matches/intake`, and data loaders) enforces access via app-layer guards
 - [x] **AUTHZ-02**: Supabase RLS reliance is removed; Supabase is used as a plain Postgres for domain data
-- [ ] **AUTHZ-03**: Actor stamping (`created_by`/`changed_by`/audit) is moved to the app layer (no longer `auth.uid()`)
+- [x] **AUTHZ-03**: Actor stamping (`created_by`/`changed_by`/audit) is moved to the app layer (no longer `auth.uid()`)
 
 ### User Migration
 
@@ -76,7 +76,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PAUTH-05 | Phase 3 | Pending |
 | AUTHZ-01 | Phase 2 | Complete |
 | AUTHZ-02 | Phase 2 | Complete |
-| AUTHZ-03 | Phase 2 | Pending |
+| AUTHZ-03 | Phase 2 | Complete |
 | MIG-01 | Phase 4 | Pending |
 | MIG-02 | Phase 4 | Pending |
 | MIG-03 | Phase 4 | Pending |
