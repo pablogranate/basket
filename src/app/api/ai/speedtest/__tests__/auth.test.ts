@@ -45,6 +45,14 @@ describe("api/ai/speedtest POST auth", () => {
       apiKey: "",
       model: "gemini-2.5-flash",
       source: "env",
+
+      hasGeminiKey: false,
+
+      hasPersonalGeminiKey: false,
+
+      hasPortalGeminiKey: false,
+
+      hasEnvGeminiKey: false,
     });
     const { POST } = await import("../route");
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getUserContext } from "@/lib/auth";
+import { withAuth } from "@/lib/api/with-auth";
 import { getGridCalendarData } from "@/lib/data/dashboard";
 import { getMonthInputValue } from "@/lib/date";
 import { parseGridSearchParams } from "@/lib/search-params";
@@ -9,16 +9,7 @@ function isMonthString(value: string | null) {
   return Boolean(value && /^\d{4}-\d{2}$/.test(value));
 }
 
-export async function GET(request: Request) {
-  const user = await getUserContext();
-
-  if (!user.userId) {
-    return NextResponse.json(
-      { error: "Debes iniciar sesión para consultar el calendario." },
-      { status: 401 },
-    );
-  }
-
+export const GET = withAuth({}, async (request, ctx) => {
   const url = new URL(request.url);
   const filters = parseGridSearchParams(url.searchParams);
   const requestedMonth = url.searchParams.get("calendarMonth");
@@ -30,7 +21,7 @@ export async function GET(request: Request) {
       ? fallbackMonth
       : getMonthInputValue();
 
-  const days = await getGridCalendarData(user, {
+  const days = await getGridCalendarData(ctx, {
     month,
     q: filters.q,
     league: filters.league,
@@ -44,4 +35,4 @@ export async function GET(request: Request) {
     month,
     days,
   });
-}
+});

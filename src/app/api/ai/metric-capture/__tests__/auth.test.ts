@@ -48,6 +48,14 @@ describe("api/ai/metric-capture POST auth (guest-allowed)", () => {
       apiKey: "",
       model: "gemini-2.5-flash",
       source: "env",
+
+      hasGeminiKey: false,
+
+      hasPersonalGeminiKey: false,
+
+      hasPortalGeminiKey: false,
+
+      hasEnvGeminiKey: false,
     });
     const { POST } = await import("../route");
 
@@ -79,6 +87,14 @@ describe("api/ai/metric-capture POST auth (guest-allowed)", () => {
       apiKey: "",
       model: "gemini-2.5-flash",
       source: "env",
+
+      hasGeminiKey: false,
+
+      hasPersonalGeminiKey: false,
+
+      hasPortalGeminiKey: false,
+
+      hasEnvGeminiKey: false,
     });
     const { POST } = await import("../route");
 

@@ -1,18 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { getUserContext } from "@/lib/auth";
+import { withAuth } from "@/lib/api/with-auth";
 import { getTeamLogoPath } from "@/lib/team-logos";
 
-export async function GET(request: Request) {
-  const user = await getUserContext();
-
-  if (!user.userId) {
-    return NextResponse.json(
-      { error: "Debes iniciar sesión para consultar los escudos." },
-      { status: 401 },
-    );
-  }
-
+export const GET = withAuth({}, async (request) => {
   const url = new URL(request.url);
   const teamName = url.searchParams.get("teamName")?.trim();
   const competition = url.searchParams.get("competition")?.trim() ?? null;
@@ -27,4 +18,4 @@ export async function GET(request: Request) {
   return NextResponse.json({
     src: getTeamLogoPath({ teamName, competition }),
   });
-}
+});
