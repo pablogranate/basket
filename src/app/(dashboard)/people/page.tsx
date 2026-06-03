@@ -36,16 +36,15 @@ import { getToolbarIconButtonClassName } from "@/components/ui/toolbar-icon-butt
 import { ToolbarSearchField } from "@/components/ui/toolbar-search-field";
 import { requireUserContext } from "@/lib/auth";
 import { SECTION_COPY } from "@/lib/copy";
-import { resolveDashboardAccessRole, ROLE_SEED } from "@/lib/constants";
+import { ROLE_SEED } from "@/lib/constants";
 import { getPeopleData } from "@/lib/data/dashboard";
-import type { AppRole } from "@/lib/database.types";
+import { personHasPlatformAccess } from "@/lib/data/platform-access";
 import { getAssignmentStateDisplayName, getRoleDisplayName } from "@/lib/display";
 import { isSupabaseConfigured } from "@/lib/env";
 import type { PeopleAiContextItem } from "@/lib/people-ai";
 import { parsePersonNotesMeta } from "@/lib/people-notes";
 import { parseNotice } from "@/lib/search-params";
 import { getSettingsSnapshot } from "@/lib/settings";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { TEAM_DIRECTORY } from "@/lib/team-directory";
 import type { PersonListItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -211,41 +210,9 @@ export default async function PeoplePage({ searchParams }: PageProps) {
   let selectedPersonHasPlatformAccess = false;
 
   if (selectedPerson?.email && user.role === "admin") {
-    try {
-      const supabaseAdmin = createSupabaseAdminClient();
-      const usersResult = await supabaseAdmin.auth.admin.listUsers({
-        page: 1,
-        perPage: 1000,
-      });
-
-      if (!usersResult.error) {
-        const authUser = usersResult.data.users.find(
-          (candidate) =>
-            candidate.email?.toLowerCase() ===
-            selectedPerson.email?.toLowerCase(),
-        );
-
-        if (authUser) {
-          const profileQuery = await supabaseAdmin
-            .from("profiles")
-            .select("role")
-            .eq("id", authUser.id)
-            .maybeSingle();
-
-          if (!profileQuery.error) {
-            selectedPersonHasPlatformAccess =
-              resolveDashboardAccessRole({
-                profileRole:
-                  (profileQuery.data?.role as AppRole | null | undefined) ?? null,
-                appMetadata:
-                  (authUser.app_metadata as Record<string, unknown> | null) ?? null,
-              }) === "collaborator";
-          }
-        }
-      }
-    } catch {
-      selectedPersonHasPlatformAccess = false;
-    }
+    selectedPersonHasPlatformAccess = await personHasPlatformAccess(
+      selectedPerson.email,
+    );
   }
 
   const currentPeopleHref = buildPeopleHref(resolvedSearchParams, {
