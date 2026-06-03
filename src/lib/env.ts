@@ -7,6 +7,7 @@ export const appEnv = {
   allowGuestMiJornadaAccess: process.env.ALLOW_GUEST_MI_JORNADA === "true",
   portalGeminiApiKey: process.env.PORTAL_GEMINI_API_KEY ?? "",
   portalGeminiModel: process.env.PORTAL_GEMINI_MODEL ?? "gemini-2.5-flash",
+  authDatabaseUrl: process.env.AUTH_DATABASE_URL ?? "",
 };
 
 export const isSupabaseConfigured = Boolean(
@@ -25,6 +26,14 @@ export function assertServiceRoleKey() {
   if (!appEnv.supabaseServiceRoleKey) {
     throw new Error(
       "Missing SUPABASE_SERVICE_ROLE_KEY. The CSV importer requires a service role key.",
+    );
+  }
+}
+
+export function assertAuthDatabaseUrl() {
+  if (!appEnv.authDatabaseUrl) {
+    throw new Error(
+      "Missing AUTH_DATABASE_URL. The Better Auth identity database requires a connection string.",
     );
   }
 }
