@@ -13,7 +13,7 @@ This milestone moves `portal.basket-app.com` off Supabase Auth onto a shared Bet
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Shared Identity Database** - Stand up the central `basket_auth` Postgres with Better Auth tables and a Drizzle connection
+- [x] **Phase 1: Shared Identity Database** - Stand up the central `basket_auth` Postgres with Better Auth tables and a Drizzle connection (completed 2026-06-03)
 - [ ] **Phase 2: RLS Removal & Guard Coverage Audit** - Move all authorization into app-layer guards and actor stamping into the app, so no data path is left open when RLS goes
 - [ ] **Phase 3: Portal Better Auth Wiring** - Run Better Auth in portal with Google + a non-Google path, gated by a linked `profiles` access table preserving existing roles
 - [ ] **Phase 4: User Migration** - Carry existing Supabase users into Better Auth with no lockout, linking (not re-keying) `profiles`, verified on a DB copy
@@ -41,7 +41,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 01-02-PLAN.md — server-only postgres-js/Drizzle auth client + provision/apply/verify the basket_auth container
+- [x] 01-02-PLAN.md — server-only postgres-js/Drizzle auth client + provision/apply/verify the basket_auth container
 
 ### Phase 2: RLS Removal & Guard Coverage Audit
 
@@ -120,7 +120,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Shared Identity Database | 1/2 | In Progress|  |
+| 1. Shared Identity Database | 2/2 | Complete   | 2026-06-03 |
 | 2. RLS Removal & Guard Coverage Audit | 0/TBD | Not started | - |
 | 3. Portal Better Auth Wiring | 0/TBD | Not started | - |
 | 4. User Migration | 0/TBD | Not started | - |
