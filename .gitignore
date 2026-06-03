@@ -43,3 +43,7 @@ next-env.d.ts
 
 # Local Netlify folder
 .netlify
+
+# contacts import source/output (contains phone numbers / PII)
+tools/import/contactos.raw.md
+tools/import/contactos.clean.json
