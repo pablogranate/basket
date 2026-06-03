@@ -2,7 +2,8 @@ import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { getUserContext } from "@/lib/auth";
+import { withAuth } from "@/lib/api/with-auth";
+import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
 import {
   getCollaboratorMatchData,
   isUuidLike,
@@ -54,7 +55,9 @@ function hasEnabledProblems(
   return Object.values(value).some(Boolean);
 }
 
-export async function POST(request: Request) {
+// withAuth({}) is the structural 401 seam (D-04 marker for plan 05's D-07
+// coverage test). The finer-grained per-match 403 check stays in the handler.
+export const POST = withAuth({}, async (request, ctx) => {
   let payload: unknown;
 
   try {
@@ -85,18 +88,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const user = await getUserContext();
-
-    if (!user.userId) {
-      return NextResponse.json(
-        { error: "Inicia sesión para enviar el reporte." },
-        { status: 401 },
-      );
-    }
-
-    const access = await getCollaboratorMatchData(user, {
-      email: user.email,
-      profileName: user.profile?.full_name ?? null,
+    const access = await getCollaboratorMatchData(ctx, {
+      email: ctx.email,
+      profileName: ctx.profile?.full_name ?? null,
       matchId,
     });
 
@@ -117,10 +111,10 @@ export async function POST(request: Request) {
     const reportResult = await supabase
       .from("collaborator_reports")
       .upsert(
-        {
+        stampInsert(ctx, {
           assignment_id: assignmentId,
           match_id: matchId,
-          reporter_profile_id: user.userId,
+          reporter_profile_id: ctx.userId,
           incident_level: draft.incidentLevel,
           paid: draft.paid === "si",
           feed_detected: draft.feedDetected === "si",
@@ -152,7 +146,7 @@ export async function POST(request: Request) {
             gpu: draft.gpuAttachmentName,
           },
           submitted_at: new Date().toISOString(),
-        },
+        }),
         { onConflict: "assignment_id" },
       )
       .select("id")
@@ -172,14 +166,32 @@ export async function POST(request: Request) {
       throw reportResult.error;
     }
 
+    await writeAudit(supabase, ctx, {
+      table: "collaborator_reports",
+      recordId: reportResult.data.id,
+      matchId,
+      action: "INSERT",
+      before: null,
+      after: { id: reportResult.data.id, assignment_id: assignmentId, match_id: matchId },
+    });
+
     const assignmentResult = await supabase
       .from("assignments")
-      .update({ confirmed: true })
+      .update(stampUpdate(ctx, { confirmed: true }))
       .eq("id", assignmentId);
 
     if (assignmentResult.error) {
       throw assignmentResult.error;
     }
+
+    await writeAudit(supabase, ctx, {
+      table: "assignments",
+      recordId: assignmentId,
+      matchId,
+      action: "UPDATE",
+      before: null,
+      after: { id: assignmentId, confirmed: true },
+    });
 
     revalidatePath("/mi-jornada");
     revalidatePath(`/mi-jornada/${matchId}/reportar`);
@@ -199,4 +211,4 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
-}
+});
