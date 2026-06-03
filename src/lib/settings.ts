@@ -151,6 +151,8 @@ export async function getSettingsSnapshot() {
   const uiDensity =
     (store.get(UI_DENSITY_COOKIE)?.value as UiDensity | undefined) ?? "comoda";
 
+  // user-facing — never return raw secret_value (D-08); presence booleans only.
+  // If a raw key ever needs surfacing here, route it through maskApiKey below.
   return {
     hasGeminiKey: gemini.hasGeminiKey,
     geminiModel: gemini.model,
