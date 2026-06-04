@@ -47,3 +47,4 @@ next-env.d.ts
 # contacts import source/output (contains phone numbers / PII)
 tools/import/contactos.raw.md
 tools/import/contactos.clean.json
+tools/import/periodistas.raw.csv
