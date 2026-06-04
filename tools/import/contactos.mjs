@@ -84,6 +84,7 @@ function buildRecords(sections) {
   const people = new Map(); // normName -> record
   const clubs = [];
   const seenClub = new Set();
+  const responsablePhones = new Map(); // normName -> phone (from club blocks)
 
   function addPerson(name, phone, category, notes) {
     const display = cleanText(name);
@@ -159,8 +160,18 @@ function buildRecords(sections) {
         if (seenClub.has(k)) continue;
         seenClub.add(k);
         clubs.push(rec);
+        // Remember responsable phones to enrich people that appear in name-only lists.
+        const rKey = normName(rec.responsable);
+        if (rKey && rec.phone && !responsablePhones.has(rKey)) {
+          responsablePhones.set(rKey, rec.phone);
+        }
       }
     }
+  }
+
+  // Cross-enrich: people without phone take it from their club-responsable rows.
+  for (const [key, rec] of people) {
+    if (!rec.phone && responsablePhones.has(key)) rec.phone = responsablePhones.get(key);
   }
 
   // Store role where the app reads it: a "Rol principal:" line in notes.
