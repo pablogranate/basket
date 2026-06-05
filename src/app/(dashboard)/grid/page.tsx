@@ -6,6 +6,7 @@ import { CreateMatchModal } from "@/components/grid/create-match-modal";
 import { GridCalendarPicker } from "@/components/grid/grid-calendar-picker";
 import { GridDisplayToggle } from "@/components/grid/grid-display-toggle";
 import { GridExportButton } from "@/components/grid/grid-export-button";
+import { GridPageShell } from "@/components/grid/grid-page-shell";
 import { GridTable } from "@/components/grid/grid-table";
 import { MatchCard } from "@/components/grid/match-card";
 import { ProductionInsightsPanel } from "@/components/grid/production-insights-panel";
@@ -266,7 +267,17 @@ export default async function GridPage({ searchParams }: PageProps) {
   const visibleMatches = sortedDayGroups.flatMap((group) => group.items);
 
   return (
-    <div className="grid-page-layout grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] 2xl:grid-cols-[minmax(0,1fr)_22rem]">
+    <GridPageShell
+      aside={
+        <ProductionInsightsPanel
+          matches={dayGroups.flatMap((group) => group.items)}
+          timezone={filters.timezone}
+          currentDateLabel={summaryDateLabel}
+          previousDateHref={previousDateHref}
+          nextDateHref={nextDateHref}
+        />
+      }
+    >
       <div className="relative z-0 min-w-0 space-y-10">
         <SectionPageHeader
           title={SECTION_COPY.grid.title}
@@ -422,15 +433,6 @@ export default async function GridPage({ searchParams }: PageProps) {
         </section>
       </div>
 
-      <aside className="grid-page-aside relative z-20 min-w-0 self-start xl:sticky xl:top-24">
-        <ProductionInsightsPanel
-          matches={dayGroups.flatMap((group) => group.items)}
-          timezone={filters.timezone}
-          currentDateLabel={summaryDateLabel}
-          previousDateHref={previousDateHref}
-          nextDateHref={nextDateHref}
-        />
-      </aside>
-    </div>
+    </GridPageShell>
   );
 }

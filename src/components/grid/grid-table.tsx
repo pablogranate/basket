@@ -38,21 +38,12 @@ type GridTableProps = {
 
 const HIDDEN_COLUMNS_STORAGE_KEY =
   "basket-production.grid.table-hidden-columns.v1";
-const HIDDEN_PANELS_STORAGE_KEY =
-  "basket-production.grid.table-hidden-panels.v1";
 const EDIT_MODE_STORAGE_KEY = "basket-production.grid.table-edit-mode.v1";
 const COLUMN_WIDTHS_STORAGE_KEY =
   "basket-production.grid.table-column-widths.v1";
 const COLUMN_ORDER_STORAGE_KEY =
   "basket-production.grid.table-column-order.v1";
 const MIN_COLUMN_WIDTH = 64;
-
-const TOGGLEABLE_PANELS = [
-  { key: "nav", label: "Navegación" },
-  { key: "summary", label: "Resumen" },
-] as const;
-
-type PanelKey = (typeof TOGGLEABLE_PANELS)[number]["key"];
 
 const TABLE_COLUMNS = GRID_EXPORT_COLUMNS.filter(
   (column) => column.key !== "Dia",
@@ -134,17 +125,6 @@ function normalizeColumnOrder(value: unknown) {
   }
 
   return ordered;
-}
-
-function normalizeHiddenPanels(value: unknown) {
-  if (!Array.isArray(value)) {
-    return null;
-  }
-
-  return value.filter(
-    (item): item is PanelKey =>
-      TOGGLEABLE_PANELS.some((panel) => panel.key === item),
-  );
 }
 
 function readStoredList<T>(
@@ -324,14 +304,10 @@ function PickerCheckRow({
 
 function GridColumnsPicker({
   hiddenColumns,
-  hiddenPanels,
   onToggleColumn,
-  onTogglePanel,
 }: {
   hiddenColumns: string[];
-  hiddenPanels: PanelKey[];
   onToggleColumn: (key: string) => void;
-  onTogglePanel: (key: PanelKey) => void;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -367,21 +343,6 @@ function GridColumnsPicker({
 
       {open ? (
         <div className="absolute right-0 top-[calc(100%+0.5rem)] z-30 max-h-96 w-60 overflow-y-auto rounded-[18px] border border-[var(--border)] bg-white p-2 shadow-[0_20px_48px_rgba(28,13,16,0.16)]">
-          <p className="px-3 pb-1 pt-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#94a3b8]">
-            Paneles
-          </p>
-          {TOGGLEABLE_PANELS.map((panel) => (
-            <PickerCheckRow
-              key={panel.key}
-              label={panel.label}
-              visible={!hiddenPanels.includes(panel.key)}
-              onToggle={() => onTogglePanel(panel.key)}
-            />
-          ))}
-          <div className="my-2 border-t border-[#edf1f6]" />
-          <p className="px-3 pb-1 pt-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#94a3b8]">
-            Columnas
-          </p>
           {TOGGLEABLE_COLUMNS.map((column) => (
             <PickerCheckRow
               key={column.key}
@@ -399,9 +360,6 @@ function GridColumnsPicker({
 export function GridTable({ rows, canEdit, redirectTo, people }: GridTableProps) {
   const [hiddenColumns, setHiddenColumns] = useState<string[]>(() =>
     readStoredList(HIDDEN_COLUMNS_STORAGE_KEY, normalizeHiddenColumns),
-  );
-  const [hiddenPanels, setHiddenPanels] = useState<PanelKey[]>(() =>
-    readStoredList(HIDDEN_PANELS_STORAGE_KEY, normalizeHiddenPanels),
   );
   const [editMode, setEditMode] = useState(() => {
     if (typeof window === "undefined") {
@@ -437,27 +395,6 @@ export function GridTable({ rows, canEdit, redirectTo, people }: GridTableProps)
     columnOrderRef.current = columnOrder;
   }, [columnOrder]);
 
-  useEffect(() => {
-    const root = document.documentElement;
-
-    if (hiddenPanels.includes("nav")) {
-      root.setAttribute("data-hide-nav", "true");
-    } else {
-      root.removeAttribute("data-hide-nav");
-    }
-
-    if (hiddenPanels.includes("summary")) {
-      root.setAttribute("data-hide-summary", "true");
-    } else {
-      root.removeAttribute("data-hide-summary");
-    }
-
-    return () => {
-      root.removeAttribute("data-hide-nav");
-      root.removeAttribute("data-hide-summary");
-    };
-  }, [hiddenPanels]);
-
   function toggleColumn(key: string) {
     setHiddenColumns((current) => {
       const next = current.includes(key)
@@ -466,20 +403,6 @@ export function GridTable({ rows, canEdit, redirectTo, people }: GridTableProps)
 
       window.localStorage.setItem(
         HIDDEN_COLUMNS_STORAGE_KEY,
-        JSON.stringify(next),
-      );
-      return next;
-    });
-  }
-
-  function togglePanel(key: PanelKey) {
-    setHiddenPanels((current) => {
-      const next = current.includes(key)
-        ? current.filter((item) => item !== key)
-        : [...current, key];
-
-      window.localStorage.setItem(
-        HIDDEN_PANELS_STORAGE_KEY,
         JSON.stringify(next),
       );
       return next;
@@ -737,9 +660,7 @@ export function GridTable({ rows, canEdit, redirectTo, people }: GridTableProps)
         ) : null}
         <GridColumnsPicker
           hiddenColumns={hiddenColumns}
-          hiddenPanels={hiddenPanels}
           onToggleColumn={toggleColumn}
-          onTogglePanel={togglePanel}
         />
       </div>
       <div

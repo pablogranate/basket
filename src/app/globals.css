@@ -75,15 +75,3 @@ select option {
     box-shadow: var(--panel-shadow) !important;
   }
 }
-
-html[data-hide-nav] .dashboard-shell-nav {
-  display: none !important;
-}
-
-html[data-hide-summary] .grid-page-aside {
-  display: none !important;
-}
-
-html[data-hide-summary] .grid-page-layout {
-  grid-template-columns: minmax(0, 1fr) !important;
-}

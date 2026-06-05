@@ -3,6 +3,7 @@ import { LogOut } from "lucide-react";
 import { signOutAction } from "@/app/actions/auth";
 import { DashboardFooterMeta } from "@/components/layout/dashboard-footer-meta";
 import { DashboardNav } from "@/components/layout/dashboard-nav";
+import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
 import { UserProfileChip } from "@/components/layout/user-profile-chip";
 import { SubmitButton } from "@/components/ui/submit-button";
 import {
@@ -27,9 +28,9 @@ export function DashboardShell(props: {
   return (
     <div className="min-h-screen bg-[var(--page-canvas)]">
       <div className="flex min-h-screen">
-        <aside className="dashboard-shell-nav sticky top-0 hidden h-screen w-72 shrink-0 flex-col overflow-y-auto border-r border-[#10203f] bg-[#07122b] lg:flex">
-          <div className="border-b border-[#10203f] px-6 py-7">
-            <div className="flex flex-col gap-2">
+        <DashboardSidebar
+          brand={
+            <div className="flex min-w-0 flex-col gap-2">
               <p className="text-[1.6rem] font-black leading-none tracking-[-0.03em] text-[#e61218]">
                 BASKET.TV
               </p>
@@ -37,12 +38,10 @@ export function DashboardShell(props: {
                 {APP_PORTAL_LABEL}
               </p>
             </div>
-          </div>
-
-          <div className="flex flex-1 flex-col justify-between px-5 py-6">
-            <DashboardNav role={user?.role ?? null} />
-          </div>
-        </aside>
+          }
+        >
+          <DashboardNav role={user?.role ?? null} />
+        </DashboardSidebar>
 
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[rgba(255,255,255,0.88)] backdrop-blur-md">
