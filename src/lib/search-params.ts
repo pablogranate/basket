@@ -38,9 +38,13 @@ export function parseGridSearchParams(searchParams: RawSearchParams) {
   ) as "asc" | "desc";
   const rawMode = getParam(searchParams, "mode") ?? "";
   const mode = getProductionModeLabel(normalizeProductionMode(rawMode));
+  const display = (
+    getParam(searchParams, "display") === "table" ? "table" : "cards"
+  ) as "cards" | "table";
 
   return {
     view,
+    display,
     date: getParam(searchParams, "date") ?? defaultDate,
     dateOrder,
     q: getParam(searchParams, "q") ?? "",

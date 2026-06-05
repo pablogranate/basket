@@ -27,7 +27,7 @@ export function DashboardShell(props: {
   return (
     <div className="min-h-screen bg-[var(--page-canvas)]">
       <div className="flex min-h-screen">
-        <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col overflow-y-auto border-r border-[#10203f] bg-[#07122b] lg:flex">
+        <aside className="dashboard-shell-nav sticky top-0 hidden h-screen w-72 shrink-0 flex-col overflow-y-auto border-r border-[#10203f] bg-[#07122b] lg:flex">
           <div className="border-b border-[#10203f] px-6 py-7">
             <div className="flex flex-col gap-2">
               <p className="text-[1.6rem] font-black leading-none tracking-[-0.03em] text-[#e61218]">

@@ -10,9 +10,10 @@ import {
 import type { Database } from "@/lib/database.types";
 import {
   MATCH_STATUS_OPTIONS,
+  normalizeCommentaryPlan,
   normalizeProductionMode,
 } from "@/lib/constants";
-import { buildKickoffAt } from "@/lib/date";
+import { buildKickoffAt, formatMatchDate } from "@/lib/date";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireEditor } from "@/lib/auth";
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
@@ -465,6 +466,44 @@ export async function quickUpdateMatchFieldAction(formData: FormData) {
       case "status":
         payload.status = assertMatchStatus(rawValue);
         break;
+      case "productionCode":
+        payload.production_code = maybeNull(rawValue);
+        break;
+      case "commentaryPlan":
+        payload.commentary_plan = maybeNull(normalizeCommentaryPlan(rawValue));
+        break;
+      case "transport":
+        payload.transport = maybeNull(rawValue);
+        break;
+      case "notes":
+        payload.notes = maybeNull(rawValue);
+        break;
+      case "kickoffTime": {
+        if (!/^\d{2}:\d{2}$/.test(rawValue)) {
+          throw new Error("Hora inválida.");
+        }
+
+        const matchQuery = await supabase
+          .from("matches")
+          .select("kickoff_at, timezone")
+          .eq("id", matchId)
+          .single();
+
+        if (matchQuery.error) {
+          throw matchQuery.error;
+        }
+
+        payload.kickoff_at = buildKickoffAt({
+          date: formatMatchDate(
+            matchQuery.data.kickoff_at,
+            matchQuery.data.timezone,
+            "yyyy-MM-dd",
+          ),
+          time: rawValue,
+          timezone: matchQuery.data.timezone,
+        });
+        break;
+      }
       default:
         throw new Error("Campo de edición rápida no soportado.");
     }

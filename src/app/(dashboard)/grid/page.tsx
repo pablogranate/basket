@@ -4,7 +4,9 @@ import { ArrowUpDown } from "lucide-react";
 import { SectionAiAssistant } from "@/components/ai/section-ai-assistant";
 import { CreateMatchModal } from "@/components/grid/create-match-modal";
 import { GridCalendarPicker } from "@/components/grid/grid-calendar-picker";
+import { GridDisplayToggle } from "@/components/grid/grid-display-toggle";
 import { GridExportButton } from "@/components/grid/grid-export-button";
+import { GridTable } from "@/components/grid/grid-table";
 import { MatchCard } from "@/components/grid/match-card";
 import { ProductionInsightsPanel } from "@/components/grid/production-insights-panel";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
@@ -237,6 +239,15 @@ export default async function GridPage({ searchParams }: PageProps) {
     dateOrder: filters.dateOrder === "asc" ? "desc" : "asc",
   });
   const sortedDayGroups = sortGridDayGroups(dayGroups, filters.dateOrder);
+  const hasExplicitDisplay =
+    typeof resolvedSearchParams.display === "string" &&
+    resolvedSearchParams.display.length > 0;
+  const tableRows = sortedDayGroups.flatMap((group) =>
+    group.items.map((match) => ({
+      dayLabel: formatDayHeading(match.kickoff_at, match.timezone),
+      match,
+    })),
+  );
   const aiContext = dayGroups.flatMap((group) =>
     group.items.map((match) => ({
       partido: `${match.home_team} vs ${match.away_team}`,
@@ -255,7 +266,7 @@ export default async function GridPage({ searchParams }: PageProps) {
   const visibleMatches = sortedDayGroups.flatMap((group) => group.items);
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] 2xl:grid-cols-[minmax(0,1fr)_22rem]">
+    <div className="grid-page-layout grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] 2xl:grid-cols-[minmax(0,1fr)_22rem]">
       <div className="relative z-0 min-w-0 space-y-10">
         <SectionPageHeader
           title={SECTION_COPY.grid.title}
@@ -270,6 +281,9 @@ export default async function GridPage({ searchParams }: PageProps) {
                 <input type="hidden" name="view" value={filters.view} />
                 <input type="hidden" name="date" value={filters.date} />
                 <input type="hidden" name="dateOrder" value={filters.dateOrder} />
+                {hasExplicitDisplay ? (
+                  <input type="hidden" name="display" value={filters.display} />
+                ) : null}
                 {filters.league ? (
                   <input type="hidden" name="league" value={filters.league} />
                 ) : null}
@@ -323,57 +337,73 @@ export default async function GridPage({ searchParams }: PageProps) {
         <PageMessage intent={intent} message={notice} />
 
         <section className="min-w-0 space-y-6">
-          {sortedDayGroups.length ? (
-            sortedDayGroups.map((group, groupIndex) => (
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <a
+                href={dateOrderToggleHref}
+                aria-label={
+                  filters.dateOrder === "asc"
+                    ? "Ordenar desde la fecha más reciente"
+                    : "Ordenar desde la fecha más antigua"
+                }
+                className={cn(
+                  "inline-flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-[#7f8ca0] shadow-[0_8px_18px_rgba(15,23,42,0.06)] transition hover:border-[rgba(230,18,56,0.24)] hover:text-[var(--accent)]",
+                  filters.dateOrder === "desc" &&
+                    "border-[rgba(230,18,56,0.18)] bg-[#fff4f6] text-[var(--accent)]",
+                )}
+              >
+                <ArrowUpDown className="size-4" />
+              </a>
+              <span className="text-sm font-medium text-[var(--muted)]">
+                {visibleMatches.length} partidos
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-3">
+              <GridDisplayToggle
+                display={filters.display}
+                hasExplicitParam={hasExplicitDisplay}
+                baseSearchParams={baseSearchParams}
+              />
+              <SegmentedControl
+                items={[
+                  { key: "day", label: "Hoy", href: todayHref, active: filters.view === "day" },
+                  { key: "month", label: "Mes", href: monthHref, active: filters.view === "month" },
+                ]}
+              />
+              <GridCalendarPicker
+                key={calendarPickerKey}
+                selectedDate={filters.view === "day" ? filters.date : null}
+                initialMonth={initialCalendarMonth}
+                initialSummary={initialCalendarSummary}
+                baseSearchParams={baseSearchParams}
+              />
+            </div>
+          </div>
+          {!sortedDayGroups.length ? (
+            <EmptyState
+              title="No hay partidos cargados para esta vista"
+              description="Crea un partido desde Nuevo partido o cambia entre Hoy y Mes para revisar otra jornada."
+            />
+          ) : filters.display === "table" ? (
+            <GridTable
+              rows={tableRows}
+              canEdit={user.canEdit}
+              redirectTo={redirectTo}
+              people={owners}
+            />
+          ) : (
+            sortedDayGroups.map((group) => (
               <div key={group.key} className="space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <h3 className="text-2xl font-extrabold text-[var(--accent)]">
-                      {formatDayHeading(
-                        group.items[0].kickoff_at,
-                        group.items[0].timezone,
-                      )}
-                    </h3>
-                    {groupIndex === 0 ? (
-                      <a
-                        href={dateOrderToggleHref}
-                        aria-label={
-                          filters.dateOrder === "asc"
-                            ? "Ordenar desde la fecha más reciente"
-                            : "Ordenar desde la fecha más antigua"
-                        }
-                        className={cn(
-                          "inline-flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-[#7f8ca0] shadow-[0_8px_18px_rgba(15,23,42,0.06)] transition hover:border-[rgba(230,18,56,0.24)] hover:text-[var(--accent)]",
-                          filters.dateOrder === "desc" &&
-                            "border-[rgba(230,18,56,0.18)] bg-[#fff4f6] text-[var(--accent)]",
-                        )}
-                      >
-                        <ArrowUpDown className="size-4" />
-                      </a>
-                    ) : null}
-                  </div>
-                  <div className="flex flex-wrap items-center justify-end gap-3">
-                    <span className="text-sm font-medium text-[var(--muted)]">
-                      {group.items.length} partidos
-                    </span>
-                    {groupIndex === 0 ? (
-                      <>
-                        <SegmentedControl
-                          items={[
-                            { key: "day", label: "Hoy", href: todayHref, active: filters.view === "day" },
-                            { key: "month", label: "Mes", href: monthHref, active: filters.view === "month" },
-                          ]}
-                        />
-                        <GridCalendarPicker
-                          key={calendarPickerKey}
-                          selectedDate={filters.view === "day" ? filters.date : null}
-                          initialMonth={initialCalendarMonth}
-                          initialSummary={initialCalendarSummary}
-                          baseSearchParams={baseSearchParams}
-                        />
-                      </>
-                    ) : null}
-                  </div>
+                  <h3 className="text-2xl font-extrabold text-[var(--accent)]">
+                    {formatDayHeading(
+                      group.items[0].kickoff_at,
+                      group.items[0].timezone,
+                    )}
+                  </h3>
+                  <span className="text-sm font-medium text-[var(--muted)]">
+                    {group.items.length} partidos
+                  </span>
                 </div>
                 <div className="grid gap-4">
                   {group.items.map((match) => (
@@ -388,16 +418,11 @@ export default async function GridPage({ searchParams }: PageProps) {
                 </div>
               </div>
             ))
-          ) : (
-            <EmptyState
-              title="No hay partidos cargados para esta vista"
-              description="Crea un partido desde Nuevo partido o cambia entre Hoy y Mes para revisar otra jornada."
-            />
           )}
         </section>
       </div>
 
-      <aside className="relative z-20 min-w-0 self-start xl:sticky xl:top-24">
+      <aside className="grid-page-aside relative z-20 min-w-0 self-start xl:sticky xl:top-24">
         <ProductionInsightsPanel
           matches={dayGroups.flatMap((group) => group.items)}
           timezone={filters.timezone}

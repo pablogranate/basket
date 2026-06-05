@@ -28,6 +28,7 @@ type AssignmentRow = {
     id: string;
     competition: string | null;
     production_mode: string | null;
+    production_code?: string | null;
     status: MatchStatus;
     home_team: string;
     away_team: string;
@@ -74,6 +75,7 @@ export type CollaboratorAssignmentItem = {
   roleCategory: string | null;
   competition: string | null;
   productionMode: string | null;
+  productionCode: string | null;
   status: MatchStatus;
   homeTeam: string;
   awayTeam: string;
@@ -235,6 +237,7 @@ function buildAssignmentItem(params: {
     roleCategory: params.roleCategory ?? null,
     competition: match.competition,
     productionMode: match.production_mode,
+    productionCode: match.production_code ?? null,
     status: match.status,
     homeTeam: match.home_team,
     awayTeam: match.away_team,
@@ -388,7 +391,7 @@ async function getAssignmentsForPerson(personId: string) {
   const assignmentsResult = await supabase
     .from("assignments")
     .select(
-      "id, confirmed, notes, role:roles!assignments_role_id_fkey(id, name, category, sort_order), match:matches!assignments_match_id_fkey(id, competition, production_mode, status, home_team, away_team, venue, notes, kickoff_at, duration_minutes, timezone, owner:people!matches_owner_id_fkey(id, full_name, phone, email))",
+      "id, confirmed, notes, role:roles!assignments_role_id_fkey(id, name, category, sort_order), match:matches!assignments_match_id_fkey(id, competition, production_mode, production_code, status, home_team, away_team, venue, notes, kickoff_at, duration_minutes, timezone, owner:people!matches_owner_id_fkey(id, full_name, phone, email))",
     )
     .eq("person_id", personId);
 

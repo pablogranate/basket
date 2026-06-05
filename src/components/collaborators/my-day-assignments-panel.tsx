@@ -307,19 +307,6 @@ function formatAssignmentPlanillaDate(assignment: CollaboratorAssignmentItem) {
   );
 }
 
-function buildAssignmentEventId(assignment: CollaboratorAssignmentItem) {
-  const compact = (assignment.matchId || assignment.assignmentId)
-    .replaceAll(/[^a-zA-Z0-9]/g, "")
-    .toUpperCase();
-
-  if (!compact) {
-    return "PRD-SIND-ATA";
-  }
-
-  const padded = compact.padEnd(8, "X");
-  return `PRD-${padded.slice(0, 4)}-${padded.slice(4, 8)}`;
-}
-
 function getAssignmentTablePersonValue(value: string | null | undefined) {
   const normalized = value?.trim();
 
@@ -884,22 +871,24 @@ function AssignmentTable({
                 </div>
 
                 <div className="grid gap-4 border-b border-[var(--border)] px-5 py-5 xl:border-b-0 xl:border-r xl:px-6">
-                  <div>
-                    <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#a7b4c8]">
-                      <Hash className="size-3.5 text-[#a7b4c8]" />
-                      ID evento
-                  </p>
-                  <div className="mt-2">
-                    <span
-                      className={cn(
-                        badgeBaseClassName,
-                        "border border-[#f3cfd8] bg-[#fff3f6] text-[var(--accent)]",
-                      )}
-                    >
-                      {buildAssignmentEventId(assignment)}
-                    </span>
-                  </div>
-                </div>
+                  {assignment.productionCode ? (
+                    <div>
+                      <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#a7b4c8]">
+                        <Hash className="size-3.5 text-[#a7b4c8]" />
+                        ID evento
+                      </p>
+                      <div className="mt-2">
+                        <span
+                          className={cn(
+                            badgeBaseClassName,
+                            "border border-[#f3cfd8] bg-[#fff3f6] text-[var(--accent)]",
+                          )}
+                        >
+                          {assignment.productionCode}
+                        </span>
+                      </div>
+                    </div>
+                  ) : null}
                   <div>
                     <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#a7b4c8]">
                       <Video className="size-3.5 text-[#a7b4c8]" />

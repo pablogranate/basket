@@ -58,11 +58,6 @@ function formatGridDate(kickoffAt: string, timezone: string) {
     .toUpperCase();
 }
 
-function buildProductionId(id: string) {
-  const compact = id.replaceAll("-", "").toUpperCase();
-  return `PRD-${compact.slice(0, 4)}-${compact.slice(4, 8)}`;
-}
-
 function getAssignmentValue(
   match: MatchListItem,
   roleName: string,
@@ -513,22 +508,24 @@ export function MatchCard({
           </div>
 
           <div className="grid gap-4 border-b border-[var(--border)] px-5 py-5 xl:border-b-0 xl:border-r xl:px-6">
-            <div>
-              <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#a7b4c8]">
-                <Hash className="size-3.5 text-[#a7b4c8]" />
-                ID evento
-              </p>
-              <div className="mt-2">
-                <span
-                  className={cn(
-                    badgeBaseClassName,
-                    "border border-[#f3cfd8] bg-[#fff3f6] text-[var(--accent)]",
-                  )}
-                >
-                  {buildProductionId(match.id)}
-                </span>
+            {match.production_code ? (
+              <div>
+                <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#a7b4c8]">
+                  <Hash className="size-3.5 text-[#a7b4c8]" />
+                  ID evento
+                </p>
+                <div className="mt-2">
+                  <span
+                    className={cn(
+                      badgeBaseClassName,
+                      "border border-[#f3cfd8] bg-[#fff3f6] text-[var(--accent)]",
+                    )}
+                  >
+                    {match.production_code}
+                  </span>
+                </div>
               </div>
-            </div>
+            ) : null}
             <div>
               <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#a7b4c8]">
                 <Video className="size-3.5 text-[#a7b4c8]" />

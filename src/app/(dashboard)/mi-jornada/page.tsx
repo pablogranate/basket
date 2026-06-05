@@ -206,6 +206,7 @@ function buildDemoAssignment(params: {
     roleCategory: "Produccion",
     competition: "Liga Nacional",
     productionMode: "Encoder",
+    productionCode: "27900",
     status: "Pendiente",
     homeTeam: "Boca Juniors",
     awayTeam: "Atenas de Córdoba",
@@ -259,16 +260,16 @@ export default async function CollaboratorDayPage({ searchParams }: PageProps) {
   const data = guestMode
     ? emptyData
     : await getCollaboratorDayData(user, {
-        email: user.email,
-        profileName: user.profile?.full_name ?? null,
-        selectedDate:
-          view === "month" && /^\d{4}-\d{2}$/.test(date ?? "")
-            ? `${date}-01`
-            : date,
-      }).catch((error) => {
-        console.error("[mi-jornada] failed to load collaborator data", error);
-        return emptyData;
-      });
+      email: user.email,
+      profileName: user.profile?.full_name ?? null,
+      selectedDate:
+        view === "month" && /^\d{4}-\d{2}$/.test(date ?? "")
+          ? `${date}-01`
+          : date,
+    }).catch((error) => {
+      console.error("[mi-jornada] failed to load collaborator data", error);
+      return emptyData;
+    });
 
   const todayDateKey = getTodayDateKey();
   const todayMonthKey = getMonthInputValue(parseISO(`${todayDateKey}T00:00:00`));
@@ -301,23 +302,23 @@ export default async function CollaboratorDayPage({ searchParams }: PageProps) {
     guestMode || !data.person || rawPrimaryAssignments.length === 0;
   const primaryAssignments = showDemoToday
     ? [
-        buildDemoAssignment({
-          date: panelSelectedDate,
-          collaboratorName: data.person?.full_name ?? fallbackCollaboratorName,
-        }),
-      ]
+      buildDemoAssignment({
+        date: panelSelectedDate,
+        collaboratorName: data.person?.full_name ?? fallbackCollaboratorName,
+      }),
+    ]
     : rawPrimaryAssignments;
   const upcomingAssignments =
     periodView === "month"
       ? []
       : (guestMode || !data.person) && data.upcomingAssignments.length === 0
-      ? [
+        ? [
           buildDemoAssignment({
             date: fallbackUpcomingDate,
             collaboratorName: fallbackCollaboratorName,
           }),
         ]
-      : data.upcomingAssignments;
+        : data.upcomingAssignments;
   const totalToday = primaryAssignments.length;
   const pendingToday = primaryAssignments.filter((assignment) => !assignment.confirmed).length;
   const isSelectedDateToday = selectedDate === todayDateKey;
@@ -359,18 +360,18 @@ export default async function CollaboratorDayPage({ searchParams }: PageProps) {
     })),
     ...(periodView === "day"
       ? upcomingAssignments.map((assignment) => ({
-      bloque: "Próximamente",
-      partido: `${assignment.homeTeam} vs ${assignment.awayTeam}`,
-      liga: assignment.competition ?? "Sin liga",
-      fecha: formatAssignmentDateLabel(assignment.kickoffAt),
-      hora: assignment.timeLabel,
-      sede: assignment.venue ?? "Sede por definir",
-      responsable: assignment.responsibleName ?? assignment.ownerName ?? "Sin asignar",
-      modo: assignment.productionMode ?? "Sin definir",
-      rol: assignment.roleName,
-      camaras: assignment.cameraCount,
-      pendiente: !assignment.confirmed,
-        }))
+        bloque: "Próximamente",
+        partido: `${assignment.homeTeam} vs ${assignment.awayTeam}`,
+        liga: assignment.competition ?? "Sin liga",
+        fecha: formatAssignmentDateLabel(assignment.kickoffAt),
+        hora: assignment.timeLabel,
+        sede: assignment.venue ?? "Sede por definir",
+        responsable: assignment.responsibleName ?? assignment.ownerName ?? "Sin asignar",
+        modo: assignment.productionMode ?? "Sin definir",
+        rol: assignment.roleName,
+        camaras: assignment.cameraCount,
+        pendiente: !assignment.confirmed,
+      }))
       : []),
   ];
   const periodControls = (
