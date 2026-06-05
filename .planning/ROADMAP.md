@@ -14,7 +14,7 @@ This milestone moves `portal.basket-app.com` off Supabase Auth onto a shared Bet
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Shared Identity Database** - Stand up the central `basket_auth` Postgres with Better Auth tables and a Drizzle connection (completed 2026-06-03)
-- [ ] **Phase 2: RLS Removal & Guard Coverage Audit** - Move all authorization into app-layer guards and actor stamping into the app, so no data path is left open when RLS goes
+- [x] **Phase 2: RLS Removal & Guard Coverage Audit** - Move all authorization into app-layer guards and actor stamping into the app, so no data path is left open when RLS goes (completed 2026-06-05)
 - [ ] **Phase 3: Portal Better Auth Wiring** - Run Better Auth in portal with Google + a non-Google path, gated by a linked `profiles` access table preserving existing roles
 - [ ] **Phase 4: User Migration** - Carry existing Supabase users into Better Auth with no lockout, linking (not re-keying) `profiles`, verified on a DB copy
 - [ ] **Phase 5: Cutover** - Remove Supabase Auth from portal, gated on verified logins for one migrated password user and one Google staff user
@@ -69,11 +69,11 @@ Plans:
 
 **Wave 3** *(blocked on 02-02, 02-03, 02-04)*
 
-- [ ] 02-05-PLAN.md — structural guard-coverage test (D-07) + full-suite/check gate + manual verification (D-02 step 3)
+- [x] 02-05-PLAN.md — structural guard-coverage test (D-07) + full-suite/check gate + manual verification (D-02 step 3)
 
 **Wave 4** *(blocked on 02-05 — destructive migration LAST per D-02)*
 
-- [ ] 02-06-PLAN.md — `0010` teardown migration (drop RLS policies + `auth.uid()` triggers, D-01/D-03) + `supabase db push` [BLOCKING] + post-push stamping verification
+- [x] 02-06-PLAN.md — `0010` teardown migration (drop RLS policies + `auth.uid()` triggers, D-01/D-03) + `supabase db push` [BLOCKING] + post-push stamping verification
 
 ### Phase 3: Portal Better Auth Wiring
 

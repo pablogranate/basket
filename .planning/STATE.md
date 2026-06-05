@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Phase 2 context gathered
-last_updated: "2026-06-03T21:11:44.280Z"
-last_activity: 2026-06-03 -- Phase 02 execution started
+status: phase_complete
+stopped_at: Phase 2 verified -- ready for Phase 3
+last_updated: "2026-06-05T00:00:00.000Z"
+last_activity: 2026-06-05 -- Phase 02 complete (verification passed)
 progress:
   total_phases: 6
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 8
-  completed_plans: 6
-  percent: 17
+  completed_plans: 8
+  percent: 33
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-03)
 
 **Core value:** A single sign-on across `*.basket-app.com` where identity is shared but each app authorizes its own users independently — without breaking portal's existing role-based access.
-**Current focus:** Phase 02 — rls-removal-guard-coverage-audit
+**Current focus:** Phase 03 — portal-better-auth-wiring (next)
 
 ## Current Position
 
-Phase: 02 (rls-removal-guard-coverage-audit) — EXECUTING
-Plan: 2 of 6
-Status: Ready to execute
-Last activity: 2026-06-03 -- Phase 02 execution started
+Phase: 02 (rls-removal-guard-coverage-audit) — COMPLETE (verified 2026-06-05)
+Plan: 6 of 6
+Status: Phase verified -- next: plan Phase 03 (portal-better-auth-wiring)
+Last activity: 2026-06-05 -- 0010 teardown applied to live DB; verification passed 4/4
 
-Progress: [██████████] 100% (Phase 1)
+Progress: [███░░░░░░░] 33% (Phases 1-2 of 6)
 
 ## Performance Metrics
 
@@ -56,6 +56,8 @@ Progress: [██████████] 100% (Phase 1)
 | Phase 02 P03 | ~20 min | 3 tasks | 20 files |
 | Phase 02 P02 | ~12 min | 4 tasks | 9 files |
 | Phase 02 P04 | ~7 min | 3 tasks | 9 files |
+| Phase 02 P05 | ~10 min + gate | 3 tasks | 1 files |
+| Phase 02 P06 | ~40 min | 4 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -81,7 +83,8 @@ None yet.
 ### Blockers/Concerns
 
 - [Phase 4] User migration is the highest-risk requirement — flagged for deeper research: prod password-hash format (bcrypt vs scrypt) and email/password-vs-OAuth user counts must be inspected live before choosing migrate-vs-reset.
-- [Phase 2] Open-on-RLS-drop paths verified: all `api/ai/*` routes, `api/matches/intake` (no auth at all), and `(dashboard)/people` (service-role read) have no app-layer guard — these must be closed before cutover.
+- [RESOLVED 2026-06-05] Phase 2 open-on-RLS-drop paths all closed: every route guarded (withAuth/withApiKey), loaders ctx-first, app-side stamping live; 0010 teardown applied to live DB. Accepted residual: authenticated-user PostgREST window until cutover (D-01); follow-ups: rotate Gemini key + DB password; CLI import scripts no longer audited (service-role, triggers gone).
+- [Phase 2 NOTE] Live DB had drifted (migrations 0006-0008 never applied) — applied before 0010. Pooler host: aws-1-sa-east-1.
 - [Phase 6] Auth DB final placement (dedicated `basket_auth` DB vs schema) and explicit `trustedOrigins` list (no verified wildcard support) to resolve in phase research.
 - [RESOLVED 2026-06-03] Plan 01-02 Task 2 (blocking human-action checkpoint): operator authorized + orchestrator provisioned the basket-auth-db container (postgres:17, port 5433), set AUTH_DB_* + AUTH_DATABASE_URL in gitignored .env.local, applied drizzle/auth/0000_careful_iron_lad.sql via psql -f, and confirmed the four auth_* tables (with D-07 columns) + SELECT 1. Operator-confirmed "verified".
 
@@ -95,6 +98,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-03T21:11:34.146Z
-Stopped at: Phase 2 context gathered
-Resume file: .planning/phases/02-rls-removal-guard-coverage-audit/02-CONTEXT.md
+Last session: 2026-06-05
+Stopped at: Phase 2 complete + verified -- ready for /gsd-plan-phase 03
+Resume file: .planning/phases/02-rls-removal-guard-coverage-audit/02-VERIFICATION.md
