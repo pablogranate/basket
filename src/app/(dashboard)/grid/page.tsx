@@ -1,4 +1,5 @@
-import { addDays, addMonths } from "date-fns";
+import { addDays, addMonths, formatDistanceToNow } from "date-fns";
+import { es } from "date-fns/locale";
 import { ArrowUpDown } from "lucide-react";
 
 import { SectionAiAssistant } from "@/components/ai/section-ai-assistant";
@@ -6,6 +7,7 @@ import { CreateMatchModal } from "@/components/grid/create-match-modal";
 import { GridCalendarPicker } from "@/components/grid/grid-calendar-picker";
 import { GridDisplayToggle } from "@/components/grid/grid-display-toggle";
 import { GridExportButton } from "@/components/grid/grid-export-button";
+import { GridSyncButton } from "@/components/grid/grid-sync-button";
 import { GridPageShell } from "@/components/grid/grid-page-shell";
 import { GridTable } from "@/components/grid/grid-table";
 import { MatchCard } from "@/components/grid/match-card";
@@ -24,6 +26,7 @@ import {
   getMonthInputValue,
 } from "@/lib/date";
 import { getGridCalendarData, getGridData } from "@/lib/data/dashboard";
+import { getLastSuccessfulSync } from "@/lib/grid/sync";
 import { requireUserContext } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/lib/env";
 import { parseGridSearchParams, parseNotice } from "@/lib/search-params";
@@ -198,6 +201,13 @@ export default async function GridPage({ searchParams }: PageProps) {
   ]);
   const settings = await getSettingsSnapshot();
   const redirectTo = serializeSearchParams(resolvedSearchParams);
+  const lastSync = user.canEdit ? await getLastSuccessfulSync() : null;
+  const lastSyncedLabel = lastSync?.finished_at
+    ? formatDistanceToNow(new Date(lastSync.finished_at), {
+        addSuffix: true,
+        locale: es,
+      })
+    : undefined;
   const baseSearchParams = toStringSearchParams(resolvedSearchParams);
   const calendarPickerKey = [
     initialCalendarMonth,
@@ -311,6 +321,12 @@ export default async function GridPage({ searchParams }: PageProps) {
                   <input type="hidden" name="timezone" value={filters.timezone} />
                 ) : null}
               </ToolbarSearchField>
+              {user.canEdit ? (
+                <GridSyncButton
+                  redirectTo={redirectTo}
+                  lastSyncedLabel={lastSyncedLabel}
+                />
+              ) : null}
               {visibleMatches.length ? (
                 <GridExportButton
                   matches={visibleMatches}

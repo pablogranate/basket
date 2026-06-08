@@ -306,6 +306,50 @@ export interface Database {
           updated_by?: string | null;
         };
       };
+      grid_sync_runs: {
+        Relationships: [];
+        Row: {
+          id: string;
+          trigger: string;
+          status: string;
+          created_count: number;
+          updated_count: number;
+          skipped_count: number;
+          assignments_upserted: number;
+          assignments_deleted: number;
+          people_created: number;
+          error: string | null;
+          started_at: string;
+          finished_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          trigger: string;
+          status: string;
+          created_count?: number;
+          updated_count?: number;
+          skipped_count?: number;
+          assignments_upserted?: number;
+          assignments_deleted?: number;
+          people_created?: number;
+          error?: string | null;
+          started_at?: string;
+          finished_at?: string | null;
+        };
+        Update: {
+          trigger?: string;
+          status?: string;
+          created_count?: number;
+          updated_count?: number;
+          skipped_count?: number;
+          assignments_upserted?: number;
+          assignments_deleted?: number;
+          people_created?: number;
+          error?: string | null;
+          started_at?: string;
+          finished_at?: string | null;
+        };
+      };
       collaborator_reports: {
         Relationships: [];
         Row: {

@@ -448,7 +448,7 @@ export async function quickUpdateMatchFieldAction(formData: FormData) {
 
   try {
     const supabase = await createSupabaseServerClient();
-    const payload: Record<string, string | number | null> = {};
+    const payload: MatchUpdate = {};
 
     switch (field) {
       case "homeTeam":

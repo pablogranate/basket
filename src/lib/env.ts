@@ -9,6 +9,8 @@ export const appEnv = {
   portalGeminiModel: process.env.PORTAL_GEMINI_MODEL ?? "gemini-2.5-flash",
   authDatabaseUrl: process.env.AUTH_DATABASE_URL ?? "",
   intakeApiKey: process.env.INTAKE_API_KEY ?? "",
+  gridSyncEnabled: process.env.GRID_SYNC_ENABLED !== "false",
+  gridSyncCron: process.env.GRID_SYNC_CRON ?? "0 */6 * * *",
 };
 
 export const isSupabaseConfigured = Boolean(
