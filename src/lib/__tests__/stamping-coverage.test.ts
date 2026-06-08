@@ -30,7 +30,12 @@ const DOMAIN_TABLES = [
 //   — stamping the acting admin as created_by would be misleading.
 // - "audit_log": the audit sink itself (the writeAudit insert). Auditing the
 //   audit write would recurse.
-const ALLOWLISTED_TABLES = ["profiles", "audit_log"];
+// - "person_functions": a child relation of people, written with replace-all
+//   semantics INSIDE the audited people upsert (people.ts). It has only a
+//   created_by column (no updated_by, so stampInsert does not apply); created_by
+//   is set explicitly and the selected functions are recorded in the parent
+//   people writeAudit payload.
+const ALLOWLISTED_TABLES = ["profiles", "audit_log", "person_functions"];
 
 const MUTATION_RE =
   /\.from\(\s*["'`]([a-z_]+)["'`]\s*\)\s*(?:\r?\n\s*)*\.(insert|update|upsert)\s*\(/g;

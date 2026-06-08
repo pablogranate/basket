@@ -63,6 +63,51 @@ function normalizeHeader(value) {
     .toLowerCase();
 }
 
+// Mirror of normalizeText in src/lib/utils.ts, plus inner-whitespace collapse,
+// so "José  Pérez" / " jose perez " resolve to the same key (dedupe).
+function normalizePersonName(value) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+// Mirror of roleNameToFunctionKey in src/lib/functions.ts: collapse the trailing
+// slot index (Camara 1..5 -> Camara, Comentario 1/2 -> Comentario), else identity.
+const PERSON_FUNCTIONS = [
+  "Responsable",
+  "Realizador",
+  "Operador de Control",
+  "Operador de Grafica",
+  "Soporte tecnico",
+  "Productor",
+  "Relator",
+  "Comentario",
+  "Campo",
+  "Encoder",
+  "Ingenieria",
+  "Camara",
+];
+
+function functionKeyFromRoleName(roleName) {
+  const trimmed = String(roleName ?? "").trim();
+
+  if (/^Camara\s*\d+$/i.test(trimmed)) {
+    return "Camara";
+  }
+
+  if (/^Comentario\s*\d+$/i.test(trimmed)) {
+    return "Comentario";
+  }
+
+  return (
+    PERSON_FUNCTIONS.find((key) => key.toLowerCase() === trimmed.toLowerCase()) ??
+    null
+  );
+}
+
 function readField(row, aliases) {
   for (const alias of aliases) {
     if (row[alias]) {
@@ -102,32 +147,36 @@ function toKickoffAt(dateValue, timeValue, timezone) {
   return fromZonedTime(localDateTime, timezone).toISOString();
 }
 
+// Preload every person once into a normalized-name index. The dataset is small;
+// this avoids per-row queries and races, and is the source of truth for dedupe.
+async function preloadPeople(supabase, peopleCache) {
+  const result = await supabase.from("people").select("id, full_name");
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  for (const person of result.data ?? []) {
+    const key = normalizePersonName(person.full_name);
+    if (key && !peopleCache.has(key)) {
+      peopleCache.set(key, person.id);
+    }
+  }
+}
+
 async function getOrCreatePerson(supabase, peopleCache, fullName) {
   const name = String(fullName ?? "").trim();
   if (!name) {
     return null;
   }
 
-  if (peopleCache.has(name)) {
-    return peopleCache.get(name);
+  const key = normalizePersonName(name);
+
+  if (peopleCache.has(key)) {
+    return peopleCache.get(key);
   }
 
-  const existing = await supabase
-    .from("people")
-    .select("id, full_name")
-    .eq("full_name", name)
-    .limit(1)
-    .maybeSingle();
-
-  if (existing.error) {
-    throw existing.error;
-  }
-
-  if (existing.data?.id) {
-    peopleCache.set(name, existing.data.id);
-    return existing.data.id;
-  }
-
+  // No normalized match: insert preserving the original (best-cased) spelling.
   const created = await supabase
     .from("people")
     .insert({ full_name: name, active: true })
@@ -138,8 +187,32 @@ async function getOrCreatePerson(supabase, peopleCache, fullName) {
     throw created.error;
   }
 
-  peopleCache.set(name, created.data.id);
+  peopleCache.set(key, created.data.id);
   return created.data.id;
+}
+
+async function linkPersonFunction(supabase, functionsSeen, personId, roleName) {
+  const functionKey = functionKeyFromRoleName(roleName);
+
+  if (!personId || !functionKey) {
+    return;
+  }
+
+  const dedupeKey = `${personId}:${functionKey}`;
+  if (functionsSeen.has(dedupeKey)) {
+    return;
+  }
+
+  const result = await supabase.from("person_functions").upsert(
+    { person_id: personId, function_key: functionKey },
+    { onConflict: "person_id,function_key", ignoreDuplicates: true },
+  );
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  functionsSeen.add(dedupeKey);
 }
 
 async function getOrCreateRole(supabase, rolesCache, roleName) {
@@ -259,6 +332,8 @@ async function main() {
 
   const peopleCache = new Map();
   const rolesCache = new Map();
+  const functionsSeen = new Set();
+  await preloadPeople(supabase, peopleCache);
   let createdMatches = 0;
   let updatedMatches = 0;
   let upsertedAssignments = 0;
@@ -279,6 +354,8 @@ async function main() {
       peopleCache,
       readField(row, HEADER_ALIASES.owner),
     );
+
+    await linkPersonFunction(supabase, functionsSeen, ownerId, "Responsable");
 
     const matchPayload = {
       competition: readField(row, HEADER_ALIASES.competition) || null,
@@ -331,6 +408,9 @@ async function main() {
       }
 
       upsertedAssignments += 1;
+
+      // Keep person_functions in sync: assignment to "Camara 3" => function "Camara".
+      await linkPersonFunction(supabase, functionsSeen, personId, header);
     }
   }
 
