@@ -31,6 +31,21 @@ const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
   Camaras: "Cámaras",
 };
 
+const FUNCTION_DISPLAY_NAMES: Record<string, string> = {
+  Responsable: RESPONSIBLE_DISPLAY_LABEL,
+  Realizador: "Realizador",
+  "Operador de Control": "Operador de control",
+  "Operador de Grafica": "Operador de gráfica",
+  "Soporte tecnico": "Soporte técnico",
+  Productor: "Productor",
+  Relator: "Relator",
+  Comentario: "Comentario",
+  Campo: "Campo",
+  Encoder: "Encoder",
+  Ingenieria: "Ingeniería",
+  Camara: "Cámara",
+};
+
 const ASSIGNMENT_STATE_DISPLAY_NAMES: Record<PersonListItem["assignment_state"], string> = {
   "En asignacion": "En asignación",
   Disponible: "Disponible",
@@ -65,6 +80,14 @@ export function getAssignmentStateDisplayName(
   value: PersonListItem["assignment_state"],
 ) {
   return ASSIGNMENT_STATE_DISPLAY_NAMES[value] ?? value;
+}
+
+export function getFunctionDisplayName(value?: string | null) {
+  if (!value) {
+    return "";
+  }
+
+  return FUNCTION_DISPLAY_NAMES[value] ?? value;
 }
 
 export function getAppRoleDisplayName(value?: AppRole | null) {

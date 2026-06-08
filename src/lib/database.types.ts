@@ -113,6 +113,8 @@ export interface Database {
           email: string | null;
           active: boolean;
           notes: string | null;
+          category: string | null;
+          role_id: string | null;
           created_at: string;
           updated_at: string;
           created_by: string | null;
@@ -125,6 +127,8 @@ export interface Database {
           email?: string | null;
           active?: boolean;
           notes?: string | null;
+          category?: string | null;
+          role_id?: string | null;
           created_at?: string;
           updated_at?: string;
           created_by?: string | null;
@@ -136,9 +140,34 @@ export interface Database {
           email?: string | null;
           active?: boolean;
           notes?: string | null;
+          category?: string | null;
+          role_id?: string | null;
           updated_at?: string;
           created_by?: string | null;
           updated_by?: string | null;
+        };
+      };
+      person_functions: {
+        Relationships: [];
+        Row: {
+          id: string;
+          person_id: string;
+          function_key: string;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          person_id: string;
+          function_key: string;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Update: {
+          person_id?: string;
+          function_key?: string;
+          created_at?: string;
+          created_by?: string | null;
         };
       };
       roles: {
@@ -427,6 +456,8 @@ export type AppSettingRow = Database["public"]["Tables"]["app_settings"]["Row"];
 export type AnnouncementRow = Database["public"]["Tables"]["announcements"]["Row"];
 export type MatchRow = Database["public"]["Tables"]["matches"]["Row"];
 export type PersonRow = Database["public"]["Tables"]["people"]["Row"];
+export type PersonFunctionRow =
+  Database["public"]["Tables"]["person_functions"]["Row"];
 export type RoleRow = Database["public"]["Tables"]["roles"]["Row"];
 export type AssignmentRow = Database["public"]["Tables"]["assignments"]["Row"];
 export type CollaboratorReportRow =
