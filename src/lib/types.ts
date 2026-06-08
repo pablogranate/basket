@@ -24,6 +24,13 @@ export type PersonListItem = PersonRow & {
   functions: PersonFunctionKey[];
 };
 
+export type GridOwner = Pick<
+  PersonRow,
+  "id" | "full_name" | "phone" | "email"
+> & {
+  functions: PersonFunctionKey[];
+};
+
 export type MatchListItem = MatchRow & {
   owner: Pick<PersonRow, "id" | "full_name" | "phone"> | null;
   assignments: Array<{

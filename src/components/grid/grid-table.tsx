@@ -15,13 +15,13 @@ import {
   PRODUCTION_MODE_OPTIONS,
 } from "@/lib/constants";
 import { formatMatchDate } from "@/lib/date";
-import type { PersonRow } from "@/lib/database.types";
+import { roleNameToFunctionKey } from "@/lib/functions";
 import {
   GRID_EXPORT_COLUMNS,
   toExportRows,
   type GridExportRow,
 } from "@/lib/grid-table";
-import type { MatchListItem } from "@/lib/types";
+import type { GridOwner, MatchListItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export type GridTableRow = {
@@ -33,7 +33,7 @@ type GridTableProps = {
   rows: GridTableRow[];
   canEdit: boolean;
   redirectTo: string;
-  people: Pick<PersonRow, "id" | "full_name" | "phone" | "email">[];
+  people: GridOwner[];
 };
 
 const HIDDEN_COLUMNS_STORAGE_KEY =
@@ -200,6 +200,7 @@ function getCellEditor(
       personId: assignment.person?.id ?? "",
       confirmed: assignment.confirmed,
       notes: assignment.notes ?? "",
+      functionKey: roleNameToFunctionKey(roleName),
     };
   }
 

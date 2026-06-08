@@ -15,6 +15,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { MatchRow, PersonRow, RoleRow } from "@/lib/database.types";
 import type {
   AuditEntry,
+  GridOwner,
   MatchDetail,
   MatchListItem,
   PersonListItem,
@@ -125,6 +126,7 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
     optionsResult,
     ownersResult,
     rolesResult,
+    functionsResult,
   ] =
     await Promise.all([
       query,
@@ -143,6 +145,7 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
         .select("id, name, category, sort_order, active")
         .eq("active", true)
         .order("sort_order", { ascending: true }),
+      supabase.from("person_functions").select("person_id, function_key"),
     ]);
 
   if (matchesError) {
@@ -159,6 +162,22 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
 
   if (rolesResult.error) {
     throw rolesResult.error;
+  }
+
+  if (functionsResult.error) {
+    throw functionsResult.error;
+  }
+
+  const functionsByPerson = new Map<string, PersonFunctionKey[]>();
+
+  for (const row of functionsResult.data ?? []) {
+    if (!isPersonFunctionKey(row.function_key)) {
+      continue;
+    }
+
+    const bucket = functionsByPerson.get(row.person_id) ?? [];
+    bucket.push(row.function_key);
+    functionsByPerson.set(row.person_id, bucket);
   }
 
   const activeRoles = (rolesResult.data ?? []) as ActiveRole[];
@@ -234,9 +253,19 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
     ...PRODUCTION_MODE_OPTIONS,
   ];
 
+  const owners: GridOwner[] = (
+    (ownersResult.data ?? []) as Pick<
+      PersonRow,
+      "id" | "full_name" | "phone" | "email"
+    >[]
+  ).map((owner) => ({
+    ...owner,
+    functions: functionsByPerson.get(owner.id) ?? [],
+  }));
+
   return {
     dayGroups,
-    owners: (ownersResult.data ?? []) as Pick<PersonRow, "id" | "full_name" | "phone" | "email">[],
+    owners,
     leagueOptions,
     modeOptions,
   };
