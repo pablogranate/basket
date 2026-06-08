@@ -8,10 +8,9 @@ import { togglePersonActiveAction } from "@/app/actions/people";
 import {
   getCityIndicator,
   getInitials,
-  getRolePresentation,
+  getPersonRoleDisplay,
   getWhatsAppHref,
 } from "@/components/people/people-view-helpers";
-import { getRoleDisplayName } from "@/lib/display";
 import { parsePersonNotesMeta } from "@/lib/people-notes";
 import type { PersonListItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -201,8 +200,7 @@ export function PeopleTable({
 
   const renderCell = (person: PersonListItem, column: PeopleTableColumn) => {
     const meta = parsePersonNotesMeta(person.notes);
-    const displayRole = meta.role || person.primary_role || "";
-    const rolePresentation = getRolePresentation(displayRole);
+    const { roleLabel, rolePresentation } = getPersonRoleDisplay(person);
     const city = meta.city || "";
     const cityIndicator = getCityIndicator(city);
     const detailSummary = meta.coverage || "";
@@ -272,7 +270,7 @@ export function PeopleTable({
                 <rolePresentation.Icon className="size-4" />
               </span>
               <p className="text-sm font-medium text-[var(--foreground)]">
-                {displayRole ? getRoleDisplayName(displayRole) : "Sin rol"}
+                {roleLabel}
               </p>
             </div>
           </td>

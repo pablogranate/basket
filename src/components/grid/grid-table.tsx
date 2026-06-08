@@ -594,6 +594,7 @@ export function GridTable({ rows, canEdit, redirectTo, people }: GridTableProps)
         onDragOver={(event) => handleColumnDragOver(event, key)}
         className={cn(
           headerCellClassName,
+          "sticky top-0 z-20 bg-[#fafbfd]",
           "relative overflow-hidden",
           draggedColumn === key && "bg-[#eef2f7]",
         )}
@@ -671,14 +672,21 @@ export function GridTable({ rows, canEdit, redirectTo, people }: GridTableProps)
         onPointerUp={handlePointerEnd}
         onPointerCancel={handlePointerEnd}
         onClickCapture={handleClickCapture}
-        className="overflow-x-auto rounded-b-[var(--panel-radius)]"
+        className="max-h-[calc(100vh-220px)] overflow-x-auto overflow-y-auto rounded-b-[var(--panel-radius)]"
       >
         <table className="min-w-full border-collapse text-left">
           <thead>
             <tr className="divide-x divide-[#edf1f6] bg-[#fafbfd]">
               {visibleColumnKeys.map((key) => renderHeaderCell(key))}
               {canEdit ? (
-                <th className={headerCellClassName}>Acciones</th>
+                <th
+                  className={cn(
+                    headerCellClassName,
+                    "sticky top-0 z-20 bg-[#fafbfd]",
+                  )}
+                >
+                  Acciones
+                </th>
               ) : null}
             </tr>
           </thead>
@@ -708,7 +716,14 @@ export function GridTable({ rows, canEdit, redirectTo, people }: GridTableProps)
                     }
 
                     const columnKey = key as keyof GridExportRow;
-                    const value = exportRow[columnKey];
+                    const rawValue = exportRow[columnKey];
+                    // Assignment columns: render the unassigned placeholder as a
+                    // dash in the table; the picker still labels it "Sin asignar".
+                    const value =
+                      ASSIGNMENT_ROLE_BY_KEY[columnKey] &&
+                      rawValue === "Sin asignar"
+                        ? "-"
+                        : rawValue;
                     const isWide = WIDE_TEXT_KEYS.has(columnKey);
                     const editor = editingEnabled
                       ? getCellEditor(columnKey, match)

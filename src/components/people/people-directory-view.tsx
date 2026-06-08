@@ -5,13 +5,12 @@ import { togglePersonActiveAction } from "@/app/actions/people";
 import {
   getCityIndicator,
   getInitials,
-  getRolePresentation,
+  getPersonRoleDisplay,
   getWhatsAppHref,
   Mail,
   MapPin,
   MessageCircle,
 } from "@/components/people/people-view-helpers";
-import { getRoleDisplayName } from "@/lib/display";
 import { parsePersonNotesMeta } from "@/lib/people-notes";
 import type { PersonListItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -80,8 +79,7 @@ export function PeopleDirectoryView({
     <div className="flex flex-wrap gap-5 p-6">
       {people.map((person) => {
         const meta = parsePersonNotesMeta(person.notes);
-        const displayRole = meta.role || person.primary_role || "";
-        const rolePresentation = getRolePresentation(displayRole);
+        const { roleLabel, rolePresentation } = getPersonRoleDisplay(person);
         const whatsappHref = getWhatsAppHref(person.phone);
         const city = meta.city || "";
         const cityIndicator = getCityIndicator(city);
@@ -91,7 +89,6 @@ export function PeopleDirectoryView({
           edit: person.id,
         });
         const state = getStatePresentation(person);
-        const roleLabel = displayRole ? getRoleDisplayName(displayRole) : "Sin rol";
         const cityLabel = city || "Sin ciudad";
         const actionHref = whatsappHref ?? profileHref;
         const actionLabel = whatsappHref ? "Enviar mensaje" : "Ver perfil";

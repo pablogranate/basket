@@ -12,6 +12,8 @@ import {
   Wrench,
 } from "lucide-react";
 
+import { getFunctionDisplayName, getRoleDisplayName } from "@/lib/display";
+import { parsePersonNotesMeta } from "@/lib/people-notes";
 import type { PersonListItem } from "@/lib/types";
 
 export function getInitials(name: string) {
@@ -66,6 +68,7 @@ export function getRolePresentation(role: string) {
 
   if (
     role === "Relator" ||
+    role === "Comentario" ||
     role === "Comentario 1" ||
     role === "Comentario 2" ||
     role === "Campo"
@@ -82,6 +85,26 @@ export function getRolePresentation(role: string) {
   }
 
   return { Icon: ShieldCheck, className: "bg-[#f4f7fb] text-[#64748b]" };
+}
+
+// Functions (the person_functions relation) are the source of truth for a
+// person's role(s). A person can hold several — join them — and fall back to
+// the legacy notes role / assignment-derived primary_role only when untagged.
+export function getPersonRoleDisplay(person: PersonListItem) {
+  if (person.functions.length > 0) {
+    return {
+      roleLabel: person.functions.map(getFunctionDisplayName).join(", "),
+      rolePresentation: getRolePresentation(person.functions[0]),
+    };
+  }
+
+  const meta = parsePersonNotesMeta(person.notes);
+  const legacy = meta.role || person.primary_role || "";
+
+  return {
+    roleLabel: legacy ? getRoleDisplayName(legacy) : "Sin rol",
+    rolePresentation: getRolePresentation(legacy),
+  };
 }
 
 export function getCityIndicator(city: string) {
