@@ -307,7 +307,9 @@ export async function getLastSuccessfulSync(): Promise<SyncRunRow | null> {
     return null;
   }
 
-  return data ?? null;
+  // Admin client (supabase-js 2.98.0) does not expand `select("*")` row types;
+  // cast to the concrete Row, matching the codebase pattern (platform-access.ts).
+  return (data as SyncRunRow | null) ?? null;
 }
 
 export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncResult> {
@@ -367,7 +369,7 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
         throw matchesQuery.error;
       }
 
-      const existingMatches = matchesQuery.data ?? [];
+      const existingMatches = (matchesQuery.data ?? []) as MatchRow[];
       const matchByExternalId = new Map<string, MatchRow>();
       const matchByTriple = new Map<string, MatchRow>();
       for (const match of existingMatches) {
@@ -390,7 +392,7 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
           throw assignmentsQuery.error;
         }
 
-        for (const assignment of assignmentsQuery.data ?? []) {
+        for (const assignment of (assignmentsQuery.data ?? []) as AssignmentRow[]) {
           const list = assignmentsByMatch.get(assignment.match_id) ?? [];
           list.push(assignment);
           assignmentsByMatch.set(assignment.match_id, list);
