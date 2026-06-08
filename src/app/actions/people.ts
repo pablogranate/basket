@@ -15,6 +15,7 @@ import {
   resolveDashboardAccessRole,
 } from "@/lib/constants";
 import type { AppRole } from "@/lib/database.types";
+import { isPersonFunctionKey, resolveFunctionKey } from "@/lib/functions";
 import { appEnv } from "@/lib/env";
 import { buildPersonNotesMeta } from "@/lib/people-notes";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -105,12 +106,14 @@ export async function upsertPersonAction(formData: FormData) {
   const accessRole = String(formData.get("accessRole") ?? "collaborator").trim();
   const temporaryPassword = String(formData.get("temporaryPassword") ?? "").trim();
 
+  const roleNameInput = maybeNull(String(formData.get("roleName") ?? ""));
+
   const payload = {
     full_name: String(formData.get("fullName") ?? "").trim(),
     phone: maybeNull(String(formData.get("phone") ?? "")),
     email: maybeNull(String(formData.get("email") ?? "")),
     notes: buildPersonNotesMeta({
-      role: maybeNull(String(formData.get("roleName") ?? "")),
+      role: roleNameInput,
       city: maybeNull(String(formData.get("city") ?? "")),
       coverage: maybeNull(String(formData.get("coverageTeams") ?? "")),
       notes: maybeNull(String(formData.get("notes") ?? "")),
@@ -119,6 +122,24 @@ export async function upsertPersonAction(formData: FormData) {
       ? String(formData.get("active") ?? "") !== "off"
       : true,
   };
+
+  // Canonical capabilities: validate at the boundary, dedupe, and fall back to
+  // the legacy free-text role only when no functions were submitted.
+  let selectedFunctions = Array.from(
+    new Set(
+      formData
+        .getAll("functions")
+        .map((value) => String(value))
+        .filter(isPersonFunctionKey),
+    ),
+  );
+
+  if (selectedFunctions.length === 0) {
+    const legacy = resolveFunctionKey(roleNameInput);
+    if (legacy) {
+      selectedFunctions = [legacy];
+    }
+  }
 
   try {
     if (createPlatformAccess) {
@@ -158,12 +179,36 @@ export async function upsertPersonAction(formData: FormData) {
       throw result.error;
     }
 
+    // Replace-all the person's functions (matches the stateless form-submit pattern).
+    const deleteFunctions = await supabase
+      .from("person_functions")
+      .delete()
+      .eq("person_id", result.data.id);
+
+    if (deleteFunctions.error) {
+      throw deleteFunctions.error;
+    }
+
+    if (selectedFunctions.length) {
+      const insertFunctions = await supabase.from("person_functions").insert(
+        selectedFunctions.map((functionKey) => ({
+          person_id: result.data.id,
+          function_key: functionKey,
+          created_by: ctx.userId,
+        })),
+      );
+
+      if (insertFunctions.error) {
+        throw insertFunctions.error;
+      }
+    }
+
     await writeAudit(supabase, ctx, {
       table: "people",
       recordId: result.data.id,
       action: personId ? "UPDATE" : "INSERT",
       before: null,
-      after: { id: result.data.id, ...payload },
+      after: { id: result.data.id, ...payload, functions: selectedFunctions },
     });
 
     let accessNotice: string | null = null;

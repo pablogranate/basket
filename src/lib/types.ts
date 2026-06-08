@@ -7,6 +7,7 @@ import type {
   ProfileRow,
   RoleRow,
 } from "@/lib/database.types";
+import type { PersonFunctionKey } from "@/lib/functions";
 
 export type UserContext = {
   userId: string | null;
@@ -20,6 +21,7 @@ export type PersonListItem = PersonRow & {
   primary_role: string | null;
   assignment_state: "En asignacion" | "Disponible" | "Inactivo";
   current_assignment_count: number;
+  functions: PersonFunctionKey[];
 };
 
 export type MatchListItem = MatchRow & {

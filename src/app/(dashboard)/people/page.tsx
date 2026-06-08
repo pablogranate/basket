@@ -20,6 +20,7 @@ import { SetupPanel } from "@/components/layout/setup-panel";
 import { PeopleDirectoryView } from "@/components/people/people-directory-view";
 import { PeopleAdminWarningModal } from "@/components/people/people-admin-warning-modal";
 import { CreatePersonModal } from "@/components/people/create-person-modal";
+import { PersonFunctionsField } from "@/components/people/person-functions-field";
 import { PersonDeleteButton } from "@/components/people/person-delete-button";
 import { PersonRevokeAccessButton } from "@/components/people/person-revoke-access-button";
 import { PeopleTable } from "@/components/people/people-table";
@@ -500,6 +501,12 @@ export default async function PeoplePage({ searchParams }: PageProps) {
                             ))}
                           </Select>
                         </label>
+                        <div className="md:col-span-2">
+                          <PersonFunctionsField
+                            selected={selectedPerson.functions}
+                            disabled={!user.canEdit}
+                          />
+                        </div>
                         <label className="flex items-center gap-3 rounded-[var(--panel-radius)] border border-[#e5e7eb] bg-[#f9f9f9] px-4 py-3 text-sm font-semibold text-[#1f2937] shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)]">
                           <input
                             type="checkbox"

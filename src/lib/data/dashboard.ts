@@ -2,6 +2,10 @@ import { parseISO, addDays, subDays } from "date-fns";
 
 import { PRODUCTION_MODE_OPTIONS, ROLE_CATEGORY_ORDER } from "@/lib/constants";
 import {
+  isPersonFunctionKey,
+  type PersonFunctionKey,
+} from "@/lib/functions";
+import {
   getMatchEndIso,
   resolveDateWindow,
   toDateKey,
@@ -536,7 +540,7 @@ async function getAssignmentConflicts(params: {
 export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]> {
   void ctx;
   const supabase = await createSupabaseServerClient();
-  const [peopleResult, assignmentsResult] = await Promise.all([
+  const [peopleResult, assignmentsResult, functionsResult] = await Promise.all([
     supabase
       .from("people")
       .select("*")
@@ -547,6 +551,7 @@ export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]>
         "person_id, updated_at, role:roles!assignments_role_id_fkey(name, sort_order), match:matches!assignments_match_id_fkey(kickoff_at, duration_minutes)",
       )
       .not("person_id", "is", null),
+    supabase.from("person_functions").select("person_id, function_key"),
   ]);
 
   if (peopleResult.error) {
@@ -555,6 +560,22 @@ export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]>
 
   if (assignmentsResult.error) {
     throw assignmentsResult.error;
+  }
+
+  if (functionsResult.error) {
+    throw functionsResult.error;
+  }
+
+  const functionsByPerson = new Map<string, PersonFunctionKey[]>();
+
+  for (const row of functionsResult.data ?? []) {
+    if (!isPersonFunctionKey(row.function_key)) {
+      continue;
+    }
+
+    const bucket = functionsByPerson.get(row.person_id) ?? [];
+    bucket.push(row.function_key);
+    functionsByPerson.set(row.person_id, bucket);
   }
 
   const now = new Date();
@@ -623,6 +644,7 @@ export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]>
       primary_role: primaryRole,
       assignment_state: assignmentState,
       current_assignment_count: currentAssignmentCount,
+      functions: functionsByPerson.get(person.id) ?? [],
     };
   });
 }

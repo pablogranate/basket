@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Textarea } from "@/components/ui/textarea";
+import { PersonFunctionsField } from "@/components/people/person-functions-field";
 import { getRoleDisplayName } from "@/lib/display";
 import { cn } from "@/lib/utils";
 
@@ -332,6 +333,10 @@ export function CreatePersonModal({
                             <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-[#98a2b3]" />
                           </div>
                         </label>
+
+                        <div className="md:col-span-2">
+                          <PersonFunctionsField selected={[]} disabled={!canEdit} />
+                        </div>
                       </div>
 
                       <label className="space-y-2">
