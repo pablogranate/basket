@@ -24,6 +24,10 @@ import {
   updateMatchAction,
   upsertAssignmentAction,
 } from "@/app/actions/matches";
+import {
+  AssignmentNotifyConfirm,
+  type NotifyRecipient,
+} from "@/components/match/assignment-notify-confirm";
 import { GroupActions } from "@/components/match/group-actions";
 import { HistoryTimeline } from "@/components/match/history-timeline";
 import { TeamLogoMark } from "@/components/team-logo-mark";
@@ -48,6 +52,7 @@ import { formatMatchDate, formatMatchTime } from "@/lib/date";
 import { getRoleDisplayName } from "@/lib/display";
 import type { PersonRow } from "@/lib/database.types";
 import { isSupabaseConfigured } from "@/lib/env";
+import { normalizeToWhatsAppChatId } from "@/lib/integrations/openwa";
 import {
   buildGoogleCalendarLink,
   buildGroupMessage,
@@ -415,7 +420,7 @@ export default async function MatchDetailPage({
 }: PageProps) {
   const resolvedParams = await params;
   const resolvedSearchParams = await searchParams;
-  const { intent, notice } = parseNotice(resolvedSearchParams);
+  const { intent, notice, notify } = parseNotice(resolvedSearchParams);
 
   if (!isSupabaseConfigured) {
     return <SetupPanel />;
@@ -437,6 +442,24 @@ export default async function MatchDetailPage({
   const groupMessage = buildGroupMessage(match);
   const roster = getWhatsAppRoster(match.assignments);
   const peopleMap = new Map(people.map((person) => [person.id, person.full_name]));
+
+  const notifyIds = new Set(notify);
+  const notifyRecipients: NotifyRecipient[] = notifyIds.size
+    ? match.assignments
+        .filter(
+          (assignment) => notifyIds.has(assignment.id) && assignment.person?.phone,
+        )
+        .map((assignment) => {
+          const chatId = normalizeToWhatsAppChatId(assignment.person?.phone);
+          return {
+            assignmentId: assignment.id,
+            personName: assignment.person?.full_name ?? "Sin asignar",
+            roleName: getRoleDisplayName(assignment.role.name),
+            resolvedNumber: chatId.replace(/@s\.whatsapp\.net$/, ""),
+            willSend: Boolean(chatId),
+          };
+        })
+    : [];
 
   const principalAssignments = sortAssignments(
     match.assignments.filter((assignment) => primaryCategories.has(assignment.role.category)),
@@ -554,6 +577,10 @@ export default async function MatchDetailPage({
       </section>
 
       <PageMessage intent={intent} message={notice} />
+
+      {notifyRecipients.length ? (
+        <AssignmentNotifyConfirm matchId={match.id} recipients={notifyRecipients} />
+      ) : null}
 
       {conflicts.length ? (
         <div className="panel-surface border border-[#f0c8d1] bg-[#fff7f8] p-4">

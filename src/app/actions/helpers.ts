@@ -17,11 +17,13 @@ export function redirectWithNotice(params: {
   redirectTo: string;
   intent: "success" | "error";
   notice: string;
+  notify?: string[];
 }) {
   redirect(
     getRedirectWithMessage(params.redirectTo, {
       intent: params.intent,
       notice: params.notice,
+      notify: params.notify,
     }),
   );
 }

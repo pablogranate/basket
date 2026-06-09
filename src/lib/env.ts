@@ -11,6 +11,9 @@ export const appEnv = {
   intakeApiKey: process.env.INTAKE_API_KEY ?? "",
   gridSyncEnabled: process.env.GRID_SYNC_ENABLED !== "false",
   gridSyncCron: process.env.GRID_SYNC_CRON ?? "0 */6 * * *",
+  openwaApiUrl: process.env.OPENWA_API_URL ?? "",
+  openwaApiKey: process.env.OPENWA_API_KEY ?? "",
+  openwaNotifyEnabled: process.env.OPENWA_NOTIFY_ENABLED !== "false",
 };
 
 export const isSupabaseConfigured = Boolean(
@@ -37,6 +40,18 @@ export function assertAuthDatabaseUrl() {
   if (!appEnv.authDatabaseUrl) {
     throw new Error(
       "Missing AUTH_DATABASE_URL. The Better Auth identity database requires a connection string.",
+    );
+  }
+}
+
+export const isOpenwaConfigured = Boolean(
+  appEnv.openwaApiUrl && appEnv.openwaApiKey,
+);
+
+export function assertOpenwaEnv() {
+  if (!isOpenwaConfigured) {
+    throw new Error(
+      "Missing OpenWA environment variables. Set OPENWA_API_URL and OPENWA_API_KEY.",
     );
   }
 }

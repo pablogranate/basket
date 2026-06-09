@@ -309,16 +309,25 @@ export async function createMatchAction(formData: FormData) {
       roleIdsByName,
     });
 
+    const notify: string[] = [];
+
     if (assignments.length) {
       const assignmentsResult = await supabase
         .from("assignments")
         .upsert(
           assignments.map((assignment) => stampInsert(ctx, assignment)),
           { onConflict: "match_id,role_id" },
-        );
+        )
+        .select("id, person_id");
 
       if (assignmentsResult.error) {
         throw assignmentsResult.error;
+      }
+
+      for (const row of assignmentsResult.data ?? []) {
+        if (row.person_id) {
+          notify.push(row.id);
+        }
       }
 
       await writeAudit(supabase, ctx, {
@@ -335,9 +344,12 @@ export async function createMatchAction(formData: FormData) {
     revalidatePath(`/match/${result.data.id}`);
     revalidatePath(`/match/${result.data.id}/notificar`);
     redirectWithNotice({
-      redirectTo: createdMatchGridRedirect,
+      redirectTo: notify.length
+        ? `/match/${result.data.id}`
+        : createdMatchGridRedirect,
       intent: "success",
       notice: "Partido creado.",
+      notify,
     });
   } catch (error) {
     rethrowNavigationError(error);
@@ -446,8 +458,21 @@ export async function updateMatchAction(formData: FormData) {
       (rolesResult.data ?? []).map((role) => [role.name, role.id]),
     );
     const roleIds = [...roleIdsByName.values()];
+    const priorAssignmentKeys = new Set<string>();
 
     if (roleIds.length) {
+      const priorResult = await supabase
+        .from("assignments")
+        .select("role_id, person_id")
+        .eq("match_id", matchId)
+        .in("role_id", roleIds);
+
+      for (const row of priorResult.data ?? []) {
+        if (row.person_id) {
+          priorAssignmentKeys.add(`${row.role_id}:${row.person_id}`);
+        }
+      }
+
       const deleteAssignmentsResult = await supabase
         .from("assignments")
         .delete()
@@ -465,16 +490,25 @@ export async function updateMatchAction(formData: FormData) {
       roleIdsByName,
     });
 
+    const notify: string[] = [];
+
     if (assignments.length) {
       const assignmentsResult = await supabase
         .from("assignments")
         .upsert(
           assignments.map((assignment) => stampInsert(ctx, assignment)),
           { onConflict: "match_id,role_id" },
-        );
+        )
+        .select("id, role_id, person_id");
 
       if (assignmentsResult.error) {
         throw assignmentsResult.error;
+      }
+
+      for (const row of assignmentsResult.data ?? []) {
+        if (row.person_id && !priorAssignmentKeys.has(`${row.role_id}:${row.person_id}`)) {
+          notify.push(row.id);
+        }
       }
 
       await writeAudit(supabase, ctx, {
@@ -490,9 +524,10 @@ export async function updateMatchAction(formData: FormData) {
     revalidatePath("/grid");
     revalidatePath(`/match/${matchId}`);
     redirectWithNotice({
-      redirectTo,
+      redirectTo: notify.length ? `/match/${matchId}` : redirectTo,
       intent: "success",
       notice: "Partido actualizado.",
+      notify,
     });
   } catch (error) {
     rethrowNavigationError(error);
@@ -652,13 +687,24 @@ export async function upsertAssignmentAction(formData: FormData) {
   try {
     const supabase = await createSupabaseServerClient();
     const assignmentMatchId = String(formData.get("matchId") ?? "");
+    const assignmentRoleId = String(formData.get("roleId") ?? "");
+    const incomingPersonId = maybeNull(String(formData.get("personId") ?? ""));
+
+    const priorResult = await supabase
+      .from("assignments")
+      .select("person_id")
+      .eq("match_id", assignmentMatchId)
+      .eq("role_id", assignmentRoleId)
+      .maybeSingle();
+    const priorPersonId = priorResult.data?.person_id ?? null;
+
     const result = await supabase
       .from("assignments")
       .upsert(
         stampInsert(ctx, {
           match_id: assignmentMatchId,
-          role_id: String(formData.get("roleId") ?? ""),
-          person_id: maybeNull(String(formData.get("personId") ?? "")),
+          role_id: assignmentRoleId,
+          person_id: incomingPersonId,
           confirmed: String(formData.get("confirmed") ?? "") === "on",
           notes: maybeNull(String(formData.get("notes") ?? "")),
         }),
@@ -682,11 +728,17 @@ export async function upsertAssignmentAction(formData: FormData) {
       after: { id: result.data.id, match_id: result.data.match_id },
     });
 
+    const notify =
+      incomingPersonId && incomingPersonId !== priorPersonId
+        ? [result.data.id]
+        : [];
+
     revalidatePath(redirectTo);
     redirectWithNotice({
-      redirectTo,
+      redirectTo: notify.length ? `/match/${assignmentMatchId}` : redirectTo,
       intent: "success",
       notice: "Asignación actualizada.",
+      notify,
     });
   } catch (error) {
     rethrowNavigationError(error);

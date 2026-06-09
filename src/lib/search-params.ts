@@ -21,9 +21,14 @@ function getParam(
 }
 
 export function parseNotice(searchParams: RawSearchParams) {
+  const rawNotify = getParam(searchParams, "notify");
+
   return {
     intent: getParam(searchParams, "intent"),
     notice: getParam(searchParams, "notice"),
+    notify: rawNotify
+      ? rawNotify.split(",").map((id) => id.trim()).filter(Boolean)
+      : [],
   };
 }
 
@@ -58,11 +63,15 @@ export function parseGridSearchParams(searchParams: RawSearchParams) {
 
 export function getRedirectWithMessage(
   redirectTo: string,
-  params: { intent: "success" | "error"; notice: string },
+  params: { intent: "success" | "error"; notice: string; notify?: string[] },
 ) {
   const url = new URL(redirectTo, "http://localhost");
   url.searchParams.set("intent", params.intent);
   url.searchParams.set("notice", params.notice);
+
+  if (params.notify?.length) {
+    url.searchParams.set("notify", params.notify.join(","));
+  }
 
   return `${url.pathname}${url.search}`;
 }
