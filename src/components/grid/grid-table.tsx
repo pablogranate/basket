@@ -674,7 +674,7 @@ export function GridTable({ rows, canEdit, redirectTo, people }: GridTableProps)
         onClickCapture={handleClickCapture}
         className="max-h-[calc(100vh-220px)] overflow-x-auto overflow-y-auto rounded-b-[var(--panel-radius)]"
       >
-        <table className="min-w-full border-collapse text-left">
+        <table className="min-w-full border-separate border-spacing-0 text-left">
           <thead>
             <tr className="divide-x divide-[#edf1f6] bg-[#fafbfd]">
               {visibleColumnKeys.map((key) => renderHeaderCell(key))}
