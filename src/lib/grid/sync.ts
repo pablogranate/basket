@@ -276,6 +276,11 @@ function tripleKey(home: string, away: string, kickoffIso: string) {
   return `${home}|${away}|${new Date(kickoffIso).getTime()}`;
 }
 
+// Postgres unique_violation; surfaced by supabase-js on the error `code`.
+function isUniqueViolation(error: unknown): boolean {
+  return Boolean(error) && (error as { code?: string }).code === "23505";
+}
+
 function nullableText(value: string | null | undefined) {
   const trimmed = (value ?? "").trim();
   return trimmed ? trimmed : null;
@@ -369,19 +374,44 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
         throw matchesQuery.error;
       }
 
-      const existingMatches = (matchesQuery.data ?? []) as MatchRow[];
+      const windowMatches = (matchesQuery.data ?? []) as MatchRow[];
+
+      // The dedup key (external_match_id) is global, not window-bound: a match
+      // can be rescheduled out of the window or already live from a prior sync.
+      // Load every match that carries an id so a re-sync always UPDATES the same
+      // row instead of inserting a duplicate.
+      const externalMatchesQuery = await supabase
+        .from("matches")
+        .select("*")
+        .not("external_match_id", "is", null);
+
+      if (externalMatchesQuery.error) {
+        throw externalMatchesQuery.error;
+      }
+
+      const externalMatches = (externalMatchesQuery.data ?? []) as MatchRow[];
+
       const matchByExternalId = new Map<string, MatchRow>();
-      const matchByTriple = new Map<string, MatchRow>();
-      for (const match of existingMatches) {
+      for (const match of externalMatches) {
         if (match.external_match_id) {
           matchByExternalId.set(match.external_match_id, match);
         }
+      }
+
+      // Every external id already in the DB. New inserts check this set so a
+      // colliding id is rejected per-entry (others in the run still save).
+      const seenExternalIds = new Set<string>(matchByExternalId.keys());
+
+      const matchByTriple = new Map<string, MatchRow>();
+      for (const match of windowMatches) {
         matchByTriple.set(tripleKey(match.home_team, match.away_team, match.kickoff_at), match);
       }
 
       // 3. Preload assignments for those matches (managed roles filtered later).
       const assignmentsByMatch = new Map<string, AssignmentRow[]>();
-      const matchIds = existingMatches.map((match) => match.id);
+      const matchIds = Array.from(
+        new Set([...windowMatches, ...externalMatches].map((match) => match.id)),
+      );
       for (const idChunk of chunk(matchIds, 300)) {
         const assignmentsQuery = await supabase
           .from("assignments")
@@ -473,6 +503,17 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
           let matchId: string;
 
           if (!existing) {
+            const externalId = sheet.external_match_id;
+
+            // Reject an id that already lives in the DB or was used earlier in
+            // this same run. The throw is caught per-entry below, so the rest of
+            // the sync keeps saving.
+            if (externalId && seenExternalIds.has(externalId)) {
+              throw new Error(
+                `El ID "${externalId}" ya existe en la base de datos. Probá con otro.`,
+              );
+            }
+
             const insert = await supabase
               .from("matches")
               .insert({
@@ -494,10 +535,19 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
               .single();
 
             if (insert.error) {
+              // DB unique-index backstop (race or pre-existing duplicate).
+              if (isUniqueViolation(insert.error) && externalId) {
+                throw new Error(
+                  `El ID "${externalId}" ya existe en la base de datos. Probá con otro.`,
+                );
+              }
               throw insert.error;
             }
 
             matchId = insert.data.id;
+            if (externalId) {
+              seenExternalIds.add(externalId);
+            }
             result.created += 1;
           } else {
             matchId = existing.id;

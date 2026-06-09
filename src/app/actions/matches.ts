@@ -130,6 +130,35 @@ function buildStaffAssignments(params: {
   });
 }
 
+// Postgres unique_violation; surfaced by supabase-js on the error `code`.
+function isUniqueViolation(error: unknown): boolean {
+  return Boolean(error) && (error as { code?: string }).code === "23505";
+}
+
+function duplicateExternalIdMessage(externalId: string) {
+  return `El ID "${externalId}" ya existe en la base de datos. Probá con otro.`;
+}
+
+async function externalMatchIdExists(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  externalId: string,
+  excludeMatchId?: string,
+) {
+  let query = supabase.from("matches").select("id").eq("external_match_id", externalId);
+
+  if (excludeMatchId) {
+    query = query.neq("id", excludeMatchId);
+  }
+
+  const { data, error } = await query.limit(1).maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return Boolean(data);
+}
+
 function getMissingOptionalMatchColumn(error: unknown) {
   const message = ensureErrorMessage(error);
   const columnMatch = message.match(/Could not find the '([^']+)' column of 'matches'/i);
@@ -211,9 +240,19 @@ export async function createMatchAction(formData: FormData) {
       timezone: String(formData.get("timezone") ?? ""),
     });
 
+    const externalMatchId = maybeNull(String(formData.get("externalMatchId") ?? ""));
+
+    if (externalMatchId && (await externalMatchIdExists(supabase, externalMatchId))) {
+      redirectWithNotice({
+        redirectTo,
+        intent: "error",
+        notice: duplicateExternalIdMessage(externalMatchId),
+      });
+    }
+
     const result = await insertMatchWithOptionalColumnFallback(supabase, stampInsert(ctx, {
       competition: maybeNull(String(formData.get("competition") ?? "")),
-      external_match_id: maybeNull(String(formData.get("externalMatchId") ?? "")),
+      external_match_id: externalMatchId,
       production_code: maybeNull(String(formData.get("productionCode") ?? "")),
       production_mode: assertProductionMode(
         String(formData.get("productionMode") ?? ""),
@@ -232,6 +271,13 @@ export async function createMatchAction(formData: FormData) {
     }));
 
     if (result.error) {
+      if (isUniqueViolation(result.error) && externalMatchId) {
+        redirectWithNotice({
+          redirectTo,
+          intent: "error",
+          notice: duplicateExternalIdMessage(externalMatchId),
+        });
+      }
       throw result.error;
     }
 
@@ -333,7 +379,20 @@ export async function updateMatchAction(formData: FormData) {
     };
 
     if (formData.has("externalMatchId")) {
-      payload.external_match_id = maybeNull(String(formData.get("externalMatchId") ?? ""));
+      const externalMatchId = maybeNull(String(formData.get("externalMatchId") ?? ""));
+
+      if (
+        externalMatchId &&
+        (await externalMatchIdExists(supabase, externalMatchId, matchId))
+      ) {
+        redirectWithNotice({
+          redirectTo,
+          intent: "error",
+          notice: duplicateExternalIdMessage(externalMatchId),
+        });
+      }
+
+      payload.external_match_id = externalMatchId;
     }
 
     if (formData.has("productionCode")) {
@@ -355,6 +414,13 @@ export async function updateMatchAction(formData: FormData) {
     );
 
     if (result.error) {
+      if (isUniqueViolation(result.error) && payload.external_match_id) {
+        redirectWithNotice({
+          redirectTo,
+          intent: "error",
+          notice: duplicateExternalIdMessage(payload.external_match_id),
+        });
+      }
       throw result.error;
     }
 
