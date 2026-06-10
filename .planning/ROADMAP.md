@@ -15,9 +15,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Shared Identity Database** - Stand up the central `basket_auth` Postgres with Better Auth tables and a Drizzle connection (completed 2026-06-03)
 - [x] **Phase 2: RLS Removal & Guard Coverage Audit** - Move all authorization into app-layer guards and actor stamping into the app, so no data path is left open when RLS goes (completed 2026-06-05)
-- [ ] **Phase 3: Portal Better Auth Wiring** - Run Better Auth in portal with Google + a non-Google path, gated by a linked `profiles` access table preserving existing roles
-- [ ] **Phase 4: User Migration** - Carry existing Supabase users into Better Auth with no lockout, linking (not re-keying) `profiles`, verified on a DB copy
-- [ ] **Phase 5: Cutover** - Remove Supabase Auth from portal, gated on verified logins for one migrated password user and one Google staff user
+- [ ] **Phase 3: Portal Better Auth Wiring + Full Cutover** - Run Better Auth in portal (Google for staff, magic link for externals) gated by a linked `profiles` access table, AND fully remove Supabase Auth — absorbs the old Phases 4 (migration) & 5 (cutover)
+- [x] ~~**Phase 4: User Migration**~~ — **FOLDED into Phase 3** (2026-06-10): only 2 admin users exist; "migration" is them re-logging in via Google + auto-link by email. No hash migration / DB-copy rehearsal needed.
+- [x] ~~**Phase 5: Cutover**~~ — **FOLDED into Phase 3** (2026-06-10): no dual-run window, so Supabase Auth removal happens within Phase 3, not a separate phase.
 - [ ] **Phase 6: Cross-Subdomain SSO & Analytics Repoint** - Configure shared-cookie SSO and repoint analytics so login/logout propagate across portal + analytics
 
 ## Phase Details
@@ -75,47 +75,33 @@ Plans:
 
 - [x] 02-06-PLAN.md — `0010` teardown migration (drop RLS policies + `auth.uid()` triggers, D-01/D-03) + `supabase db push` [BLOCKING] + post-push stamping verification
 
-### Phase 3: Portal Better Auth Wiring
+### Phase 3: Portal Better Auth Wiring + Full Cutover
 
-**Goal**: Portal runs Better Auth against the shared auth DB with both staff (Google) and external (non-Google) login paths, gates access through its own `profiles` table preserving all existing roles, and keeps guest `mi-jornada` working.
+> **Scope expanded 2026-06-10** (see `phases/03-portal-better-auth-wiring/03-CONTEXT.md`). Better Auth becomes the **sole** auth provider in this phase — no dual-run. The old Phase 4 (User Migration) and Phase 5 (Cutover) are folded in here: with only 2 admin users, "migration" is them re-logging in via Google + auto-link by email, and Supabase Auth is fully removed before this phase closes. Supabase Postgres stays for domain data.
+
+**Goal**: Portal runs Better Auth against the shared auth DB as its only auth — staff log in with Google (restricted to the `basquetpass.tv` Workspace), external collaborators log in via magic link — access is gated by its own email-linked `profiles` table preserving all roles, guest `mi-jornada` keeps working, and Supabase Auth is fully removed.
 **Depends on**: Phase 1, Phase 2
-**Requirements**: PAUTH-01, PAUTH-02, PAUTH-03, PAUTH-04, PAUTH-05
+**Requirements**: PAUTH-01, PAUTH-02, PAUTH-03, PAUTH-04, PAUTH-05, MIG-01, MIG-02, MIG-03, CUT-01
 **Success Criteria** (what must be TRUE):
 
-  1. Portal serves Better Auth at `/api/auth/[...all]` (Node runtime, `nextCookies()` last) with a Drizzle connection to the shared auth DB, alongside the unchanged Supabase domain client.
-  2. A staff user can log in with Google and an external collaborator can log in via a non-Google path (email/password and/or magic link) in the same instance.
-  3. Portal access is gated by its own `profiles` access table (resolved via `auth_user_id`), not a domain allowlist, and a user without a portal access row is denied portal access without being blocked globally.
+  1. Portal serves Better Auth at `/api/auth/[...all]` (Node runtime, `nextCookies()` last) with a Drizzle connection to the shared auth DB; the Supabase client remains only as a domain-data DB client.
+  2. A staff user logs in with Google (rejected server-side unless the email is `@basquetpass.tv`) and an external collaborator logs in via magic link (Resend-delivered); there is no email/password path.
+  3. Portal access is gated by its own `profiles` access table (linked by `email`, resolving to a stable `profiles.id` via a new `auth_user_id` column), not a domain allowlist; a logged-in user with no `profiles` row hits a "no access" dead-end page (not blocked globally, not auto-provisioned).
   4. A logged-in user's role (admin/editor/viewer/collaborator) and per-section access are correctly enforced by the app-layer guards, and account linking attaches a Google login to an existing same-email account rather than creating a duplicate (no `trustedProviders` shortcut).
   5. Guest `mi-jornada` mode still works for unauthenticated users after the auth swap, and its allowed AI routes remain reachable but rate-limited.
+  6. **(absorbed MIG-01/02/03)** Both existing admins retain access by re-logging in via Better Auth and auto-linking to their pre-existing `profiles` row by email; `profiles.id` is unchanged (domain FKs + audit history intact); the `profiles.id → auth.users(id)` FK and `on_auth_user_created` trigger are dropped.
+  7. **(absorbed CUT-01)** Supabase Auth (GoTrue sign-in/reset/OTP, `@supabase/ssr` session middleware, `auth/confirm`, forgot/reset-password pages) is removed from portal; after removal, logout works and a post-cutover write still records a non-NULL actor.
 
 **Plans**: TBD
 **UI hint**: yes
 
-### Phase 4: User Migration
+### ~~Phase 4: User Migration~~ — FOLDED into Phase 3 (2026-06-10)
 
-**Goal**: Existing Supabase Auth users exist in Better Auth with no lockout, `profiles` is linked to Better Auth users by `auth_user_id` (PK and domain FKs untouched), and the whole migration is proven on a database copy before any cutover.
-**Depends on**: Phase 1, Phase 3
-**Requirements**: MIG-01, MIG-02, MIG-03
-**Success Criteria** (what must be TRUE):
+Collapsed during Phase 3 discussion. Rationale: only **2 users** exist (both `@basquetpass.tv` admins), so there is no hash-migration / migrate-vs-reset problem and no need to rehearse on a DB copy. "Migration" reduces to: both admins re-login via Better Auth (Google) and auto-link to their existing `profiles` row by email. Requirements **MIG-01/02/03** are now satisfied by Phase 3 criteria 3 & 6.
 
-  1. The migrate-vs-reset approach is decided from a live inspection of the production password-hash format and email/password-vs-OAuth user counts, and every existing user retains a working path in (bcrypt-verify reuse, magic-link/reset onboard, or Google).
-  2. `profiles.id` is kept stable with a new `auth_user_id text` link to Better Auth `user.id`; the `profiles.id → auth.users(id)` FK and `on_auth_user_created` trigger are dropped, and Supabase `user.id` is reused as the Better Auth id so links align.
-  3. The migration runs against a restored DB copy and referential integrity is asserted — no orphaned `created_by`/`reporter_profile_id`, audit history intact — before it is run against production.
+### ~~Phase 5: Cutover~~ — FOLDED into Phase 3 (2026-06-10)
 
-**Plans**: TBD
-
-### Phase 5: Cutover
-
-**Goal**: Supabase Auth is removed from portal, with removal gated on real verified logins so no class of user is stranded.
-**Depends on**: Phase 2, Phase 3, Phase 4
-**Requirements**: CUT-01
-**Success Criteria** (what must be TRUE):
-
-  1. Before Supabase Auth is removed, at least one migrated email/password user AND one Google staff user have each completed a verified login through Better Auth on portal.
-  2. Supabase Auth (sign-in/reset/OTP via GoTrue) is removed from portal; the Supabase client remains only as a plain domain-data DB client with no authorization flowing through `auth.uid()`.
-  3. After removal, logout works and post-cutover writes still record a non-NULL actor, confirming the app-layer authz and stamping from Phase 2 hold without RLS.
-
-**Plans**: TBD
+Collapsed during Phase 3 discussion. Rationale: Better Auth is the **sole** auth as of Phase 3 (no dual-run window), so there is nothing to "cut over" later — Supabase Auth is removed within Phase 3. Requirement **CUT-01** is now satisfied by Phase 3 criterion 7.
 
 ### Phase 6: Cross-Subdomain SSO & Analytics Repoint
 
@@ -134,13 +120,13 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
+Phases execute in numeric order: 1 → 2 → 3 → 6 (Phases 4 & 5 folded into 3)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Shared Identity Database | 2/2 | Complete   | 2026-06-03 |
-| 2. RLS Removal & Guard Coverage Audit | 4/6 | In Progress|  |
-| 3. Portal Better Auth Wiring | 0/TBD | Not started | - |
-| 4. User Migration | 0/TBD | Not started | - |
-| 5. Cutover | 0/TBD | Not started | - |
+| 2. RLS Removal & Guard Coverage Audit | 6/6 | Complete | 2026-06-05 |
+| 3. Portal Better Auth Wiring + Full Cutover | 0/TBD | Not started | - |
+| ~~4. User Migration~~ | — | Folded into Phase 3 | 2026-06-10 |
+| ~~5. Cutover~~ | — | Folded into Phase 3 | 2026-06-10 |
 | 6. Cross-Subdomain SSO & Analytics Repoint | 0/TBD | Not started | - |

@@ -27,9 +27,9 @@
 
 ### User Migration
 
-- [ ] **MIG-01**: Existing Supabase Auth users retain access with no lockout (migrate-vs-reset approach chosen after inspecting prod password-hash format + user counts)
-- [ ] **MIG-02**: `profiles` linked to Better Auth users via `auth_user_id` (`profiles.id` kept stable; the `profiles.id → auth.users(id)` FK and `on_auth_user_created` trigger dropped)
-- [ ] **MIG-03**: Migration verified on a database copy before cutover
+- [ ] **MIG-01**: Existing users retain access with no lockout. *(Resolved 2026-06-10: only 2 admin users — they re-login via Google and auto-link by email; no hash migration.)*
+- [ ] **MIG-02**: `profiles` linked to Better Auth users via a new `auth_user_id` column (`profiles.id` kept stable; the `profiles.id → auth.users(id)` FK and `on_auth_user_created` trigger dropped). *(2026-06-10: link key is `email`; Better Auth generates its own `user.id` — Supabase id is NOT reused.)*
+- [ ] **MIG-03**: Migration verified before removing Supabase Auth. *(2026-06-10: with 2 users, verification = both admins complete a real Better Auth login + retain admin role; no DB-copy rehearsal.)*
 
 ### Cutover & Analytics
 
@@ -77,10 +77,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AUTHZ-01 | Phase 2 | Complete |
 | AUTHZ-02 | Phase 2 | Complete |
 | AUTHZ-03 | Phase 2 | Complete |
-| MIG-01 | Phase 4 | Pending |
-| MIG-02 | Phase 4 | Pending |
-| MIG-03 | Phase 4 | Pending |
-| CUT-01 | Phase 5 | Pending |
+| MIG-01 | Phase 3 (folded from 4) | Pending |
+| MIG-02 | Phase 3 (folded from 4) | Pending |
+| MIG-03 | Phase 3 (folded from 4) | Pending |
+| CUT-01 | Phase 3 (folded from 5) | Pending |
 | CUT-02 | Phase 6 | Pending |
 
 **Coverage:**
@@ -91,4 +91,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-06-03*
-*Last updated: 2026-06-03 after roadmap creation*
+*Last updated: 2026-06-10 — Phases 4 & 5 folded into Phase 3 (2 users, no dual-run); MIG/CUT-01 remapped to Phase 3*
