@@ -258,6 +258,18 @@ function parseTab(tabName: string, csvSource: string): SheetEntry[] {
   return entries;
 }
 
+// Start of "today" in the sheet timezone, as an instant. Entries with a
+// kickoff before this are in the past and must not be synced/changed.
+export function startOfTodayInTimezone(now: Date): Date {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+  return fromZonedTime(`${parts}T00:00:00`, TIMEZONE);
+}
+
 // Current month + the next SYNC_MONTHS_AHEAD months as "<MesEs> <YY>".
 export function resolveSyncTabs(now: Date): string[] {
   const tabs: string[] = [];
@@ -357,6 +369,15 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
         result.tabsMissing.push(tabName);
       }
     }
+
+    // Never touch matches before the current day: drop past entries so the
+    // sync neither creates, updates, nor rewrites assignments for them.
+    const cutoff = startOfTodayInTimezone(now).getTime();
+    const futureEntries = entries.filter(
+      (entry) => new Date(entry.match.kickoff_at).getTime() >= cutoff,
+    );
+    entries.length = 0;
+    entries.push(...futureEntries);
 
     if (entries.length) {
       // 2. Preload existing matches in the synced kickoff window.
