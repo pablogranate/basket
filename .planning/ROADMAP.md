@@ -85,7 +85,7 @@ Plans:
 **Success Criteria** (what must be TRUE):
 
   1. Portal serves Better Auth at `/api/auth/[...all]` (Node runtime, `nextCookies()` last) with a Drizzle connection to the shared auth DB; the Supabase client remains only as a domain-data DB client.
-  2. A staff user logs in with Google (rejected server-side unless the email is `@basquetpass.tv`) and an external collaborator logs in via magic link (Resend-delivered); there is no email/password path.
+  2. A staff user logs in with Google (rejected server-side unless the email is `@basquetpass.tv`) and an external collaborator logs in via magic link (delivered via Google Workspace SMTP / nodemailer); there is no email/password path.
   3. Portal access is gated by its own `profiles` access table (linked by `email`, resolving to a stable `profiles.id` via a new `auth_user_id` column), not a domain allowlist; a logged-in user with no `profiles` row hits a "no access" dead-end page (not blocked globally, not auto-provisioned).
   4. A logged-in user's role (admin/editor/viewer/collaborator) and per-section access are correctly enforced by the app-layer guards, and account linking attaches a Google login to an existing same-email account rather than creating a duplicate (no `trustedProviders` shortcut).
   5. Guest `mi-jornada` mode still works for unauthenticated users after the auth swap, and its allowed AI routes remain reachable but rate-limited.

@@ -37,7 +37,10 @@ Portal swaps its authentication from Supabase Auth to **Better Auth as the sole 
 - **D-13:** **Denied-access UX:** an authenticated user with no matching `profiles` row lands on a **"No access — ask an administrator" dead-end page** showing the email they logged in with (so they can tell the admin which to add) plus a Logout button. Session is kept; the page is a hard stop.
 
 ### Email Delivery
-- **D-14:** **Resend** is the transactional email provider (magic links + collaborator invites). Rationale: low volume, simple API, Better-Auth-documented, decoupled from Workspace send limits. NOTE: the app currently has **no** email sender — today's "email" is borrowed from Supabase Auth's `resetPasswordForEmail` (`people.ts:45`), which disappears at cutover. Resend must be wired before/with magic link.
+- **D-14:** **Google Workspace SMTP** sends ALL transactional email (magic links + collaborator invites). Implementation: `nodemailer` over `smtp.gmail.com:587` (STARTTLS), authenticated with an **app password** on a dedicated Workspace sender mailbox (e.g. `noreply@basquetpass.tv`). One mailer module is shared by Better Auth's `magicLink.sendMagicLink` and the collaborator-invite flow. NOTE: the app currently has **no** email sender — today's "email" is borrowed from Supabase Auth's `resetPasswordForEmail` (`people.ts:45`), which disappears at cutover, so this mailer must be wired before/with magic link.
+  - **App-password SMTP auth, NOT Workspace SMTP-relay** — relay restricts by sender IP and Netlify egress IPs are dynamic; username+app-password auth works from any IP. Requires 2-Step Verification on the sender mailbox to mint the app password. Volume is well under Gmail's ~2,000 msg/day cap.
+  - **Setup prerequisite (operator):** create/choose the sender mailbox, enable 2FA, generate the app password; provide sender address + app password as env at execution.
+  - **Env:** `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` (sender mailbox), `SMTP_PASS` (app password), `MAIL_FROM` — surfaced through `appEnv` with an assert guard, matching the established env pattern.
 
 ### Claude's Discretion
 - Cross-subdomain SSO groundwork (`.basket-app.com` cookie domain, identical `BETTER_AUTH_SECRET`, `trustedOrigins`) is **Phase 6** scope. Phase 3 may lay minimal env-based groundwork (host-only cookie in dev, env-driven domain) to avoid a session-invalidating change later, but full SSO + analytics repoint stays in Phase 6.
@@ -74,9 +77,10 @@ Portal swaps its authentication from Supabase Auth to **Better Auth as the sole 
 - `src/app/(auth)/login`, `(auth)/forgot-password`, `(auth)/reset-password`, `src/app/auth/confirm/route.ts`, `src/app/actions/auth.ts` — login UI + Supabase auth routes (replace/remove).
 - `src/lib/api/with-auth.ts` — guard HOF from Phase 2 (must resolve Better Auth ctx).
 
-### Better Auth
+### Better Auth & email
 - Skill: `better-auth-best-practices` (server/client config, adapters, plugins, env).
 - Better Auth ^1.6.x docs — admin plugin schema (D-08 Phase 1), magicLink, Google social provider + `hd`/domain verification, account linking, Next.js handler + `nextCookies()`.
+- `nodemailer` docs — Gmail SMTP transport with app password (`smtp.gmail.com:587`, STARTTLS).
 
 </canonical_refs>
 
@@ -90,7 +94,7 @@ Portal swaps its authentication from Supabase Auth to **Better Auth as the sole 
 - People-page grant-access action — adapt rather than rewrite (D-12).
 
 ### Established Patterns
-- `appEnv` accessor in `src/lib/env.ts` with `assert*` guards — add `RESEND_API_KEY`, Google OAuth creds, `BETTER_AUTH_SECRET`/`BETTER_AUTH_URL` here.
+- `appEnv` accessor in `src/lib/env.ts` with `assert*` guards — add SMTP creds (`SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASS`/`MAIL_FROM`), Google OAuth creds, `BETTER_AUTH_SECRET`/`BETTER_AUTH_URL` here.
 - `server-only` isolation for privileged clients (`admin.ts`, `auth-client.ts`).
 - Phase 2 already moved authorization fully app-side + added guard-coverage tests — Better Auth ctx must satisfy the same guards.
 

@@ -58,11 +58,11 @@
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Resend | Hosted transactional email, simple API | ✓ |
-| Google Workspace SMTP | Send via owned basquetpass.tv, no new vendor | |
+| Resend | Hosted transactional email, simple API | |
+| Google Workspace SMTP | Send via owned basquetpass.tv, no new vendor | ✓ |
 
-**User's choice:** Resend.
-**Notes:** App has no sender today (Supabase Auth handled it). Needed for both magic links and collaborator invites.
+**User's choice:** Google Workspace SMTP (revised 2026-06-10, initially Resend).
+**Notes:** Use nodemailer over smtp.gmail.com:587 with an app password on a dedicated sender mailbox (no new vendor). App-password auth (not SMTP-relay) chosen because Netlify egress IPs are dynamic. App has no sender today (Supabase Auth handled it). Needed for both magic links and collaborator invites.
 
 ## Cutover scope (roadmap restructure)
 
