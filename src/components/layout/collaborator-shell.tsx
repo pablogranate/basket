@@ -38,12 +38,10 @@ export function CollaboratorShell({
   children,
   user,
   announcement,
-  allowTeams = true,
 }: {
   children: React.ReactNode;
   user: UserContext | null;
   announcement: AnnouncementSummary | null;
-  allowTeams?: boolean;
 }) {
   const displayName =
     user?.profile?.full_name?.trim() ||
@@ -70,7 +68,7 @@ export function CollaboratorShell({
           </div>
 
           <div className="hidden items-center gap-3 lg:flex">
-            <CollaboratorNav allowTeams={allowTeams} />
+            <CollaboratorNav />
             {user?.userId ? (
               <form action={signOutAction}>
                 <SubmitButton
@@ -121,7 +119,7 @@ export function CollaboratorShell({
       </footer>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border)] bg-[rgba(255,255,255,0.96)] px-4 py-3 backdrop-blur-md lg:hidden">
-        <CollaboratorNav mobile allowTeams={allowTeams} />
+        <CollaboratorNav mobile />
       </div>
     </div>
   );

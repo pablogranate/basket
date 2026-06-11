@@ -2,26 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, Shield } from "lucide-react";
+import { ClipboardList } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 const collaboratorItems = [
   { href: "/mi-jornada", label: "Mi jornada", icon: ClipboardList },
-  { href: "/teams", label: "Equipos", icon: Shield },
 ] as const;
 
 export function CollaboratorNav({
   mobile = false,
-  allowTeams = true,
 }: {
   mobile?: boolean;
-  allowTeams?: boolean;
 }) {
   const pathname = usePathname();
-  const items = allowTeams
-    ? collaboratorItems
-    : collaboratorItems.filter((item) => item.href === "/mi-jornada");
+  const items = collaboratorItems;
 
   if (mobile) {
     return (

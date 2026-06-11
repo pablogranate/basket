@@ -47,11 +47,7 @@ export default async function DashboardLayout({
 
   if (collaboratorExperience) {
     return (
-      <CollaboratorShell
-        user={user}
-        announcement={announcement}
-        allowTeams={Boolean(user?.userId) && isCollaboratorLimitedRole(user?.role)}
-      >
+      <CollaboratorShell user={user} announcement={announcement}>
         {children}
       </CollaboratorShell>
     );
