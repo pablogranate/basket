@@ -9,7 +9,7 @@ import {
 } from "@/app/actions/helpers";
 import { requireEditor } from "@/lib/auth";
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
-import { requireAdminAccessManager } from "@/lib/auth-access";
+import { requireAdmin, requireAdminAccessManager } from "@/lib/auth-access";
 import { hasFullDashboardAccessRole } from "@/lib/constants";
 import type { ProfileRow } from "@/lib/database.types";
 import { sendCollaboratorInviteEmail } from "@/lib/email/mailer";
@@ -254,7 +254,7 @@ export async function upsertPersonAction(formData: FormData) {
 
 export async function deletePersonAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData, "/people");
-  const context = await requireEditor();
+  const context = await requireAdmin();
   const personId = String(formData.get("personId") ?? "").trim();
 
   try {

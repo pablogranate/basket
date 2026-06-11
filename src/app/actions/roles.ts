@@ -7,15 +7,15 @@ import {
   redirectWithNotice,
   rethrowNavigationError,
 } from "@/app/actions/helpers";
-import { requireEditor } from "@/lib/auth";
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
+import { requireAdmin } from "@/lib/auth-access";
 import { normalizeRoleCategoryInput, normalizeRoleNameInput } from "@/lib/display";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ensureErrorMessage } from "@/lib/utils";
 
 export async function upsertRoleAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData, "/roles");
-  const ctx = await requireEditor();
+  const ctx = await requireAdmin();
 
   const payload = {
     name: normalizeRoleNameInput(String(formData.get("name") ?? "")),
@@ -73,7 +73,7 @@ export async function upsertRoleAction(formData: FormData) {
 
 export async function deleteRoleAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData, "/roles");
-  const ctx = await requireEditor();
+  const ctx = await requireAdmin();
 
   try {
     const supabase = await createSupabaseServerClient();
