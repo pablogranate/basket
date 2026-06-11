@@ -114,7 +114,7 @@ export const POST = withAuth({}, async (request, ctx) => {
         stampInsert(ctx, {
           assignment_id: assignmentId,
           match_id: matchId,
-          reporter_profile_id: ctx.userId,
+          reporter_profile_id: ctx.profileId,
           incident_level: draft.incidentLevel,
           paid: draft.paid === "si",
           feed_detected: draft.feedDetected === "si",

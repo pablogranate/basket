@@ -9,6 +9,14 @@ export async function createSupabaseServerClient() {
   const cookieStore = await cookies();
 
   return createServerClient<Database>(appEnv.supabaseUrl, appEnv.supabaseAnonKey, {
+    // Better Auth owns identity; this client is domain-data only. Disable session
+    // handling so a stray (pre-cutover) Supabase auth cookie can't trigger a
+    // GoTrue refresh ("refresh_token_not_found"). RLS is dropped, so anon is fine.
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
     cookies: {
       getAll() {
         return cookieStore.getAll();

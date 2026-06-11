@@ -1,107 +1,110 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { resolveDashboardAccessRole } from "@/lib/constants";
+import { auth } from "@/lib/auth/server";
 import type { AppRole, ProfileRow } from "@/lib/database.types";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getSupabaseUserSafely } from "@/lib/supabase/auth-session";
-
-function buildFallbackProfile(user: {
-  id: string;
-  email?: string | null;
-  user_metadata?: { full_name?: string | null } | null;
-}): ProfileRow {
-  const fallbackName =
-    user.user_metadata?.full_name?.trim() ||
-    user.email?.split("@")[0] ||
-    "Usuario";
-  const now = new Date().toISOString();
-
-  return {
-    id: user.id,
-    full_name: fallbackName,
-    role: "viewer",
-    created_at: now,
-    updated_at: now,
-  };
-}
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type UserContext = Awaited<ReturnType<typeof getUserContext>>;
 
 export async function getUserContext() {
-  const supabase = await createSupabaseServerClient();
-  const { user } = await getSupabaseUserSafely(supabase);
+  const session = await auth.api.getSession({ headers: await headers() });
 
-  if (!user) {
+  if (!session?.user) {
     return {
       userId: null,
+      profileId: null,
       email: null,
       profile: null,
       role: "viewer" as AppRole,
       canEdit: false,
+      hasAccess: false,
     };
   }
 
-  const fallbackProfile = buildFallbackProfile(user);
+  const authUserId = session.user.id;
+  const email = session.user.email ?? null;
+  const supabaseAdmin = createSupabaseAdminClient();
+
   let profile: ProfileRow | null = null;
-  const profileQuery = await supabase
+
+  const byAuthId = await supabaseAdmin
     .from("profiles")
     .select("*")
-    .eq("id", user.id)
+    .eq("auth_user_id", authUserId)
     .maybeSingle();
 
-  if (profileQuery.error) {
-    console.error("[auth] failed to load profile", profileQuery.error);
-    const resolvedRole = resolveDashboardAccessRole({
-      profileRole: fallbackProfile.role,
-      appMetadata: user.app_metadata,
-    });
-
-    return {
-      userId: user.id,
-      email: user.email ?? null,
-      profile: fallbackProfile,
-      role: resolvedRole,
-      canEdit: false,
-    };
+  if (byAuthId.error) {
+    console.error("[auth] failed to load profile by auth_user_id", byAuthId.error);
+  } else {
+    profile = (byAuthId.data as ProfileRow | null) ?? null;
   }
 
-  profile = (profileQuery.data as ProfileRow | null) ?? null;
-
-  if (!profile) {
-    const insert = await supabase
+  // First login: stamp auth_user_id onto the email-matched, still-unlinked row
+  // (D-06). Match case-insensitively in JS over the small profiles set to avoid
+  // SQL LIKE-wildcard false positives on emails containing `_`.
+  if (!profile && email) {
+    const normalizedEmail = email.toLowerCase();
+    const unlinked = await supabaseAdmin
       .from("profiles")
-      .insert({
-        id: user.id,
-        full_name:
-          (user.user_metadata?.full_name as string | undefined) ??
-          (user.email?.split("@")[0] ?? "Usuario"),
-      })
       .select("*")
-      .single();
+      .is("auth_user_id", null);
 
-    if (insert.error) {
-      console.error("[auth] failed to create profile", insert.error);
-      profile = fallbackProfile;
+    if (unlinked.error) {
+      console.error("[auth] failed to load unlinked profiles", unlinked.error);
     } else {
-      profile = insert.data as ProfileRow;
+      const candidate = ((unlinked.data as ProfileRow[] | null) ?? []).find(
+        (row) => row.email?.toLowerCase() === normalizedEmail,
+      );
+
+      if (candidate) {
+        const link = await supabaseAdmin
+          .from("profiles")
+          .update({ auth_user_id: authUserId })
+          .eq("id", candidate.id)
+          .is("auth_user_id", null)
+          .select("*")
+          .maybeSingle();
+
+        if (link.error) {
+          console.error("[auth] failed to auto-link profile by email", link.error);
+          profile = candidate;
+        } else {
+          profile = (link.data as ProfileRow | null) ?? candidate;
+        }
+      }
     }
   }
 
-  const resolvedRole = resolveDashboardAccessRole({
-    profileRole: profile.role,
-    appMetadata: user.app_metadata,
-  });
+  // Authenticated but unprovisioned: no access, routed to /no-access (D-11/D-13).
+  if (!profile) {
+    return {
+      userId: authUserId,
+      profileId: null,
+      email,
+      profile: null,
+      role: "viewer" as AppRole,
+      canEdit: false,
+      hasAccess: false,
+    };
+  }
+
+  const role: AppRole = profile.role ?? "viewer";
 
   return {
-    userId: user.id,
-    email: user.email ?? null,
+    userId: authUserId,
+    // Domain actor id (uuid, FK target for created_by/changed_by/etc.). Distinct
+    // from userId, which is the Better Auth text id post-cutover.
+    profileId: profile.id,
+    email,
     profile,
-    role: resolvedRole,
+    role,
     canEdit:
-      resolvedRole === "admin" ||
-      resolvedRole === "editor" ||
-      resolvedRole === "coordinator" ||
-      resolvedRole === "collaborator",
+      role === "admin" ||
+      role === "editor" ||
+      role === "coordinator" ||
+      role === "collaborator",
+    hasAccess: true,
   };
 }
 
@@ -110,6 +113,20 @@ export async function requireUserContext() {
 
   if (!context.userId) {
     redirect("/login");
+  }
+
+  return context;
+}
+
+export async function requireAccess() {
+  const context = await getUserContext();
+
+  if (!context.userId) {
+    redirect("/login");
+  }
+
+  if (!context.hasAccess) {
+    redirect("/no-access");
   }
 
   return context;

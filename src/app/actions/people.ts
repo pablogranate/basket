@@ -10,11 +10,9 @@ import {
 import { requireEditor } from "@/lib/auth";
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
 import { requireAdminAccessManager } from "@/lib/auth-access";
-import {
-  hasFullDashboardAccessRole,
-  resolveDashboardAccessRole,
-} from "@/lib/constants";
-import type { AppRole } from "@/lib/database.types";
+import { hasFullDashboardAccessRole } from "@/lib/constants";
+import type { ProfileRow } from "@/lib/database.types";
+import { sendCollaboratorInviteEmail } from "@/lib/email/mailer";
 import { isPersonFunctionKey, resolveFunctionKey } from "@/lib/functions";
 import { appEnv } from "@/lib/env";
 import { buildPersonNotesMeta } from "@/lib/people-notes";
@@ -22,76 +20,42 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ensureErrorMessage, maybeNull } from "@/lib/utils";
 
-async function findAuthUserByEmail(email: string) {
+// profiles is the single authorization table now (no Supabase Auth users).
+// Match email case-insensitively in JS over the small profiles set to avoid
+// SQL LIKE-wildcard false positives on emails containing `_` (mirrors auth.ts).
+async function findProfileByEmail(email: string): Promise<ProfileRow | null> {
+  const normalizedEmail = email.trim().toLowerCase();
   const supabaseAdmin = createSupabaseAdminClient();
-  const usersResult = await supabaseAdmin.auth.admin.listUsers({
-    page: 1,
-    perPage: 1000,
-  });
+  const result = await supabaseAdmin.from("profiles").select("*");
 
-  if (usersResult.error) {
-    throw usersResult.error;
+  if (result.error) {
+    throw result.error;
   }
 
   return (
-    usersResult.data.users.find(
-      (user) => user.email?.toLowerCase() === email.toLowerCase(),
+    ((result.data as ProfileRow[] | null) ?? []).find(
+      (row) => row.email?.toLowerCase() === normalizedEmail,
     ) ?? null
   );
 }
 
-async function sendCollaboratorSetupEmail(email: string) {
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${appEnv.appUrl}/auth/confirm?next=/reset-password`,
-  });
-
-  if (error) {
-    throw error;
-  }
-}
-
 async function revokeCollaboratorAccessByEmail(email: string) {
+  const profile = await findProfileByEmail(email);
+
+  if (!profile || profile.role !== "collaborator") {
+    return false;
+  }
+
+  // Deleting the profiles row removes authorization: getUserContext now returns
+  // hasAccess:false and any live Better Auth session lands on /no-access.
   const supabaseAdmin = createSupabaseAdminClient();
-  const authUser = await findAuthUserByEmail(email);
-
-  if (!authUser) {
-    return false;
-  }
-
-  const profileQuery = await supabaseAdmin
-    .from("profiles")
-    .select("role")
-    .eq("id", authUser.id)
-    .maybeSingle();
-
-  if (profileQuery.error) {
-    throw profileQuery.error;
-  }
-
-  const resolvedRole = resolveDashboardAccessRole({
-    profileRole: (profileQuery.data?.role as AppRole | null | undefined) ?? null,
-    appMetadata:
-      (authUser.app_metadata as Record<string, unknown> | null) ?? null,
-  });
-
-  if (resolvedRole !== "collaborator") {
-    return false;
-  }
-
   const deleteProfile = await supabaseAdmin
     .from("profiles")
     .delete()
-    .eq("id", authUser.id);
+    .eq("id", profile.id);
 
   if (deleteProfile.error) {
     throw deleteProfile.error;
-  }
-
-  const deleteAuthUser = await supabaseAdmin.auth.admin.deleteUser(authUser.id);
-
-  if (deleteAuthUser.error) {
-    throw deleteAuthUser.error;
   }
 
   return true;
@@ -104,7 +68,6 @@ export async function upsertPersonAction(formData: FormData) {
   const createPlatformAccess =
     String(formData.get("createPlatformAccess") ?? "off") === "on";
   const accessRole = String(formData.get("accessRole") ?? "collaborator").trim();
-  const temporaryPassword = String(formData.get("temporaryPassword") ?? "").trim();
 
   const roleNameInput = maybeNull(String(formData.get("roleName") ?? ""));
 
@@ -149,12 +112,6 @@ export async function upsertPersonAction(formData: FormData) {
         throw new Error("Ingresa un correo electrónico antes de crear acceso.");
       }
 
-      if (temporaryPassword.length < 8) {
-        throw new Error(
-          "La contraseña temporal debe tener al menos 8 caracteres.",
-        );
-      }
-
       if (accessRole !== "collaborator") {
         throw new Error("Solo se permite crear acceso de colaborador.");
       }
@@ -194,7 +151,7 @@ export async function upsertPersonAction(formData: FormData) {
         selectedFunctions.map((functionKey) => ({
           person_id: result.data.id,
           function_key: functionKey,
-          created_by: ctx.userId,
+          created_by: ctx.profileId,
         })),
       );
 
@@ -217,94 +174,46 @@ export async function upsertPersonAction(formData: FormData) {
     if (createPlatformAccess && payload.email) {
       try {
         const supabaseAdmin = createSupabaseAdminClient();
-        const existingAuthUser = await findAuthUserByEmail(payload.email);
-        let authUserId = existingAuthUser?.id ?? null;
+        const existingProfile = await findProfileByEmail(payload.email);
 
-        if (existingAuthUser) {
-          const existingProfileQuery = await supabaseAdmin
-            .from("profiles")
-            .select("role")
-            .eq("id", existingAuthUser.id)
-            .maybeSingle();
-
-          if (existingProfileQuery.error) {
-            throw existingProfileQuery.error;
-          }
-
-          const existingDashboardRole = resolveDashboardAccessRole({
-            profileRole: existingProfileQuery.data?.role ?? null,
-            appMetadata:
-              (existingAuthUser.app_metadata as Record<string, unknown> | null) ??
-              null,
-          });
-
-          if (hasFullDashboardAccessRole(existingDashboardRole)) {
-            throw new Error(
-              "Ese correo ya pertenece a un usuario interno con acceso de administración.",
-            );
-          }
+        if (existingProfile && hasFullDashboardAccessRole(existingProfile.role)) {
+          throw new Error(
+            "Ese correo ya pertenece a un usuario interno con acceso de administración.",
+          );
         }
 
-        if (existingAuthUser) {
-          const updateUser = await supabaseAdmin.auth.admin.updateUserById(
-            existingAuthUser.id,
-            {
-              password: temporaryPassword,
-              email_confirm: true,
-              app_metadata: {
-                ...(existingAuthUser.app_metadata ?? {}),
-                bp_access_role: "collaborator",
-              },
-              user_metadata: {
-                ...(existingAuthUser.user_metadata ?? {}),
-                full_name: payload.full_name,
-              },
-            },
-          );
+        if (existingProfile) {
+          // Re-grant on an existing (e.g. unlinked) profile: set the role,
+          // keep id/auth_user_id so a later first login still auto-links.
+          const updateProfile = await supabaseAdmin
+            .from("profiles")
+            .update({ role: "collaborator", full_name: payload.full_name })
+            .eq("id", existingProfile.id);
 
-          if (updateUser.error) {
-            throw updateUser.error;
+          if (updateProfile.error) {
+            throw updateProfile.error;
           }
         } else {
-          const createUser = await supabaseAdmin.auth.admin.createUser({
+          // No auth user created: a fresh profiles row keyed by a new uuid with
+          // auth_user_id NULL. First login (Google/magic link) auto-links by
+          // email and stamps auth_user_id (see getUserContext).
+          const profileInsert = await supabaseAdmin.from("profiles").insert({
+            id: globalThis.crypto.randomUUID(),
             email: payload.email,
-            password: temporaryPassword,
-            email_confirm: true,
-            app_metadata: {
-              bp_access_role: "collaborator",
-            },
-            user_metadata: {
-              full_name: payload.full_name,
-            },
+            full_name: payload.full_name,
+            role: "collaborator",
+            auth_user_id: null,
           });
 
-          if (createUser.error) {
-            throw createUser.error;
+          if (profileInsert.error) {
+            throw profileInsert.error;
           }
-
-          authUserId = createUser.data.user.id;
         }
 
-        if (!authUserId) {
-          throw new Error("No se pudo resolver el usuario de acceso.");
-        }
-
-        const profileInsert = await supabaseAdmin.from("profiles").upsert(
-          {
-            id: authUserId,
-            full_name: payload.full_name,
-            role: "viewer",
-          },
-          {
-            onConflict: "id",
-          },
-        );
-
-        if (profileInsert.error) {
-          throw profileInsert.error;
-        }
-
-        await sendCollaboratorSetupEmail(payload.email);
+        await sendCollaboratorInviteEmail({
+          to: payload.email,
+          loginUrl: `${appEnv.appUrl}/login`,
+        });
         accessEmailSent = true;
       } catch (error) {
         console.error("[people] failed to create platform access", error);

@@ -13,10 +13,12 @@ export function PageMessage({
   message?: string | null;
 }) {
   const [visible, setVisible] = useState(Boolean(message));
+  const [lastMessage, setLastMessage] = useState(message);
 
-  useEffect(() => {
+  if (message !== lastMessage) {
+    setLastMessage(message);
     setVisible(Boolean(message));
-  }, [message]);
+  }
 
   useEffect(() => {
     if (!message) {

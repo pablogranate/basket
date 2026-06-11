@@ -88,19 +88,25 @@ export interface Database {
           id: string;
           full_name: string | null;
           role: Database["public"]["Enums"]["app_role"];
+          email: string;
+          auth_user_id: string | null;
           created_at: string;
           updated_at: string;
         };
         Insert: {
-          id: string;
+          id?: string;
           full_name?: string | null;
           role?: Database["public"]["Enums"]["app_role"];
+          email: string;
+          auth_user_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           full_name?: string | null;
           role?: Database["public"]["Enums"]["app_role"];
+          email?: string;
+          auth_user_id?: string | null;
           updated_at?: string;
         };
       };

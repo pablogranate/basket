@@ -6,7 +6,6 @@ import {
   ChevronDown,
   FileText,
   ImagePlus,
-  KeyRound,
   Power,
   Save,
   ShieldCheck,
@@ -438,29 +437,17 @@ export function CreatePersonModal({
                       </div>
 
                       {createPlatformAccess ? (
-                        <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+                        <div className="mt-5">
                           <div className="rounded-[var(--panel-radius)] border border-[#e5e7eb] bg-[#f9f9f9] px-4 py-3 shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)]">
                             <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#95a3ba]">
                               Correo de ingreso
                             </p>
                             <p className="mt-1 text-sm font-medium text-[#344054]">
-                              Se usará el correo del formulario para iniciar sesión como colaborador.
+                              Se enviará una invitación al correo del formulario. El
+                              colaborador ingresa con un enlace de acceso (o Google);
+                              no se define contraseña.
                             </p>
                           </div>
-
-                          <label className="space-y-2">
-                            <ModalFieldLabel required>Contraseña temporal</ModalFieldLabel>
-                            <div className="relative">
-                              <KeyRound className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#98a2b3]" />
-                              <Input
-                                name="temporaryPassword"
-                                type="password"
-                                placeholder="Mínimo 8 caracteres"
-                                disabled={!canEdit}
-                                className={cn(fieldClassName, "pl-11")}
-                              />
-                            </div>
-                          </label>
                         </div>
                       ) : null}
 

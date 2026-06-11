@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Phase 03 context gathered
-last_updated: "2026-06-10T17:01:58.477Z"
-last_activity: 2026-06-05 -- 0010 teardown applied to live DB; verification passed 4/4
+status: verified
+stopped_at: Phase 03 complete (T10 operator-signed-off)
+last_updated: "2026-06-11T13:30:00.000Z"
+last_activity: 2026-06-11 -- Phase 03 cutover complete; migration 0015 applied; T10 9-check verification passed
 progress:
   total_phases: 6
-  completed_phases: 2
-  total_plans: 8
-  completed_plans: 8
-  percent: 33
+  completed_phases: 3
+  total_plans: 9
+  completed_plans: 9
+  percent: 50
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-03)
 
 **Core value:** A single sign-on across `*.basket-app.com` where identity is shared but each app authorizes its own users independently — without breaking portal's existing role-based access.
-**Current focus:** Phase 03 — portal-better-auth-wiring (next)
+**Current focus:** Phase 06 — cross-subdomain SSO & analytics repoint (next)
 
 ## Current Position
 
-Phase: 02 (rls-removal-guard-coverage-audit) — COMPLETE (verified 2026-06-05)
-Plan: 6 of 6
-Status: Phase verified -- next: plan Phase 03 (portal-better-auth-wiring)
-Last activity: 2026-06-05 -- 0010 teardown applied to live DB; verification passed 4/4
+Phase: 03 (portal-better-auth-wiring) — COMPLETE (verified 2026-06-11)
+Plan: 1 of 1
+Status: Phase verified -- next: plan Phase 06 (cross-subdomain SSO & analytics repoint)
+Last activity: 2026-06-11 -- Better Auth sole-auth cutover live; migration 0015 applied; T10 9-check pass
 
-Progress: [███░░░░░░░] 33% (Phases 1-2 of 6)
+Progress: [█████░░░░░] 50% (Phases 1-3 of 6; 4 & 5 folded into 3)
 
 ## Performance Metrics
 

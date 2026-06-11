@@ -915,11 +915,14 @@ export function ReportsWorkspace({
     useState(false);
   const [showAllVenueRecurrence, setShowAllVenueRecurrence] = useState(false);
 
-  useEffect(() => {
+  const [lastActiveView, setLastActiveView] = useState(activeView);
+
+  if (activeView !== lastActiveView) {
+    setLastActiveView(activeView);
     if (activeView !== "incidents") {
       setSelectedEmbeddedIncidentId(null);
     }
-  }, [activeView]);
+  }
 
   function handleSort(nextSortBy: ReportSortKey) {
     if (sortBy === nextSortBy) {

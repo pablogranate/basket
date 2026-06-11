@@ -1,18 +1,9 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import {
-  ArrowRight,
-  LockKeyhole,
-  Mail,
-  Radio,
-  UsersRound,
-  Video,
-} from "lucide-react";
+import { Radio, UsersRound, Video } from "lucide-react";
 
-import { loginAction } from "@/app/actions/auth";
+import { LoginFormClient } from "@/app/(auth)/login/login-form-client";
 import { SetupPanel } from "@/components/layout/setup-panel";
 import { PageMessage } from "@/components/ui/page-message";
-import { SubmitButton } from "@/components/ui/submit-button";
 import { PRODUCT_COPY } from "@/lib/copy";
 import { getDefaultDashboardHrefForRole, APP_NAME } from "@/lib/constants";
 import { isSupabaseConfigured } from "@/lib/env";
@@ -180,74 +171,7 @@ export default async function LoginPage({ searchParams }: PageProps) {
 
               <PageMessage intent={intent} message={notice} />
 
-              <form action={loginAction} className="mt-5 space-y-[18px]">
-                <input type="hidden" name="redirectTo" value={redirectTo} />
-
-                <label className="block">
-                  <span className="mb-2 block text-sm font-bold text-[var(--foreground)]">
-                    Correo electrónico
-                  </span>
-                  <div className="relative">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-[var(--muted)]">
-                      <Mail className="size-5" />
-                    </div>
-                    <input
-                      type="email"
-                      name="email"
-                      placeholder="operaciones@canal.com"
-                      required
-                      className="block h-[52px] w-full rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] pl-11 pr-4 text-[15px] text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[rgba(230,18,56,0.12)] xl:h-14 xl:pl-12 xl:text-base"
-                    />
-                  </div>
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-sm font-bold text-[var(--foreground)]">
-                    Contraseña
-                  </span>
-                  <div className="relative">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-[var(--muted)]">
-                      <LockKeyhole className="size-5" />
-                    </div>
-                    <input
-                      type="password"
-                      name="password"
-                      placeholder="********"
-                      required
-                      className="block h-[52px] w-full rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] pl-11 pr-4 text-[15px] text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[rgba(230,18,56,0.12)] xl:h-14 xl:pl-12 xl:text-base"
-                    />
-                  </div>
-                </label>
-
-                <div className="-mt-1 flex justify-end">
-                  <Link
-                    href="/forgot-password"
-                    className="text-sm font-medium text-[var(--muted)] transition hover:text-[var(--accent)]"
-                  >
-                    Olvidé mi contraseña
-                  </Link>
-                </div>
-
-                <div className="flex items-center justify-start gap-4 pt-1">
-                  <label className="flex items-center gap-2 text-sm font-medium text-[var(--muted)]">
-                    <input
-                      type="checkbox"
-                      className="size-4 rounded border-[var(--border)] text-[var(--accent)] focus:ring-[var(--accent)]"
-                    />
-                    Recordarme
-                  </label>
-                </div>
-
-                <div className="pt-3">
-                  <SubmitButton
-                    pendingLabel="Ingresando..."
-                    className="h-[52px] w-full gap-2 text-[15px] font-bold shadow-[0_8px_24px_rgba(230,18,56,0.26)] xl:h-14 xl:text-base"
-                  >
-                    Entrar
-                    <ArrowRight className="size-5" />
-                  </SubmitButton>
-                </div>
-              </form>
+              <LoginFormClient callbackURL={redirectTo} />
             </div>
 
             <p className="mt-6 flex items-center justify-center text-center text-sm font-medium text-[var(--muted)] xl:mt-8">

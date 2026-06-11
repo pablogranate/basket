@@ -15,5 +15,11 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    env: {
+      AUTH_DATABASE_URL: "postgres://test:test@localhost:5432/test",
+      BETTER_AUTH_SECRET: "test-better-auth-secret-value-0000000000",
+      GOOGLE_CLIENT_ID: "test-google-client-id",
+      GOOGLE_CLIENT_SECRET: "test-google-client-secret",
+    },
   },
 });

@@ -29,6 +29,11 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
+  // Authenticated but unprovisioned (no profiles row) -> dead-end (D-13).
+  if (user?.userId && !user.hasAccess) {
+    redirect("/no-access");
+  }
+
   if (
     user?.userId &&
     pathname &&

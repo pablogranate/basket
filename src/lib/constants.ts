@@ -97,44 +97,6 @@ const COLLABORATOR_ALLOWED_DASHBOARD_PREFIXES = [
   "/teams",
 ] as const;
 
-function isAppRole(value: unknown): value is AppRole {
-  return (
-    value === "admin" ||
-    value === "editor" ||
-    value === "coordinator" ||
-    value === "collaborator" ||
-    value === "viewer"
-  );
-}
-
-export function getRoleFromAppMetadata(
-  appMetadata?: Record<string, unknown> | null,
-) {
-  const metadataRole = appMetadata?.bp_access_role;
-
-  if (isAppRole(metadataRole)) {
-    return metadataRole;
-  }
-
-  return null;
-}
-
-export function resolveDashboardAccessRole({
-  profileRole,
-  appMetadata,
-}: {
-  profileRole?: AppRole | null;
-  appMetadata?: Record<string, unknown> | null;
-}) {
-  const metadataRole = getRoleFromAppMetadata(appMetadata);
-
-  if (metadataRole === "collaborator") {
-    return metadataRole;
-  }
-
-  return profileRole ?? "viewer";
-}
-
 export function hasFullDashboardAccessRole(role?: AppRole | null) {
   return role === "admin" || role === "editor" || role === "coordinator";
 }

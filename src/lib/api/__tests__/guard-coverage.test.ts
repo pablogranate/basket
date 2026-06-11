@@ -64,11 +64,17 @@ const ROUTE_GUARD_MARKERS = ["withAuth(", "withApiKey("];
 //
 // - "src/app/api/health/route.ts": a liveness/config probe that exposes no
 //   user data and must answer before/without a session. Intentionally open.
+// - "src/app/api/auth/[...all]/route.ts": the Better Auth catch-all handler.
+//   It IS the auth provider (login, callback, magic-link, session) and must be
+//   reachable without a prior session; Better Auth enforces its own gating.
 //
 // All three formerly inline-guarded routes (team-logo, grid/calendar,
 // collaborator-reports) now carry the `withAuth(` marker and must NOT be
 // allowlisted.
-const ROUTE_ALLOWLIST = ["src/app/api/health/route.ts"];
+const ROUTE_ALLOWLIST = [
+  "src/app/api/health/route.ts",
+  "src/app/api/auth/[...all]/route.ts",
+];
 
 function routeIsGuarded(source: string): boolean {
   return ROUTE_GUARD_MARKERS.some((marker) => source.includes(marker));

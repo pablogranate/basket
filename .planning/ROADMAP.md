@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Shared Identity Database** - Stand up the central `basket_auth` Postgres with Better Auth tables and a Drizzle connection (completed 2026-06-03)
 - [x] **Phase 2: RLS Removal & Guard Coverage Audit** - Move all authorization into app-layer guards and actor stamping into the app, so no data path is left open when RLS goes (completed 2026-06-05)
-- [ ] **Phase 3: Portal Better Auth Wiring + Full Cutover** - Run Better Auth in portal (Google for staff, magic link for externals) gated by a linked `profiles` access table, AND fully remove Supabase Auth — absorbs the old Phases 4 (migration) & 5 (cutover)
+- [x] **Phase 3: Portal Better Auth Wiring + Full Cutover** - Run Better Auth in portal (Google for staff, magic link for externals) gated by a linked `profiles` access table, AND fully remove Supabase Auth — absorbs the old Phases 4 (migration) & 5 (cutover) (completed 2026-06-11)
 - [x] ~~**Phase 4: User Migration**~~ — **FOLDED into Phase 3** (2026-06-10): only 2 admin users exist; "migration" is them re-logging in via Google + auto-link by email. No hash migration / DB-copy rehearsal needed.
 - [x] ~~**Phase 5: Cutover**~~ — **FOLDED into Phase 3** (2026-06-10): no dual-run window, so Supabase Auth removal happens within Phase 3, not a separate phase.
 - [ ] **Phase 6: Cross-Subdomain SSO & Analytics Repoint** - Configure shared-cookie SSO and repoint analytics so login/logout propagate across portal + analytics

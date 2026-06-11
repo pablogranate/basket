@@ -977,9 +977,12 @@ export function IncidentsWorkspace({
     );
   }, [columnOrder]);
 
-  useEffect(() => {
+  const [lastSelectedId, setLastSelectedId] = useState(selectedId);
+
+  if (selectedId !== lastSelectedId) {
+    setLastSelectedId(selectedId);
     setEvidencePreview(null);
-  }, [selectedId]);
+  }
 
   useEffect(() => {
     onSelectedIdChange?.(selectedId);
@@ -1516,17 +1519,19 @@ export function IncidentsWorkspace({
     embedded && headerActionsPortalTarget
       ? createPortal(workspaceActions, headerActionsPortalTarget)
       : null;
-  const incidentColumnWidths = useMemo(() => {
-    const weights = selectedIncident
-      ? INCIDENT_CONTROL_COMPACT_COLUMN_WIDTH_WEIGHT
-      : INCIDENT_CONTROL_COLUMN_WIDTH_WEIGHT;
-    const totalWeight = columnOrder.reduce((sum, column) => sum + weights[column], 0);
-
-    return columnOrder.reduce<Record<IncidentControlColumn, string>>((acc, column) => {
-      acc[column] = `${((weights[column] / totalWeight) * 100).toFixed(2)}%`;
-      return acc;
-    }, {} as Record<IncidentControlColumn, string>);
-  }, [columnOrder, selectedIncident]);
+  const incidentColumnWeights = selectedIncident
+    ? INCIDENT_CONTROL_COMPACT_COLUMN_WIDTH_WEIGHT
+    : INCIDENT_CONTROL_COLUMN_WIDTH_WEIGHT;
+  const incidentColumnTotalWeight = columnOrder.reduce(
+    (sum, column) => sum + incidentColumnWeights[column],
+    0,
+  );
+  const incidentColumnWidths = Object.fromEntries(
+    columnOrder.map((column) => [
+      column,
+      `${((incidentColumnWeights[column] / incidentColumnTotalWeight) * 100).toFixed(2)}%`,
+    ]),
+  ) as Record<IncidentControlColumn, string>;
 
   const workspaceContent = (
     <div className="flex min-w-0 flex-col gap-8">

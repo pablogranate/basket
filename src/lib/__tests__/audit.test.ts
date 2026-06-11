@@ -30,7 +30,7 @@ function makeSupabaseMock() {
 
 describe("stampInsert", () => {
   it("sets created_by/updated_by to ctx.userId and created_at/updated_at timestamps", () => {
-    const ctx = makeUserContext({ userId: "actor-1" });
+    const ctx = makeUserContext({ profileId: "actor-1" });
     const stamped = stampInsert(ctx, { home_team: "A" });
 
     expect(stamped.home_team).toBe("A");
@@ -41,7 +41,7 @@ describe("stampInsert", () => {
   });
 
   it("coalesces an existing created_at (mirrors set_row_metadata)", () => {
-    const ctx = makeUserContext({ userId: "actor-1" });
+    const ctx = makeUserContext({ profileId: "actor-1" });
     const existing = "2020-01-01T00:00:00.000Z";
     const stamped = stampInsert(ctx, { created_at: existing });
 
@@ -51,7 +51,7 @@ describe("stampInsert", () => {
 
 describe("stampUpdate", () => {
   it("sets updated_by to ctx.userId and a fresh updated_at, never created_by", () => {
-    const ctx = makeUserContext({ userId: "actor-2" });
+    const ctx = makeUserContext({ profileId: "actor-2" });
     const stamped = stampUpdate(ctx, { active: false });
 
     expect(stamped.active).toBe(false);
@@ -63,7 +63,7 @@ describe("stampUpdate", () => {
 
 describe("writeAudit", () => {
   it("inserts an audit_log row with non-NULL changed_by = ctx.userId", async () => {
-    const ctx = makeUserContext({ userId: "actor-3" });
+    const ctx = makeUserContext({ profileId: "actor-3" });
     const mock = makeSupabaseMock();
 
     await writeAudit(mock.client as never, ctx, {
@@ -85,7 +85,7 @@ describe("writeAudit", () => {
   });
 
   it("derives match_id: matches -> record id, assignments -> row match_id, else null", async () => {
-    const ctx = makeUserContext({ userId: "actor-4" });
+    const ctx = makeUserContext({ profileId: "actor-4" });
 
     const m1 = makeSupabaseMock();
     await writeAudit(m1.client as never, ctx, {
@@ -120,7 +120,7 @@ describe("writeAudit", () => {
   });
 
   it("redacts secret_value from app_settings audit before/after payloads", async () => {
-    const ctx = makeUserContext({ userId: "actor-5" });
+    const ctx = makeUserContext({ profileId: "actor-5" });
     const mock = makeSupabaseMock();
 
     await writeAudit(mock.client as never, ctx, {
@@ -145,7 +145,7 @@ describe("writeAudit", () => {
   });
 
   it("rethrows on audit insert error (audit failure must not be silent)", async () => {
-    const ctx = makeUserContext({ userId: "actor-6" });
+    const ctx = makeUserContext({ profileId: "actor-6" });
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const client = {
       from() {

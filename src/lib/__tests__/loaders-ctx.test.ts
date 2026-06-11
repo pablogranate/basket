@@ -80,27 +80,16 @@ describe("personHasPlatformAccess", () => {
   });
 
   function makeAdminStub(params: {
-    users: Array<{ id: string; email: string; app_metadata?: unknown }>;
-    profileRole: string | null;
+    profiles: Array<{ email: string; role: string }>;
   }) {
     const profileBuilder = {
-      select: vi.fn(() => profileBuilder),
-      eq: vi.fn(() => profileBuilder),
-      maybeSingle: vi.fn(async () => ({
-        data: params.profileRole ? { role: params.profileRole } : null,
+      select: vi.fn(async () => ({
+        data: params.profiles,
         error: null,
       })),
     };
 
     return {
-      auth: {
-        admin: {
-          listUsers: vi.fn(async () => ({
-            data: { users: params.users },
-            error: null,
-          })),
-        },
-      },
       from: vi.fn(() => profileBuilder),
     };
   }
@@ -111,10 +100,9 @@ describe("personHasPlatformAccess", () => {
     expect(mockedAdminClient).not.toHaveBeenCalled();
   });
 
-  it("returns true for a person whose derived role is collaborator", async () => {
+  it("returns true for a person whose profile role is collaborator", async () => {
     const stub = makeAdminStub({
-      users: [{ id: "u-1", email: "colab@basket-app.test" }],
-      profileRole: "collaborator",
+      profiles: [{ email: "colab@basket-app.test", role: "collaborator" }],
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockedAdminClient.mockReturnValue(stub as any);
@@ -125,10 +113,9 @@ describe("personHasPlatformAccess", () => {
     expect(stub.from).toHaveBeenCalledWith("profiles");
   });
 
-  it("returns false when there is no matching auth user", async () => {
+  it("returns false when there is no matching profile", async () => {
     const stub = makeAdminStub({
-      users: [{ id: "u-2", email: "other@basket-app.test" }],
-      profileRole: "collaborator",
+      profiles: [{ email: "other@basket-app.test", role: "collaborator" }],
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockedAdminClient.mockReturnValue(stub as any);
@@ -138,10 +125,9 @@ describe("personHasPlatformAccess", () => {
     expect(result).toBe(false);
   });
 
-  it("returns false when the derived role is not collaborator", async () => {
+  it("returns false when the profile role is not collaborator", async () => {
     const stub = makeAdminStub({
-      users: [{ id: "u-3", email: "viewer@basket-app.test" }],
-      profileRole: "viewer",
+      profiles: [{ email: "viewer@basket-app.test", role: "viewer" }],
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockedAdminClient.mockReturnValue(stub as any);

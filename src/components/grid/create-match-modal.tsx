@@ -608,14 +608,18 @@ export function CreateMatchModal({
   const [visibleCameraCount, setVisibleCameraCount] = useState(() =>
     getVisibleCameraCount(defaultFields),
   );
+  const [lastDefaultFields, setLastDefaultFields] = useState(defaultFields);
 
-  useEffect(() => {
+  if (defaultFields !== lastDefaultFields) {
+    setLastDefaultFields(defaultFields);
     setFields(defaultFields);
     setVisibleCameraCount(getVisibleCameraCount(defaultFields));
     setShowAdvanced(shouldShowAdvancedByDefault(defaultFields));
-  }, [defaultFields]);
+  }
 
   useEffect(() => {
+    // SSR-safe portal gate: document is only available after mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMounted(true);
 
     return () => {

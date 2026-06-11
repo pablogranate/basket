@@ -184,8 +184,8 @@ export function stampInsert<T extends Record<string, unknown>>(
 
   return {
     ...payload,
-    created_by: ctx.userId,
-    updated_by: ctx.userId,
+    created_by: ctx.profileId,
+    updated_by: ctx.profileId,
     created_at: existingCreatedAt ?? timestamp,
     updated_at: timestamp,
   };
@@ -198,7 +198,7 @@ export function stampUpdate<T extends Record<string, unknown>>(
 ): T & { updated_by: string | null; updated_at: string } {
   return {
     ...payload,
-    updated_by: ctx.userId,
+    updated_by: ctx.profileId,
     updated_at: nowIso(),
   };
 }
@@ -235,7 +235,7 @@ function redactAuditSecrets(
 }
 
 // Ports log_audit_event to the app layer: every domain mutation writes one
-// audit_log row with changed_by = ctx.userId (NEVER NULL when an actor exists).
+// audit_log row with changed_by = ctx.profileId (NEVER NULL when an actor exists).
 // On insert failure we log + rethrow — a silent audit failure is unacceptable.
 export async function writeAudit(
   supabase: SupabaseServerClient,
@@ -251,7 +251,7 @@ export async function writeAudit(
     record_id: args.recordId,
     match_id: deriveAuditMatchId(args),
     action: args.action,
-    changed_by: ctx.userId,
+    changed_by: ctx.profileId,
     before: (before ?? null) as Json,
     after: (after ?? null) as Json,
   });
