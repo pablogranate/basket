@@ -52,12 +52,12 @@ const ASSIGNMENT_STATE_DISPLAY_NAMES: Record<PersonListItem["assignment_state"],
   Inactivo: "Inactivo",
 };
 
-const APP_ROLE_DISPLAY_NAMES: Record<AppRole, string> = {
-  admin: "admin",
-  editor: "editor",
-  coordinator: "coordinación",
-  collaborator: "colaborador",
-  viewer: "lectura",
+export const APP_ROLE_DISPLAY_NAMES: Record<AppRole, string> = {
+  admin: "Admin",
+  editor: "Productor",
+  coordinator: "Productor",
+  collaborator: "Externo",
+  viewer: "Externo",
 };
 
 export function getRoleDisplayName(value?: string | null) {
@@ -92,7 +92,7 @@ export function getFunctionDisplayName(value?: string | null) {
 
 export function getAppRoleDisplayName(value?: AppRole | null) {
   if (!value) {
-    return "lectura";
+    return "Externo";
   }
 
   return APP_ROLE_DISPLAY_NAMES[value] ?? value;
