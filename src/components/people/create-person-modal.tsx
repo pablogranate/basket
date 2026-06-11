@@ -23,8 +23,16 @@ import { Select } from "@/components/ui/select";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Textarea } from "@/components/ui/textarea";
 import { PersonFunctionsField } from "@/components/people/person-functions-field";
-import { getRoleDisplayName } from "@/lib/display";
+import { APP_ROLE_DISPLAY_NAMES, getRoleDisplayName } from "@/lib/display";
 import { cn } from "@/lib/utils";
+
+const ACCESS_TIER_OPTIONS = [
+  { value: "admin", label: APP_ROLE_DISPLAY_NAMES.admin },
+  { value: "editor", label: APP_ROLE_DISPLAY_NAMES.editor },
+  { value: "collaborator", label: APP_ROLE_DISPLAY_NAMES.collaborator },
+] as const;
+
+type AccessTierValue = (typeof ACCESS_TIER_OPTIONS)[number]["value"];
 
 function getInitials(name: string) {
   return name
@@ -85,6 +93,7 @@ export function CreatePersonModal({
   const [isOpen, setIsOpen] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [createPlatformAccess, setCreatePlatformAccess] = useState(false);
+  const [accessRole, setAccessRole] = useState<AccessTierValue>("collaborator");
   const [fullNameValue, setFullNameValue] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -181,7 +190,7 @@ export function CreatePersonModal({
                 name="createPlatformAccess"
                 value={createPlatformAccess ? "on" : "off"}
               />
-              <input type="hidden" name="accessRole" value="collaborator" />
+              <input type="hidden" name="accessRole" value={accessRole} />
 
               <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto bg-[#faf7f7]">
                 <section className="border-b border-[#f1f3f5] bg-white px-8 py-8">
@@ -437,7 +446,30 @@ export function CreatePersonModal({
                       </div>
 
                       {createPlatformAccess ? (
-                        <div className="mt-5">
+                        <div className="mt-5 space-y-4">
+                          <label className="space-y-2">
+                            <ModalFieldLabel required>Nivel de acceso</ModalFieldLabel>
+                            <div className="relative">
+                              <Select
+                                value={accessRole}
+                                onChange={(event) =>
+                                  setAccessRole(
+                                    event.target.value as AccessTierValue,
+                                  )
+                                }
+                                disabled={!canEdit}
+                                className={cn(fieldClassName, "appearance-none pr-10")}
+                              >
+                                {ACCESS_TIER_OPTIONS.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </Select>
+                              <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-[#98a2b3]" />
+                            </div>
+                          </label>
+
                           <div className="rounded-[var(--panel-radius)] border border-[#e5e7eb] bg-[#f9f9f9] px-4 py-3 shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)]">
                             <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#95a3ba]">
                               Correo de ingreso
