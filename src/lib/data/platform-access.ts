@@ -25,7 +25,11 @@ export async function personHasPlatformAccess(
       (result.data as Pick<ProfileRow, "email" | "role">[] | null) ?? []
     ).find((row) => row.email?.toLowerCase() === normalizedEmail);
 
-    return profile?.role === "collaborator";
+    return (
+      profile?.role === "admin" ||
+      profile?.role === "editor" ||
+      profile?.role === "collaborator"
+    );
   } catch (error) {
     console.error("[platform-access] unexpected failure", error);
     return false;

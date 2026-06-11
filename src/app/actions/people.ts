@@ -10,8 +10,7 @@ import {
 import { requireEditor } from "@/lib/auth";
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
 import { requireAdmin, requireAdminAccessManager } from "@/lib/auth-access";
-import { hasFullDashboardAccessRole } from "@/lib/constants";
-import type { ProfileRow } from "@/lib/database.types";
+import type { AppRole, ProfileRow } from "@/lib/database.types";
 import { sendCollaboratorInviteEmail } from "@/lib/email/mailer";
 import { isPersonFunctionKey, resolveFunctionKey } from "@/lib/functions";
 import { appEnv } from "@/lib/env";
@@ -19,6 +18,20 @@ import { buildPersonNotesMeta } from "@/lib/people-notes";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ensureErrorMessage, maybeNull } from "@/lib/utils";
+
+// Access-grant tiers map onto the profiles.role enum: Admin/Productor/Externo.
+// Unknown or missing input falls back to the least-privileged tier (Externo).
+const ACCESS_TIER_ROLES = ["admin", "editor", "collaborator"] as const;
+
+type AccessTierRole = (typeof ACCESS_TIER_ROLES)[number];
+
+function normalizeAccessTier(value: string): AccessTierRole {
+  const normalized = value.trim().toLowerCase();
+
+  return (ACCESS_TIER_ROLES as readonly string[]).includes(normalized)
+    ? (normalized as AccessTierRole)
+    : "collaborator";
+}
 
 // profiles is the single authorization table now (no Supabase Auth users).
 // Match email case-insensitively in JS over the small profiles set to avoid
@@ -67,7 +80,9 @@ export async function upsertPersonAction(formData: FormData) {
   const hasActiveField = formData.has("active");
   const createPlatformAccess =
     String(formData.get("createPlatformAccess") ?? "off") === "on";
-  const accessRole = String(formData.get("accessRole") ?? "collaborator").trim();
+  const accessRole = normalizeAccessTier(
+    String(formData.get("accessRole") ?? "collaborator"),
+  );
 
   const roleNameInput = maybeNull(String(formData.get("roleName") ?? ""));
 
@@ -110,10 +125,6 @@ export async function upsertPersonAction(formData: FormData) {
 
       if (!payload.email) {
         throw new Error("Ingresa un correo electrónico antes de crear acceso.");
-      }
-
-      if (accessRole !== "collaborator") {
-        throw new Error("Solo se permite crear acceso de colaborador.");
       }
     }
 
@@ -176,18 +187,16 @@ export async function upsertPersonAction(formData: FormData) {
         const supabaseAdmin = createSupabaseAdminClient();
         const existingProfile = await findProfileByEmail(payload.email);
 
-        if (existingProfile && hasFullDashboardAccessRole(existingProfile.role)) {
-          throw new Error(
-            "Ese correo ya pertenece a un usuario interno con acceso de administración.",
-          );
-        }
-
         if (existingProfile) {
-          // Re-grant on an existing (e.g. unlinked) profile: set the role,
-          // keep id/auth_user_id so a later first login still auto-links.
+          // Change-tier: granting access to an already-provisioned user moves
+          // them to the selected tier. Keep id/auth_user_id so a later first
+          // login still auto-links.
           const updateProfile = await supabaseAdmin
             .from("profiles")
-            .update({ role: "collaborator", full_name: payload.full_name })
+            .update({
+              role: accessRole satisfies AppRole,
+              full_name: payload.full_name,
+            })
             .eq("id", existingProfile.id);
 
           if (updateProfile.error) {
@@ -201,7 +210,7 @@ export async function upsertPersonAction(formData: FormData) {
             id: globalThis.crypto.randomUUID(),
             email: payload.email,
             full_name: payload.full_name,
-            role: "collaborator",
+            role: accessRole satisfies AppRole,
             auth_user_id: null,
           });
 

@@ -100,18 +100,21 @@ describe("personHasPlatformAccess", () => {
     expect(mockedAdminClient).not.toHaveBeenCalled();
   });
 
-  it("returns true for a person whose profile role is collaborator", async () => {
-    const stub = makeAdminStub({
-      profiles: [{ email: "colab@basket-app.test", role: "collaborator" }],
-    });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    mockedAdminClient.mockReturnValue(stub as any);
+  it.each(["admin", "editor", "collaborator"])(
+    "returns true for an access-granting role: %s",
+    async (role) => {
+      const stub = makeAdminStub({
+        profiles: [{ email: "grant@basket-app.test", role }],
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      mockedAdminClient.mockReturnValue(stub as any);
 
-    const result = await personHasPlatformAccess("Colab@Basket-App.test");
+      const result = await personHasPlatformAccess("Grant@Basket-App.test");
 
-    expect(result).toBe(true);
-    expect(stub.from).toHaveBeenCalledWith("profiles");
-  });
+      expect(result).toBe(true);
+      expect(stub.from).toHaveBeenCalledWith("profiles");
+    },
+  );
 
   it("returns false when there is no matching profile", async () => {
     const stub = makeAdminStub({
@@ -125,7 +128,7 @@ describe("personHasPlatformAccess", () => {
     expect(result).toBe(false);
   });
 
-  it("returns false when the profile role is not collaborator", async () => {
+  it("returns false for a non-access-granting role (viewer)", async () => {
     const stub = makeAdminStub({
       profiles: [{ email: "viewer@basket-app.test", role: "viewer" }],
     });
