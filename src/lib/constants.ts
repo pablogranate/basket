@@ -92,13 +92,20 @@ export const DASHBOARD_NAV = [
   { href: "/settings", label: SECTION_COPY.settings.title },
 ] as const;
 
-const COLLABORATOR_ALLOWED_DASHBOARD_PREFIXES = [
-  "/mi-jornada",
-  "/teams",
-] as const;
+const COLLABORATOR_ALLOWED_DASHBOARD_PREFIXES = ["/mi-jornada"] as const;
+
+const PRODUCTOR_DENIED_DASHBOARD_PREFIXES = ["/roles", "/settings"] as const;
+
+function matchesPrefix(pathname: string, prefix: string) {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
 
 export function hasFullDashboardAccessRole(role?: AppRole | null) {
   return role === "admin" || role === "editor" || role === "coordinator";
+}
+
+export function isAdminDashboardRole(role?: AppRole | null) {
+  return role === "admin";
 }
 
 export function isCollaboratorLimitedRole(role?: AppRole | null) {
@@ -109,12 +116,18 @@ export function isDashboardPathAllowedForRole(
   pathname: string,
   role?: AppRole | null,
 ) {
-  if (hasFullDashboardAccessRole(role)) {
+  if (isAdminDashboardRole(role)) {
     return true;
   }
 
+  if (hasFullDashboardAccessRole(role)) {
+    return !PRODUCTOR_DENIED_DASHBOARD_PREFIXES.some((prefix) =>
+      matchesPrefix(pathname, prefix),
+    );
+  }
+
   return COLLABORATOR_ALLOWED_DASHBOARD_PREFIXES.some((prefix) =>
-    pathname === prefix || pathname.startsWith(`${prefix}/`),
+    matchesPrefix(pathname, prefix),
   );
 }
 
