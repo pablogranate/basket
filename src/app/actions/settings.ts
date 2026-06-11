@@ -8,8 +8,8 @@ import {
   redirectWithNotice,
   rethrowNavigationError,
 } from "@/app/actions/helpers";
-import { requireUserContext } from "@/lib/auth";
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
+import { requireAdmin } from "@/lib/auth-access";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   GEMINI_API_KEY_COOKIE,
@@ -49,7 +49,7 @@ const ANNOUNCEMENT_REVALIDATE_PATHS = [
 
 export async function saveGeminiSettingsAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData, "/settings");
-  const user = await requireUserContext();
+  const user = await requireAdmin();
 
   try {
     const apiKey = String(formData.get("geminiApiKey") ?? "").trim();
@@ -173,7 +173,7 @@ export async function saveGeminiSettingsAction(formData: FormData) {
 
 export async function savePreferencesAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData, "/settings");
-  await requireUserContext();
+  await requireAdmin();
 
   try {
     const density = String(formData.get("uiDensity") ?? "comoda").trim();
@@ -206,15 +206,7 @@ export async function savePreferencesAction(formData: FormData) {
 
 export async function saveAnnouncementAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData, "/settings");
-  const user = await requireUserContext();
-
-  if (user.role !== "admin") {
-    redirectWithNotice({
-      redirectTo,
-      intent: "error",
-      notice: "Solo un administrador puede publicar comunicados generales.",
-    });
-  }
+  const user = await requireAdmin();
 
   try {
     const supabase = await createSupabaseServerClient();
