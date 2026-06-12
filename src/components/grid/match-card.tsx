@@ -24,6 +24,7 @@ import {
 } from "@/lib/constants";
 import { formatMatchTime } from "@/lib/date";
 import { getRoleDisplayName } from "@/lib/display";
+import { getGridLeagueColor } from "@/lib/league-grid-colors";
 import { getTeamLeagueLabel } from "@/lib/team-directory";
 import type { MatchListItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -285,6 +286,7 @@ export function MatchCard({
   const commentator = commentator1.muted ? commentator2 : commentator1;
   const leagueLabel = getTeamLeagueLabel(match.competition ?? "Sin liga");
   const isUnassignedLeague = isUnassignedLeagueLabel(leagueLabel);
+  const leagueColor = getGridLeagueColor(match.competition);
   const venueLabel = match.venue ?? "Sede sin definir";
   const statusAccentClass =
     match.status === "Realizado" ? "bg-[#26b36a]" : "bg-[#d7dde7]";
@@ -307,7 +309,15 @@ export function MatchCard({
         />
         <div className="relative z-10 overflow-visible rounded-t-[10px] rounded-b-[10px]">
           <div className="overflow-hidden rounded-t-[10px] rounded-b-[10px] flex flex-col xl:grid xl:grid-cols-[6.5rem_minmax(12.5rem,17rem)_repeat(4,minmax(10rem,1fr))_4.75rem] xl:items-stretch 2xl:grid-cols-[7rem_minmax(17.5rem,25rem)_repeat(4,minmax(10.25rem,1fr))_4.75rem]">
-          <div className="relative z-10 flex flex-col items-center justify-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-5 text-center xl:border-b-0 xl:border-r">
+          <div
+            className={cn(
+              "relative z-10 flex flex-col items-center justify-center gap-3 border-b border-[var(--border)] px-4 py-5 text-center xl:border-b-0 xl:border-r",
+              !leagueColor && "bg-[var(--surface)]",
+            )}
+            style={
+              leagueColor ? { backgroundColor: leagueColor.background } : undefined
+            }
+          >
             <LeagueLogoMarkClient
               league={leagueLabel}
               className={cn(
@@ -320,6 +330,7 @@ export function MatchCard({
                 "text-[10px] font-bold uppercase tracking-[0.18em] text-[#70819b]",
                 isUnassignedLeague && "text-[#7f8ca0]",
               )}
+              style={leagueColor ? { color: leagueColor.text } : undefined}
             >
               {leagueLabel}
             </p>

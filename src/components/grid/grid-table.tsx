@@ -16,6 +16,7 @@ import {
 } from "@/lib/constants";
 import { formatMatchDate } from "@/lib/date";
 import { roleNameToFunctionKey } from "@/lib/functions";
+import { getGridLeagueColor } from "@/lib/league-grid-colors";
 import {
   GRID_EXPORT_COLUMNS,
   toExportRows,
@@ -775,11 +776,22 @@ export function GridTable({ rows, canEdit, redirectTo, people }: GridTableProps)
                       );
                     }
 
+                    const leagueColor =
+                      columnKey === "Liga"
+                        ? getGridLeagueColor(value)
+                        : null;
+
                     return (
                       <td
                         key={columnKey}
                         title={isWide ? value || undefined : undefined}
-                        style={getWidthStyle(columnKey)}
+                        style={{
+                          ...getWidthStyle(columnKey),
+                          ...(leagueColor && {
+                            backgroundColor: leagueColor.background,
+                            color: leagueColor.text,
+                          }),
+                        }}
                         className={cn(
                           "px-5 py-3 text-sm",
                           isWide
