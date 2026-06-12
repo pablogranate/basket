@@ -201,6 +201,7 @@ function buildDemoAssignment(params: {
     assignmentId: "demo-assignment",
     matchId: "demo-match-boca-atenas",
     confirmed: false,
+    attendanceConfirmedAt: null,
     notes: "Vista demo para validar la tarjeta móvil de Mi jornada.",
     roleName: "Realizador",
     roleCategory: "Produccion",

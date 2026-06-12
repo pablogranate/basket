@@ -15,8 +15,10 @@ import {
 } from "@/lib/constants";
 import { buildKickoffAt, formatMatchDate } from "@/lib/date";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { requireEditor } from "@/lib/auth";
+import { requireEditor, requireUserContext } from "@/lib/auth";
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
+import { recordAttendanceConfirmation } from "@/lib/data/attendance";
+import { shouldResetAttendance } from "@/lib/attendance";
 import { ensureErrorMessage, maybeNull, pickFirstString } from "@/lib/utils";
 
 const STAFF_ROLE_FIELD_MAP = [
@@ -680,6 +682,49 @@ export async function deleteMatchAction(formData: FormData) {
   }
 }
 
+// Attendance confirmation by the assigned person themselves (PRD #7). Auth-only
+// (NOT requireEditor): a collaborator must pass. Ownership + match-window are
+// enforced inside recordAttendanceConfirmation; this wrapper only surfaces the
+// outcome as a notice. Lives in /mi-jornada, never the editor match view.
+export async function setAttendanceConfirmationAction(formData: FormData) {
+  const redirectTo = getRedirectTarget(formData, "/mi-jornada");
+  const ctx = await requireUserContext();
+
+  try {
+    const assignmentId = String(formData.get("assignmentId") ?? "");
+    const confirmed = String(formData.get("confirmed") ?? "") === "on";
+
+    const outcome = await recordAttendanceConfirmation(ctx, {
+      assignmentId,
+      confirmed,
+    });
+
+    if (!outcome.ok) {
+      redirectWithNotice({
+        redirectTo,
+        intent: "error",
+        notice: "No pudimos actualizar tu confirmación de asistencia.",
+      });
+    }
+
+    revalidatePath(redirectTo);
+    redirectWithNotice({
+      redirectTo,
+      intent: "success",
+      notice: confirmed
+        ? "Confirmaste tu asistencia."
+        : "Marcaste tu asistencia como pendiente.",
+    });
+  } catch (error) {
+    rethrowNavigationError(error);
+    redirectWithNotice({
+      redirectTo,
+      intent: "error",
+      notice: ensureErrorMessage(error),
+    });
+  }
+}
+
 export async function upsertAssignmentAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData, "/grid");
   const ctx = await requireEditor();
@@ -698,20 +743,28 @@ export async function upsertAssignmentAction(formData: FormData) {
       .maybeSingle();
     const priorPersonId = priorResult.data?.person_id ?? null;
 
+    // Reassigning a role to a different person invalidates the prior person's
+    // attendance confirmation (PRD #7). Columns omitted from an upsert payload
+    // retain their existing value on conflict, so we only null it on a real
+    // person change; same-person edits (notes, etc.) keep the confirmation.
+    const assignmentPayload: Database["public"]["Tables"]["assignments"]["Insert"] =
+      {
+        match_id: assignmentMatchId,
+        role_id: assignmentRoleId,
+        person_id: incomingPersonId,
+        confirmed: String(formData.get("confirmed") ?? "") === "on",
+        notes: maybeNull(String(formData.get("notes") ?? "")),
+      };
+
+    if (shouldResetAttendance(priorPersonId, incomingPersonId)) {
+      assignmentPayload.attendance_confirmed_at = null;
+    }
+
     const result = await supabase
       .from("assignments")
-      .upsert(
-        stampInsert(ctx, {
-          match_id: assignmentMatchId,
-          role_id: assignmentRoleId,
-          person_id: incomingPersonId,
-          confirmed: String(formData.get("confirmed") ?? "") === "on",
-          notes: maybeNull(String(formData.get("notes") ?? "")),
-        }),
-        {
-          onConflict: "match_id,role_id",
-        },
-      )
+      .upsert(stampInsert(ctx, assignmentPayload), {
+        onConflict: "match_id,role_id",
+      })
       .select("id, match_id")
       .single();
 

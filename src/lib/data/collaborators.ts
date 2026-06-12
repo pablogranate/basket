@@ -8,15 +8,19 @@ import {
   toDateKey,
 } from "@/lib/date";
 import type { UserContext } from "@/lib/auth";
-import type { MatchStatus, PersonRow } from "@/lib/database.types";
+import type { MatchStatus } from "@/lib/database.types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { normalizeText } from "@/lib/utils";
+import {
+  findLinkedPerson,
+  type LinkedPerson,
+} from "@/lib/data/linked-person";
 
-type LinkedPerson = Pick<PersonRow, "id" | "full_name" | "email" | "phone" | "active">;
+export { findLinkedPerson };
 
 type AssignmentRow = {
   id: string;
   confirmed: boolean;
+  attendance_confirmed_at: string | null;
   notes: string | null;
   role: {
     id: string;
@@ -70,6 +74,7 @@ export type CollaboratorAssignmentItem = {
   assignmentId: string;
   matchId: string;
   confirmed: boolean;
+  attendanceConfirmedAt: string | null;
   notes: string | null;
   roleName: string | null;
   roleCategory: string | null;
@@ -138,61 +143,6 @@ export function isUuidLike(value: string) {
   return UUID_PATTERN.test(value);
 }
 
-async function findLinkedPerson(params: {
-  email: string | null;
-  profileName: string | null;
-}) {
-  const supabase = await createSupabaseServerClient();
-
-  if (params.email) {
-    const byEmail = await supabase
-      .from("people")
-      .select("id, full_name, email, phone, active")
-      .eq("email", params.email)
-      .eq("active", true)
-      .maybeSingle();
-
-    if (byEmail.error) {
-      throw byEmail.error;
-    }
-
-    if (byEmail.data) {
-      return {
-        person: byEmail.data as LinkedPerson,
-        linkedBy: "email" as const,
-      };
-    }
-  }
-
-  if (!params.profileName) {
-    return {
-      person: null,
-      linkedBy: null,
-    };
-  }
-
-  const candidates = await supabase
-    .from("people")
-    .select("id, full_name, email, phone, active")
-    .eq("active", true)
-    .ilike("full_name", `%${params.profileName.trim()}%`);
-
-  if (candidates.error) {
-    throw candidates.error;
-  }
-
-  const profileName = normalizeText(params.profileName);
-  const matched =
-    ((candidates.data ?? []) as LinkedPerson[]).find(
-      (person) => normalizeText(person.full_name) === profileName,
-    ) ?? null;
-
-  return {
-    person: matched,
-    linkedBy: matched ? ("name" as const) : null,
-  };
-}
-
 function mapAssignmentRow(assignment: AssignmentRow): CollaboratorAssignmentItem | null {
   if (!assignment.match) {
     return null;
@@ -202,6 +152,7 @@ function mapAssignmentRow(assignment: AssignmentRow): CollaboratorAssignmentItem
     assignmentId: assignment.id,
     match: assignment.match,
     confirmed: assignment.confirmed,
+    attendanceConfirmedAt: assignment.attendance_confirmed_at,
     notes: assignment.notes,
     roleName: assignment.role?.name ?? null,
     roleCategory: assignment.role?.category ?? null,
@@ -212,6 +163,7 @@ function buildAssignmentItem(params: {
   assignmentId: string;
   match: MatchContextMatchRow;
   confirmed?: boolean;
+  attendanceConfirmedAt?: string | null;
   notes?: string | null;
   roleName?: string | null;
   roleCategory?: string | null;
@@ -232,6 +184,7 @@ function buildAssignmentItem(params: {
     assignmentId: params.assignmentId,
     matchId: match.id,
     confirmed: params.confirmed ?? false,
+    attendanceConfirmedAt: params.attendanceConfirmedAt ?? null,
     notes: params.notes ?? null,
     roleName: params.roleName ?? null,
     roleCategory: params.roleCategory ?? null,
@@ -391,7 +344,7 @@ async function getAssignmentsForPerson(personId: string) {
   const assignmentsResult = await supabase
     .from("assignments")
     .select(
-      "id, confirmed, notes, role:roles!assignments_role_id_fkey(id, name, category, sort_order), match:matches!assignments_match_id_fkey(id, competition, production_mode, production_code, status, home_team, away_team, venue, notes, kickoff_at, duration_minutes, timezone, owner:people!matches_owner_id_fkey(id, full_name, phone, email))",
+      "id, confirmed, attendance_confirmed_at, notes, role:roles!assignments_role_id_fkey(id, name, category, sort_order), match:matches!assignments_match_id_fkey(id, competition, production_mode, production_code, status, home_team, away_team, venue, notes, kickoff_at, duration_minutes, timezone, owner:people!matches_owner_id_fkey(id, full_name, phone, email))",
     )
     .eq("person_id", personId);
 

@@ -98,7 +98,13 @@ const EXPORTED_ASYNC_FN_RE =
 //   resolveDashboardAccessRole) rather than a boundary-resolved ctx; it is an
 //   identity-derivation helper, not a domain-data loader subject to the D-06
 //   ctx contract. Confined to a `server-only` module.
-const LOADER_ALLOWLIST = ["isUuidLike", "personHasPlatformAccess"];
+const LOADER_ALLOWLIST = [
+  "isUuidLike",
+  "personHasPlatformAccess",
+  // Email/name-keyed person resolver shared by mi-jornada + attendance confirm;
+  // it is keyed by identity params, not a ctx-scoped domain loader (PRD #7).
+  "findLinkedPerson",
+];
 
 type LoaderFn = { name: string; firstParam: string };
 
