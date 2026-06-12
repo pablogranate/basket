@@ -285,6 +285,7 @@ export interface Database {
           role_id: string;
           person_id: string | null;
           confirmed: boolean;
+          attendance_confirmed_at: string | null;
           notes: string | null;
           created_at: string;
           updated_at: string;
@@ -297,6 +298,7 @@ export interface Database {
           role_id: string;
           person_id?: string | null;
           confirmed?: boolean;
+          attendance_confirmed_at?: string | null;
           notes?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -306,6 +308,7 @@ export interface Database {
         Update: {
           person_id?: string | null;
           confirmed?: boolean;
+          attendance_confirmed_at?: string | null;
           notes?: string | null;
           updated_at?: string;
           created_by?: string | null;

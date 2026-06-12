@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { addDays, format, parseISO } from "date-fns";
+import { addDays, addMinutes, format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import {
   CalendarDays,
@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
+import { setAttendanceConfirmationAction } from "@/app/actions/matches";
 import { LeagueLogoMarkClient } from "@/components/league-logo-mark-client";
 import { ClientTeamLogoMark } from "@/components/team-logo-mark-client";
 import { CollaboratorReportForm } from "@/components/collaborators/collaborator-report-form";
@@ -1132,6 +1133,97 @@ function DrawerStatusCard({
   );
 }
 
+const ATTENDANCE_UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Attendance confirmation by the assigned person (PRD #7). Every assignment in
+// this panel already belongs to the logged-in person (data is scoped by their
+// linked person), so the control is inherently "only the assigned person".
+// Server-side recordAttendanceConfirmation re-checks ownership + the window.
+function AttendanceConfirmCard({
+  assignment,
+}: {
+  assignment: CollaboratorAssignmentItem;
+}) {
+  // Demo/guest rows carry a non-uuid id and have no real assignment to update.
+  if (!ATTENDANCE_UUID_RE.test(assignment.assignmentId)) {
+    return null;
+  }
+
+  const confirmed = Boolean(assignment.attendanceConfirmedAt);
+  const ended =
+    addMinutes(parseISO(assignment.kickoffAt), assignment.durationMinutes) <
+    new Date();
+
+  // Past matches: frozen read-only state, no toggle.
+  if (ended) {
+    return (
+      <div className="panel-radius flex min-h-[84px] items-center justify-between gap-3 border border-[#e3e8f0] bg-[#f8fafc] px-4 py-3">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#6b7c92]">
+            Asistencia
+          </p>
+          <p className="mt-2 text-sm font-bold text-[var(--foreground)]">
+            {confirmed ? "Confirmaste tu asistencia" : "No confirmada"}
+          </p>
+        </div>
+        <span className="inline-flex size-10 items-center justify-center rounded-full bg-[#eef2f6] text-[#7c8aa0]">
+          {confirmed ? (
+            <CheckCircle2 className="size-7" />
+          ) : (
+            <Clock3 className="size-5" />
+          )}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      action={setAttendanceConfirmationAction}
+      className={cn(
+        "panel-radius flex min-h-[84px] items-center justify-between gap-3 border px-4 py-3",
+        confirmed
+          ? "border-[#d7eadf] bg-[#f3fcf6]"
+          : "border-[#e3e8f0] bg-[#f8fafc]",
+      )}
+    >
+      <input type="hidden" name="assignmentId" value={assignment.assignmentId} />
+      <input type="hidden" name="redirectTo" value="/mi-jornada" />
+      <input type="hidden" name="confirmed" value={confirmed ? "" : "on"} />
+      <div>
+        <p
+          className={cn(
+            "text-[10px] font-black uppercase tracking-[0.16em]",
+            confirmed ? "text-[#178a56]" : "text-[#6b7c92]",
+          )}
+        >
+          Asistencia
+        </p>
+        <p
+          className={cn(
+            "mt-2 text-sm font-bold",
+            confirmed ? "text-[#178a56]" : "text-[var(--foreground)]",
+          )}
+        >
+          {confirmed ? "Confirmaste tu asistencia" : "Pendiente de confirmar"}
+        </p>
+      </div>
+      <button
+        type="submit"
+        className={cn(
+          "rounded-full px-4 py-2 text-xs font-bold transition",
+          confirmed
+            ? "bg-[#eef2f6] text-[#6b7c92] hover:bg-[#e3e8f0]"
+            : "bg-[#178a56] text-white hover:bg-[#13744a]",
+        )}
+      >
+        {confirmed ? "Cancelar" : "Confirmar asistencia"}
+      </button>
+    </form>
+  );
+}
+
 function GroupAssistantDrawer({
   assignment,
   tab,
@@ -1389,6 +1481,7 @@ function GroupAssistantDrawer({
                   />
                 </div>
               </div>
+              <AttendanceConfirmCard assignment={assignment} />
               <DrawerStatusCard confirmed={assignment.confirmed} />
             </section>
 

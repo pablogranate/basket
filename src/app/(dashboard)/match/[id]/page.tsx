@@ -48,6 +48,7 @@ import {
   PRODUCTION_SHORT_LABEL,
 } from "@/lib/constants";
 import { getMatchDetailData } from "@/lib/data/dashboard";
+import { summarizeAttendance } from "@/lib/attendance";
 import { formatMatchDate, formatMatchTime } from "@/lib/date";
 import { getRoleDisplayName } from "@/lib/display";
 import type { PersonRow } from "@/lib/database.types";
@@ -199,6 +200,38 @@ function AssignmentControls({
   );
 }
 
+// Attendance confirmation by the assigned person (PRD #7). Read-only here: the
+// producer view only surfaces state, it never sets it. Kept visually distinct
+// from the post-match "reporte"/confirmed indicator.
+function AttendanceBadge({
+  assignment,
+  timezone,
+}: {
+  assignment: AssignmentDetail;
+  timezone: string;
+}) {
+  if (!assignment.person) {
+    return null;
+  }
+
+  if (assignment.attendance_confirmed_at) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-md bg-[#e8f6ef] px-2 py-0.5 text-[11px] font-semibold text-[#1c8052]">
+        <CheckCircle2 className="size-3" />
+        Asistencia confirmada ·{" "}
+        {formatMatchDate(assignment.attendance_confirmed_at, timezone, "d MMM")}
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 rounded-md bg-[var(--background-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--muted)]">
+      <Clock3 className="size-3" />
+      Asistencia pendiente
+    </span>
+  );
+}
+
 function PrincipalAssignmentCard({
   assignment,
   people,
@@ -206,6 +239,7 @@ function PrincipalAssignmentCard({
   matchId,
   redirectTo,
   conflict,
+  timezone,
 }: {
   assignment: AssignmentDetail;
   people: PersonOption[];
@@ -213,6 +247,7 @@ function PrincipalAssignmentCard({
   matchId: string;
   redirectTo: string;
   conflict: ConflictNotice | null;
+  timezone: string;
 }) {
   const assignedName = assignment.person?.full_name ?? "Pendiente asignar";
 
@@ -262,6 +297,9 @@ function PrincipalAssignmentCard({
           ) : assignment.notes ? (
             <p className="mt-1 text-xs text-[var(--muted)]">{assignment.notes}</p>
           ) : null}
+          <div className="mt-2">
+            <AttendanceBadge assignment={assignment} timezone={timezone} />
+          </div>
         </div>
         <div className="flex items-center gap-3">
           {assignment.confirmed ? (
@@ -292,6 +330,7 @@ function CameraAssignmentCard({
   matchId,
   redirectTo,
   conflict,
+  timezone,
 }: {
   assignment: AssignmentDetail;
   people: PersonOption[];
@@ -299,6 +338,7 @@ function CameraAssignmentCard({
   matchId: string;
   redirectTo: string;
   conflict: ConflictNotice | null;
+  timezone: string;
 }) {
   const pending = !assignment.person;
 
@@ -340,6 +380,9 @@ function CameraAssignmentCard({
         <p className="mt-1 text-xs text-[var(--muted)]">
           {assignment.notes ?? (assignment.confirmed ? "Confirmado" : "Sin confirmación")}
         </p>
+        <div className="mt-2">
+          <AttendanceBadge assignment={assignment} timezone={timezone} />
+        </div>
         <div className="mt-3 flex items-center justify-end gap-2 text-xs font-semibold text-[var(--muted)]">
           Editar
           <ChevronDown className="size-4 transition group-open:rotate-180" />
@@ -365,12 +408,14 @@ function TransmissionAssignmentRow({
   canEdit,
   matchId,
   redirectTo,
+  timezone,
 }: {
   assignment: AssignmentDetail;
   people: PersonOption[];
   canEdit: boolean;
   matchId: string;
   redirectTo: string;
+  timezone: string;
 }) {
   const stateClass = assignment.confirmed
     ? "bg-[#effaf4] text-[#17654d]"
@@ -391,6 +436,9 @@ function TransmissionAssignmentRow({
               {assignment.person?.full_name ?? "Pendiente asignar"}
               {assignment.notes ? ` · ${assignment.notes}` : ""}
             </p>
+            <div className="mt-2">
+              <AttendanceBadge assignment={assignment} timezone={timezone} />
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <span className={cn("rounded-full px-3 py-1 text-xs font-semibold", stateClass)}>
@@ -473,6 +521,7 @@ export default async function MatchDetailPage({
 
   const principalAssignedCount = principalAssignments.filter((assignment) => assignment.person_id).length;
   const nextOpenPrincipal = principalAssignments.find((assignment) => !assignment.person_id) ?? null;
+  const attendance = summarizeAttendance(match.assignments);
 
   return (
     <div className="space-y-8">
@@ -784,6 +833,16 @@ export default async function MatchDetailPage({
         </div>
       </details>
 
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+        <span className="flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
+          <CheckCircle2 className="size-4 text-[#1c8052]" />
+          Asistencia confirmada
+        </span>
+        <span className="text-sm font-bold text-[var(--foreground)]">
+          {attendance.confirmed}/{attendance.total} confirmados
+        </span>
+      </div>
+
       <div
         id="operativa"
         className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1.02fr)_minmax(0,0.98fr)]"
@@ -809,6 +868,7 @@ export default async function MatchDetailPage({
                 matchId={match.id}
                 redirectTo={redirectTo}
                 conflict={getConflictForAssignment(assignment, conflicts)}
+                timezone={match.timezone}
               />
             ))}
 
@@ -847,6 +907,7 @@ export default async function MatchDetailPage({
                     matchId={match.id}
                     redirectTo={redirectTo}
                     conflict={getConflictForAssignment(assignment, conflicts)}
+                    timezone={match.timezone}
                   />
                 ))}
               </div>
@@ -875,6 +936,7 @@ export default async function MatchDetailPage({
                     canEdit={user.canEdit}
                     matchId={match.id}
                     redirectTo={redirectTo}
+                    timezone={match.timezone}
                   />
                 ))}
               </div>

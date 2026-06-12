@@ -15,6 +15,10 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // Route-handler tests dynamically import heavy module graphs (`await
+    // import("../route")`); under parallel worker contention that transform can
+    // exceed the 5s default and flake. Give them headroom.
+    testTimeout: 20000,
     env: {
       AUTH_DATABASE_URL: "postgres://test:test@localhost:5432/test",
       BETTER_AUTH_SECRET: "test-better-auth-secret-value-0000000000",
