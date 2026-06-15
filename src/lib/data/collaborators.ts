@@ -344,7 +344,7 @@ async function getAssignmentsForPerson(personId: string) {
   const assignmentsResult = await supabase
     .from("assignments")
     .select(
-      "id, confirmed, attendance_confirmed_at, notes, role:roles!assignments_role_id_fkey(id, name, category, sort_order), match:matches!assignments_match_id_fkey(id, competition, production_mode, production_code, status, home_team, away_team, venue, notes, kickoff_at, duration_minutes, timezone, owner:people!matches_owner_id_fkey(id, full_name, phone, email))",
+      "id, confirmed, attendance_confirmed_at, notes, role:roles!assignments_role_id_fkey(id, name, category, sort_order), match:matches!assignments_match_id_fkey(id, competition, production_mode, production_code, status, home_team, away_team, venue, notes, transport, kickoff_at, duration_minutes, timezone, owner:people!matches_owner_id_fkey(id, full_name, phone, email))",
     )
     .eq("person_id", personId);
 
