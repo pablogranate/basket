@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BellRing,
   BriefcaseBusiness,
   CalendarDays,
   CircleHelp,
@@ -22,6 +23,7 @@ const navItems = [
   { href: "/reports", label: "Operaciones", icon: BriefcaseBusiness },
   { href: "/teams", label: "Equipos", icon: Shield },
   { href: "/people", label: "Personal", icon: Users },
+  { href: "/notifications/logs", label: "Notificaciones", icon: BellRing },
   { href: "/settings", label: "Configuración", icon: Settings2 },
   { href: "/support", label: "Soporte", icon: CircleHelp },
 ] as const;

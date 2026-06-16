@@ -10,10 +10,16 @@ import { requireEditor } from "@/lib/auth";
 import { getRoleDisplayName } from "@/lib/display";
 import { buildMatchNotificationMessage } from "@/lib/integrations";
 import { sendWhatsAppText } from "@/lib/integrations/openwa";
+import { insertNotificationLogs } from "@/lib/notifications/log";
+import {
+  buildRecipientLogRows,
+  type NotificationLogRow,
+} from "@/lib/notifications/log-rows";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ensureErrorMessage } from "@/lib/utils";
 
 type Recipient = {
+  personId: string | null;
   personName: string;
   phone: string;
   roleNames: string[];
@@ -22,7 +28,7 @@ type Recipient = {
 type AssignmentNotifyRow = {
   id: string;
   role: { name: string } | null;
-  person: { full_name: string; phone: string | null } | null;
+  person: { id: string; full_name: string; phone: string | null } | null;
 };
 
 export async function sendAssignmentNotificationsAction(formData: FormData) {
@@ -61,7 +67,7 @@ export async function sendAssignmentNotificationsAction(formData: FormData) {
     const assignmentsResult = await supabase
       .from("assignments")
       .select(
-        "id, role:roles!assignments_role_id_fkey(name), person:people!assignments_person_id_fkey(full_name, phone)",
+        "id, role:roles!assignments_role_id_fkey(name), person:people!assignments_person_id_fkey(id, full_name, phone)",
       )
       .eq("match_id", matchId)
       .in("id", assignmentIds);
@@ -91,6 +97,7 @@ export async function sendAssignmentNotificationsAction(formData: FormData) {
         }
       } else {
         recipientsByPerson.set(key, {
+          personId: person.id,
           personName: person.full_name,
           phone,
           roleNames: roleName ? [roleName] : [],
@@ -99,6 +106,8 @@ export async function sendAssignmentNotificationsAction(formData: FormData) {
     }
 
     const recipients = [...recipientsByPerson.values()];
+    const matchLabel = `${matchResult.data.home_team} vs ${matchResult.data.away_team}`;
+    const logRows: NotificationLogRow[] = [];
     let sent = 0;
     let skipped = 0;
 
@@ -117,7 +126,31 @@ export async function sendAssignmentNotificationsAction(formData: FormData) {
       } else {
         skipped += 1;
       }
+
+      logRows.push(
+        ...buildRecipientLogRows({
+          match: { id: matchId, label: matchLabel },
+          trigger: "manual",
+          recipient: {
+            personId: recipient.personId,
+            personName: recipient.personName,
+            phone: recipient.phone,
+            email: null,
+            roleNames: recipient.roleNames,
+          },
+          outcomes: [
+            {
+              channel: "whatsapp",
+              attempted: true,
+              ok: result.ok,
+              error: result.error ?? null,
+            },
+          ],
+        }),
+      );
     }
+
+    await insertNotificationLogs(logRows);
 
     revalidatePath(redirectTo);
     redirectWithNotice({

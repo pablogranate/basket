@@ -2,12 +2,16 @@ import type {
   AppRole,
   AssignmentRow,
   AuditRow,
+  Database,
   MatchRow,
   PersonRow,
   ProfileRow,
   RoleRow,
 } from "@/lib/database.types";
 import type { PersonFunctionKey } from "@/lib/functions";
+
+export type NotificationLogEntry =
+  Database["public"]["Tables"]["notification_logs"]["Row"];
 
 export type UserContext = {
   userId: string | null;

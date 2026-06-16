@@ -11,7 +11,15 @@ import {
   buildMatchNotificationSubject,
 } from "@/lib/integrations";
 import { sendWhatsAppText } from "@/lib/integrations/openwa";
+import { insertNotificationLogs } from "@/lib/notifications/log";
+import {
+  buildRecipientLogRows,
+  type ChannelOutcome,
+  type NotificationLogRow,
+  type NotificationTrigger,
+} from "@/lib/notifications/log-rows";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { ensureErrorMessage } from "@/lib/utils";
 
 // The match-day blast trigger is fixed at 12:30 Argentina time. Per-match
 // timezone is display-only (D4c).
@@ -37,10 +45,16 @@ type NotifyMatchRow = {
 type AssignmentNotifyRow = {
   id: string;
   role: { name: string } | null;
-  person: { full_name: string; phone: string | null; email: string | null } | null;
+  person: {
+    id: string;
+    full_name: string;
+    phone: string | null;
+    email: string | null;
+  } | null;
 };
 
 type Recipient = {
+  personId: string | null;
   personName: string;
   phone: string | null;
   email: string | null;
@@ -99,7 +113,7 @@ export async function runMatchDayNotifications(trigger: Trigger) {
 
   for (const match of matches) {
     try {
-      await notifyMatch(supabase, match);
+      await notifyMatch(supabase, match, trigger);
     } catch (error) {
       console.error(
         `[notifications] match ${match.id} failed; skipping`,
@@ -112,11 +126,12 @@ export async function runMatchDayNotifications(trigger: Trigger) {
 async function notifyMatch(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
   match: NotifyMatchRow,
+  trigger: NotificationTrigger,
 ) {
   const assignmentsResult = await supabase
     .from("assignments")
     .select(
-      "id, role:roles!assignments_role_id_fkey(name), person:people!assignments_person_id_fkey(full_name, phone, email)",
+      "id, role:roles!assignments_role_id_fkey(name), person:people!assignments_person_id_fkey(id, full_name, phone, email)",
     )
     .eq("match_id", match.id);
 
@@ -146,6 +161,7 @@ async function notifyMatch(
       }
     } else {
       recipientsByPerson.set(key, {
+        personId: person.id,
         personName: person.full_name,
         phone,
         email,
@@ -156,6 +172,8 @@ async function notifyMatch(
 
   const recipients = [...recipientsByPerson.values()];
   const subject = buildMatchNotificationSubject(match);
+  const matchLabel = `${match.home_team} vs ${match.away_team}`;
+  const logRows: NotificationLogRow[] = [];
 
   let waSent = 0;
   let waSkipped = 0;
@@ -170,19 +188,19 @@ async function notifyMatch(
       roleNames: recipient.roleNames,
     });
 
-    if (!recipient.phone && !recipient.email) {
-      noContact += 1;
-      console.warn(
-        `[notifications] ${recipient.personName} has no phone or email; skipped`,
-      );
-      continue;
-    }
+    const outcomes: ChannelOutcome[] = [];
 
     if (recipient.phone) {
       if (isOpenwaConfigured) {
         const result = await sendWhatsAppText({
           phone: recipient.phone,
           message,
+        });
+        outcomes.push({
+          channel: "whatsapp",
+          attempted: true,
+          ok: result.ok,
+          error: result.error ?? null,
         });
         if (result.ok) {
           waSent += 1;
@@ -191,6 +209,12 @@ async function notifyMatch(
         }
         await sleep(WHATSAPP_GAP_MS);
       } else {
+        outcomes.push({
+          channel: "whatsapp",
+          attempted: false,
+          ok: false,
+          error: "OpenWA no está configurado.",
+        });
         waSkipped += 1;
         console.warn("[notifications] OpenWA not configured; WhatsApp skipped");
       }
@@ -203,12 +227,37 @@ async function notifyMatch(
           subject,
           text: message,
         });
+        outcomes.push({ channel: "email", attempted: true, ok: true });
         emailSent += 1;
-      } catch {
+      } catch (error) {
+        outcomes.push({
+          channel: "email",
+          attempted: true,
+          ok: false,
+          error: ensureErrorMessage(error),
+        });
         emailSkipped += 1;
       }
     }
+
+    if (!outcomes.length) {
+      noContact += 1;
+      console.warn(
+        `[notifications] ${recipient.personName} has no phone or email; skipped`,
+      );
+    }
+
+    logRows.push(
+      ...buildRecipientLogRows({
+        match: { id: match.id, label: matchLabel },
+        trigger,
+        recipient,
+        outcomes,
+      }),
+    );
   }
+
+  await insertNotificationLogs(logRows);
 
   // Stamp the marker after one full attempt regardless of failures (A1),
   // including zero-recipient matches so catch-up stops re-querying them.

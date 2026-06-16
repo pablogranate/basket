@@ -280,6 +280,49 @@ export interface Database {
           updated_by?: string | null;
         };
       };
+      notification_logs: {
+        Relationships: [];
+        Row: {
+          id: string;
+          created_at: string;
+          match_id: string | null;
+          person_id: string | null;
+          match_label: string;
+          recipient_name: string;
+          role_names: string[];
+          channel: string;
+          destination: string | null;
+          status: string;
+          error: string | null;
+          trigger: string;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          match_id?: string | null;
+          person_id?: string | null;
+          match_label?: string;
+          recipient_name?: string;
+          role_names?: string[];
+          channel: string;
+          destination?: string | null;
+          status: string;
+          error?: string | null;
+          trigger: string;
+        };
+        Update: {
+          match_id?: string | null;
+          person_id?: string | null;
+          match_label?: string;
+          recipient_name?: string;
+          role_names?: string[];
+          channel?: string;
+          destination?: string | null;
+          status?: string;
+          error?: string | null;
+          trigger?: string;
+        };
+      };
       assignments: {
         Relationships: [];
         Row: {

@@ -94,7 +94,11 @@ export const DASHBOARD_NAV = [
 
 const COLLABORATOR_ALLOWED_DASHBOARD_PREFIXES = ["/mi-jornada"] as const;
 
-const PRODUCTOR_DENIED_DASHBOARD_PREFIXES = ["/roles", "/settings"] as const;
+const PRODUCTOR_DENIED_DASHBOARD_PREFIXES = [
+  "/roles",
+  "/settings",
+  "/notifications",
+] as const;
 
 function matchesPrefix(pathname: string, prefix: string) {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
