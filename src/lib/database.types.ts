@@ -229,6 +229,7 @@ export interface Database {
           timezone: string;
           owner_id: string | null;
           notes: string | null;
+          day_notified_at: string | null;
           created_at: string;
           updated_at: string;
           created_by: string | null;
@@ -251,6 +252,7 @@ export interface Database {
           timezone?: string;
           owner_id?: string | null;
           notes?: string | null;
+          day_notified_at?: string | null;
           created_at?: string;
           updated_at?: string;
           created_by?: string | null;
@@ -272,6 +274,7 @@ export interface Database {
           timezone?: string;
           owner_id?: string | null;
           notes?: string | null;
+          day_notified_at?: string | null;
           updated_at?: string;
           created_by?: string | null;
           updated_by?: string | null;

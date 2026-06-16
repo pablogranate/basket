@@ -82,3 +82,25 @@ export async function sendCollaboratorInviteEmail({
     throw error;
   }
 }
+
+export async function sendMatchNotificationEmail({
+  to,
+  subject,
+  text,
+}: {
+  to: string;
+  subject: string;
+  text: string;
+}) {
+  try {
+    await getTransport().sendMail({
+      from: appEnv.mailFrom,
+      to,
+      subject,
+      text,
+    });
+  } catch (error) {
+    console.error("[mailer] failed to send match notification", error);
+    throw error;
+  }
+}
