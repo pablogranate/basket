@@ -1,6 +1,7 @@
 import { getSessionCookie } from "better-auth/cookies";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { buildSiblingAppUrl, isApexHost } from "@/lib/constants";
 import { appEnv } from "@/lib/env";
 
 function isGuestMiJornadaPath(pathname: string) {
@@ -34,6 +35,21 @@ export async function updateSession(request: NextRequest) {
   // Optimistic cookie-presence check only (no DB). Role/profile gating stays in
   // getUserContext + the dashboard layout.
   const hasSession = Boolean(getSessionCookie(request));
+  const host = request.headers.get("host") ?? "";
+
+  // Apex launcher: the RSC page resolves the role-aware destination when a
+  // session exists. Without one, send the visitor to the centralized portal
+  // login, carrying the apex URL so an Admin returns to the launcher.
+  if (isApexHost(host)) {
+    if (hasSession) {
+      return response;
+    }
+    const isLocal = host.includes("localhost");
+    const apexUrl = `${isLocal ? "http" : "https"}://${host}${pathname}`;
+    const loginUrl = new URL(`${buildSiblingAppUrl(host, "portal")}/login`);
+    loginUrl.searchParams.set("redirectTo", apexUrl);
+    return NextResponse.redirect(loginUrl);
+  }
 
   if (hasSession || isPublicPath(pathname) || isGuestMiJornadaPath(pathname)) {
     return response;

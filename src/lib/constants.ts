@@ -150,11 +150,70 @@ export function getDefaultDashboardHrefForRole(role?: AppRole | null) {
   return COLLABORATOR_DEFAULT_DASHBOARD_HREF;
 }
 
+const BASKET_APP_DOMAINS = ["basket-app.com", "basket-app.localhost"];
+
+function isBasketAppHostname(hostname: string) {
+  return BASKET_APP_DOMAINS.some(
+    (domain) => hostname === domain || hostname.endsWith(`.${domain}`),
+  );
+}
+
+export function sanitizeRedirectTo(raw?: string | null): string | null {
+  if (!raw) {
+    return null;
+  }
+
+  // Relative in-app path — safe, but reject protocol-relative "//host".
+  if (raw.startsWith("/") && !raw.startsWith("//")) {
+    return raw;
+  }
+
+  try {
+    const url = new URL(raw);
+    if (
+      (url.protocol === "https:" || url.protocol === "http:") &&
+      isBasketAppHostname(url.hostname)
+    ) {
+      return raw;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 const APEX_HOSTS = new Set(["basket-app.com", "basket-app.localhost"]);
 
 export function isApexHost(host: string) {
   const hostname = host.split(":")[0];
   return APEX_HOSTS.has(hostname);
+}
+
+function targetsApexHost(target: string) {
+  try {
+    return isApexHost(new URL(target).host);
+  } catch {
+    return false;
+  }
+}
+
+export function resolvePostLoginDestination({
+  role,
+  redirectTo,
+}: {
+  role?: AppRole | null;
+  redirectTo?: string | null;
+}): string {
+  const safe = sanitizeRedirectTo(redirectTo);
+
+  // Honor a safe target, except an apex landing for a non-Admin — they have no
+  // launcher to see, so route them straight to their portal home (no bounce).
+  if (safe && !(targetsApexHost(safe) && !isAdminDashboardRole(role))) {
+    return safe;
+  }
+
+  return getDefaultDashboardHrefForRole(role);
 }
 
 export function buildSiblingAppUrl(host: string, subdomain: string) {

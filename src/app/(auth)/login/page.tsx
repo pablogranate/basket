@@ -5,7 +5,11 @@ import { LoginFormClient } from "@/app/(auth)/login/login-form-client";
 import { SetupPanel } from "@/components/layout/setup-panel";
 import { PageMessage } from "@/components/ui/page-message";
 import { PRODUCT_COPY } from "@/lib/copy";
-import { getDefaultDashboardHrefForRole, APP_NAME } from "@/lib/constants";
+import {
+  APP_NAME,
+  resolvePostLoginDestination,
+  sanitizeRedirectTo,
+} from "@/lib/constants";
 import { isSupabaseConfigured } from "@/lib/env";
 import { parseNotice } from "@/lib/search-params";
 import { getUserContext } from "@/lib/auth";
@@ -71,14 +75,24 @@ export default async function LoginPage({ searchParams }: PageProps) {
 
   const user = await getUserContext();
 
-  if (user.userId) {
-    redirect(getDefaultDashboardHrefForRole(user.role));
-  }
-
-  const redirectTo =
+  const rawRedirectTo =
     typeof resolvedSearchParams.redirectTo === "string"
       ? resolvedSearchParams.redirectTo
-      : "/grid";
+      : null;
+
+  if (user.userId) {
+    redirect(
+      resolvePostLoginDestination({ role: user.role, redirectTo: rawRedirectTo }),
+    );
+  }
+
+  // Route the OAuth / magic-link callback back through this page so the
+  // role-aware destination is resolved once the session exists (the role is
+  // unknown before authentication completes).
+  const safeRedirectTo = sanitizeRedirectTo(rawRedirectTo);
+  const callbackURL = safeRedirectTo
+    ? `/login?redirectTo=${encodeURIComponent(safeRedirectTo)}`
+    : "/login";
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
@@ -171,7 +185,7 @@ export default async function LoginPage({ searchParams }: PageProps) {
 
               <PageMessage intent={intent} message={notice} />
 
-              <LoginFormClient callbackURL={redirectTo} />
+              <LoginFormClient callbackURL={callbackURL} />
             </div>
 
             <p className="mt-6 flex items-center justify-center text-center text-sm font-medium text-[var(--muted)] xl:mt-8">
