@@ -7,6 +7,7 @@ import { nextCookies } from "better-auth/next-js";
 import { admin, magicLink } from "better-auth/plugins";
 
 import { authDb } from "@/lib/db/auth-client";
+import { resolveCrossSubdomainCookieConfig } from "@/lib/auth/cookie-domain";
 import {
   authAccount,
   authSession,
@@ -36,6 +37,14 @@ export const auth = betterAuth({
   session: {
     expiresIn: SIXTY_DAYS_SECONDS,
     updateAge: ONE_DAY_SECONDS,
+  },
+  // Share the session cookie across *.basket-app.com so logging in once on the
+  // portal is recognized on every sibling subdomain. Disabled on localhost,
+  // where parent-domain cookies are not honored by browsers.
+  advanced: {
+    crossSubDomainCookies: resolveCrossSubdomainCookieConfig(
+      appEnv.betterAuthUrl,
+    ),
   },
   // Same-email Google + magic-link identities collapse to one user. Both methods
   // yield a verified email, so no trustedProviders shortcut is needed (D-10).
