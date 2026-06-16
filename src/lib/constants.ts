@@ -150,6 +150,43 @@ export function getDefaultDashboardHrefForRole(role?: AppRole | null) {
   return COLLABORATOR_DEFAULT_DASHBOARD_HREF;
 }
 
+const APEX_HOSTS = new Set(["basket-app.com", "basket-app.localhost"]);
+
+export function isApexHost(host: string) {
+  const hostname = host.split(":")[0];
+  return APEX_HOSTS.has(hostname);
+}
+
+export function buildSiblingAppUrl(host: string, subdomain: string) {
+  const [hostname, port] = host.split(":");
+  const isLocal = hostname === "localhost" || hostname.endsWith(".localhost");
+  const protocol = isLocal ? "http" : "https";
+  const suffix = isLocal && port ? `:${port}` : "";
+  return `${protocol}://${subdomain}.${hostname}${suffix}`;
+}
+
+export type ApexDestination =
+  | { kind: "render-landing" }
+  | { kind: "redirect"; path: string };
+
+export function resolveApexDestination({
+  role,
+  hasSession,
+}: {
+  role?: AppRole | null;
+  hasSession: boolean;
+}): ApexDestination {
+  if (!hasSession) {
+    return { kind: "redirect", path: "/login" };
+  }
+
+  if (isAdminDashboardRole(role)) {
+    return { kind: "render-landing" };
+  }
+
+  return { kind: "redirect", path: getDefaultDashboardHrefForRole(role) };
+}
+
 export const RESERVED_IMPORT_HEADERS = new Set([
   "fecha",
   "dia",
