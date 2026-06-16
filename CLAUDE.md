@@ -80,7 +80,7 @@ It is one of three sibling apps under `basket-app.com`: `portal.` (this), `analy
 - Node.js 20.x (inferred), pnpm
 - Local Supabase project or hosted Supabase instance (env vars must be set)
 - Run: `pnpm dev` (or `npm run dev`); quality gate: `npm run check` (lint + typecheck + build)
-- Netlify (`netlify.toml`: build `npm run build`, publish `.next`, functions dir `netlify/functions`)
+- Persistent Node server (VPS, long-lived `next start`) — NOT serverless. In-process `node-cron` schedulers (`src/instrumentation.ts`) depend on the process staying alive. The OpenWA WhatsApp instance runs on this same server.
 - Requires Supabase env vars provisioned in the host
 - Database hosted on Supabase (PostgreSQL); migrations in `supabase/migrations/` applied manually
 

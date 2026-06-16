@@ -66,6 +66,7 @@ The format is based on Keep a Changelog, adapted to the current workflow of this
 
 ### Added
 
+- Added an automatic match-day notification blast (PATH 1): at 12:30 ARG (`America/Argentina/Buenos_Aires`) every person assigned to a `Pendiente`/`Confirmado` match kicking off that day receives a convocatoria over WhatsApp (valid phone) and email (valid email), reusing the existing OpenWA sender, nodemailer transport, and message builders. Backed by a per-match one-shot marker (`matches.day_notified_at`, migration `0018`), two in-process `node-cron` schedules (main `NOTIFICATIONS_CRON` + hourly catch-up) plus a boot tick for missed sends, a `NOTIFICATIONS_ENABLED` kill switch, and the service-role admin client. The existing manual "send to all" path is untouched.
 - Added a contributor workflow with `CONTRIBUTING.md`, `.editorconfig`, CI, and PR checklist to enforce a more production-ready development process.
 - Added explicit quality scripts: `npm run typecheck` and `npm run check`.
 - Added a shared dashboard header pattern and normalized visible control radii to the `10px` panel token across the main Basket Production modules.
