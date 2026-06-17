@@ -31,9 +31,12 @@ export function DashboardShell(props: {
         <DashboardSidebar
           brand={
             <div className="flex min-w-0 flex-col gap-2">
-              <p className="text-[1.6rem] font-black leading-none tracking-[-0.03em] text-[#e61218]">
-                BASKET.TV
-              </p>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/Basket.tv horizontal rojo.png"
+                alt="Basquetpass"
+                className="h-9 w-auto"
+              />
               <p className="text-[11px] font-black uppercase tracking-[0.28em] text-[#9eb0cc]">
                 {APP_PORTAL_LABEL}
               </p>
@@ -48,9 +51,12 @@ export function DashboardShell(props: {
             <div className="flex h-20 items-center gap-4 px-4 sm:px-6 lg:px-8">
               <div className="flex min-w-0 flex-1 items-center gap-4">
                 <div className="flex items-center gap-3 lg:hidden">
-                  <p className="text-xl font-black leading-none tracking-[-0.03em] text-[#e61218]">
-                    BASKET.TV
-                  </p>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/Basket.tv horizontal rojo.png"
+                    alt="Basquetpass"
+                    className="h-7 w-auto"
+                  />
                 </div>
               </div>
 

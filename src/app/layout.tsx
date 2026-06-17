@@ -20,6 +20,9 @@ export const metadata: Metadata = {
   title: APP_NAME,
   description:
     "Grilla operativa con asignaciones, auditoría, permisos y flujo de producción en vivo.",
+  icons: {
+    icon: { url: "/favicon.webp", type: "image/webp" },
+  },
 };
 
 export default function RootLayout({
