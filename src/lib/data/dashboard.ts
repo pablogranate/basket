@@ -1,6 +1,6 @@
 import { parseISO, addDays, subDays } from "date-fns";
 
-import { PRODUCTION_MODE_OPTIONS, ROLE_CATEGORY_ORDER } from "@/lib/constants";
+import { ROLE_CATEGORY_ORDER } from "@/lib/constants";
 import {
   isPersonFunctionKey,
   type PersonFunctionKey,
@@ -124,18 +124,12 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
 
   const [
     { data: matchesData, error: matchesError },
-    optionsResult,
     ownersResult,
     rolesResult,
     functionsResult,
   ] =
     await Promise.all([
       query,
-      supabase
-        .from("matches")
-        .select("competition")
-        .gte("kickoff_at", new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString())
-        .order("kickoff_at", { ascending: false }),
       supabase
         .from("people")
         .select("id, full_name, phone, email")
@@ -151,10 +145,6 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
 
   if (matchesError) {
     throw matchesError;
-  }
-
-  if (optionsResult.error) {
-    throw optionsResult.error;
   }
 
   if (ownersResult.error) {
@@ -242,18 +232,6 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
     return groups;
   }, []);
 
-  const optionRows = optionsResult.data ?? [];
-  const leagueOptions = [
-    ...new Set(
-      optionRows
-        .map((row) => row.competition)
-        .filter((value): value is string => Boolean(value)),
-    ),
-  ];
-  const modeOptions = [
-    ...PRODUCTION_MODE_OPTIONS,
-  ];
-
   const owners: GridOwner[] = (
     (ownersResult.data ?? []) as Pick<
       PersonRow,
@@ -267,8 +245,6 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
   return {
     dayGroups,
     owners,
-    leagueOptions,
-    modeOptions,
   };
 }
 

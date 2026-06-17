@@ -187,21 +187,22 @@ export default async function GridPage({ searchParams }: PageProps) {
     resolvedSearchParams,
     filters,
   );
-  const [{ dayGroups, owners }, initialCalendarSummary] = await Promise.all([
-    getGridData(user, filters),
-    getGridCalendarData(user, {
-      month: initialCalendarMonth,
-      q: filters.q,
-      league: filters.league,
-      mode: filters.mode,
-      status: filters.status,
-      owner: filters.owner,
-      timezone: filters.timezone,
-    }),
-  ]);
-  const settings = await getSettingsSnapshot();
+  const [{ dayGroups, owners }, initialCalendarSummary, settings, lastSync] =
+    await Promise.all([
+      getGridData(user, filters),
+      getGridCalendarData(user, {
+        month: initialCalendarMonth,
+        q: filters.q,
+        league: filters.league,
+        mode: filters.mode,
+        status: filters.status,
+        owner: filters.owner,
+        timezone: filters.timezone,
+      }),
+      getSettingsSnapshot(),
+      user.canEdit ? getLastSuccessfulSync() : Promise.resolve(null),
+    ]);
   const redirectTo = serializeSearchParams(resolvedSearchParams);
-  const lastSync = user.canEdit ? await getLastSuccessfulSync() : null;
   const lastSyncedLabel = lastSync?.finished_at
     ? formatDistanceToNow(new Date(lastSync.finished_at), {
         addSuffix: true,
