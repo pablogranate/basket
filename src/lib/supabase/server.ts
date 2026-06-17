@@ -1,35 +1,15 @@
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import "server-only";
 
-import type { Database } from "@/lib/database.types";
-import { appEnv, assertSupabaseEnv } from "@/lib/env";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
+// Better Auth owns identity; Supabase is the domain DB only. Since migration
+// 0020 RLS denies the anon/authenticated roles on every table, so all
+// server-side domain access runs through the service-role client (which
+// bypasses RLS). Authorization is enforced in the app layer
+// (withAuth / requireEditor / requireUserContext), never in the database.
+//
+// Kept async + same name so the existing callers need no change. The
+// `server-only` import guarantees this never reaches a client bundle.
 export async function createSupabaseServerClient() {
-  assertSupabaseEnv();
-  const cookieStore = await cookies();
-
-  return createServerClient<Database>(appEnv.supabaseUrl, appEnv.supabaseAnonKey, {
-    // Better Auth owns identity; this client is domain-data only. Disable session
-    // handling so a stray (pre-cutover) Supabase auth cookie can't trigger a
-    // GoTrue refresh ("refresh_token_not_found"). RLS is dropped, so anon is fine.
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-    cookies: {
-      getAll() {
-        return cookieStore.getAll();
-      },
-      setAll(cookiesToSet) {
-        try {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options);
-          });
-        } catch {
-          // Server components can render with read-only cookies.
-        }
-      },
-    },
-  });
+  return createSupabaseAdminClient();
 }
