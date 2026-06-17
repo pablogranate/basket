@@ -93,7 +93,7 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
   let query = supabase
     .from("matches")
     .select(
-      "*, owner:people!matches_owner_id_fkey(id, full_name, phone)",
+      "*, owner:people!matches_owner_id_fkey(id, full_name, phone), assignments(id, match_id, role_id, person_id, confirmed, notes, role:roles!assignments_role_id_fkey(id, name, category, sort_order, active), person:people!assignments_person_id_fkey(id, full_name, phone, email))",
     )
     .gte("kickoff_at", window.startUtc)
     .lte("kickoff_at", window.endUtc)
@@ -172,44 +172,19 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
   }
 
   const activeRoles = (rolesResult.data ?? []) as ActiveRole[];
+  // Assignments are embedded in the matches query (one round-trip) instead of a
+  // follow-up `.in("match_id", [...])`, which built a multi-KB URL on wide date
+  // windows and stalled/failed. `assignments` is split off each row here.
   const baseMatches = (matchesData ?? []) as Array<
-    Omit<MatchListItem, "assignments">
+    Omit<MatchListItem, "assignments"> & { assignments: GridAssignment[] | null }
   >;
-  const matchIds = baseMatches.map((match) => match.id);
 
-  let assignmentsData: GridAssignment[] = [];
-
-  if (matchIds.length) {
-    const assignmentsResult = await supabase
-      .from("assignments")
-      .select(
-        "id, match_id, role_id, person_id, confirmed, notes, role:roles!assignments_role_id_fkey(id, name, category, sort_order, active), person:people!assignments_person_id_fkey(id, full_name, phone, email)",
-      )
-      .in("match_id", matchIds);
-
-    if (assignmentsResult.error) {
-      throw assignmentsResult.error;
-    }
-
-    assignmentsData = (assignmentsResult.data ?? []) as GridAssignment[];
-  }
-
-  const assignmentsByMatch = assignmentsData.reduce<Map<string, GridAssignment[]>>(
-    (map, assignment) => {
-      const existing = map.get(assignment.match_id) ?? [];
-      existing.push(assignment);
-      map.set(assignment.match_id, existing);
-      return map;
-    },
-    new Map(),
-  );
-
-  const matches = baseMatches.map((match) => ({
+  const matches = baseMatches.map(({ assignments, ...match }) => ({
     ...match,
     assignments: normalizeGridAssignments({
       matchId: match.id,
       roles: activeRoles,
-      assignments: assignmentsByMatch.get(match.id) ?? [],
+      assignments: assignments ?? [],
     }),
   })) as MatchListItem[];
 
