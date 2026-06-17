@@ -181,9 +181,7 @@ export default async function GridPage({ searchParams }: PageProps) {
     return <SetupPanel />;
   }
 
-  const __tReq = Date.now();
   const user = await requireUserContext();
-  const __tAuth = Date.now();
   const filters = parseGridSearchParams(resolvedSearchParams);
   const initialCalendarMonth = getInitialCalendarMonth(
     resolvedSearchParams,
@@ -204,9 +202,6 @@ export default async function GridPage({ searchParams }: PageProps) {
       getSettingsSnapshot(),
       user.canEdit ? getLastSuccessfulSync() : Promise.resolve(null),
     ]);
-  console.info(
-    `[perf] GridPage auth=${__tAuth - __tReq}ms data=${Date.now() - __tAuth}ms (view=${filters.view})`,
-  );
   const redirectTo = serializeSearchParams(resolvedSearchParams);
   const lastSyncedLabel = lastSync?.finished_at
     ? formatDistanceToNow(new Date(lastSync.finished_at), {
