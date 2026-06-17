@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -7,7 +9,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type UserContext = Awaited<ReturnType<typeof getUserContext>>;
 
-export async function getUserContext() {
+export const getUserContext = cache(async () => {
   const session = await auth.api.getSession({ headers: await headers() });
 
   if (!session?.user) {
@@ -106,7 +108,7 @@ export async function getUserContext() {
       role === "collaborator",
     hasAccess: true,
   };
-}
+});
 
 export async function requireUserContext() {
   const context = await getUserContext();
