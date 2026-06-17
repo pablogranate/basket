@@ -10,9 +10,12 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 export type UserContext = Awaited<ReturnType<typeof getUserContext>>;
 
 export const getUserContext = cache(async () => {
+  const __t0 = Date.now();
   const session = await auth.api.getSession({ headers: await headers() });
+  const __tSession = Date.now();
 
   if (!session?.user) {
+    console.info(`[perf] getUserContext session=${__tSession - __t0}ms (no user)`);
     return {
       userId: null,
       profileId: null,
@@ -35,6 +38,10 @@ export const getUserContext = cache(async () => {
     .select("*")
     .eq("auth_user_id", authUserId)
     .maybeSingle();
+
+  console.info(
+    `[perf] getUserContext session=${__tSession - __t0}ms profileQuery=${Date.now() - __tSession}ms`,
+  );
 
   if (byAuthId.error) {
     console.error("[auth] failed to load profile by auth_user_id", byAuthId.error);
