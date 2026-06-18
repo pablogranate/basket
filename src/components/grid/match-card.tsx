@@ -227,7 +227,7 @@ export function MatchCard({
     <details
       id={detailsId}
       className={cn(
-        "panel-surface group relative overflow-visible border border-[var(--border)] bg-[var(--surface)] transition [&_summary::-webkit-details-marker]:hidden [&_summary::marker]:hidden",
+        "mc-card panel-surface group relative overflow-visible border border-[var(--border)] bg-[var(--surface)] transition [&_summary::-webkit-details-marker]:hidden [&_summary::marker]:hidden",
       )}
     >
       <summary className="relative cursor-pointer list-none">
@@ -296,7 +296,7 @@ export function MatchCard({
                   )}
                   <p
                     title={match.home_team}
-                    className="mt-2 min-h-[2.1em] text-center text-[0.84rem] font-black leading-[1.04] tracking-[-0.03em] text-[var(--foreground)] [display:-webkit-box] overflow-hidden text-ellipsis [-webkit-box-orient:vertical] [-webkit-line-clamp:2] 2xl:mt-3 2xl:min-h-[2.16em] 2xl:text-[0.98rem]"
+                    className="mc-team-name"
                   >
                     {match.home_team}
                   </p>
@@ -332,7 +332,7 @@ export function MatchCard({
                   )}
                   <p
                     title={match.away_team}
-                    className="mt-2 min-h-[2.1em] text-center text-[0.84rem] font-black leading-[1.04] tracking-[-0.03em] text-[var(--foreground)] [display:-webkit-box] overflow-hidden text-ellipsis [-webkit-box-orient:vertical] [-webkit-line-clamp:2] 2xl:mt-3 2xl:min-h-[2.16em] 2xl:text-[0.98rem]"
+                    className="mc-team-name"
                   >
                     {match.away_team}
                   </p>
@@ -348,10 +348,10 @@ export function MatchCard({
             </div>
           </div>
 
-          <div className="grid gap-4 border-b border-[var(--border)] px-5 py-5 xl:border-b-0 xl:border-r xl:px-6">
+          <div className="mc-col xl:border-r">
             <div className="flex items-center gap-2">
-              <ShieldUser className="size-3.5 text-[#a7b4c8]" />
-              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#a7b4c8]">
+              <ShieldUser className="mc-icon" />
+              <p className="mc-col-tag">
                 Staff
               </p>
             </div>
@@ -366,7 +366,7 @@ export function MatchCard({
               <div className="min-w-0">
                 <p
                   className={cn(
-                    "truncate text-sm font-bold text-[var(--foreground)]",
+                    "mc-person-name",
                     responsible.muted && "text-[var(--muted)] italic font-semibold",
                   )}
                 >
@@ -388,7 +388,7 @@ export function MatchCard({
               <div className="min-w-0">
                 <p
                   className={cn(
-                    "truncate text-sm font-bold text-[var(--foreground)]",
+                    "mc-person-name",
                     director.muted && "text-[var(--muted)] italic font-semibold",
                   )}
                 >
@@ -401,10 +401,10 @@ export function MatchCard({
             </div>
           </div>
 
-          <div className="grid gap-4 border-b border-[var(--border)] px-5 py-5 xl:border-b-0 xl:border-r xl:px-6">
+          <div className="mc-col xl:border-r">
             <div className="flex items-center gap-2">
-              <Mic2 className="size-3.5 text-[#a7b4c8]" />
-              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#a7b4c8]">
+              <Mic2 className="mc-icon" />
+              <p className="mc-col-tag">
                 Relatos
               </p>
             </div>
@@ -436,7 +436,7 @@ export function MatchCard({
               <div className="min-w-0">
                 <p
                   className={cn(
-                    "truncate text-sm font-bold text-[var(--foreground)]",
+                    "mc-person-name",
                     commentator.muted && "text-[var(--muted)] italic font-semibold",
                   )}
                 >
@@ -449,11 +449,11 @@ export function MatchCard({
             </div>
           </div>
 
-          <div className="grid gap-4 border-b border-[var(--border)] px-5 py-5 xl:border-b-0 xl:border-r xl:px-6">
+          <div className="mc-col xl:border-r">
             {match.production_code ? (
               <div>
-                <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#a7b4c8]">
-                  <Hash className="size-3.5 text-[#a7b4c8]" />
+                <p className="mc-col-label">
+                  <Hash className="mc-icon" />
                   ID evento
                 </p>
                 <div className="mt-2">
@@ -469,8 +469,8 @@ export function MatchCard({
               </div>
             ) : null}
             <div>
-              <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#a7b4c8]">
-                <Video className="size-3.5 text-[#a7b4c8]" />
+              <p className="mc-col-label">
+                <Video className="mc-icon" />
                 {PRODUCTION_SHORT_LABEL}
               </p>
               <div className="mt-2">
@@ -486,10 +486,10 @@ export function MatchCard({
             </div>
           </div>
 
-          <div className="grid gap-4 border-b border-[var(--border)] px-5 py-5 xl:border-b-0 xl:px-6">
+          <div className="mc-col">
             <div>
-              <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#a7b4c8]">
-                <CalendarDays className="size-3.5 text-[#a7b4c8]" />
+              <p className="mc-col-label">
+                <CalendarDays className="mc-icon" />
                 Fecha
               </p>
               <p className="mt-2 text-[1.12rem] font-extrabold leading-tight tracking-[-0.03em] text-[var(--foreground)]">
@@ -497,8 +497,8 @@ export function MatchCard({
               </p>
             </div>
             <div>
-              <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#a7b4c8]">
-                <Clock3 className="size-3.5 text-[#a7b4c8]" />
+              <p className="mc-col-label">
+                <Clock3 className="mc-icon" />
                 Hora
               </p>
               <p className="mt-1 text-4xl font-black tracking-[-0.06em] text-[var(--accent)]">

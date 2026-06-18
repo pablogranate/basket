@@ -60,6 +60,42 @@ select option {
   color: white;
 }
 
+@layer components {
+  /* Off-screen match cards skip layout/paint until scrolled near the viewport
+     (render-on-scroll). contain-intrinsic-size reserves a stable placeholder so
+     the scrollbar doesn't jump; `auto` remembers the real size after first render. */
+  .mc-card {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 170px;
+  }
+
+  /* Repeated match-card summary class strings, deduplicated out of the per-card
+     markup (and the serialized RSC payload) into single component classes. */
+  .mc-col {
+    @apply grid gap-4 border-b border-[var(--border)] px-5 py-5 xl:border-b-0 xl:px-6;
+  }
+
+  .mc-col-tag {
+    @apply text-[10px] font-bold uppercase tracking-[0.22em] text-[#a7b4c8];
+  }
+
+  .mc-col-label {
+    @apply inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#a7b4c8];
+  }
+
+  .mc-icon {
+    @apply size-3.5 text-[#a7b4c8];
+  }
+
+  .mc-person-name {
+    @apply truncate text-sm font-bold text-[var(--foreground)];
+  }
+
+  .mc-team-name {
+    @apply mt-2 min-h-[2.1em] text-center text-[0.84rem] font-black leading-[1.04] tracking-[-0.03em] text-[var(--foreground)] [display:-webkit-box] overflow-hidden text-ellipsis [-webkit-box-orient:vertical] [-webkit-line-clamp:2] 2xl:mt-3 2xl:min-h-[2.16em] 2xl:text-[0.98rem];
+  }
+}
+
 @layer utilities {
   .rounded-xl,
   .rounded-2xl {

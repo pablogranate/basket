@@ -43,8 +43,13 @@ export function parseGridSearchParams(searchParams: RawSearchParams) {
   ) as "asc" | "desc";
   const rawMode = getParam(searchParams, "mode") ?? "";
   const mode = getProductionModeLabel(normalizeProductionMode(rawMode));
+  const rawDisplay = getParam(searchParams, "display");
   const display = (
-    getParam(searchParams, "display") === "table" ? "table" : "cards"
+    rawDisplay === "table" || rawDisplay === "cards"
+      ? rawDisplay
+      : view === "month"
+        ? "table"
+        : "cards"
   ) as "cards" | "table";
 
   return {
