@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { ChevronDown, PencilLine } from "lucide-react";
 
 import { CreateMatchModal } from "@/components/grid/create-match-modal";
+import { usePeople } from "@/components/grid/people-context";
 import { formatMatchDate } from "@/lib/date";
-import type { PersonRow } from "@/lib/database.types";
 import type { MatchListItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -13,7 +13,6 @@ type MatchCardActionsProps = {
   canEdit: boolean;
   detailsId: string;
   match: MatchListItem;
-  people: Pick<PersonRow, "id" | "full_name" | "phone" | "email">[];
   redirectTo: string;
   className?: string;
 };
@@ -25,10 +24,10 @@ export function MatchCardActions({
   canEdit,
   detailsId,
   match,
-  people,
   redirectTo,
   className,
 }: MatchCardActionsProps) {
+  const people = usePeople();
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {

@@ -254,17 +254,10 @@ export function MatchCard({
   match,
   redirectTo,
   canEdit,
-  people,
 }: {
   match: MatchListItem;
   redirectTo: string;
   canEdit: boolean;
-  people: Array<{
-    id: string;
-    full_name: string;
-    phone: string | null;
-    email: string | null;
-  }>;
 }) {
   const cameraRows = buildCategoryRows(match, "Camaras");
   const talentRows = buildNamedRows(match, [
@@ -581,7 +574,6 @@ export function MatchCard({
               canEdit={canEdit}
               detailsId={detailsId}
               match={match}
-              people={people}
               redirectTo={redirectTo}
             />
           </div>

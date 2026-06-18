@@ -11,6 +11,7 @@ import { GridSyncButton } from "@/components/grid/grid-sync-button";
 import { GridPageShell } from "@/components/grid/grid-page-shell";
 import { GridTable } from "@/components/grid/grid-table";
 import { MatchCard } from "@/components/grid/match-card";
+import { PeopleProvider } from "@/components/grid/people-context";
 import { ProductionInsightsPanel } from "@/components/grid/production-insights-panel";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 import { SetupPanel } from "@/components/layout/setup-panel";
@@ -420,32 +421,33 @@ export default async function GridPage({ searchParams }: PageProps) {
               people={owners}
             />
           ) : (
-            sortedDayGroups.map((group) => (
-              <div key={group.key} className="space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <h3 className="text-2xl font-extrabold text-[var(--accent)]">
-                    {formatDayHeading(
-                      group.items[0].kickoff_at,
-                      group.items[0].timezone,
-                    )}
-                  </h3>
-                  <span className="text-sm font-medium text-[var(--muted)]">
-                    {group.items.length} partidos
-                  </span>
+            <PeopleProvider people={owners}>
+              {sortedDayGroups.map((group) => (
+                <div key={group.key} className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <h3 className="text-2xl font-extrabold text-[var(--accent)]">
+                      {formatDayHeading(
+                        group.items[0].kickoff_at,
+                        group.items[0].timezone,
+                      )}
+                    </h3>
+                    <span className="text-sm font-medium text-[var(--muted)]">
+                      {group.items.length} partidos
+                    </span>
+                  </div>
+                  <div className="grid gap-4">
+                    {group.items.map((match) => (
+                      <MatchCard
+                        key={match.id}
+                        match={match}
+                        redirectTo={redirectTo}
+                        canEdit={user.canEdit}
+                      />
+                    ))}
+                  </div>
                 </div>
-                <div className="grid gap-4">
-                  {group.items.map((match) => (
-                    <MatchCard
-                      key={match.id}
-                      match={match}
-                      redirectTo={redirectTo}
-                      canEdit={user.canEdit}
-                      people={owners}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))
+              ))}
+            </PeopleProvider>
           )}
         </section>
       </div>
