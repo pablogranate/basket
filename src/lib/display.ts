@@ -98,6 +98,19 @@ export function getAppRoleDisplayName(value?: AppRole | null) {
   return APP_ROLE_DISPLAY_NAMES[value] ?? value;
 }
 
+export function getCompactPersonName(name: string) {
+  const parts = name.split(/\s+/).filter(Boolean);
+
+  if (parts.length <= 1 || name === "TBD") {
+    return name;
+  }
+
+  const surnameCandidate =
+    parts.length >= 3 ? parts[1] : parts[parts.length - 1];
+
+  return `${parts[0]?.[0]?.toUpperCase() ?? ""}. ${surnameCandidate}`;
+}
+
 export function normalizeRoleNameInput(value: string) {
   const normalized = value.trim();
   const reverseMap = new Map(

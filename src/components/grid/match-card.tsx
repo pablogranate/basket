@@ -2,16 +2,18 @@ import {
   CalendarDays,
   Clock3,
   Hash,
-  PencilLine,
-  type LucideIcon,
   MapPin,
   Mic2,
   ShieldUser,
-  SlidersHorizontal,
   Video,
 } from "lucide-react";
 
 import { MatchCardActions } from "@/components/grid/match-card-actions";
+import {
+  MatchCardDetails,
+  type MatchCardSection,
+  type SectionRow,
+} from "@/components/grid/match-card-details";
 import { TeamLogoMark } from "@/components/team-logo-mark";
 import { LeagueLogoMarkClient } from "@/components/league-logo-mark-client";
 import { QuickMatchFieldEditor } from "@/components/grid/quick-match-field-editor";
@@ -23,20 +25,12 @@ import {
   RESPONSIBLE_DISPLAY_LABEL,
 } from "@/lib/constants";
 import { formatMatchTime } from "@/lib/date";
-import { getRoleDisplayName } from "@/lib/display";
+import { getCompactPersonName } from "@/lib/display";
 import { getGridLeagueColor } from "@/lib/league-grid-colors";
 import { toMatchEditPrefill } from "@/lib/grid/match-prefill";
 import { getTeamLeagueLabel } from "@/lib/team-directory";
 import type { MatchListItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
-
-type SectionRow = {
-  label: string;
-  value: string;
-  muted?: boolean;
-  compactValue?: boolean;
-  multiline?: boolean;
-};
 
 function formatGridDate(kickoffAt: string, timezone: string) {
   const parts = new Intl.DateTimeFormat("es-AR", {
@@ -174,19 +168,6 @@ function getInitials(name: string) {
     .join("");
 }
 
-function getCompactPersonName(name: string) {
-  const parts = name.split(/\s+/).filter(Boolean);
-
-  if (parts.length <= 1 || name === "TBD") {
-    return name;
-  }
-
-  const surnameCandidate =
-    parts.length >= 3 ? parts[1] : parts[parts.length - 1];
-
-  return `${parts[0]?.[0]?.toUpperCase() ?? ""}. ${surnameCandidate}`;
-}
-
 function formatProductionModeLabel(mode: string | null | undefined) {
   return getProductionModeLabel(mode);
 }
@@ -198,56 +179,6 @@ function isUnassignedLeagueLabel(value: string) {
       .replace(/[\u0300-\u036f]/g, "")
       .toLowerCase()
       .trim() === "sin liga"
-  );
-}
-
-function Section({
-  title,
-  icon: Icon,
-  rows,
-}: {
-  title: string;
-  icon: LucideIcon;
-  rows: SectionRow[];
-}) {
-  return (
-    <div className="flex h-full flex-col gap-4">
-      <div className="flex items-center gap-2 border-b border-[var(--border)] pb-3">
-        <Icon className="size-4 text-[var(--accent)]" />
-        <h4 className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--accent)]">
-          {title}
-        </h4>
-      </div>
-
-      <div className="flex flex-1 flex-col gap-4">
-        {rows.map((row) => {
-          const displayValue =
-            row.compactValue && !row.muted
-              ? getCompactPersonName(row.value)
-              : row.value;
-
-          return (
-            <div key={row.label} className="space-y-1">
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#a08f91]">
-                {getRoleDisplayName(row.label)}
-              </p>
-              <p
-                className={cn(
-                  "text-sm text-[var(--foreground)]",
-                  row.multiline ? "leading-6 font-medium whitespace-pre-line" : "font-bold",
-                  row.muted &&
-                    (row.multiline
-                      ? "text-[var(--muted)] italic"
-                      : "text-[var(--muted)] italic font-semibold"),
-                )}
-              >
-                {displayValue}
-              </p>
-            </div>
-          );
-        })}
-      </div>
-    </div>
   );
 }
 
@@ -285,6 +216,12 @@ export function MatchCard({
   const statusAccentClass =
     match.status === "Realizado" ? "bg-[#26b36a]" : "bg-[#d7dde7]";
   const detailsId = `match-card-${match.id}`;
+  const sections: MatchCardSection[] = [
+    { key: "production", rows: buildProductionRows(match) },
+    { key: "cameras", rows: cameraRows },
+    { key: "talent", rows: talentRows },
+    { key: "observations", rows: observationRows },
+  ];
 
   return (
     <details
@@ -583,26 +520,7 @@ export function MatchCard({
         </div>
       </summary>
 
-      <div className="overflow-hidden rounded-b-[10px] border-t border-[var(--border)] bg-[#fffefd] px-5 py-5 sm:px-6">
-        <div className="grid gap-6 xl:grid-cols-4">
-          <Section
-            title="Producción y Dirección"
-            icon={SlidersHorizontal}
-            rows={buildProductionRows(match)}
-          />
-          <Section title="Cámaras" icon={Video} rows={cameraRows} />
-          <Section
-            title="Relatos & Comentarios"
-            icon={Mic2}
-            rows={talentRows}
-          />
-          <Section
-            title="Observaciones / Transporte"
-            icon={PencilLine}
-            rows={observationRows}
-          />
-        </div>
-      </div>
+      <MatchCardDetails detailsId={detailsId} sections={sections} />
     </details>
   );
 }
