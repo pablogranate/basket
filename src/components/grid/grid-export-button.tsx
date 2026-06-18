@@ -5,13 +5,11 @@ import { Download } from "lucide-react";
 
 import {
   GRID_EXPORT_COLUMNS,
-  toExportRows,
   type GridExportRow,
 } from "@/lib/grid-table";
-import type { MatchListItem } from "@/lib/types";
 
 type GridExportButtonProps = {
-  matches: MatchListItem[];
+  rows: GridExportRow[];
   periodLabel: string;
 };
 
@@ -89,20 +87,19 @@ function buildGridExcelDocument(rows: GridExportRow[], periodLabel: string) {
 }
 
 export function GridExportButton({
-  matches,
+  rows,
   periodLabel,
 }: GridExportButtonProps) {
   const [isExporting, setIsExporting] = useState(false);
 
   async function handleExport() {
-    if (!matches.length || isExporting) {
+    if (!rows.length || isExporting) {
       return;
     }
 
     setIsExporting(true);
 
     try {
-      const rows = toExportRows(matches);
       const fileBaseName = [
         "produccion",
         sanitizeFileSegment(periodLabel || "periodo"),
@@ -189,7 +186,7 @@ export function GridExportButton({
     <button
       type="button"
       onClick={() => void handleExport()}
-      disabled={!matches.length || isExporting}
+      disabled={!rows.length || isExporting}
       aria-label={isExporting ? "Exportando jornada" : "Descargar Excel y PDF"}
       title={isExporting ? "Exportando jornada" : "Descargar Excel y PDF"}
       className="inline-flex size-[52px] items-center justify-center rounded-[var(--panel-radius)] bg-[#7c3aed] text-white shadow-[0_14px_28px_rgba(124,58,237,0.22)] transition hover:bg-[#6d28d9] disabled:cursor-not-allowed disabled:opacity-60"

@@ -49,6 +49,16 @@ export type MatchListItem = MatchRow & {
   }>;
 };
 
+// Slim projection of a match for the edit modal. The full MatchListItem embeds
+// a role + person object on every assignment slot (~21 per match); serializing
+// hundreds of those into per-card client components inflated /grid to ~15MB.
+// The modal only needs scalar match fields plus a role-name -> person-id map,
+// so we ship that instead and never serialize the nested role/person graph.
+export type MatchEditPrefill = MatchRow & {
+  ownerId: string | null;
+  assignedPersonByRole: Record<string, string>;
+};
+
 export type AssignmentDetail = AssignmentRow & {
   role: Pick<RoleRow, "id" | "name" | "category" | "sort_order" | "active">;
   person: Pick<PersonRow, "id" | "full_name" | "phone" | "email"> | null;

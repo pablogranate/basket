@@ -44,7 +44,7 @@ import { formatMatchDate, formatMatchTime } from "@/lib/date";
 import { getRoleDisplayName } from "@/lib/display";
 import { getTeamCompetitionByName, getTeamVenueByName } from "@/lib/team-directory";
 import type { PersonRow } from "@/lib/database.types";
-import type { MatchListItem } from "@/lib/types";
+import type { MatchEditPrefill } from "@/lib/types";
 import { buildWhatsAppUrl, cn } from "@/lib/utils";
 
 const CORE_REQUIRED_FIELDS = [
@@ -74,7 +74,7 @@ type CreateMatchModalProps = {
   redirectTo: string;
   canEdit: boolean;
   initialDate: string;
-  match?: MatchListItem;
+  match?: MatchEditPrefill;
   triggerVariant?: "primary" | "icon";
   triggerClassName?: string;
   triggerLabel?: string;
@@ -311,11 +311,8 @@ function buildInitialFields(initialDate: string): MatchIntakeFields {
   };
 }
 
-function getAssignedPersonId(match: MatchListItem, roleName: string) {
-  return (
-    match.assignments.find((assignment) => assignment.role.name === roleName)?.person?.id ??
-    ""
-  );
+function getAssignedPersonId(match: MatchEditPrefill, roleName: string) {
+  return match.assignedPersonByRole[roleName] ?? "";
 }
 
 function normalizeTransportFieldValue(value?: string | null) {
@@ -339,7 +336,7 @@ function normalizeTransportFieldValue(value?: string | null) {
   return normalized;
 }
 
-function buildFieldsFromMatch(match: MatchListItem): MatchIntakeFields {
+function buildFieldsFromMatch(match: MatchEditPrefill): MatchIntakeFields {
   return {
     externalMatchId: match.external_match_id ?? "",
     productionCode: match.production_code ?? "",
@@ -355,7 +352,7 @@ function buildFieldsFromMatch(match: MatchListItem): MatchIntakeFields {
       match.duration_minutes ?? DEFAULT_MATCH_DURATION_MINUTES,
     ),
     responsableId:
-      getAssignedPersonId(match, "Responsable") || match.owner?.id || "",
+      getAssignedPersonId(match, "Responsable") || match.ownerId || "",
     realizadorId: getAssignedPersonId(match, "Realizador"),
     graficaId: getAssignedPersonId(match, "Operador de Grafica"),
     camara1Id: getAssignedPersonId(match, "Camara 1"),

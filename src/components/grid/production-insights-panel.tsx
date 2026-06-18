@@ -15,14 +15,14 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { ExpandDivider } from "@/components/ui/expand-divider";
 import { RESPONSIBLE_DISPLAY_LABEL } from "@/lib/constants";
-import { formatMatchTime } from "@/lib/date";
-import { getRoleDisplayName } from "@/lib/display";
-import type { MatchListItem } from "@/lib/types";
+import type {
+  InsightsTopPerson,
+  ProductionInsightsSummary,
+} from "@/lib/grid/insights";
 import { getInitials } from "@/components/people/people-view-helpers";
 
 type ProductionInsightsPanelProps = {
-  matches: MatchListItem[];
-  timezone: string;
+  summary: ProductionInsightsSummary;
   currentDateLabel: string;
   previousDateHref: string;
   nextDateHref: string;
@@ -91,78 +91,6 @@ const SAMPLE_TOP_PEOPLE = [
   },
 ] as const;
 
-function buildTopPeople(matches: MatchListItem[]) {
-  const peopleMap = new Map<
-    string,
-    {
-      id: string;
-      fullName: string;
-      matchIds: Set<string>;
-      roleCounts: Map<string, number>;
-    }
-  >();
-
-  matches.forEach((match) => {
-    match.assignments.forEach((assignment) => {
-      if (!assignment.person) {
-        return;
-      }
-
-      const key = assignment.person.id;
-      const current = peopleMap.get(key) ?? {
-        id: assignment.person.id,
-        fullName: assignment.person.full_name,
-        matchIds: new Set<string>(),
-        roleCounts: new Map<string, number>(),
-      };
-
-      current.matchIds.add(match.id);
-      current.roleCounts.set(
-        assignment.role.name,
-        (current.roleCounts.get(assignment.role.name) ?? 0) + 1,
-      );
-      peopleMap.set(key, current);
-    });
-  });
-
-  return [...peopleMap.values()]
-    .map((person) => {
-      const primaryRole =
-        [...person.roleCounts.entries()].sort((left, right) => {
-          if (right[1] !== left[1]) {
-            return right[1] - left[1];
-          }
-
-          return left[0].localeCompare(right[0], "es");
-        })[0]?.[0] ?? null;
-
-      return {
-        id: person.id,
-        fullName: person.fullName,
-        totalMatches: person.matchIds.size,
-        roleLabel: getRoleDisplayName(primaryRole),
-      };
-    })
-    .sort((left, right) => {
-      if (right.totalMatches !== left.totalMatches) {
-        return right.totalMatches - left.totalMatches;
-      }
-
-      return left.fullName.localeCompare(right.fullName, "es");
-    })
-    .slice(0, 10);
-}
-
-function countAssignedPeople(matches: MatchListItem[]) {
-  return new Set(
-    matches.flatMap((match) =>
-      match.assignments
-        .map((assignment) => assignment.person?.id)
-        .filter((value): value is string => Boolean(value)),
-    ),
-  ).size;
-}
-
 function getAssignmentLoadTone(totalMatches: number) {
   if (totalMatches >= 3) {
     return {
@@ -177,44 +105,31 @@ function getAssignmentLoadTone(totalMatches: number) {
   };
 }
 
-function buildMissingHighlights(matches: MatchListItem[]) {
-  const missingVenue = matches.filter((match) => !match.venue?.trim()).length;
-  const missingResponsible = matches.filter(
-    (match) =>
-      !match.assignments.some(
-        (assignment) =>
-          assignment.role.name === "Responsable" && assignment.person,
-      ),
-  ).length;
-  const missingProductionCode = matches.filter(
-    (match) => !match.production_code?.trim(),
-  ).length;
-  const missingExternalId = matches.filter(
-    (match) => !match.external_match_id?.trim(),
-  ).length;
-
+function buildMissingHighlights(
+  missing: ProductionInsightsSummary["missing"],
+) {
   return [
     {
       label: "Sin sede definida",
-      value: missingVenue,
+      value: missing.venue,
       icon: MapPin,
       emphasis: "critical" as const,
     },
     {
       label: "Sin responsable",
-      value: missingResponsible,
+      value: missing.responsible,
       icon: UserRound,
       emphasis: "critical" as const,
     },
     {
       label: "Sin código producción",
-      value: missingProductionCode,
+      value: missing.productionCode,
       icon: Hash,
       emphasis: "warning" as const,
     },
     {
       label: "Sin ID externo",
-      value: missingExternalId,
+      value: missing.externalId,
       icon: CalendarClock,
       emphasis: "warning" as const,
     },
@@ -251,7 +166,7 @@ function formatOperationalHourLabel(time: string) {
   return `${hours} HS`;
 }
 
-function buildDisplayedTopPeople(topPeople: ReturnType<typeof buildTopPeople>) {
+function buildDisplayedTopPeople(topPeople: InsightsTopPerson[]) {
   const normalized = [...topPeople];
   const existingIds = new Set(normalized.map((person) => person.id));
 
@@ -280,37 +195,19 @@ function buildDisplayedTopPeople(topPeople: ReturnType<typeof buildTopPeople>) {
 }
 
 export function ProductionInsightsPanel({
-  matches,
-  timezone,
+  summary,
   currentDateLabel,
   previousDateHref,
   nextDateHref,
 }: ProductionInsightsPanelProps) {
-  const competitions = [
-    ...new Set(
-      matches
-        .map((match) => match.competition?.trim())
-        .filter((value): value is string => Boolean(value)),
-    ),
-  ];
-  const startWindow = matches[0]
-    ? formatMatchTime(matches[0].kickoff_at, matches[0].timezone || timezone)
-    : "--:--";
-  const endWindow = matches.at(-1)
-    ? formatMatchTime(
-        matches[matches.length - 1].kickoff_at,
-        matches[matches.length - 1].timezone || timezone,
-      )
-    : "--:--";
-  const topPeople = buildTopPeople(matches);
   const [showAllPeople, setShowAllPeople] = useState(false);
-  const assignedPeopleCount = countAssignedPeople(matches);
-  const displayedTopPeople = buildDisplayedTopPeople(topPeople);
+  const assignedPeopleCount = summary.assignedPeopleCount;
+  const displayedTopPeople = buildDisplayedTopPeople(summary.topPeople);
   const visibleTopPeople = displayedTopPeople.slice(0, showAllPeople ? 10 : 5);
   const canExpandPeople = displayedTopPeople.length > 5;
-  const missingHighlights = buildMissingHighlights(matches);
-  const startWindowLabel = formatOperationalHourLabel(startWindow);
-  const endWindowLabel = formatOperationalHourLabel(endWindow);
+  const missingHighlights = buildMissingHighlights(summary.missing);
+  const startWindowLabel = formatOperationalHourLabel(summary.startWindow);
+  const endWindowLabel = formatOperationalHourLabel(summary.endWindow);
   return (
     <Card className="p-6">
       <section className="space-y-5">
@@ -348,7 +245,7 @@ export function ProductionInsightsPanel({
                 Partidos de hoy
               </p>
               <p className="text-[2.6rem] font-black leading-none text-[var(--foreground)]">
-                {matches.length}
+                {summary.totalMatches}
               </p>
             </div>
           </div>
@@ -358,7 +255,7 @@ export function ProductionInsightsPanel({
                 Ligas activas
               </p>
               <p className="text-[2.6rem] font-black leading-none text-[var(--foreground)]">
-                {competitions.length}
+                {summary.activeLeagues}
               </p>
             </div>
           </div>
@@ -495,7 +392,7 @@ export function ProductionInsightsPanel({
               Códigos completos
             </p>
             <p className="mt-2 text-lg font-black text-[var(--foreground)]">
-              {matches.filter((match) => match.production_code?.trim()).length}
+              {summary.ready.productionCode}
             </p>
           </div>
           <div className="rounded-[16px] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3">
@@ -503,7 +400,7 @@ export function ProductionInsightsPanel({
               IDs externos listos
             </p>
             <p className="mt-2 text-lg font-black text-[var(--foreground)]">
-              {matches.filter((match) => match.external_match_id?.trim()).length}
+              {summary.ready.externalId}
             </p>
           </div>
           <div className="rounded-[16px] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3">
@@ -511,7 +408,7 @@ export function ProductionInsightsPanel({
               Sedes confirmadas
             </p>
             <p className="mt-2 text-lg font-black text-[var(--foreground)]">
-              {matches.filter((match) => match.venue?.trim()).length}
+              {summary.ready.venue}
             </p>
           </div>
         </div>

@@ -22,6 +22,7 @@ import {
   toExportRows,
   type GridExportRow,
 } from "@/lib/grid-table";
+import { toMatchEditPrefill } from "@/lib/grid/match-prefill";
 import type { GridOwner, MatchListItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -827,7 +828,7 @@ export function GridTable({ rows, canEdit, redirectTo, people }: GridTableProps)
                           match.timezone,
                           "yyyy-MM-dd",
                         )}
-                        match={match}
+                        match={toMatchEditPrefill(match)}
                         triggerVariant="icon"
                         triggerLabel="Editar partido"
                         triggerIcon={<PencilLine className="size-4" />}

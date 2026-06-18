@@ -25,6 +25,7 @@ import {
 import { formatMatchTime } from "@/lib/date";
 import { getRoleDisplayName } from "@/lib/display";
 import { getGridLeagueColor } from "@/lib/league-grid-colors";
+import { toMatchEditPrefill } from "@/lib/grid/match-prefill";
 import { getTeamLeagueLabel } from "@/lib/team-directory";
 import type { MatchListItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -573,7 +574,7 @@ export function MatchCard({
             <MatchCardActions
               canEdit={canEdit}
               detailsId={detailsId}
-              match={match}
+              match={toMatchEditPrefill(match)}
               redirectTo={redirectTo}
             />
           </div>

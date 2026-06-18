@@ -6,13 +6,13 @@ import { ChevronDown, PencilLine } from "lucide-react";
 import { CreateMatchModal } from "@/components/grid/create-match-modal";
 import { usePeople } from "@/components/grid/people-context";
 import { formatMatchDate } from "@/lib/date";
-import type { MatchListItem } from "@/lib/types";
+import type { MatchEditPrefill } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type MatchCardActionsProps = {
   canEdit: boolean;
   detailsId: string;
-  match: MatchListItem;
+  match: MatchEditPrefill;
   redirectTo: string;
   className?: string;
 };

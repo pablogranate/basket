@@ -27,6 +27,8 @@ import {
   getMonthInputValue,
 } from "@/lib/date";
 import { getGridCalendarData, getGridData } from "@/lib/data/dashboard";
+import { buildProductionInsightsSummary } from "@/lib/grid/insights";
+import { toExportRows } from "@/lib/grid-table";
 import { getLastSuccessfulSync } from "@/lib/grid/sync";
 import { requireUserContext } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/lib/env";
@@ -277,13 +279,17 @@ export default async function GridPage({ searchParams }: PageProps) {
     })),
   );
   const visibleMatches = sortedDayGroups.flatMap((group) => group.items);
+  const insightsSummary = buildProductionInsightsSummary(
+    dayGroups.flatMap((group) => group.items),
+    filters.timezone,
+  );
+  const exportRows = toExportRows(visibleMatches);
 
   return (
     <GridPageShell
       aside={
         <ProductionInsightsPanel
-          matches={dayGroups.flatMap((group) => group.items)}
-          timezone={filters.timezone}
+          summary={insightsSummary}
           currentDateLabel={summaryDateLabel}
           previousDateHref={previousDateHref}
           nextDateHref={nextDateHref}
@@ -331,7 +337,7 @@ export default async function GridPage({ searchParams }: PageProps) {
               ) : null}
               {visibleMatches.length ? (
                 <GridExportButton
-                  matches={visibleMatches}
+                  rows={exportRows}
                   periodLabel={summaryDateLabel}
                 />
               ) : null}
