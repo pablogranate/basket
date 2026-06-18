@@ -92,7 +92,10 @@ export function GridCalendarPicker({
 }: {
   selectedDate?: string | null;
   initialMonth: string;
-  initialSummary: GridCalendarDaySummary[];
+  // Optional: when omitted the popover fetches its first month lazily on open
+  // (via handleToggle), so the grid page never blocks first paint on a
+  // month-wide calendar scan most users never trigger.
+  initialSummary?: GridCalendarDaySummary[];
   baseSearchParams: Record<string, string>;
 }) {
   const pathname = usePathname();
@@ -108,9 +111,9 @@ export function GridCalendarPicker({
   const [month, setMonth] = useState(initialMonth);
   const [loadingMonth, setLoadingMonth] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [cache, setCache] = useState<Record<string, GridCalendarDaySummary[]>>({
-    [initialMonth]: initialSummary,
-  });
+  const [cache, setCache] = useState<Record<string, GridCalendarDaySummary[]>>(
+    initialSummary ? { [initialMonth]: initialSummary } : {},
+  );
 
   useEffect(() => {
     if (!open) {

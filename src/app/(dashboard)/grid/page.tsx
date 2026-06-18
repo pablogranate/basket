@@ -1,21 +1,22 @@
-import { addDays, addMonths, formatDistanceToNow } from "date-fns";
-import { es } from "date-fns/locale";
+import { Suspense } from "react";
+import { addDays, addMonths } from "date-fns";
 import { ArrowUpDown } from "lucide-react";
 
-import { SectionAiAssistant } from "@/components/ai/section-ai-assistant";
-import { CreateMatchModal } from "@/components/grid/create-match-modal";
 import { GridCalendarPicker } from "@/components/grid/grid-calendar-picker";
 import { GridDisplayToggle } from "@/components/grid/grid-display-toggle";
-import { GridExportButton } from "@/components/grid/grid-export-button";
-import { GridSyncButton } from "@/components/grid/grid-sync-button";
 import { GridPageShell } from "@/components/grid/grid-page-shell";
-import { GridTable } from "@/components/grid/grid-table";
-import { MatchCard } from "@/components/grid/match-card";
-import { PeopleProvider } from "@/components/grid/people-context";
-import { ProductionInsightsPanel } from "@/components/grid/production-insights-panel";
+import {
+  GridContent,
+  GridContentSkeleton,
+  GridCountSkeleton,
+  GridHeaderActionsSkeleton,
+  GridHeaderDataActions,
+  GridInsightsAside,
+  GridInsightsSkeleton,
+  GridMatchCount,
+} from "@/components/grid/grid-regions";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 import { SetupPanel } from "@/components/layout/setup-panel";
-import { EmptyState } from "@/components/ui/empty-state";
 import { PageMessage } from "@/components/ui/page-message";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { ToolbarSearchField } from "@/components/ui/toolbar-search-field";
@@ -26,14 +27,9 @@ import {
   getDateInputValue,
   getMonthInputValue,
 } from "@/lib/date";
-import { getGridCalendarData, getGridData } from "@/lib/data/dashboard";
-import { buildProductionInsightsSummary } from "@/lib/grid/insights";
-import { toExportRows } from "@/lib/grid-table";
-import { getLastSuccessfulSync } from "@/lib/grid/sync";
 import { requireUserContext } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/lib/env";
 import { parseGridSearchParams, parseNotice } from "@/lib/search-params";
-import { getSettingsSnapshot } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 
 type PageProps = {
@@ -111,11 +107,6 @@ function buildGridHref(
   return query ? `/grid?${query}` : "/grid";
 }
 
-function formatDayHeading(kickoffAt: string, timezone: string) {
-  const label = formatMatchDate(kickoffAt, timezone, "EEEE d 'de' MMMM");
-  return label.charAt(0).toUpperCase() + label.slice(1);
-}
-
 function buildGridDateShift(params: {
   date: string;
   view: "day" | "month";
@@ -156,26 +147,6 @@ function formatSummaryDateLabel(params: {
   return label.replaceAll(".", "").toUpperCase();
 }
 
-function sortGridDayGroups(
-  dayGroups: Awaited<ReturnType<typeof getGridData>>["dayGroups"],
-  direction: "asc" | "desc",
-) {
-  const sortedGroups = [...dayGroups].sort((left, right) =>
-    direction === "asc"
-      ? left.key.localeCompare(right.key)
-      : right.key.localeCompare(left.key),
-  );
-
-  return sortedGroups.map((group) => ({
-    ...group,
-    items: [...group.items].sort((left, right) =>
-      direction === "asc"
-        ? left.kickoff_at.localeCompare(right.kickoff_at)
-        : right.kickoff_at.localeCompare(left.kickoff_at),
-    ),
-  }));
-}
-
 export default async function GridPage({ searchParams }: PageProps) {
   const resolvedSearchParams = await searchParams;
   const { intent, notice } = parseNotice(resolvedSearchParams);
@@ -190,28 +161,7 @@ export default async function GridPage({ searchParams }: PageProps) {
     resolvedSearchParams,
     filters,
   );
-  const [{ dayGroups, owners }, initialCalendarSummary, settings, lastSync] =
-    await Promise.all([
-      getGridData(user, filters),
-      getGridCalendarData(user, {
-        month: initialCalendarMonth,
-        q: filters.q,
-        league: filters.league,
-        mode: filters.mode,
-        status: filters.status,
-        owner: filters.owner,
-        timezone: filters.timezone,
-      }),
-      getSettingsSnapshot(),
-      user.canEdit ? getLastSuccessfulSync() : Promise.resolve(null),
-    ]);
   const redirectTo = serializeSearchParams(resolvedSearchParams);
-  const lastSyncedLabel = lastSync?.finished_at
-    ? formatDistanceToNow(new Date(lastSync.finished_at), {
-        addSuffix: true,
-        locale: es,
-      })
-    : undefined;
   const baseSearchParams = toStringSearchParams(resolvedSearchParams);
   const calendarPickerKey = [
     initialCalendarMonth,
@@ -253,47 +203,22 @@ export default async function GridPage({ searchParams }: PageProps) {
   const dateOrderToggleHref = buildGridHref(resolvedSearchParams, {
     dateOrder: filters.dateOrder === "asc" ? "desc" : "asc",
   });
-  const sortedDayGroups = sortGridDayGroups(dayGroups, filters.dateOrder);
   const hasExplicitDisplay =
     typeof resolvedSearchParams.display === "string" &&
     resolvedSearchParams.display.length > 0;
-  const tableRows = sortedDayGroups.flatMap((group) =>
-    group.items.map((match) => ({
-      dayLabel: formatDayHeading(match.kickoff_at, match.timezone),
-      match,
-    })),
-  );
-  const aiContext = dayGroups.flatMap((group) =>
-    group.items.map((match) => ({
-      partido: `${match.home_team} vs ${match.away_team}`,
-      liga: match.competition,
-      modo: match.production_mode,
-      estado: match.status,
-      responsable: match.owner?.full_name ?? "Sin responsable",
-      fecha: formatMatchDate(match.kickoff_at, match.timezone, "dd/MM/yyyy"),
-      hora: formatMatchDate(match.kickoff_at, match.timezone, "HH:mm"),
-      sede: match.venue ?? "",
-      asignaciones_confirmadas: match.assignments.filter(
-        (assignment) => assignment.person && assignment.confirmed,
-      ).length,
-    })),
-  );
-  const visibleMatches = sortedDayGroups.flatMap((group) => group.items);
-  const insightsSummary = buildProductionInsightsSummary(
-    dayGroups.flatMap((group) => group.items),
-    filters.timezone,
-  );
-  const exportRows = toExportRows(visibleMatches);
 
   return (
     <GridPageShell
       aside={
-        <ProductionInsightsPanel
-          summary={insightsSummary}
-          currentDateLabel={summaryDateLabel}
-          previousDateHref={previousDateHref}
-          nextDateHref={nextDateHref}
-        />
+        <Suspense fallback={<GridInsightsSkeleton />}>
+          <GridInsightsAside
+            user={user}
+            filters={filters}
+            currentDateLabel={summaryDateLabel}
+            previousDateHref={previousDateHref}
+            nextDateHref={nextDateHref}
+          />
+        </Suspense>
       }
     >
       <div className="relative z-0 min-w-0 space-y-10">
@@ -329,42 +254,14 @@ export default async function GridPage({ searchParams }: PageProps) {
                   <input type="hidden" name="timezone" value={filters.timezone} />
                 ) : null}
               </ToolbarSearchField>
-              {user.canEdit ? (
-                <GridSyncButton
+              <Suspense fallback={<GridHeaderActionsSkeleton />}>
+                <GridHeaderDataActions
+                  user={user}
+                  filters={filters}
                   redirectTo={redirectTo}
-                  lastSyncedLabel={lastSyncedLabel}
+                  summaryDateLabel={summaryDateLabel}
                 />
-              ) : null}
-              {visibleMatches.length ? (
-                <GridExportButton
-                  rows={exportRows}
-                  periodLabel={summaryDateLabel}
-                />
-              ) : null}
-              <SectionAiAssistant
-                section="Producción"
-                title="Consulta la producción visible"
-                description="Pregunta por partidos, responsables, modos de producción o cargas visibles en esta jornada."
-                placeholder="Ej. ¿Qué partidos de Liga Nacional están hoy y quién es el responsable?"
-                contextLabel="Partidos visibles en Producción"
-                context={aiContext}
-                guidance="Prioriza partido, liga, modo, estado, responsable, fecha, hora, sede y cantidad de asignaciones confirmadas."
-                examples={[
-                  "¿Qué partidos hay hoy?",
-                  "¿Quién lleva Bochas Sport Club vs River Plate?",
-                  "¿Qué producciones están en modo Encoder?",
-                ]}
-                hasGeminiKey={settings.hasGeminiKey}
-                buttonVariant="icon"
-              />
-              <CreateMatchModal
-                people={owners}
-                redirectTo={redirectTo}
-                canEdit={user.canEdit}
-                initialDate={
-                  filters.view === "day" ? filters.date : getDateInputValue()
-                }
-              />
+              </Suspense>
             </>
           }
         />
@@ -389,9 +286,9 @@ export default async function GridPage({ searchParams }: PageProps) {
               >
                 <ArrowUpDown className="size-4" />
               </a>
-              <span className="text-sm font-medium text-[var(--muted)]">
-                {visibleMatches.length} partidos
-              </span>
+              <Suspense fallback={<GridCountSkeleton />}>
+                <GridMatchCount user={user} filters={filters} />
+              </Suspense>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-3">
               <GridDisplayToggle
@@ -409,55 +306,19 @@ export default async function GridPage({ searchParams }: PageProps) {
                 key={calendarPickerKey}
                 selectedDate={filters.view === "day" ? filters.date : null}
                 initialMonth={initialCalendarMonth}
-                initialSummary={initialCalendarSummary}
                 baseSearchParams={baseSearchParams}
               />
             </div>
           </div>
-          {!sortedDayGroups.length ? (
-            <EmptyState
-              title="No hay partidos cargados para esta vista"
-              description="Crea un partido desde Nuevo partido o cambia entre Hoy y Mes para revisar otra jornada."
-            />
-          ) : filters.display === "table" ? (
-            <GridTable
-              rows={tableRows}
-              canEdit={user.canEdit}
+          <Suspense fallback={<GridContentSkeleton />}>
+            <GridContent
+              user={user}
+              filters={filters}
               redirectTo={redirectTo}
-              people={owners}
             />
-          ) : (
-            <PeopleProvider people={owners}>
-              {sortedDayGroups.map((group) => (
-                <div key={group.key} className="space-y-4">
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <h3 className="text-2xl font-extrabold text-[var(--accent)]">
-                      {formatDayHeading(
-                        group.items[0].kickoff_at,
-                        group.items[0].timezone,
-                      )}
-                    </h3>
-                    <span className="text-sm font-medium text-[var(--muted)]">
-                      {group.items.length} partidos
-                    </span>
-                  </div>
-                  <div className="grid gap-4">
-                    {group.items.map((match) => (
-                      <MatchCard
-                        key={match.id}
-                        match={match}
-                        redirectTo={redirectTo}
-                        canEdit={user.canEdit}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </PeopleProvider>
-          )}
+          </Suspense>
         </section>
       </div>
-
     </GridPageShell>
   );
 }
