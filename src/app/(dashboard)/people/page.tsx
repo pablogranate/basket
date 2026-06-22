@@ -18,6 +18,7 @@ import { SectionAiAssistant } from "@/components/ai/section-ai-assistant";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 import { SetupPanel } from "@/components/layout/setup-panel";
 import { PeopleDirectoryView } from "@/components/people/people-directory-view";
+import { PeopleFilterBar } from "@/components/people/people-filter-bar";
 import { PeopleAdminWarningModal } from "@/components/people/people-admin-warning-modal";
 import { CreatePersonModal } from "@/components/people/create-person-modal";
 import { PersonFunctionsField } from "@/components/people/person-functions-field";
@@ -43,6 +44,11 @@ import { personHasPlatformAccess } from "@/lib/data/platform-access";
 import { getAssignmentStateDisplayName, getRoleDisplayName } from "@/lib/display";
 import { isSupabaseConfigured } from "@/lib/env";
 import type { PeopleAiContextItem } from "@/lib/people-ai";
+import {
+  applyPeopleFilters,
+  derivePeopleFilterOptions,
+  parsePeopleFilters,
+} from "@/lib/people-filters";
 import { parsePersonNotesMeta } from "@/lib/people-notes";
 import { parseNotice } from "@/lib/search-params";
 import { getSettingsSnapshot } from "@/lib/settings";
@@ -167,27 +173,9 @@ export default async function PeoplePage({ searchParams }: PageProps) {
 
   const user = await requireUserContext();
   const allPeople = await getPeopleData(user);
-  const people = allPeople.filter((person) => {
-    if (!query) {
-      return true;
-    }
-
-    const meta = parsePersonNotesMeta(person.notes);
-    const haystack = [
-      person.full_name,
-      meta.role || person.primary_role || "",
-      meta.city || "",
-      meta.coverage || "",
-      person.phone ?? "",
-      person.email ?? "",
-      getAssignmentStateDisplayName(person.assignment_state),
-      meta.notes ?? "",
-    ]
-      .join(" ")
-      .toLocaleLowerCase("es");
-
-    return haystack.includes(query.toLocaleLowerCase("es"));
-  });
+  const filters = parsePeopleFilters(resolvedSearchParams);
+  const filterOptions = derivePeopleFilterOptions(allPeople);
+  const people = applyPeopleFilters({ people: allPeople, filters, query });
   const settings = await getSettingsSnapshot();
   const activePeople = people.filter((person) => person.active);
   const activeCount = activePeople.length;
@@ -244,6 +232,18 @@ export default async function PeoplePage({ searchParams }: PageProps) {
             >
               {viewMode === "directory" ? (
                 <input type="hidden" name="view" value="directory" />
+              ) : null}
+              {filters.role ? (
+                <input type="hidden" name="role" value={filters.role} />
+              ) : null}
+              {filters.state ? (
+                <input type="hidden" name="state" value={filters.state} />
+              ) : null}
+              {filters.city ? (
+                <input type="hidden" name="city" value={filters.city} />
+              ) : null}
+              {filters.team ? (
+                <input type="hidden" name="team" value={filters.team} />
               ) : null}
             </ToolbarSearchField>
             {people.length ? (
@@ -323,6 +323,15 @@ export default async function PeoplePage({ searchParams }: PageProps) {
         />
       </div>
 
+      {allPeople.length ? (
+        <PeopleFilterBar
+          filters={filters}
+          options={filterOptions}
+          query={query}
+          view={viewMode}
+        />
+      ) : null}
+
       <SectionTableCard
         title={
           viewMode === "directory"
@@ -392,6 +401,7 @@ export default async function PeoplePage({ searchParams }: PageProps) {
             <PeopleDirectoryView
               people={people}
               query={query}
+              filters={filters}
               selectedPersonId={selectedPerson?.id ?? null}
               canEdit={user.canEdit}
             />

@@ -11,17 +11,32 @@ import {
   MapPin,
   MessageCircle,
 } from "@/components/people/people-view-helpers";
+import type { PeopleFilters } from "@/lib/people-filters";
 import { parsePersonNotesMeta } from "@/lib/people-notes";
 import type { PersonListItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-function buildDirectoryHref(input: { query?: string; edit?: string }) {
+const FILTER_KEYS = ["role", "state", "city", "team"] as const;
+
+function buildDirectoryHref(input: {
+  query?: string;
+  edit?: string;
+  filters?: PeopleFilters;
+}) {
   const search = new URLSearchParams();
 
   search.set("view", "directory");
 
   if (input.query) {
     search.set("q", input.query);
+  }
+
+  if (input.filters) {
+    for (const key of FILTER_KEYS) {
+      if (input.filters[key]) {
+        search.set(key, input.filters[key]);
+      }
+    }
   }
 
   if (input.edit) {
@@ -67,11 +82,13 @@ function getStatePresentation(person: PersonListItem) {
 export function PeopleDirectoryView({
   people,
   query,
+  filters,
   selectedPersonId,
   canEdit,
 }: {
   people: PersonListItem[];
   query: string;
+  filters: PeopleFilters;
   selectedPersonId?: string | null;
   canEdit: boolean;
 }) {
@@ -86,6 +103,7 @@ export function PeopleDirectoryView({
         const isSelected = selectedPersonId === person.id;
         const profileHref = buildDirectoryHref({
           query,
+          filters,
           edit: person.id,
         });
         const state = getStatePresentation(person);
@@ -94,6 +112,7 @@ export function PeopleDirectoryView({
         const actionLabel = whatsappHref ? "Enviar mensaje" : "Ver perfil";
         const currentDirectoryHref = buildDirectoryHref({
           query,
+          filters,
           edit: isSelected ? person.id : undefined,
         });
 

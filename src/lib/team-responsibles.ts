@@ -13,7 +13,7 @@ type TeamResponsibleLookup = {
   byName: Map<string, TeamResponsibleContact>;
 };
 
-function splitCoverageTeams(value: string) {
+export function splitCoverageTeams(value: string) {
   return value
     .split(/[,\n;|]+/g)
     .map((item) => item.trim())
