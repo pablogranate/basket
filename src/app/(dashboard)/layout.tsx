@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { CollaboratorShell } from "@/components/layout/collaborator-shell";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import {
+  buildApexUrl,
+  isAdminDashboardRole,
   isCollaboratorLimitedRole,
   isDashboardPathAllowedForRole,
 } from "@/lib/constants";
@@ -53,8 +55,16 @@ export default async function DashboardLayout({
     );
   }
 
+  const landingUrl = isAdminDashboardRole(user?.role)
+    ? buildApexUrl(requestHeaders.get("host") ?? "")
+    : null;
+
   return (
-    <DashboardShell user={user} announcement={announcement}>
+    <DashboardShell
+      user={user}
+      announcement={announcement}
+      landingUrl={landingUrl}
+    >
       {children}
     </DashboardShell>
   );

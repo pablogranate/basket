@@ -17,8 +17,9 @@ export function DashboardShell(props: {
   children: React.ReactNode;
   user: UserContext | null;
   announcement: AnnouncementSummary | null;
+  landingUrl?: string | null;
 }) {
-  const { children, user } = props;
+  const { children, user, landingUrl } = props;
   const displayName =
     user?.profile?.full_name?.trim() ||
     user?.email?.split("@")[0] ||
@@ -61,6 +62,22 @@ export function DashboardShell(props: {
               </div>
 
               <div className="ml-auto flex items-center gap-4 sm:gap-5">
+                {landingUrl ? (
+                  <a
+                    href={landingUrl}
+                    aria-label="Directorio"
+                    className="inline-flex items-center justify-center gap-2 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--background-soft)]"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src="/root-directory.png"
+                      alt=""
+                      aria-hidden
+                      className="size-5"
+                    />
+                    <span className="hidden sm:inline">Directorio</span>
+                  </a>
+                ) : null}
                 <UserProfileChip
                   userId={user?.userId ?? null}
                   fullName={displayName}

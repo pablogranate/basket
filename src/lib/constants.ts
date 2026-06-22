@@ -224,6 +224,23 @@ export function buildSiblingAppUrl(host: string, subdomain: string) {
   return `${protocol}://${subdomain}.${hostname}${suffix}`;
 }
 
+// Resolve the apex landing URL from the current request host. Returns null for
+// unrecognized hosts (raw IP, preview domains) so callers never render a broken
+// link. Mirrors buildSiblingAppUrl's local-vs-prod protocol/port handling.
+export function buildApexUrl(host: string): string | null {
+  const [hostname, port] = host.split(":");
+  const apex = BASKET_APP_DOMAINS.find(
+    (domain) => hostname === domain || hostname.endsWith(`.${domain}`),
+  );
+  if (!apex) {
+    return null;
+  }
+  const isLocal = apex.endsWith(".localhost") || apex === "localhost";
+  const protocol = isLocal ? "http" : "https";
+  const suffix = isLocal && port ? `:${port}` : "";
+  return `${protocol}://${apex}${suffix}`;
+}
+
 export type ApexDestination =
   | { kind: "render-landing" }
   | { kind: "redirect"; path: string };
