@@ -36,6 +36,7 @@ type GridTableProps = {
   canEdit: boolean;
   redirectTo: string;
   people: GridOwner[];
+  todayKey?: string;
 };
 
 const HIDDEN_COLUMNS_STORAGE_KEY =
@@ -360,7 +361,13 @@ function GridColumnsPicker({
   );
 }
 
-export function GridTable({ rows, canEdit, redirectTo, people }: GridTableProps) {
+export function GridTable({
+  rows,
+  canEdit,
+  redirectTo,
+  people,
+  todayKey,
+}: GridTableProps) {
   const [hiddenColumns, setHiddenColumns] = useState<string[]>(() =>
     readStoredList(HIDDEN_COLUMNS_STORAGE_KEY, normalizeHiddenColumns),
   );
@@ -382,6 +389,8 @@ export function GridTable({ rows, canEdit, redirectTo, people }: GridTableProps)
   const columnOrderRef = useRef(columnOrder);
   const columnWidthsRef = useRef(columnWidths);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const todayRowRef = useRef<HTMLTableRowElement | null>(null);
+  const didScrollToTodayRef = useRef(false);
   const dragStateRef = useRef<{
     pointerId: number;
     startX: number;
@@ -397,6 +406,36 @@ export function GridTable({ rows, canEdit, redirectTo, people }: GridTableProps)
   useEffect(() => {
     columnOrderRef.current = columnOrder;
   }, [columnOrder]);
+
+  // Open the month table parked on today's row: load everything (so both
+  // up- and down-scroll work) but land the user on the current day.
+  const todayRowIndex = todayKey
+    ? rows.findIndex(
+        ({ match }) =>
+          formatMatchDate(match.kickoff_at, match.timezone, "yyyy-MM-dd") ===
+          todayKey,
+      )
+    : -1;
+
+  useEffect(() => {
+    if (didScrollToTodayRef.current || todayRowIndex < 0) {
+      return;
+    }
+
+    const container = scrollRef.current;
+    const row = todayRowRef.current;
+
+    if (!container || !row) {
+      return;
+    }
+
+    const headerOffset =
+      container.querySelector("thead")?.getBoundingClientRect().height ?? 0;
+    const containerTop = container.getBoundingClientRect().top;
+    const rowTop = row.getBoundingClientRect().top;
+    container.scrollTop += rowTop - containerTop - headerOffset;
+    didScrollToTodayRef.current = true;
+  }, [todayRowIndex]);
 
   function toggleColumn(key: string) {
     setHiddenColumns((current) => {
@@ -693,12 +732,13 @@ export function GridTable({ rows, canEdit, redirectTo, people }: GridTableProps)
             </tr>
           </thead>
           <tbody className="divide-y divide-[#edf1f6]">
-            {rows.map(({ dayLabel, match }) => {
+            {rows.map(({ dayLabel, match }, rowIndex) => {
               const exportRow = toExportRows([match])[0];
 
               return (
                 <tr
                   key={match.id}
+                  ref={rowIndex === todayRowIndex ? todayRowRef : undefined}
                   className="group divide-x divide-[#edf1f6] transition hover:bg-[#fafbfd]"
                 >
                   {visibleColumnKeys.map((key) => {

@@ -7,11 +7,12 @@ import { CreateMatchModal } from "@/components/grid/create-match-modal";
 import { GridExportButton } from "@/components/grid/grid-export-button";
 import { GridSyncButton } from "@/components/grid/grid-sync-button";
 import { GridTable } from "@/components/grid/grid-table";
+import { GridPastDaysToggle } from "@/components/grid/grid-past-days-toggle";
 import { MatchCard } from "@/components/grid/match-card";
 import { PeopleProvider } from "@/components/grid/people-context";
 import { ProductionInsightsPanel } from "@/components/grid/production-insights-panel";
 import { EmptyState } from "@/components/ui/empty-state";
-import { formatMatchDate, getDateInputValue } from "@/lib/date";
+import { formatMatchDate, getDateInputValue, toDateKey } from "@/lib/date";
 import { getGridData } from "@/lib/data/dashboard";
 import type { GridFilters } from "@/lib/data/dashboard";
 import { buildProductionInsightsSummary } from "@/lib/grid/insights";
@@ -57,6 +58,41 @@ function sortGridDayGroups(
         : right.kickoff_at.localeCompare(left.kickoff_at),
     ),
   }));
+}
+
+type GridDayGroup = ReturnType<typeof sortGridDayGroups>[number];
+
+function GridDayGroupCards({
+  group,
+  redirectTo,
+  canEdit,
+}: {
+  group: GridDayGroup;
+  redirectTo: string;
+  canEdit: boolean;
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h3 className="text-2xl font-extrabold text-[var(--accent)]">
+          {formatDayHeading(group.items[0].kickoff_at, group.items[0].timezone)}
+        </h3>
+        <span className="text-sm font-medium text-[var(--muted)]">
+          {group.items.length} partidos
+        </span>
+      </div>
+      <div className="grid gap-4">
+        {group.items.map((match) => (
+          <MatchCard
+            key={match.id}
+            match={match}
+            redirectTo={redirectTo}
+            canEdit={canEdit}
+          />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export async function GridInsightsAside({
@@ -218,37 +254,76 @@ export async function GridContent({
         canEdit={user.canEdit}
         redirectTo={redirectTo}
         people={owners}
+        todayKey={toDateKey(new Date().toISOString(), filters.timezone)}
       />
     );
   }
 
+  // Cards are expensive to paint. In the month view, render today onward
+  // eagerly and tuck the earlier days behind a toggle so the browser only
+  // builds the past-day cards if the user explicitly asks for them.
+  const todayKey = toDateKey(new Date().toISOString(), filters.timezone);
+  const pastGroups = sortedDayGroups.filter((group) => group.key < todayKey);
+  const upcomingGroups = sortedDayGroups.filter(
+    (group) => group.key >= todayKey,
+  );
+  const shouldSplitPastDays =
+    filters.view === "month" && pastGroups.length > 0 && upcomingGroups.length > 0;
+
+  if (!shouldSplitPastDays) {
+    return (
+      <PeopleProvider people={owners}>
+        <div className="space-y-10">
+          {sortedDayGroups.map((group) => (
+            <GridDayGroupCards
+              key={group.key}
+              group={group}
+              redirectTo={redirectTo}
+              canEdit={user.canEdit}
+            />
+          ))}
+        </div>
+      </PeopleProvider>
+    );
+  }
+
+  const pastToggle = (
+    <GridPastDaysToggle count={pastGroups.length}>
+      {pastGroups.map((group) => (
+        <GridDayGroupCards
+          key={group.key}
+          group={group}
+          redirectTo={redirectTo}
+          canEdit={user.canEdit}
+        />
+      ))}
+    </GridPastDaysToggle>
+  );
+
+  const upcomingCards = upcomingGroups.map((group) => (
+    <GridDayGroupCards
+      key={group.key}
+      group={group}
+      redirectTo={redirectTo}
+      canEdit={user.canEdit}
+    />
+  ));
+
   return (
     <PeopleProvider people={owners}>
-      {sortedDayGroups.map((group) => (
-        <div key={group.key} className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <h3 className="text-2xl font-extrabold text-[var(--accent)]">
-              {formatDayHeading(
-                group.items[0].kickoff_at,
-                group.items[0].timezone,
-              )}
-            </h3>
-            <span className="text-sm font-medium text-[var(--muted)]">
-              {group.items.length} partidos
-            </span>
-          </div>
-          <div className="grid gap-4">
-            {group.items.map((match) => (
-              <MatchCard
-                key={match.id}
-                match={match}
-                redirectTo={redirectTo}
-                canEdit={user.canEdit}
-              />
-            ))}
-          </div>
-        </div>
-      ))}
+      <div className="space-y-10">
+        {filters.dateOrder === "asc" ? (
+          <>
+            {pastToggle}
+            {upcomingCards}
+          </>
+        ) : (
+          <>
+            {upcomingCards}
+            {pastToggle}
+          </>
+        )}
+      </div>
     </PeopleProvider>
   );
 }
