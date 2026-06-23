@@ -64,7 +64,7 @@ export default async function FixturesPage({
 
   return (
     <div className="p-6 space-y-6">
-      <SectionPageHeader title="Fixtures" subtitle="Partidos por categoría" />
+      <SectionPageHeader title="Fixtures" description="Partidos por categoría" />
 
       {/* Filtro de categoría */}
       <div className="flex gap-2 flex-wrap">
