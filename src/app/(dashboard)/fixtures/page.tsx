@@ -1,6 +1,28 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 
+type Fixture = {
+  id: string;
+  competition: string | null;
+  category: string | null;
+  phase: string | null;
+  group: string | null;
+  home_club: string | null;
+  home_team: string | null;
+  away_club: string | null;
+  away_team: string | null;
+  suspended: boolean;
+  home_points: number | null;
+  away_points: number | null;
+  match_date: string | null;
+  match_time: string | null;
+  venue: string | null;
+  court: string | null;
+  city: string | null;
+  province: string | null;
+  synced_at: string;
+};
+
 export default async function FixturesPage({
   searchParams,
 }: {
@@ -15,7 +37,8 @@ export default async function FixturesPage({
     .select("*")
     .ilike("category", `%${category}%`)
     .order("match_date", { ascending: true })
-    .order("match_time", { ascending: true });
+    .order("match_time", { ascending: true })
+    .returns<Fixture[]>();
 
   const categories = await supabase
     .from("fixtures")
@@ -27,7 +50,7 @@ export default async function FixturesPage({
     ...new Set((categories.data || []).map((r) => r.category).filter(Boolean)),
   ];
 
-  const grouped = (fixtures || []).reduce<Record<string, typeof fixtures>>((acc, f) => {
+  const grouped = (fixtures || []).reduce<Record<string, Fixture[]>>((acc, f) => {
     const key = f.match_date || "Sin fecha";
     if (!acc[key]) acc[key] = [];
     acc[key]!.push(f);
