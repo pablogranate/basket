@@ -8,6 +8,7 @@ import {
   CalendarDays,
   CircleHelp,
   ClipboardList,
+  ListOrdered,
   Settings2,
   Shield,
   Users,
@@ -19,6 +20,7 @@ import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/grid", label: "Producción", icon: CalendarDays },
+  { href: "/fixtures", label: "Fixtures", icon: ListOrdered },
   { href: "/mi-jornada", label: "Mi jornada", icon: ClipboardList },
   { href: "/reports", label: "Operaciones", icon: BriefcaseBusiness },
   { href: "/teams", label: "Equipos", icon: Shield },
