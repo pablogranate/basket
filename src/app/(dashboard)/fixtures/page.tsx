@@ -36,10 +36,10 @@ export default async function FixturesPage({
     .from("fixtures")
     .select("*")
     .order("match_date", { ascending: true })
-    .order("match_time", { ascending: true })
-    .returns<Fixture[]>();
+    .order("match_time", { ascending: true });
 
-  const { data: fixtures } = await (category ? query.ilike("category", `%${category}%`) : query);
+  const { data: fixtures } = await (category ? query.ilike("category", `%${category}%`) : query)
+    .returns<Fixture[]>();
 
   const categories = await supabase
     .from("fixtures")
