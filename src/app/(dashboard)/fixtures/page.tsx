@@ -20,7 +20,8 @@ export default async function FixturesPage({
   const categories = await supabase
     .from("fixtures")
     .select("category")
-    .order("category");
+    .order("category")
+    .returns<{ category: string | null }[]>();
 
   const uniqueCategories = [
     ...new Set((categories.data || []).map((r) => r.category).filter(Boolean)),
