@@ -29,16 +29,17 @@ export default async function FixturesPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const category = (params.category as string) || "U21 MASCULINO";
+  const category = (params.category as string) || "";
 
   const supabase = await createSupabaseServerClient();
-  const { data: fixtures } = await supabase
+  const query = supabase
     .from("fixtures")
     .select("*")
-    .ilike("category", `%${category}%`)
     .order("match_date", { ascending: true })
     .order("match_time", { ascending: true })
     .returns<Fixture[]>();
+
+  const { data: fixtures } = await (category ? query.ilike("category", `%${category}%`) : query);
 
   const categories = await supabase
     .from("fixtures")
@@ -68,6 +69,14 @@ export default async function FixturesPage({
 
       {/* Filtro de categoría */}
       <div className="flex gap-2 flex-wrap">
+        <a
+          href="/fixtures"
+          className={`px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
+            !category ? "bg-blue-600 text-white border-blue-600" : "border-gray-300 text-gray-600 hover:bg-gray-50"
+          }`}
+        >
+          Todas
+        </a>
         {uniqueCategories.map((cat) => (
           <a
             key={cat}
