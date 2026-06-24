@@ -14,6 +14,7 @@ import {
   normalizeProductionMode,
 } from "@/lib/constants";
 import { buildKickoffAt, formatMatchDate } from "@/lib/date";
+import { type PersonFunctionKey, roleNameToFunctionKey } from "@/lib/functions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireEditor, requireUserContext } from "@/lib/auth";
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
@@ -130,6 +131,58 @@ function buildStaffAssignments(params: {
       notes: null,
     };
   });
+}
+
+// Server-side mirror of the strict UI filter: a person may only be assigned to
+// a role whose function they hold (person_functions). Rejects anomalous writes
+// (stale form, replay) so the "assigned ⟹ qualified" invariant holds in the DB.
+function unqualifiedAssignmentNotice(roleName: string, functionKey: PersonFunctionKey) {
+  return `No se puede asignar: la persona seleccionada no tiene la función «${functionKey}» para «${roleName}».`;
+}
+
+async function findUnqualifiedAssignment(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  rows: Array<{ personId: string | null; roleName: string }>,
+): Promise<{ roleName: string; functionKey: PersonFunctionKey } | null> {
+  const checks = rows.flatMap((row) => {
+    if (!row.personId) {
+      return [];
+    }
+
+    const functionKey = roleNameToFunctionKey(row.roleName);
+
+    // Roles with no mapped function (custom roles) carry no capability gate.
+    return functionKey
+      ? [{ personId: row.personId, roleName: row.roleName, functionKey }]
+      : [];
+  });
+
+  if (!checks.length) {
+    return null;
+  }
+
+  const personIds = [...new Set(checks.map((check) => check.personId))];
+  const { data, error } = await supabase
+    .from("person_functions")
+    .select("person_id, function_key")
+    .in("person_id", personIds);
+
+  if (error) {
+    throw error;
+  }
+
+  const held = new Set((data ?? []).map((row) => `${row.person_id}:${row.function_key}`));
+
+  return (
+    checks.find((check) => !held.has(`${check.personId}:${check.functionKey}`)) ?? null
+  );
+}
+
+function collectStaffAssignmentChecks(formData: FormData) {
+  return STAFF_ROLE_FIELD_MAP.map(({ fields, roleName }) => ({
+    personId: maybeNull(pickFirstString(fields.map((field) => formData.get(field)))),
+    roleName,
+  }));
 }
 
 // Postgres unique_violation; surfaced by supabase-js on the error `code`.
@@ -252,6 +305,19 @@ export async function createMatchAction(formData: FormData) {
       });
     }
 
+    const unqualified = await findUnqualifiedAssignment(
+      supabase,
+      collectStaffAssignmentChecks(formData),
+    );
+
+    if (unqualified) {
+      redirectWithNotice({
+        redirectTo,
+        intent: "error",
+        notice: unqualifiedAssignmentNotice(unqualified.roleName, unqualified.functionKey),
+      });
+    }
+
     const result = await insertMatchWithOptionalColumnFallback(supabase, stampInsert(ctx, {
       competition: maybeNull(String(formData.get("competition") ?? "")),
       external_match_id: externalMatchId,
@@ -371,6 +437,20 @@ export async function updateMatchAction(formData: FormData) {
 
   try {
     const supabase = await createSupabaseServerClient();
+
+    const unqualified = await findUnqualifiedAssignment(
+      supabase,
+      collectStaffAssignmentChecks(formData),
+    );
+
+    if (unqualified) {
+      redirectWithNotice({
+        redirectTo,
+        intent: "error",
+        notice: unqualifiedAssignmentNotice(unqualified.roleName, unqualified.functionKey),
+      });
+    }
+
     const kickoffAt = buildKickoffAt({
       date: String(formData.get("date") ?? ""),
       time: String(formData.get("time") ?? ""),
@@ -734,6 +814,33 @@ export async function upsertAssignmentAction(formData: FormData) {
     const assignmentMatchId = String(formData.get("matchId") ?? "");
     const assignmentRoleId = String(formData.get("roleId") ?? "");
     const incomingPersonId = maybeNull(String(formData.get("personId") ?? ""));
+
+    if (incomingPersonId) {
+      const roleResult = await supabase
+        .from("roles")
+        .select("name")
+        .eq("id", assignmentRoleId)
+        .maybeSingle();
+
+      if (roleResult.error) {
+        throw roleResult.error;
+      }
+
+      const roleName = roleResult.data?.name;
+      const unqualified = roleName
+        ? await findUnqualifiedAssignment(supabase, [
+            { personId: incomingPersonId, roleName },
+          ])
+        : null;
+
+      if (unqualified) {
+        redirectWithNotice({
+          redirectTo,
+          intent: "error",
+          notice: unqualifiedAssignmentNotice(unqualified.roleName, unqualified.functionKey),
+        });
+      }
+    }
 
     const priorResult = await supabase
       .from("assignments")

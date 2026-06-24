@@ -44,6 +44,7 @@ import { formatMatchDate, formatMatchTime } from "@/lib/date";
 import { getRoleDisplayName } from "@/lib/display";
 import { getTeamCompetitionByName, getTeamVenueByName } from "@/lib/team-directory";
 import type { PersonRow } from "@/lib/database.types";
+import { type PersonFunctionKey, peopleAssignableTo } from "@/lib/functions";
 import type { MatchEditPrefill } from "@/lib/types";
 import { buildWhatsAppUrl, cn } from "@/lib/utils";
 
@@ -69,8 +70,12 @@ const CORE_FIELD_LABELS: Record<(typeof CORE_REQUIRED_FIELDS)[number], string> =
   venue: "Sede",
 };
 
+type MatchModalPerson = Pick<PersonRow, "id" | "full_name" | "phone" | "email"> & {
+  functions: PersonFunctionKey[];
+};
+
 type CreateMatchModalProps = {
-  people: Pick<PersonRow, "id" | "full_name" | "phone" | "email">[];
+  people: MatchModalPerson[];
   redirectTo: string;
   canEdit: boolean;
   initialDate: string;
@@ -154,6 +159,25 @@ const ADVANCED_FIELDS = [
   "comentario1Id",
   "comentario2Id",
 ] as const;
+
+// Maps each staff form field to the capability a person must hold to be
+// offered for it. Drives the strict dropdown filter; mirrors the server guard
+// in src/app/actions/matches.ts.
+const FIELD_FUNCTION_KEYS: Partial<Record<keyof MatchIntakeFields, PersonFunctionKey>> = {
+  responsableId: "Responsable",
+  realizadorId: "Realizador",
+  graficaId: "Operador de Grafica",
+  controlId: "Operador de Control",
+  soporteId: "Soporte tecnico",
+  relatorId: "Relator",
+  camara1Id: "Camara",
+  camara2Id: "Camara",
+  camara3Id: "Camara",
+  camara4Id: "Camara",
+  camara5Id: "Camara",
+  comentario1Id: "Comentario",
+  comentario2Id: "Comentario",
+};
 
 const NOTIFICATION_ROLE_FIELDS = [
   { field: "responsableId", label: RESPONSIBLE_DISPLAY_LABEL },
@@ -438,9 +462,12 @@ function PersonSelectField({
   label: string;
   name: string;
   value: string;
-  people: Pick<PersonRow, "id" | "full_name">[];
+  people: MatchModalPerson[];
   onChange: (name: keyof MatchIntakeFields, value: string) => void;
 }) {
+  const functionKey = FIELD_FUNCTION_KEYS[name as keyof MatchIntakeFields] ?? null;
+  const assignablePeople = peopleAssignableTo(people, functionKey);
+
   return (
     <LabeledField label={label}>
       <Select
@@ -451,7 +478,7 @@ function PersonSelectField({
         }
       >
         <option value="">Sin asignar</option>
-        {people.map((person) => (
+        {assignablePeople.map((person) => (
           <option key={person.id} value={person.id}>
             {person.full_name}
           </option>

@@ -69,6 +69,20 @@ const FUNCTION_ALIASES: Record<string, PersonFunctionKey> = {
   ingenieria: "Ingenieria",
 };
 
+// Strict filter: only people whose declared capabilities include the role's
+// function. A null key (role with no mapped function) leaves the list untouched.
+// Used by every assignment dropdown so the rule has a single definition.
+export function peopleAssignableTo<T extends { functions: PersonFunctionKey[] }>(
+  people: T[],
+  functionKey: PersonFunctionKey | null,
+): T[] {
+  if (!functionKey) {
+    return people;
+  }
+
+  return people.filter((person) => person.functions.includes(functionKey));
+}
+
 export function resolveFunctionKey(raw: string | null | undefined): PersonFunctionKey | null {
   const normalized = normalizeText(raw).replace(/\s*\d+$/, "").trim();
 

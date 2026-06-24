@@ -322,8 +322,14 @@ export async function getMatchDetailData(ctx: UserContext, matchId: string) {
   void ctx;
   const supabase = await createSupabaseServerClient();
 
-  const [matchResult, assignmentsResult, peopleResult, rolesResult, historyResult] =
-    await Promise.all([
+  const [
+    matchResult,
+    assignmentsResult,
+    peopleResult,
+    rolesResult,
+    historyResult,
+    functionsResult,
+  ] = await Promise.all([
       supabase
         .from("matches")
         .select(
@@ -356,6 +362,7 @@ export async function getMatchDetailData(ctx: UserContext, matchId: string) {
         .eq("match_id", matchId)
         .order("created_at", { ascending: false })
         .limit(30),
+      supabase.from("person_functions").select("person_id, function_key"),
     ]);
 
   if (matchResult.error) {
@@ -370,12 +377,28 @@ export async function getMatchDetailData(ctx: UserContext, matchId: string) {
     throw peopleResult.error;
   }
 
+  if (functionsResult.error) {
+    throw functionsResult.error;
+  }
+
   if (rolesResult.error) {
     throw rolesResult.error;
   }
 
   if (historyResult.error) {
     throw historyResult.error;
+  }
+
+  const functionsByPerson = new Map<string, PersonFunctionKey[]>();
+
+  for (const row of functionsResult.data ?? []) {
+    if (!isPersonFunctionKey(row.function_key)) {
+      continue;
+    }
+
+    const bucket = functionsByPerson.get(row.person_id) ?? [];
+    bucket.push(row.function_key);
+    functionsByPerson.set(row.person_id, bucket);
   }
 
   const roles = (rolesResult.data ?? []) as Pick<
@@ -423,10 +446,15 @@ export async function getMatchDetailData(ctx: UserContext, matchId: string) {
 
   return {
     match,
-    people: (peopleResult.data ?? []) as Pick<
-      PersonRow,
-      "id" | "full_name" | "phone" | "email" | "active"
-    >[],
+    people: (
+      (peopleResult.data ?? []) as Pick<
+        PersonRow,
+        "id" | "full_name" | "phone" | "email" | "active"
+      >[]
+    ).map((person) => ({
+      ...person,
+      functions: functionsByPerson.get(person.id) ?? [],
+    })),
     roles,
     history: (historyResult.data ?? []) as AuditEntry[],
     conflicts,

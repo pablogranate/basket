@@ -7,7 +7,7 @@ import {
   quickUpdateMatchFieldAction,
   upsertAssignmentAction,
 } from "@/app/actions/matches";
-import type { PersonFunctionKey } from "@/lib/functions";
+import { type PersonFunctionKey, peopleAssignableTo } from "@/lib/functions";
 import type { GridOwner } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -112,13 +112,7 @@ export function GridTableCellEditor({
   }
 
   if (editor.kind === "assignment") {
-    const functionKey = editor.functionKey;
-    const suggested = functionKey
-      ? people.filter((person) => person.functions.includes(functionKey))
-      : [];
-    const others = functionKey
-      ? people.filter((person) => !person.functions.includes(functionKey))
-      : people;
+    const assignablePeople = peopleAssignableTo(people, editor.functionKey);
 
     return (
       <form action={upsertAssignmentAction}>
@@ -155,30 +149,11 @@ export function GridTableCellEditor({
             className={editorFieldClassName}
           >
             <option value="">Sin asignar</option>
-            {suggested.length > 0 ? (
-              <optgroup label="Sugeridos">
-                {suggested.map((person) => (
-                  <option key={person.id} value={person.id}>
-                    {person.full_name}
-                  </option>
-                ))}
-              </optgroup>
-            ) : null}
-            {suggested.length > 0 ? (
-              <optgroup label="Otros">
-                {others.map((person) => (
-                  <option key={person.id} value={person.id}>
-                    {person.full_name}
-                  </option>
-                ))}
-              </optgroup>
-            ) : (
-              others.map((person) => (
-                <option key={person.id} value={person.id}>
-                  {person.full_name}
-                </option>
-              ))
-            )}
+            {assignablePeople.map((person) => (
+              <option key={person.id} value={person.id}>
+                {person.full_name}
+              </option>
+            ))}
           </select>
         </PendingFieldset>
       </form>

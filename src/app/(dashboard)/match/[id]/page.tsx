@@ -52,6 +52,11 @@ import { summarizeAttendance } from "@/lib/attendance";
 import { formatMatchDate, formatMatchTime } from "@/lib/date";
 import { getRoleDisplayName } from "@/lib/display";
 import type { PersonRow } from "@/lib/database.types";
+import {
+  type PersonFunctionKey,
+  peopleAssignableTo,
+  roleNameToFunctionKey,
+} from "@/lib/functions";
 import { isSupabaseConfigured } from "@/lib/env";
 import { normalizeToWhatsAppChatId } from "@/lib/integrations/openwa";
 import {
@@ -69,7 +74,9 @@ type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-type PersonOption = Pick<PersonRow, "id" | "full_name" | "phone" | "email" | "active">;
+type PersonOption = Pick<PersonRow, "id" | "full_name" | "phone" | "email" | "active"> & {
+  functions: PersonFunctionKey[];
+};
 
 type ConflictNotice = {
   personId: string;
@@ -131,6 +138,11 @@ function AssignmentControls({
   redirectTo: string;
   layout?: "inline" | "stack";
 }) {
+  const assignablePeople = peopleAssignableTo(
+    people,
+    roleNameToFunctionKey(assignment.role.name),
+  );
+
   return (
     <form
       action={upsertAssignmentAction}
@@ -155,7 +167,7 @@ function AssignmentControls({
           disabled={!canEdit}
         >
           <option value="">Sin asignar</option>
-          {people.map((person) => (
+          {assignablePeople.map((person) => (
             <option key={person.id} value={person.id}>
               {person.full_name}
             </option>
@@ -761,7 +773,7 @@ export default async function MatchDetailPage({
                   disabled={!user.canEdit}
                 >
                   <option value="">Sin responsable</option>
-                  {people.map((person) => (
+                  {peopleAssignableTo(people, "Responsable").map((person) => (
                     <option key={person.id} value={person.id}>
                       {person.full_name}
                     </option>
