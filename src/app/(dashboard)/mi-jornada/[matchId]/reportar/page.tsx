@@ -5,6 +5,7 @@ import { CollaboratorReportForm } from "@/components/collaborators/collaborator-
 import { SetupPanel } from "@/components/layout/setup-panel";
 import { Card } from "@/components/ui/card";
 import { requireUserContext } from "@/lib/auth";
+import { isDashboardPathAllowedForRole } from "@/lib/constants";
 import { getCollaboratorMatchData, isUuidLike } from "@/lib/data/collaborators";
 import { getRoleCategoryDisplayName, getRoleDisplayName } from "@/lib/display";
 import { isSupabaseConfigured } from "@/lib/env";
@@ -20,6 +21,7 @@ export default async function CollaboratorReportPage({ params }: PageProps) {
 
   const { matchId } = await params;
   const user = await requireUserContext();
+  const canViewGrid = isDashboardPathAllowedForRole("/grid", user.role);
   const data = await getCollaboratorMatchData(user, {
     email: user.email,
     profileName: user.profile?.full_name ?? null,
@@ -64,12 +66,14 @@ export default async function CollaboratorReportPage({ params }: PageProps) {
             >
               Ir a mi jornada
             </Link>
-            <Link
-              href="/grid"
-              className="inline-flex h-11 items-center justify-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--background-soft)]"
-            >
-              Abrir Producción
-            </Link>
+            {canViewGrid ? (
+              <Link
+                href="/grid"
+                className="inline-flex h-11 items-center justify-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--background-soft)]"
+              >
+                Abrir Producción
+              </Link>
+            ) : null}
           </div>
         </Card>
       </div>
@@ -97,14 +101,14 @@ export default async function CollaboratorReportPage({ params }: PageProps) {
             >
               Abrir partido
             </Link>
-          ) : (
+          ) : canViewGrid ? (
             <Link
               href="/grid"
               className="inline-flex h-11 items-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--background-soft)]"
             >
               Abrir Producción
             </Link>
-          )}
+          ) : null}
         </div>
         <Link
           href="/mi-jornada"

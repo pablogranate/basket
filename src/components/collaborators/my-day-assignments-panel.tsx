@@ -48,6 +48,8 @@ import { buildWhatsAppUrl, cn, normalizeText } from "@/lib/utils";
 type MyDayAssignmentsPanelProps = {
   hasLinkedPerson: boolean;
   showDemoToday: boolean;
+  // Externo (collaborator/viewer) users cannot reach /grid; hide the shortcut.
+  canViewGrid: boolean;
   // Today's date onward — the primary list.
   assignments: CollaboratorAssignmentItem[];
   // Earlier than today but within the current month — revealed on demand.
@@ -1584,6 +1586,7 @@ function MyDayPastToggle({
 export function MyDayAssignmentsPanel({
   hasLinkedPerson,
   showDemoToday,
+  canViewGrid,
   assignments,
   pastAssignments,
   topContent,
@@ -1691,13 +1694,15 @@ export function MyDayAssignmentsPanel({
               <span className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-[#95a3ba]">
                 {assignments.length} próximos
               </span>
-              <Link
-                href="/grid"
-                className="hidden items-center gap-2 text-sm font-black text-[var(--accent)] md:inline-flex"
-              >
-                Ver Producción
-                <ChevronDown className="size-4 -rotate-90" />
-              </Link>
+              {canViewGrid ? (
+                <Link
+                  href="/grid"
+                  className="hidden items-center gap-2 text-sm font-black text-[var(--accent)] md:inline-flex"
+                >
+                  Ver Producción
+                  <ChevronDown className="size-4 -rotate-90" />
+                </Link>
+              ) : null}
             </div>
           </div>
 

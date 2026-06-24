@@ -8,6 +8,7 @@ import { MyDayAssignmentsPanel } from "@/components/collaborators/my-day-assignm
 import { SetupPanel } from "@/components/layout/setup-panel";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 import { getUserContext } from "@/lib/auth";
+import { isDashboardPathAllowedForRole } from "@/lib/constants";
 import {
   type CollaboratorAssignmentItem,
   type CollaboratorGroupContact,
@@ -283,6 +284,7 @@ export default async function CollaboratorDayPage() {
       <MyDayAssignmentsPanel
         hasLinkedPerson={Boolean(data.person)}
         showDemoToday={showDemo}
+        canViewGrid={isDashboardPathAllowedForRole("/grid", user.role)}
         assignments={upcomingAssignments}
         pastAssignments={pastAssignments}
         topContent={
