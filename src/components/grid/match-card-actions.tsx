@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronDown, PencilLine } from "lucide-react";
+import Link from "next/link";
+import { ChevronDown, Maximize2, PencilLine } from "lucide-react";
 
 import { CreateMatchModal } from "@/components/grid/create-match-modal";
 import { usePeople } from "@/components/grid/people-context";
@@ -66,6 +67,16 @@ export function MatchCardActions({
         className,
       )}
     >
+      <Link
+        href={`/match/${match.id}`}
+        aria-label="Abrir detalle"
+        title="Abrir detalle"
+        onClick={(event) => event.stopPropagation()}
+        className={cn(controlClassName, "shadow-none")}
+      >
+        <Maximize2 className="size-4" />
+      </Link>
+
       <CreateMatchModal
         people={people}
         redirectTo={redirectTo}

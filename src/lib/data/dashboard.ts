@@ -95,7 +95,7 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
   let query = supabase
     .from("matches")
     .select(
-      "*, owner:people!matches_owner_id_fkey(id, full_name, phone), assignments(id, match_id, role_id, person_id, confirmed, notes, role:roles!assignments_role_id_fkey(id, name, category, sort_order, active), person:people!assignments_person_id_fkey(id, full_name, phone, email))",
+      "*, owner:people!matches_owner_id_fkey(id, full_name, phone), assignments(id, match_id, role_id, person_id, confirmed, attendance_response, attendance_note, notes, role:roles!assignments_role_id_fkey(id, name, category, sort_order, active), person:people!assignments_person_id_fkey(id, full_name, phone, email))",
     )
     .gte("kickoff_at", window.startUtc)
     .lte("kickoff_at", window.endUtc)

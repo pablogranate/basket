@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 
 import { getCompactPersonName, getRoleDisplayName } from "@/lib/display";
+import type { AttendanceState } from "@/lib/grid/attendance";
+import { getAttendanceTextClass } from "@/lib/grid/attendance";
 import { cn } from "@/lib/utils";
 
 export type SectionRow = {
@@ -18,6 +20,7 @@ export type SectionRow = {
   muted?: boolean;
   compactValue?: boolean;
   multiline?: boolean;
+  attendanceState?: AttendanceState;
 };
 
 export type MatchCardSectionKey =
@@ -79,6 +82,7 @@ function Section({
                     (row.multiline
                       ? "text-[var(--muted)] italic"
                       : "text-[var(--muted)] italic font-semibold"),
+                  getAttendanceTextClass(row.attendanceState ?? null),
                 )}
               >
                 {displayValue}

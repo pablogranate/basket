@@ -43,6 +43,8 @@ export type MatchListItem = MatchRow & {
     role_id: string;
     person_id: string | null;
     confirmed: boolean;
+    attendance_response: string | null;
+    attendance_note: string | null;
     notes: string | null;
     role: Pick<RoleRow, "id" | "name" | "category" | "sort_order" | "active">;
     person: Pick<PersonRow, "id" | "full_name" | "phone" | "email"> | null;

@@ -17,6 +17,7 @@ import {
   Repeat2,
   ShieldAlert,
   UsersRound,
+  XCircle,
 } from "lucide-react";
 
 import {
@@ -226,12 +227,24 @@ function AttendanceBadge({
     return null;
   }
 
-  if (assignment.attendance_confirmed_at) {
+  if (assignment.attendance_response === "declined") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-md bg-[#fdecec] px-2 py-0.5 text-[11px] font-semibold text-[#c0271f]">
+        <XCircle className="size-3" />
+        No asistirá
+        {assignment.attendance_note ? ` · ${assignment.attendance_note}` : ""}
+      </span>
+    );
+  }
+
+  if (assignment.attendance_response === "attending") {
     return (
       <span className="inline-flex items-center gap-1 rounded-md bg-[#e8f6ef] px-2 py-0.5 text-[11px] font-semibold text-[#1c8052]">
         <CheckCircle2 className="size-3" />
-        Asistencia confirmada ·{" "}
-        {formatMatchDate(assignment.attendance_confirmed_at, timezone, "d MMM")}
+        Asistencia confirmada
+        {assignment.attendance_confirmed_at
+          ? ` · ${formatMatchDate(assignment.attendance_confirmed_at, timezone, "d MMM")}`
+          : ""}
       </span>
     );
   }

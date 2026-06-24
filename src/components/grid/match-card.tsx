@@ -26,6 +26,7 @@ import {
 } from "@/lib/constants";
 import { formatMatchTime } from "@/lib/date";
 import { getCompactPersonName } from "@/lib/display";
+import { getAttendanceState, getAttendanceTextClass } from "@/lib/grid/attendance";
 import { getGridLeagueColor } from "@/lib/league-grid-colors";
 import { toMatchEditPrefill } from "@/lib/grid/match-prefill";
 import { getTeamLeagueLabel } from "@/lib/team-directory";
@@ -65,6 +66,10 @@ function getAssignmentValue(
   return {
     value,
     muted: !assignment?.person?.full_name && !fallback,
+    attendanceState: getAttendanceState(
+      assignment?.attendance_response ?? null,
+      assignment?.person_id ?? null,
+    ),
   };
 }
 
@@ -84,24 +89,28 @@ function buildProductionRows(match: MatchListItem): SectionRow[] {
       value: responsible.value,
       muted: responsible.muted,
       compactValue: true,
+      attendanceState: responsible.attendanceState,
     },
     {
       label: "Realizador",
       value: director.value,
       muted: director.muted,
       compactValue: true,
+      attendanceState: director.attendanceState,
     },
     {
       label: "Operador de Control",
       value: control.value,
       muted: control.muted,
       compactValue: true,
+      attendanceState: control.attendanceState,
     },
     {
       label: "Soporte tecnico",
       value: support.value,
       muted: support.muted,
       compactValue: true,
+      attendanceState: support.attendanceState,
     },
   ];
 }
@@ -120,6 +129,10 @@ function buildCategoryRows(
       value: assignment.person?.full_name ?? "TBD",
       muted: !assignment.person?.full_name,
       compactValue: true,
+      attendanceState: getAttendanceState(
+        assignment.attendance_response,
+        assignment.person_id,
+      ),
     }));
 }
 
@@ -135,6 +148,7 @@ function buildNamedRows(
       value: item.value,
       muted: item.muted,
       compactValue: true,
+      attendanceState: item.attendanceState,
     };
   });
 }
@@ -368,6 +382,7 @@ export function MatchCard({
                   className={cn(
                     "mc-person-name",
                     responsible.muted && "text-[var(--muted)] italic font-semibold",
+                    getAttendanceTextClass(responsible.attendanceState),
                   )}
                 >
                   {getCompactPersonName(responsible.value)}
@@ -390,6 +405,7 @@ export function MatchCard({
                   className={cn(
                     "mc-person-name",
                     director.muted && "text-[var(--muted)] italic font-semibold",
+                    getAttendanceTextClass(director.attendanceState),
                   )}
                 >
                   {getCompactPersonName(director.value)}
@@ -417,7 +433,12 @@ export function MatchCard({
                 size="sm"
               />
               <div className="min-w-0">
-                <p className="mt-1 text-sm font-bold text-[var(--foreground)]">
+                <p
+                  className={cn(
+                    "mt-1 text-sm font-bold text-[var(--foreground)]",
+                    getAttendanceTextClass(narrator.attendanceState),
+                  )}
+                >
                   {getCompactPersonName(narrator.value)}
                 </p>
                 <p className="text-xs font-semibold italic text-[var(--muted)]">
@@ -438,6 +459,7 @@ export function MatchCard({
                   className={cn(
                     "mc-person-name",
                     commentator.muted && "text-[var(--muted)] italic font-semibold",
+                    getAttendanceTextClass(commentator.attendanceState),
                   )}
                 >
                   {getCompactPersonName(commentator.value)}

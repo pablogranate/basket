@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, Columns3, GripVertical, PencilLine } from "lucide-react";
+import Link from "next/link";
+import {
+  Check,
+  Columns3,
+  GripVertical,
+  Maximize2,
+  PencilLine,
+} from "lucide-react";
 
 import { CreateMatchModal } from "@/components/grid/create-match-modal";
 import {
@@ -16,6 +23,7 @@ import {
 } from "@/lib/constants";
 import { formatMatchDate } from "@/lib/date";
 import { roleNameToFunctionKey } from "@/lib/functions";
+import { getAttendanceState, getAttendanceTextClass } from "@/lib/grid/attendance";
 import { getGridLeagueColor } from "@/lib/league-grid-colors";
 import {
   GRID_EXPORT_COLUMNS,
@@ -822,6 +830,22 @@ export function GridTable({
                         ? getGridLeagueColor(value)
                         : null;
 
+                    const assignmentRoleName =
+                      ASSIGNMENT_ROLE_BY_KEY[columnKey];
+                    const attendanceAssignment = assignmentRoleName
+                      ? match.assignments.find(
+                          (item) => item.role.name === assignmentRoleName,
+                        )
+                      : undefined;
+                    const attendanceClass = attendanceAssignment
+                      ? getAttendanceTextClass(
+                          getAttendanceState(
+                            attendanceAssignment.attendance_response,
+                            attendanceAssignment.person_id,
+                          ),
+                        )
+                      : "";
+
                     return (
                       <td
                         key={columnKey}
@@ -840,6 +864,7 @@ export function GridTable({
                             : "whitespace-nowrap text-[var(--foreground)]",
                           columnWidths[columnKey] &&
                             "overflow-hidden text-ellipsis",
+                          !editor && attendanceClass,
                         )}
                       >
                         {editor ? (
@@ -859,21 +884,31 @@ export function GridTable({
                   })}
                   {canEdit ? (
                     <td className="whitespace-nowrap px-5 py-3">
-                      <CreateMatchModal
-                        people={people}
-                        redirectTo={redirectTo}
-                        canEdit={canEdit}
-                        initialDate={formatMatchDate(
-                          match.kickoff_at,
-                          match.timezone,
-                          "yyyy-MM-dd",
-                        )}
-                        match={toMatchEditPrefill(match)}
-                        triggerVariant="icon"
-                        triggerLabel="Editar partido"
-                        triggerIcon={<PencilLine className="size-4" />}
-                        triggerClassName={editTriggerClassName}
-                      />
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={`/match/${match.id}`}
+                          aria-label="Abrir detalle"
+                          title="Abrir detalle"
+                          className={editTriggerClassName}
+                        >
+                          <Maximize2 className="size-4" />
+                        </Link>
+                        <CreateMatchModal
+                          people={people}
+                          redirectTo={redirectTo}
+                          canEdit={canEdit}
+                          initialDate={formatMatchDate(
+                            match.kickoff_at,
+                            match.timezone,
+                            "yyyy-MM-dd",
+                          )}
+                          match={toMatchEditPrefill(match)}
+                          triggerVariant="icon"
+                          triggerLabel="Editar partido"
+                          triggerIcon={<PencilLine className="size-4" />}
+                          triggerClassName={editTriggerClassName}
+                        />
+                      </div>
                     </td>
                   ) : null}
                 </tr>
