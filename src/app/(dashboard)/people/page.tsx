@@ -23,6 +23,7 @@ import { PeopleAdminWarningModal } from "@/components/people/people-admin-warnin
 import { CreatePersonModal } from "@/components/people/create-person-modal";
 import { PersonFunctionsField } from "@/components/people/person-functions-field";
 import { PersonDeleteButton } from "@/components/people/person-delete-button";
+import { PersonGrantAccessButton } from "@/components/people/person-grant-access-button";
 import { PersonRevokeAccessButton } from "@/components/people/person-revoke-access-button";
 import { PeopleTable } from "@/components/people/people-table";
 import { Button } from "@/components/ui/button";
@@ -617,13 +618,20 @@ export default async function PeoplePage({ searchParams }: PageProps) {
                       </div>
                     </div>
 
-                    {selectedPersonHasPlatformAccess ? (
-                      <div className="mt-4 flex justify-end">
-                        <PersonRevokeAccessButton
+                    {selectedPerson.email ? (
+                      selectedPersonHasPlatformAccess ? (
+                        <div className="mt-4 flex justify-end">
+                          <PersonRevokeAccessButton
+                            personId={selectedPerson.id}
+                            redirectTo={selectedPeopleHref ?? currentPeopleHref}
+                          />
+                        </div>
+                      ) : (
+                        <PersonGrantAccessButton
                           personId={selectedPerson.id}
                           redirectTo={selectedPeopleHref ?? currentPeopleHref}
                         />
-                      </div>
+                      )
                     ) : null}
                   </div>
                 </section>
