@@ -4,6 +4,8 @@ import { stampUpdate } from "@/lib/audit";
 import { findLinkedPerson } from "@/lib/data/linked-person";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+export type AttendanceResponse = "attending" | "declined";
+
 export type AttendanceOutcome =
   | { ok: true; matchId: string }
   | { ok: false; reason: "not-linked" | "not-found" | "forbidden" };
@@ -19,7 +21,11 @@ type AssignmentForAttendance = {
 // so toggles never appear in the match history timeline.
 export async function recordAttendanceConfirmation(
   ctx: UserContext,
-  params: { assignmentId: string; confirmed: boolean },
+  params: {
+    assignmentId: string;
+    response: AttendanceResponse | null;
+    note?: string | null;
+  },
 ): Promise<AttendanceOutcome> {
   const { person } = await findLinkedPerson({
     email: ctx.email,
@@ -58,11 +64,18 @@ export async function recordAttendanceConfirmation(
     return { ok: false, reason: "forbidden" };
   }
 
+  // attendance_confirmed_at stays the "will attend" signal (set only when
+  // attending); declined/pending leave it NULL. attendance_note only persists
+  // for a decline.
   const updateResult = await supabase
     .from("assignments")
     .update(
       stampUpdate(ctx, {
-        attendance_confirmed_at: params.confirmed ? new Date().toISOString() : null,
+        attendance_response: params.response,
+        attendance_confirmed_at:
+          params.response === "attending" ? new Date().toISOString() : null,
+        attendance_note:
+          params.response === "declined" ? params.note?.trim() || null : null,
       }),
     )
     .eq("id", params.assignmentId);

@@ -1,10 +1,8 @@
-import { parseISO } from "date-fns";
-
 import {
   formatMatchDate,
   formatMatchTime,
   getDateInputValue,
-  getMatchEndIso,
+  getMonthInputValue,
   toDateKey,
 } from "@/lib/date";
 import type { UserContext } from "@/lib/auth";
@@ -21,6 +19,8 @@ type AssignmentRow = {
   id: string;
   confirmed: boolean;
   attendance_confirmed_at: string | null;
+  attendance_response: string | null;
+  attendance_note: string | null;
   notes: string | null;
   role: {
     id: string;
@@ -75,6 +75,8 @@ export type CollaboratorAssignmentItem = {
   matchId: string;
   confirmed: boolean;
   attendanceConfirmedAt: string | null;
+  attendanceResponse: "attending" | "declined" | null;
+  attendanceNote: string | null;
   notes: string | null;
   roleName: string | null;
   roleCategory: string | null;
@@ -121,12 +123,13 @@ export type CollaboratorDayData = {
   person: LinkedPerson | null;
   linkedBy: "email" | "name" | null;
   allAssignments: CollaboratorAssignmentItem[];
-  todayAssignments: CollaboratorAssignmentItem[];
+  // From today's date onward (date-based, ascending). Primary list in Mi jornada.
   upcomingAssignments: CollaboratorAssignmentItem[];
+  // Earlier than today but within the current month (date descending).
+  pastMonthAssignments: CollaboratorAssignmentItem[];
   summary: {
-    totalToday: number;
-    pendingToday: number;
-    competitionsToday: number;
+    totalUpcoming: number;
+    pendingUpcoming: number;
     nextKickoffLabel: string | null;
   };
 };
@@ -143,6 +146,12 @@ export function isUuidLike(value: string) {
   return UUID_PATTERN.test(value);
 }
 
+function normalizeAttendanceResponse(
+  value: string | null,
+): "attending" | "declined" | null {
+  return value === "attending" || value === "declined" ? value : null;
+}
+
 function mapAssignmentRow(assignment: AssignmentRow): CollaboratorAssignmentItem | null {
   if (!assignment.match) {
     return null;
@@ -153,6 +162,8 @@ function mapAssignmentRow(assignment: AssignmentRow): CollaboratorAssignmentItem
     match: assignment.match,
     confirmed: assignment.confirmed,
     attendanceConfirmedAt: assignment.attendance_confirmed_at,
+    attendanceResponse: normalizeAttendanceResponse(assignment.attendance_response),
+    attendanceNote: assignment.attendance_note,
     notes: assignment.notes,
     roleName: assignment.role?.name ?? null,
     roleCategory: assignment.role?.category ?? null,
@@ -164,6 +175,8 @@ function buildAssignmentItem(params: {
   match: MatchContextMatchRow;
   confirmed?: boolean;
   attendanceConfirmedAt?: string | null;
+  attendanceResponse?: "attending" | "declined" | null;
+  attendanceNote?: string | null;
   notes?: string | null;
   roleName?: string | null;
   roleCategory?: string | null;
@@ -185,6 +198,8 @@ function buildAssignmentItem(params: {
     matchId: match.id,
     confirmed: params.confirmed ?? false,
     attendanceConfirmedAt: params.attendanceConfirmedAt ?? null,
+    attendanceResponse: params.attendanceResponse ?? null,
+    attendanceNote: params.attendanceNote ?? null,
     notes: params.notes ?? null,
     roleName: params.roleName ?? null,
     roleCategory: params.roleCategory ?? null,
@@ -344,7 +359,7 @@ async function getAssignmentsForPerson(personId: string) {
   const assignmentsResult = await supabase
     .from("assignments")
     .select(
-      "id, confirmed, attendance_confirmed_at, notes, role:roles!assignments_role_id_fkey(id, name, category, sort_order), match:matches!assignments_match_id_fkey(id, competition, production_mode, production_code, status, home_team, away_team, venue, notes, transport, kickoff_at, duration_minutes, timezone, owner:people!matches_owner_id_fkey(id, full_name, phone, email))",
+      "id, confirmed, attendance_confirmed_at, attendance_response, attendance_note, notes, role:roles!assignments_role_id_fkey(id, name, category, sort_order), match:matches!assignments_match_id_fkey(id, competition, production_mode, production_code, status, home_team, away_team, venue, notes, transport, kickoff_at, duration_minutes, timezone, owner:people!matches_owner_id_fkey(id, full_name, phone, email))",
     )
     .eq("person_id", personId);
 
@@ -543,12 +558,9 @@ export async function getCollaboratorDayData(
   params: {
     email: string | null;
     profileName: string | null;
-    selectedDate?: string;
-    timezone?: string;
   },
 ): Promise<CollaboratorDayData> {
   void ctx;
-  const selectedDate = params.selectedDate ?? getDateInputValue();
   const { person, linkedBy } = await findLinkedPerson({
     email: params.email,
     profileName: params.profileName,
@@ -559,54 +571,46 @@ export async function getCollaboratorDayData(
       person: null,
       linkedBy: null,
       allAssignments: [],
-      todayAssignments: [],
       upcomingAssignments: [],
+      pastMonthAssignments: [],
       summary: {
-        totalToday: 0,
-        pendingToday: 0,
-        competitionsToday: 0,
+        totalUpcoming: 0,
+        pendingUpcoming: 0,
         nextKickoffLabel: null,
       },
     };
   }
 
   const assignments = await getAssignmentsForPerson(person.id);
-  const now = new Date();
+  const todayKey = getDateInputValue();
+  const currentMonth = getMonthInputValue();
 
-  const todayAssignments = assignments.filter(
-    (assignment) => toDateKey(assignment.kickoffAt, assignment.timezone) === selectedDate,
+  // Today and later (date-based): the primary list.
+  const upcomingAssignments = assignments.filter(
+    (assignment) => toDateKey(assignment.kickoffAt, assignment.timezone) >= todayKey,
   );
 
-  const nextAssignments = assignments.filter((assignment) => {
-    const end = parseISO(
-      getMatchEndIso(assignment.kickoffAt, assignment.durationMinutes),
-    );
-
-    return end >= now;
-  });
-
-  const upcomingAssignments = nextAssignments
-    .filter(
-      (assignment) => toDateKey(assignment.kickoffAt, assignment.timezone) !== selectedDate,
-    )
-    .slice(0, 4);
+  // Earlier than today but in the current month: revealed on demand.
+  const pastMonthAssignments = assignments
+    .filter((assignment) => {
+      const dateKey = toDateKey(assignment.kickoffAt, assignment.timezone);
+      return dateKey < todayKey && dateKey.slice(0, 7) === currentMonth;
+    })
+    .reverse();
 
   return {
     person,
     linkedBy,
     allAssignments: assignments,
-    todayAssignments,
     upcomingAssignments,
+    pastMonthAssignments,
     summary: {
-      totalToday: todayAssignments.length,
-      pendingToday: todayAssignments.filter((assignment) => !assignment.confirmed).length,
-      competitionsToday: new Set(
-        todayAssignments
-          .map((assignment) => assignment.competition)
-          .filter((value): value is string => Boolean(value)),
-      ).size,
-      nextKickoffLabel: nextAssignments[0]
-        ? `${formatMatchDate(nextAssignments[0].kickoffAt, nextAssignments[0].timezone, "EEE d MMM")} · ${nextAssignments[0].timeLabel}`
+      totalUpcoming: upcomingAssignments.length,
+      pendingUpcoming: upcomingAssignments.filter(
+        (assignment) => !assignment.attendanceResponse,
+      ).length,
+      nextKickoffLabel: upcomingAssignments[0]
+        ? `${formatMatchDate(upcomingAssignments[0].kickoffAt, upcomingAssignments[0].timezone, "EEE d MMM")} · ${upcomingAssignments[0].timeLabel}`
         : null,
     },
   };

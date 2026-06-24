@@ -332,6 +332,8 @@ export interface Database {
           person_id: string | null;
           confirmed: boolean;
           attendance_confirmed_at: string | null;
+          attendance_response: string | null;
+          attendance_note: string | null;
           notes: string | null;
           created_at: string;
           updated_at: string;
@@ -345,6 +347,8 @@ export interface Database {
           person_id?: string | null;
           confirmed?: boolean;
           attendance_confirmed_at?: string | null;
+          attendance_response?: string | null;
+          attendance_note?: string | null;
           notes?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -355,6 +359,8 @@ export interface Database {
           person_id?: string | null;
           confirmed?: boolean;
           attendance_confirmed_at?: string | null;
+          attendance_response?: string | null;
+          attendance_note?: string | null;
           notes?: string | null;
           updated_at?: string;
           created_by?: string | null;

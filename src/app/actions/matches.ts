@@ -772,11 +772,17 @@ export async function setAttendanceConfirmationAction(formData: FormData) {
 
   try {
     const assignmentId = String(formData.get("assignmentId") ?? "");
-    const confirmed = String(formData.get("confirmed") ?? "") === "on";
+    const rawResponse = String(formData.get("response") ?? "");
+    const response =
+      rawResponse === "attending" || rawResponse === "declined"
+        ? rawResponse
+        : null;
+    const note = maybeNull(String(formData.get("note") ?? ""));
 
     const outcome = await recordAttendanceConfirmation(ctx, {
       assignmentId,
-      confirmed,
+      response,
+      note,
     });
 
     if (!outcome.ok) {
@@ -791,9 +797,12 @@ export async function setAttendanceConfirmationAction(formData: FormData) {
     redirectWithNotice({
       redirectTo,
       intent: "success",
-      notice: confirmed
-        ? "Confirmaste tu asistencia."
-        : "Marcaste tu asistencia como pendiente.",
+      notice:
+        response === "attending"
+          ? "Confirmaste tu asistencia."
+          : response === "declined"
+            ? "Avisaste que no asistirás."
+            : "Marcaste tu asistencia como pendiente.",
     });
   } catch (error) {
     rethrowNavigationError(error);

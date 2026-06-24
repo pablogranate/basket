@@ -2,31 +2,28 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { addDays, addMinutes, format, parseISO } from "date-fns";
+import { addMinutes, format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import {
   CalendarDays,
   Camera,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   ChevronDown,
   Clock3,
   Hash,
-  LayoutGrid,
+  History,
   Mail,
   MapPin,
   Megaphone,
   MessageCircleMore,
   Mic2,
-  Rows3,
   ShieldUser,
   UserRound,
   Video,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useFormStatus } from "react-dom";
 
 import { setAttendanceConfirmationAction } from "@/app/actions/matches";
 import { LeagueLogoMarkClient } from "@/components/league-logo-mark-client";
@@ -35,7 +32,6 @@ import { CollaboratorReportForm } from "@/components/collaborators/collaborator-
 import { badgeBaseClassName } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { HoverAvatarBadge } from "@/components/ui/hover-avatar-badge";
-import { SegmentedControl } from "@/components/ui/segmented-control";
 import { UnderlineTabs } from "@/components/ui/underline-tabs";
 import {
   PRODUCTION_SHORT_LABEL,
@@ -51,14 +47,11 @@ import { buildWhatsAppUrl, cn, normalizeText } from "@/lib/utils";
 
 type MyDayAssignmentsPanelProps = {
   hasLinkedPerson: boolean;
-  isSelectedDateToday: boolean;
-  selectedDate: string;
-  periodView: "day" | "month";
-  primaryHeading: string;
-  primaryDescription: string;
   showDemoToday: boolean;
-  todayAssignments: CollaboratorAssignmentItem[];
-  upcomingAssignments: CollaboratorAssignmentItem[];
+  // Today's date onward — the primary list.
+  assignments: CollaboratorAssignmentItem[];
+  // Earlier than today but within the current month — revealed on demand.
+  pastAssignments: CollaboratorAssignmentItem[];
   topContent?: ReactNode;
 };
 
@@ -87,101 +80,6 @@ function capitalizeSentence(value: string) {
   }
 
   return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
-function formatDayMonthLabel(dateValue: string) {
-  return format(parseISO(`${dateValue}T00:00:00`), "d 'de' MMMM", {
-    locale: es,
-  });
-}
-
-function buildDayHref(dateValue: string, offset: number, pathname: string) {
-  const nextDate = addDays(parseISO(`${dateValue}T00:00:00`), offset);
-  const normalizedPath = pathname || "/mi-jornada";
-  return `${normalizedPath}?date=${format(nextDate, "yyyy-MM-dd")}`;
-}
-
-function MobileDayNavigator({
-  selectedDate,
-  isSelectedDateToday,
-}: {
-  selectedDate: string;
-  isSelectedDateToday: boolean;
-}) {
-  const pathname = usePathname();
-  const router = useRouter();
-  const dateInputRef = useRef<HTMLInputElement | null>(null);
-  const [isPending, startTransition] = useTransition();
-  const previousDayHref = buildDayHref(selectedDate, -1, pathname);
-  const nextDayHref = buildDayHref(selectedDate, 1, pathname);
-  const titleLabel = isSelectedDateToday
-    ? `Hoy (${formatDayMonthLabel(selectedDate)})`
-    : capitalizeSentence(formatDayMonthLabel(selectedDate));
-
-  const openDatePicker = () => {
-    const input = dateInputRef.current;
-
-    if (!input) {
-      return;
-    }
-
-    if ("showPicker" in input && typeof input.showPicker === "function") {
-      input.showPicker();
-      return;
-    }
-
-    input.focus();
-    input.click();
-  };
-
-  return (
-    <div className="flex items-center justify-between gap-4 md:hidden">
-      <Link
-        href={previousDayHref}
-        aria-label="Ir al día anterior"
-        className="inline-flex size-12 shrink-0 items-center justify-center rounded-full border border-[#bcc6d7] bg-white text-[#7a8799] leading-none shadow-sm transition hover:border-[#94a3b8] hover:text-[var(--foreground)]"
-      >
-        <ChevronLeft className="size-[1.05rem] translate-x-px" strokeWidth={1.8} />
-      </Link>
-
-      <div className="min-w-0 flex-1 text-center">
-        <button
-          type="button"
-          onClick={openDatePicker}
-          disabled={isPending}
-          className="inline-flex max-w-full items-center justify-center rounded-full px-2 text-[19px] font-black tracking-tight text-[var(--foreground)] transition hover:text-[var(--accent)] disabled:opacity-70"
-        >
-          <span className="truncate">{titleLabel}</span>
-        </button>
-        <input
-          ref={dateInputRef}
-          type="date"
-          value={selectedDate}
-          onChange={(event) => {
-            const nextDate = event.currentTarget.value;
-
-            if (!nextDate) {
-              return;
-            }
-
-            startTransition(() => {
-              router.push(`${pathname || "/mi-jornada"}?date=${nextDate}`);
-            });
-          }}
-          className="sr-only"
-          aria-label="Elegir fecha"
-        />
-      </div>
-
-      <Link
-        href={nextDayHref}
-        aria-label="Ir al día siguiente"
-        className="inline-flex size-12 shrink-0 items-center justify-center rounded-full border border-[#bcc6d7] bg-white text-[#7a8799] leading-none shadow-sm transition hover:border-[#94a3b8] hover:text-[var(--foreground)]"
-      >
-        <ChevronRight className="size-[1.05rem] -translate-x-px" strokeWidth={1.8} />
-      </Link>
-    </div>
-  );
 }
 
 function abbreviatePersonName(value: string | null | undefined) {
@@ -602,6 +500,10 @@ function AssignmentCard({
         <div className="-mx-4 border-t border-[#efe7e1] bg-white px-4 py-4">
           <AssignmentOperationalSummary assignment={assignment} />
         </div>
+
+        <div className="-mx-4 border-t border-[#efe7e1] bg-white px-4 py-4">
+          <AttendanceInlineControl assignment={assignment} />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 border-t border-[#efe7e1] bg-[#fbfaf7] p-4">
@@ -628,44 +530,6 @@ function AssignmentCard({
         </button>
       </div>
     </Card>
-  );
-}
-
-function AssignmentViewToggle({
-  viewMode,
-  onChange,
-}: {
-  viewMode: MyDayViewMode;
-  onChange: (value: MyDayViewMode) => void;
-}) {
-  return (
-    <SegmentedControl
-      size="sm"
-      items={[
-        {
-          key: "table",
-          active: viewMode === "table",
-          onClick: () => onChange("table"),
-          label: (
-            <span className="inline-flex items-center gap-2">
-              <Rows3 className="size-3.5" />
-              Tabla
-            </span>
-          ),
-        },
-        {
-          key: "cards",
-          active: viewMode === "cards",
-          onClick: () => onChange("cards"),
-          label: (
-            <span className="inline-flex items-center gap-2">
-              <LayoutGrid className="size-3.5" />
-              Fichas
-            </span>
-          ),
-        },
-      ]}
-    />
   );
 }
 
@@ -934,6 +798,13 @@ function AssignmentTable({
 
               </div>
 
+              <div
+                onClick={(event) => event.stopPropagation()}
+                className="border-t border-[var(--border)] px-5 py-4 xl:pr-24"
+              >
+                <AttendanceInlineControl assignment={assignment} />
+              </div>
+
               <div className="flex items-center justify-center gap-2 border-t border-[var(--border)] px-4 py-4 xl:absolute xl:inset-y-0 xl:right-0 xl:z-20 xl:w-[5.5rem] xl:flex-col xl:border-l xl:border-t-0 xl:border-[var(--border)] xl:bg-transparent xl:px-0 xl:py-0">
                 <button
                   type="button"
@@ -1136,44 +1007,111 @@ function DrawerStatusCard({
 const ATTENDANCE_UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// Attendance confirmation by the assigned person (PRD #7). Every assignment in
+function AttendanceSubmitButton({ disabled }: { disabled: boolean }) {
+  const { pending } = useFormStatus();
+
+  return (
+    <button
+      type="submit"
+      disabled={disabled || pending}
+      className={cn(
+        "inline-flex h-9 items-center justify-center rounded-full px-5 text-xs font-black transition",
+        disabled
+          ? "cursor-not-allowed bg-[#eef2f6] text-[#aab4c4]"
+          : "bg-[#178a56] text-white hover:bg-[#13744a]",
+        pending && "opacity-70",
+      )}
+    >
+      {pending ? "Guardando…" : "Confirmar"}
+    </button>
+  );
+}
+
+function AttendanceChoiceButton({
+  active,
+  tone,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  tone: "attend" | "decline";
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-black transition",
+        active
+          ? tone === "attend"
+            ? "border-[#178a56] bg-[#178a56] text-white"
+            : "border-[var(--accent)] bg-[var(--accent)] text-white"
+          : "border-[var(--border)] bg-white text-[#6b7c92] hover:border-[#c2ccda]",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+// Inline attendance response by the assigned person (PRD #7). Every assignment in
 // this panel already belongs to the logged-in person (data is scoped by their
 // linked person), so the control is inherently "only the assigned person".
 // Server-side recordAttendanceConfirmation re-checks ownership + the window.
-function AttendanceConfirmCard({
+function AttendanceInlineControl({
   assignment,
 }: {
   assignment: CollaboratorAssignmentItem;
 }) {
+  const [choice, setChoice] = useState<"attending" | "declined" | null>(
+    assignment.attendanceResponse,
+  );
+  const [note, setNote] = useState(assignment.attendanceNote ?? "");
+
   // Demo/guest rows carry a non-uuid id and have no real assignment to update.
   if (!ATTENDANCE_UUID_RE.test(assignment.assignmentId)) {
     return null;
   }
 
-  const confirmed = Boolean(assignment.attendanceConfirmedAt);
+  const response = assignment.attendanceResponse;
   const ended =
     addMinutes(parseISO(assignment.kickoffAt), assignment.durationMinutes) <
     new Date();
 
   // Past matches: frozen read-only state, no toggle.
   if (ended) {
+    const label =
+      response === "attending"
+        ? "Confirmaste tu asistencia"
+        : response === "declined"
+          ? "Avisaste que no asistirías"
+          : "Sin respuesta";
+
     return (
-      <div className="panel-radius flex min-h-[84px] items-center justify-between gap-3 border border-[#e3e8f0] bg-[#f8fafc] px-4 py-3">
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#6b7c92]">
-            Asistencia
-          </p>
-          <p className="mt-2 text-sm font-bold text-[var(--foreground)]">
-            {confirmed ? "Confirmaste tu asistencia" : "No confirmada"}
-          </p>
+      <div className="panel-radius border border-[#e3e8f0] bg-[#f8fafc] px-4 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#6b7c92]">
+              Asistencia
+            </p>
+            <p className="mt-1.5 text-sm font-bold text-[var(--foreground)]">{label}</p>
+          </div>
+          <span className="inline-flex size-9 items-center justify-center rounded-full bg-[#eef2f6] text-[#7c8aa0]">
+            {response === "attending" ? (
+              <CheckCircle2 className="size-6" />
+            ) : (
+              <Clock3 className="size-5" />
+            )}
+          </span>
         </div>
-        <span className="inline-flex size-10 items-center justify-center rounded-full bg-[#eef2f6] text-[#7c8aa0]">
-          {confirmed ? (
-            <CheckCircle2 className="size-7" />
-          ) : (
-            <Clock3 className="size-5" />
-          )}
-        </span>
+        {response === "declined" && assignment.attendanceNote?.trim() ? (
+          <p className="mt-2 text-xs font-semibold leading-5 text-[#65758e]">
+            “{assignment.attendanceNote.trim()}”
+          </p>
+        ) : null}
       </div>
     );
   }
@@ -1182,44 +1120,55 @@ function AttendanceConfirmCard({
     <form
       action={setAttendanceConfirmationAction}
       className={cn(
-        "panel-radius flex min-h-[84px] items-center justify-between gap-3 border px-4 py-3",
-        confirmed
+        "panel-radius border px-4 py-3",
+        response === "attending"
           ? "border-[#d7eadf] bg-[#f3fcf6]"
-          : "border-[#e3e8f0] bg-[#f8fafc]",
+          : response === "declined"
+            ? "border-[#f3d2da] bg-[#fff5f7]"
+            : "border-[#e3e8f0] bg-[#f8fafc]",
       )}
     >
       <input type="hidden" name="assignmentId" value={assignment.assignmentId} />
       <input type="hidden" name="redirectTo" value="/mi-jornada" />
-      <input type="hidden" name="confirmed" value={confirmed ? "" : "on"} />
-      <div>
-        <p
-          className={cn(
-            "text-[10px] font-black uppercase tracking-[0.16em]",
-            confirmed ? "text-[#178a56]" : "text-[#6b7c92]",
-          )}
+      <input type="hidden" name="response" value={choice ?? ""} />
+
+      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#6b7c92]">
+        ¿Vas a asistir?
+      </p>
+
+      <div className="mt-2 flex items-stretch gap-2">
+        <AttendanceChoiceButton
+          active={choice === "attending"}
+          tone="attend"
+          onClick={() => setChoice("attending")}
         >
-          Asistencia
-        </p>
-        <p
-          className={cn(
-            "mt-2 text-sm font-bold",
-            confirmed ? "text-[#178a56]" : "text-[var(--foreground)]",
-          )}
+          <CheckCircle2 className="size-3.5" />
+          Asistiré
+        </AttendanceChoiceButton>
+        <AttendanceChoiceButton
+          active={choice === "declined"}
+          tone="decline"
+          onClick={() => setChoice("declined")}
         >
-          {confirmed ? "Confirmaste tu asistencia" : "Pendiente de confirmar"}
-        </p>
+          <X className="size-3.5" />
+          No asistiré
+        </AttendanceChoiceButton>
       </div>
-      <button
-        type="submit"
-        className={cn(
-          "rounded-full px-4 py-2 text-xs font-bold transition",
-          confirmed
-            ? "bg-[#eef2f6] text-[#6b7c92] hover:bg-[#e3e8f0]"
-            : "bg-[#178a56] text-white hover:bg-[#13744a]",
-        )}
-      >
-        {confirmed ? "Cancelar" : "Confirmar asistencia"}
-      </button>
+
+      {choice === "declined" ? (
+        <textarea
+          name="note"
+          value={note}
+          onChange={(event) => setNote(event.currentTarget.value)}
+          rows={2}
+          placeholder="Motivo (opcional)"
+          className="mt-2 w-full resize-none rounded-[var(--panel-radius)] border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none placeholder:text-[#9aa8bd] focus:border-[var(--accent)]"
+        />
+      ) : null}
+
+      <div className="mt-2.5 flex items-center justify-end">
+        <AttendanceSubmitButton disabled={!choice} />
+      </div>
     </form>
   );
 }
@@ -1481,7 +1430,7 @@ function GroupAssistantDrawer({
                   />
                 </div>
               </div>
-              <AttendanceConfirmCard assignment={assignment} />
+              <AttendanceInlineControl assignment={assignment} />
               <DrawerStatusCard confirmed={assignment.confirmed} />
             </section>
 
@@ -1600,16 +1549,43 @@ function ReportAssistantDrawer({
   return <AssignmentAssistantShell onClose={onClose}>{drawerContent}</AssignmentAssistantShell>;
 }
 
+// Past-month assignments are deferred: their (logo-heavy) nodes only mount once
+// expanded, mirroring the grid's "Ver días anteriores" pattern.
+function MyDayPastToggle({
+  count,
+  children,
+}: {
+  count: number;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <section className="space-y-4">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+        className={cn(
+          "inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--muted)] shadow-[0_8px_18px_rgba(15,23,42,0.06)] transition hover:border-[rgba(230,18,56,0.24)] hover:text-[var(--accent)]",
+          open && "border-[rgba(230,18,56,0.18)] bg-[#fff4f6] text-[var(--accent)]",
+        )}
+      >
+        <History className="size-4" />
+        {open
+          ? "Ocultar partidos anteriores"
+          : `Ver partidos anteriores del mes (${count})`}
+      </button>
+      {open ? <div className="space-y-4">{children}</div> : null}
+    </section>
+  );
+}
+
 export function MyDayAssignmentsPanel({
   hasLinkedPerson,
-  isSelectedDateToday,
-  selectedDate,
-  periodView,
-  primaryHeading,
-  primaryDescription,
   showDemoToday,
-  todayAssignments,
-  upcomingAssignments,
+  assignments,
+  pastAssignments,
   topContent,
 }: MyDayAssignmentsPanelProps) {
   const [selectedGroupAssignmentId, setSelectedGroupAssignmentId] = useState<string | null>(
@@ -1619,12 +1595,13 @@ export function MyDayAssignmentsPanel({
     null,
   );
   const [drawerTab, setDrawerTab] = useState<GroupDrawerTab>("group");
-  const [viewMode, setViewMode] = useState<MyDayViewMode>("cards");
+  // Desktop (≥1280px) shows only the table; below that, only the fichas. No
+  // user-facing toggle — the breakpoint decides.
   const [tableViewEnabled, setTableViewEnabled] = useState(false);
 
   const allAssignments = useMemo(
-    () => [...todayAssignments, ...upcomingAssignments],
-    [todayAssignments, upcomingAssignments],
+    () => [...assignments, ...pastAssignments],
+    [assignments, pastAssignments],
   );
   const selectedGroupAssignment =
     allAssignments.find((assignment) => assignment.assignmentId === selectedGroupAssignmentId) ??
@@ -1634,24 +1611,16 @@ export function MyDayAssignmentsPanel({
     null;
   const selectedPanelAssignmentId =
     selectedReportAssignmentId ?? selectedGroupAssignmentId ?? null;
-  const effectiveViewMode: MyDayViewMode =
-    tableViewEnabled && viewMode === "table" ? "table" : "cards";
+  const effectiveViewMode: MyDayViewMode = tableViewEnabled ? "table" : "cards";
 
   useEffect(() => {
     const mediaQuery = window.matchMedia(TABLE_DESKTOP_MEDIA_QUERY);
+    const sync = () => setTableViewEnabled(mediaQuery.matches);
 
-    const syncTableAvailability = () => {
-      setTableViewEnabled(mediaQuery.matches);
+    sync();
+    mediaQuery.addEventListener("change", sync);
 
-      if (!mediaQuery.matches) {
-        setViewMode("cards");
-      }
-    };
-
-    syncTableAvailability();
-    mediaQuery.addEventListener("change", syncTableAvailability);
-
-    return () => mediaQuery.removeEventListener("change", syncTableAvailability);
+    return () => mediaQuery.removeEventListener("change", sync);
   }, []);
 
   function handleOpenGroup(assignmentId: string) {
@@ -1666,6 +1635,28 @@ export function MyDayAssignmentsPanel({
   }
 
   const cardGridClassName = "flex flex-wrap items-start gap-3";
+
+  function renderList(items: CollaboratorAssignmentItem[]) {
+    return effectiveViewMode === "cards" ? (
+      <div className={cardGridClassName}>
+        {items.map((assignment) => (
+          <AssignmentCard
+            key={`${assignment.assignmentId}-${assignment.matchId}`}
+            assignment={assignment}
+            onOpenGroup={handleOpenGroup}
+            onOpenReport={handleOpenReport}
+          />
+        ))}
+      </div>
+    ) : (
+      <AssignmentTable
+        assignments={items}
+        selectedAssignmentId={selectedPanelAssignmentId}
+        onOpenGroup={handleOpenGroup}
+        onOpenReport={handleOpenReport}
+      />
+    );
+  }
 
   return (
     <div
@@ -1687,130 +1678,52 @@ export function MyDayAssignmentsPanel({
         ) : null}
 
         <section className="space-y-4">
-          <div className="space-y-3">
-            {periodView === "day" ? (
-              <MobileDayNavigator
-                selectedDate={selectedDate}
-                isSelectedDateToday={isSelectedDateToday}
-              />
-            ) : (
-              <div className="md:hidden">
-                <h2 className="text-center text-[1.9rem] font-black tracking-tight text-[var(--foreground)]">
-                  {primaryHeading}
-                </h2>
-              </div>
-            )}
-
-            <div className="hidden flex-wrap items-center justify-between gap-3 md:flex">
-              <div>
-                <h2 className="text-2xl font-black tracking-tight text-[var(--foreground)]">
-                  {primaryHeading}
-                </h2>
-                <p className="mt-1 text-sm text-[#617187]">
-                  {primaryDescription}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-[#95a3ba]">
-                  {todayAssignments.length} visibles
-                </span>
-                {tableViewEnabled ? (
-                  <AssignmentViewToggle viewMode={viewMode} onChange={setViewMode} />
-                ) : null}
-              </div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-2xl font-black tracking-tight text-[var(--foreground)]">
+                Tus partidos
+              </h2>
+              <p className="mt-1 text-sm text-[#617187]">
+                Partidos asignados de hoy en adelante.
+              </p>
             </div>
-
-            <div className="flex items-center justify-end gap-2 md:hidden">
-              {tableViewEnabled ? (
-                <AssignmentViewToggle viewMode={viewMode} onChange={setViewMode} />
-              ) : null}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-[#95a3ba]">
+                {assignments.length} próximos
+              </span>
+              <Link
+                href="/grid"
+                className="hidden items-center gap-2 text-sm font-black text-[var(--accent)] md:inline-flex"
+              >
+                Ver Producción
+                <ChevronDown className="size-4 -rotate-90" />
+              </Link>
             </div>
           </div>
 
-          {todayAssignments.length ? (
-            effectiveViewMode === "cards" ? (
-              <div className={cardGridClassName}>
-                {todayAssignments.map((assignment) => (
-                  <AssignmentCard
-                    key={`${assignment.assignmentId}-${assignment.matchId}`}
-                    assignment={assignment}
-                    onOpenGroup={handleOpenGroup}
-                    onOpenReport={handleOpenReport}
-                  />
-                ))}
-              </div>
-            ) : (
-              <AssignmentTable
-                assignments={todayAssignments}
-                selectedAssignmentId={selectedPanelAssignmentId}
-                onOpenGroup={handleOpenGroup}
-                onOpenReport={handleOpenReport}
-              />
-            )
+          {assignments.length ? (
+            renderList(assignments)
           ) : (
             <Card className="space-y-3 rounded-[var(--panel-radius)] p-6">
               <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#95a3ba]">
-                {periodView === "month" ? "Sin actividad este mes" : "Sin actividad hoy"}
+                Sin partidos próximos
               </p>
               <h3 className="text-2xl font-black tracking-tight text-[var(--foreground)]">
-                {periodView === "month"
-                  ? "No tienes partidos asignados para este mes"
-                  : "No tienes partidos asignados para esta fecha"}
+                No tienes partidos asignados de hoy en adelante
               </h3>
               <p className="text-sm leading-7 text-[#617187]">
-                {periodView === "month"
-                  ? "Prueba con otro mes o vuelve a la vista de hoy."
-                  : "Prueba con otro día o revisa la sección de próximos partidos."}
+                {pastAssignments.length
+                  ? "Revisa los partidos anteriores del mes más abajo."
+                  : "Cuando te asignen un partido aparecerá aquí."}
               </p>
             </Card>
           )}
         </section>
 
-        {periodView === "day" && upcomingAssignments.length ? (
-          <section className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-2xl font-black tracking-tight text-[var(--foreground)]">
-                  Próximamente
-                </h2>
-                <p className="mt-1 text-sm text-[#617187]">
-                  Siguientes compromisos ya vinculados a tu perfil.
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-[#95a3ba]">
-                  {upcomingAssignments.length} próximas
-                </span>
-                <Link
-                  href="/grid"
-                  className="hidden items-center gap-2 text-sm font-black text-[var(--accent)] md:inline-flex"
-                >
-                  Ver Producción
-                  <ChevronDown className="size-4 -rotate-90" />
-                </Link>
-              </div>
-            </div>
-
-            {effectiveViewMode === "cards" ? (
-              <div className={cardGridClassName}>
-                {upcomingAssignments.map((assignment) => (
-                  <AssignmentCard
-                    key={`${assignment.assignmentId}-${assignment.matchId}`}
-                    assignment={assignment}
-                    onOpenGroup={handleOpenGroup}
-                    onOpenReport={handleOpenReport}
-                  />
-                ))}
-              </div>
-            ) : (
-              <AssignmentTable
-                assignments={upcomingAssignments}
-                selectedAssignmentId={selectedPanelAssignmentId}
-                onOpenGroup={handleOpenGroup}
-                onOpenReport={handleOpenReport}
-              />
-            )}
-          </section>
+        {pastAssignments.length ? (
+          <MyDayPastToggle count={pastAssignments.length}>
+            {renderList(pastAssignments)}
+          </MyDayPastToggle>
         ) : null}
       </div>
 

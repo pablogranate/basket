@@ -1,28 +1,21 @@
 import type { ReactNode } from "react";
-import { addDays, format, parseISO } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { Hash, Sparkles, UserRound } from "lucide-react";
 
 import { SectionAiAssistant } from "@/components/ai/section-ai-assistant";
 import { MyDayAssignmentsPanel } from "@/components/collaborators/my-day-assignments-panel";
-import { MyDayPeriodCalendarButton } from "@/components/collaborators/my-day-period-calendar-button";
 import { SetupPanel } from "@/components/layout/setup-panel";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
-import { SegmentedControl } from "@/components/ui/segmented-control";
 import { getUserContext } from "@/lib/auth";
 import {
   type CollaboratorAssignmentItem,
   type CollaboratorGroupContact,
   getCollaboratorDayData,
 } from "@/lib/data/collaborators";
-import { getDateInputValue, getMonthInputValue, isInDisplayedMonth } from "@/lib/date";
 import { appEnv, isSupabaseConfigured } from "@/lib/env";
 import { getSettingsSnapshot } from "@/lib/settings";
 import { cn } from "@/lib/utils";
-
-type PageProps = {
-  searchParams: Promise<{ date?: string; view?: string }>;
-};
 
 function capitalizeSentence(value: string) {
   if (!value) {
@@ -30,14 +23,6 @@ function capitalizeSentence(value: string) {
   }
 
   return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
-function formatSelectedDate(dateValue: string) {
-  return capitalizeSentence(
-    format(parseISO(`${dateValue}T00:00:00`), "EEEE d 'de' MMMM", {
-      locale: es,
-    }),
-  );
 }
 
 function formatCompactMatchDate(dateValue: string) {
@@ -84,18 +69,6 @@ function getTodayDateKey() {
   const day = parts.find((part) => part.type === "day")?.value ?? "01";
 
   return `${year}-${month}-${day}`;
-}
-
-function formatMonthHeading(monthValue: string) {
-  return capitalizeSentence(
-    format(parseISO(`${monthValue}-01T00:00:00`), "MMMM yyyy", {
-      locale: es,
-    }),
-  );
-}
-
-function buildMyDayHref(params: { view: "day" | "month"; date: string }) {
-  return `/mi-jornada?view=${params.view}&date=${params.date}`;
 }
 
 function DaySummaryCard({
@@ -202,6 +175,8 @@ function buildDemoAssignment(params: {
     matchId: "demo-match-boca-atenas",
     confirmed: false,
     attendanceConfirmedAt: null,
+    attendanceResponse: null,
+    attendanceNote: null,
     notes: "Vista demo para validar la tarjeta móvil de Mi jornada.",
     roleName: "Realizador",
     roleCategory: "Produccion",
@@ -236,12 +211,11 @@ function buildDemoAssignment(params: {
   };
 }
 
-export default async function CollaboratorDayPage({ searchParams }: PageProps) {
+export default async function CollaboratorDayPage() {
   if (!isSupabaseConfigured) {
     return <SetupPanel />;
   }
 
-  const { date, view } = await searchParams;
   const user = await getUserContext();
   const guestMode = appEnv.allowGuestMiJornadaAccess && !user.userId;
   const settings = await getSettingsSnapshot();
@@ -249,12 +223,11 @@ export default async function CollaboratorDayPage({ searchParams }: PageProps) {
     person: null,
     linkedBy: null,
     allAssignments: [],
-    todayAssignments: [],
     upcomingAssignments: [],
+    pastMonthAssignments: [],
     summary: {
-      totalToday: 0,
-      pendingToday: 0,
-      competitionsToday: 0,
+      totalUpcoming: 0,
+      pendingUpcoming: 0,
       nextKickoffLabel: null,
     },
   } satisfies Awaited<ReturnType<typeof getCollaboratorDayData>>;
@@ -263,166 +236,55 @@ export default async function CollaboratorDayPage({ searchParams }: PageProps) {
     : await getCollaboratorDayData(user, {
       email: user.email,
       profileName: user.profile?.full_name ?? null,
-      selectedDate:
-        view === "month" && /^\d{4}-\d{2}$/.test(date ?? "")
-          ? `${date}-01`
-          : date,
     }).catch((error) => {
       console.error("[mi-jornada] failed to load collaborator data", error);
       return emptyData;
     });
 
   const todayDateKey = getTodayDateKey();
-  const todayMonthKey = getMonthInputValue(parseISO(`${todayDateKey}T00:00:00`));
-  const periodView = view === "month" ? "month" : "day";
-  const selectedDate =
-    periodView === "day" && /^\d{4}-\d{2}-\d{2}$/.test(date ?? "")
-      ? (date as string)
-      : todayDateKey;
-  const selectedMonth =
-    periodView === "month" && /^\d{4}-\d{2}$/.test(date ?? "")
-      ? (date as string)
-      : todayMonthKey;
-  const panelSelectedDate =
-    periodView === "month" ? `${selectedMonth}-01` : selectedDate;
   const fallbackCollaboratorName =
     user.profile?.full_name?.trim() || "Modo invitado";
-  const fallbackUpcomingDate = format(
-    addDays(parseISO(`${panelSelectedDate}T00:00:00`), 1),
-    "yyyy-MM-dd",
-  );
   const greetingName = capitalizeSentence(
     data.person?.full_name?.trim() || fallbackCollaboratorName,
   );
-  const monthAssignments = data.allAssignments.filter((assignment) =>
-    isInDisplayedMonth(assignment.kickoffAt, selectedMonth, assignment.timezone),
-  );
-  const rawPrimaryAssignments =
-    periodView === "month" ? monthAssignments : data.todayAssignments;
-  const showDemoToday =
-    guestMode || !data.person || rawPrimaryAssignments.length === 0;
-  const primaryAssignments = showDemoToday
+
+  const showDemo =
+    guestMode || !data.person || data.upcomingAssignments.length === 0;
+  const upcomingAssignments = showDemo
     ? [
       buildDemoAssignment({
-        date: panelSelectedDate,
+        date: todayDateKey,
         collaboratorName: data.person?.full_name ?? fallbackCollaboratorName,
       }),
     ]
-    : rawPrimaryAssignments;
-  const upcomingAssignments =
-    periodView === "month"
-      ? []
-      : (guestMode || !data.person) && data.upcomingAssignments.length === 0
-        ? [
-          buildDemoAssignment({
-            date: fallbackUpcomingDate,
-            collaboratorName: fallbackCollaboratorName,
-          }),
-        ]
-        : data.upcomingAssignments;
-  const totalToday = primaryAssignments.length;
-  const pendingToday = primaryAssignments.filter((assignment) => !assignment.confirmed).length;
-  const isSelectedDateToday = selectedDate === todayDateKey;
+    : data.upcomingAssignments;
+  const pastAssignments = data.pastMonthAssignments;
+
+  const totalUpcoming = upcomingAssignments.length;
+  const pendingUpcoming = upcomingAssignments.filter(
+    (assignment) => !assignment.attendanceResponse,
+  ).length;
   const contentUpdatedLabel = formatContentUpdatedLabel();
-  const primaryHeading =
-    periodView === "month"
-      ? formatMonthHeading(selectedMonth)
-      : isSelectedDateToday
-        ? `Hoy (${formatSelectedDate(selectedDate)})`
-        : formatSelectedDate(selectedDate);
-  const primaryDescription =
-    periodView === "month"
-      ? "Tus partidos asignados dentro del mes seleccionado."
-      : "Tus partidos asignados para la fecha seleccionada.";
-  const todayHref = buildMyDayHref({
-    view: "day",
-    date: getDateInputValue(parseISO(`${todayDateKey}T00:00:00`)),
-  });
-  const monthHref = buildMyDayHref({
-    view: "month",
-    date: todayMonthKey,
-  });
-  const aiContext = [
-    ...primaryAssignments.map((assignment) => ({
-      bloque: periodView === "month" ? "Mes" : "Hoy",
-      partido: `${assignment.homeTeam} vs ${assignment.awayTeam}`,
-      liga: assignment.competition ?? "Sin liga",
-      fecha:
-        periodView === "month"
-          ? formatAssignmentDateLabel(assignment.kickoffAt)
-          : formatSelectedDate(selectedDate),
-      hora: assignment.timeLabel,
-      sede: assignment.venue ?? "Sede por definir",
-      responsable: assignment.responsibleName ?? assignment.ownerName ?? "Sin asignar",
-      modo: assignment.productionMode ?? "Sin definir",
-      rol: assignment.roleName,
-      camaras: assignment.cameraCount,
-      pendiente: !assignment.confirmed,
-    })),
-    ...(periodView === "day"
-      ? upcomingAssignments.map((assignment) => ({
-        bloque: "Próximamente",
-        partido: `${assignment.homeTeam} vs ${assignment.awayTeam}`,
-        liga: assignment.competition ?? "Sin liga",
-        fecha: formatAssignmentDateLabel(assignment.kickoffAt),
-        hora: assignment.timeLabel,
-        sede: assignment.venue ?? "Sede por definir",
-        responsable: assignment.responsibleName ?? assignment.ownerName ?? "Sin asignar",
-        modo: assignment.productionMode ?? "Sin definir",
-        rol: assignment.roleName,
-        camaras: assignment.cameraCount,
-        pendiente: !assignment.confirmed,
-      }))
-      : []),
-  ];
-  const periodControls = (
-    <div className="hidden items-center gap-3 md:flex md:justify-end">
-      <div className="flex shrink-0 flex-wrap items-center justify-end gap-3">
-        <span className="text-sm font-medium text-[var(--muted)]">
-          {primaryAssignments.length} partidos
-        </span>
-        <SegmentedControl
-          items={[
-            { key: "day", label: "Hoy", href: todayHref, active: periodView === "day" },
-            { key: "month", label: "Mes", href: monthHref, active: periodView === "month" },
-          ]}
-        />
-        <MyDayPeriodCalendarButton
-          view={periodView}
-          value={periodView === "month" ? selectedMonth : selectedDate}
-        />
-        <SectionAiAssistant
-          section="Mi jornada"
-          title="Consulta tu jornada visible"
-          description="Pregunta por tus partidos visibles, horarios, responsables, ligas, sedes o modos de producción."
-          placeholder="Ej. ¿Qué partidos tengo hoy y quién es el responsable?"
-          contextLabel="Partidos visibles en Mi jornada"
-          context={aiContext}
-          guidance="Prioriza bloque visible, partido, liga, fecha, hora, sede, responsable, modo de producción, rol asignado, cámaras y si el partido está pendiente de reportar."
-          examples={[
-            "¿Qué partidos tengo hoy y a qué hora?",
-            "¿Quién es el responsable de Boca Juniors vs Atenas de Córdoba?",
-            "¿Qué partidos visibles están en modo Encoder?",
-          ]}
-          hasGeminiKey={settings.hasGeminiKey}
-          buttonVariant="icon"
-        />
-      </div>
-    </div>
-  );
+  const aiContext = upcomingAssignments.map((assignment) => ({
+    partido: `${assignment.homeTeam} vs ${assignment.awayTeam}`,
+    liga: assignment.competition ?? "Sin liga",
+    fecha: formatAssignmentDateLabel(assignment.kickoffAt),
+    hora: assignment.timeLabel,
+    sede: assignment.venue ?? "Sede por definir",
+    responsable: assignment.responsibleName ?? assignment.ownerName ?? "Sin asignar",
+    modo: assignment.productionMode ?? "Sin definir",
+    rol: assignment.roleName,
+    camaras: assignment.cameraCount,
+    asistencia: assignment.attendanceResponse ?? "pendiente",
+  }));
 
   return (
     <div className="w-full max-w-none pb-10">
       <MyDayAssignmentsPanel
         hasLinkedPerson={Boolean(data.person)}
-        isSelectedDateToday={isSelectedDateToday}
-        selectedDate={panelSelectedDate}
-        periodView={periodView}
-        primaryHeading={primaryHeading}
-        primaryDescription={primaryDescription}
-        showDemoToday={showDemoToday}
-        todayAssignments={primaryAssignments}
-        upcomingAssignments={upcomingAssignments}
+        showDemoToday={showDemo}
+        assignments={upcomingAssignments}
+        pastAssignments={pastAssignments}
         topContent={
           <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
             <SectionPageHeader
@@ -441,17 +303,34 @@ export default async function CollaboratorDayPage({ searchParams }: PageProps) {
               contentClassName="mx-auto text-center md:mx-0 md:text-left"
               descriptionClassName="mt-3 block w-full max-w-none text-center text-xs font-bold uppercase tracking-[0.14em] text-[#95a3ba] md:mx-0 md:text-left md:text-sm md:font-medium md:normal-case md:tracking-normal"
             />
-            <div className="order-3 md:order-2 md:justify-self-end">{periodControls}</div>
+            <div className="order-3 hidden md:order-2 md:flex md:justify-self-end">
+              <SectionAiAssistant
+                section="Mi jornada"
+                title="Consulta tu jornada visible"
+                description="Pregunta por tus partidos visibles, horarios, responsables, ligas, sedes o modos de producción."
+                placeholder="Ej. ¿Qué partidos tengo y quién es el responsable?"
+                contextLabel="Partidos visibles en Mi jornada"
+                context={aiContext}
+                guidance="Prioriza partido, liga, fecha, hora, sede, responsable, modo de producción, rol asignado, cámaras y el estado de asistencia."
+                examples={[
+                  "¿Qué partidos tengo y a qué hora?",
+                  "¿Quién es el responsable de Boca Juniors vs Atenas de Córdoba?",
+                  "¿Qué partidos visibles están en modo Encoder?",
+                ]}
+                hasGeminiKey={settings.hasGeminiKey}
+                buttonVariant="icon"
+              />
+            </div>
             <div className="order-2 grid grid-cols-2 gap-3 md:order-3 md:col-span-2">
-              <DaySummaryCard label="Partidos asignados" value={totalToday} icon={Hash} />
+              <DaySummaryCard label="Partidos asignados" value={totalUpcoming} icon={Hash} />
               <DaySummaryCard
                 label={
                   <>
-                    <span className="md:hidden">Por reportar</span>
-                    <span className="hidden md:inline">Pendientes por reportar</span>
+                    <span className="md:hidden">Sin confirmar</span>
+                    <span className="hidden md:inline">Asistencia sin confirmar</span>
                   </>
                 }
-                value={pendingToday}
+                value={pendingUpcoming}
                 icon={Sparkles}
                 tone="accent"
               />
