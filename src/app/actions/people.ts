@@ -52,10 +52,17 @@ async function findProfileByEmail(email: string): Promise<ProfileRow | null> {
   );
 }
 
-async function revokeCollaboratorAccessByEmail(email: string) {
+// Any of these profile roles grants platform login; revoke must cover all of
+// them, mirroring personHasPlatformAccess (src/lib/data/platform-access.ts).
+const PLATFORM_ACCESS_ROLES = ACCESS_TIER_ROLES;
+
+async function revokePlatformAccessByEmail(email: string) {
   const profile = await findProfileByEmail(email);
 
-  if (!profile || profile.role !== "collaborator") {
+  if (
+    !profile ||
+    !(PLATFORM_ACCESS_ROLES as readonly string[]).includes(profile.role)
+  ) {
     return false;
   }
 
@@ -72,6 +79,59 @@ async function revokeCollaboratorAccessByEmail(email: string) {
   }
 
   return true;
+}
+
+// Provision (or re-tier) platform login for a person and send the invite email.
+// Shared by the create/edit upsert flow and the standalone grant action.
+async function grantPlatformAccess({
+  email,
+  fullName,
+  role,
+}: {
+  email: string;
+  fullName: string;
+  role: AccessTierRole;
+}): Promise<{ emailSent: boolean }> {
+  const supabaseAdmin = createSupabaseAdminClient();
+  const existingProfile = await findProfileByEmail(email);
+
+  if (existingProfile) {
+    // Change-tier: granting access to an already-provisioned user moves them to
+    // the selected tier. Keep id/auth_user_id so a later first login auto-links.
+    const updateProfile = await supabaseAdmin
+      .from("profiles")
+      .update({
+        role: role satisfies AppRole,
+        full_name: fullName,
+      })
+      .eq("id", existingProfile.id);
+
+    if (updateProfile.error) {
+      throw updateProfile.error;
+    }
+  } else {
+    // No auth user created: a fresh profiles row keyed by a new uuid with
+    // auth_user_id NULL. First login (Google/magic link) auto-links by email
+    // and stamps auth_user_id (see getUserContext).
+    const profileInsert = await supabaseAdmin.from("profiles").insert({
+      id: globalThis.crypto.randomUUID(),
+      email,
+      full_name: fullName,
+      role: role satisfies AppRole,
+      auth_user_id: null,
+    });
+
+    if (profileInsert.error) {
+      throw profileInsert.error;
+    }
+  }
+
+  await sendCollaboratorInviteEmail({
+    to: email,
+    loginUrl: `${appEnv.appUrl}/login`,
+  });
+
+  return { emailSent: true };
 }
 
 export async function upsertPersonAction(formData: FormData) {
@@ -184,46 +244,12 @@ export async function upsertPersonAction(formData: FormData) {
 
     if (createPlatformAccess && payload.email) {
       try {
-        const supabaseAdmin = createSupabaseAdminClient();
-        const existingProfile = await findProfileByEmail(payload.email);
-
-        if (existingProfile) {
-          // Change-tier: granting access to an already-provisioned user moves
-          // them to the selected tier. Keep id/auth_user_id so a later first
-          // login still auto-links.
-          const updateProfile = await supabaseAdmin
-            .from("profiles")
-            .update({
-              role: accessRole satisfies AppRole,
-              full_name: payload.full_name,
-            })
-            .eq("id", existingProfile.id);
-
-          if (updateProfile.error) {
-            throw updateProfile.error;
-          }
-        } else {
-          // No auth user created: a fresh profiles row keyed by a new uuid with
-          // auth_user_id NULL. First login (Google/magic link) auto-links by
-          // email and stamps auth_user_id (see getUserContext).
-          const profileInsert = await supabaseAdmin.from("profiles").insert({
-            id: globalThis.crypto.randomUUID(),
-            email: payload.email,
-            full_name: payload.full_name,
-            role: accessRole satisfies AppRole,
-            auth_user_id: null,
-          });
-
-          if (profileInsert.error) {
-            throw profileInsert.error;
-          }
-        }
-
-        await sendCollaboratorInviteEmail({
-          to: payload.email,
-          loginUrl: `${appEnv.appUrl}/login`,
+        const granted = await grantPlatformAccess({
+          email: payload.email,
+          fullName: payload.full_name,
+          role: accessRole,
         });
-        accessEmailSent = true;
+        accessEmailSent = granted.emailSent;
       } catch (error) {
         console.error("[people] failed to create platform access", error);
         accessNotice = ensureErrorMessage(error);
@@ -285,7 +311,7 @@ export async function deletePersonAction(formData: FormData) {
     }
 
     if (context.role === "admin" && person.email) {
-      await revokeCollaboratorAccessByEmail(person.email);
+      await revokePlatformAccessByEmail(person.email);
     }
 
     const result = await supabase
@@ -349,17 +375,74 @@ export async function revokePersonAccessAction(formData: FormData) {
       throw new Error("Este usuario no tiene correo asociado.");
     }
 
-    const revoked = await revokeCollaboratorAccessByEmail(person.email);
+    const revoked = await revokePlatformAccessByEmail(person.email);
 
     if (!revoked) {
-      throw new Error("No se encontró acceso colaborador para revocar.");
+      throw new Error("No se encontró acceso de plataforma para revocar.");
     }
 
     revalidatePath("/people");
     redirectWithNotice({
       redirectTo,
       intent: "success",
-      notice: "Acceso de colaborador revocado.",
+      notice: "Acceso a la plataforma revocado.",
+    });
+  } catch (error) {
+    rethrowNavigationError(error);
+    redirectWithNotice({
+      redirectTo,
+      intent: "error",
+      notice: ensureErrorMessage(error),
+    });
+  }
+}
+
+export async function grantPersonAccessAction(formData: FormData) {
+  const redirectTo = getRedirectTarget(formData, "/people");
+  const personId = String(formData.get("personId") ?? "").trim();
+  const accessRole = normalizeAccessTier(
+    String(formData.get("accessRole") ?? "collaborator"),
+  );
+
+  try {
+    await requireAdminAccessManager();
+
+    const supabase = await createSupabaseServerClient();
+    const personQuery = await supabase
+      .from("people")
+      .select("id, email, full_name")
+      .eq("id", personId)
+      .maybeSingle();
+
+    if (personQuery.error) {
+      throw personQuery.error;
+    }
+
+    const person = personQuery.data;
+
+    if (!person) {
+      throw new Error("No se encontró el usuario.");
+    }
+
+    if (!person.email) {
+      throw new Error(
+        "Primero debes guardar un correo electrónico para poder gestionar acceso.",
+      );
+    }
+
+    const { emailSent } = await grantPlatformAccess({
+      email: person.email,
+      fullName: person.full_name,
+      role: accessRole,
+    });
+
+    revalidatePath("/people");
+    redirectWithNotice({
+      redirectTo,
+      intent: "success",
+      notice: emailSent
+        ? "Acceso a la plataforma habilitado y correo enviado."
+        : "Acceso a la plataforma habilitado.",
     });
   } catch (error) {
     rethrowNavigationError(error);
