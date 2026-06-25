@@ -9,7 +9,11 @@ import {
 } from "@/app/actions/helpers";
 import { requireEditor } from "@/lib/auth";
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
-import { requireAdmin, requireAdminAccessManager } from "@/lib/auth-access";
+import {
+  canManageAccessTier,
+  requireAccessManager,
+  requireAdmin,
+} from "@/lib/auth-access";
 import type { AppRole, ProfileRow } from "@/lib/database.types";
 import { sendCollaboratorInviteEmail } from "@/lib/email/mailer";
 import { isPersonFunctionKey, resolveFunctionKey } from "@/lib/functions";
@@ -56,7 +60,10 @@ async function findProfileByEmail(email: string): Promise<ProfileRow | null> {
 // them, mirroring personHasPlatformAccess (src/lib/data/platform-access.ts).
 const PLATFORM_ACCESS_ROLES = ACCESS_TIER_ROLES;
 
-async function revokePlatformAccessByEmail(email: string) {
+async function revokePlatformAccessByEmail(
+  email: string,
+  managerRole: AppRole,
+) {
   const profile = await findProfileByEmail(email);
 
   if (
@@ -64,6 +71,12 @@ async function revokePlatformAccessByEmail(email: string) {
     !(PLATFORM_ACCESS_ROLES as readonly string[]).includes(profile.role)
   ) {
     return false;
+  }
+
+  // Productores may only revoke Externo logins; revoking an admin/Productor
+  // account stays admin-only (canManageAccessTier).
+  if (!canManageAccessTier(managerRole, profile.role)) {
+    throw new Error("Solo un admin puede revocar este acceso.");
   }
 
   // Deleting the profiles row removes authorization: getUserContext now returns
@@ -140,9 +153,17 @@ export async function upsertPersonAction(formData: FormData) {
   const hasActiveField = formData.has("active");
   const createPlatformAccess =
     String(formData.get("createPlatformAccess") ?? "off") === "on";
-  const accessRole = normalizeAccessTier(
+  const requestedAccessRole = normalizeAccessTier(
     String(formData.get("accessRole") ?? "collaborator"),
   );
+  // Productores can only mint Externo logins; downgrade any higher tier they
+  // request rather than trusting the submitted value.
+  const accessRole: AccessTierRole = canManageAccessTier(
+    ctx.role,
+    requestedAccessRole,
+  )
+    ? requestedAccessRole
+    : "collaborator";
 
   const roleNameInput = maybeNull(String(formData.get("roleName") ?? ""));
 
@@ -181,7 +202,7 @@ export async function upsertPersonAction(formData: FormData) {
 
   try {
     if (createPlatformAccess) {
-      await requireAdminAccessManager();
+      await requireAccessManager();
 
       if (!payload.email) {
         throw new Error("Ingresa un correo electrónico antes de crear acceso.");
@@ -311,7 +332,7 @@ export async function deletePersonAction(formData: FormData) {
     }
 
     if (context.role === "admin" && person.email) {
-      await revokePlatformAccessByEmail(person.email);
+      await revokePlatformAccessByEmail(person.email, context.role);
     }
 
     const result = await supabase
@@ -352,7 +373,7 @@ export async function revokePersonAccessAction(formData: FormData) {
   const personId = String(formData.get("personId") ?? "").trim();
 
   try {
-    await requireAdminAccessManager();
+    const ctx = await requireAccessManager();
 
     const supabase = await createSupabaseServerClient();
     const personQuery = await supabase
@@ -375,7 +396,7 @@ export async function revokePersonAccessAction(formData: FormData) {
       throw new Error("Este usuario no tiene correo asociado.");
     }
 
-    const revoked = await revokePlatformAccessByEmail(person.email);
+    const revoked = await revokePlatformAccessByEmail(person.email, ctx.role);
 
     if (!revoked) {
       throw new Error("No se encontró acceso de plataforma para revocar.");
@@ -400,12 +421,19 @@ export async function revokePersonAccessAction(formData: FormData) {
 export async function grantPersonAccessAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData, "/people");
   const personId = String(formData.get("personId") ?? "").trim();
-  const accessRole = normalizeAccessTier(
+  const requestedAccessRole = normalizeAccessTier(
     String(formData.get("accessRole") ?? "collaborator"),
   );
 
   try {
-    await requireAdminAccessManager();
+    const ctx = await requireAccessManager();
+    // Productores can only mint Externo logins; downgrade higher tiers.
+    const accessRole: AccessTierRole = canManageAccessTier(
+      ctx.role,
+      requestedAccessRole,
+    )
+      ? requestedAccessRole
+      : "collaborator";
 
     const supabase = await createSupabaseServerClient();
     const personQuery = await supabase

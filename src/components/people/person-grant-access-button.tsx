@@ -19,9 +19,11 @@ type AccessTierValue = (typeof ACCESS_TIER_OPTIONS)[number]["value"];
 export function PersonGrantAccessButton({
   personId,
   redirectTo,
+  canSelectAccessTier = false,
 }: {
   personId: string;
   redirectTo: string;
+  canSelectAccessTier?: boolean;
 }) {
   const [accessRole, setAccessRole] = useState<AccessTierValue>("collaborator");
 
@@ -29,29 +31,39 @@ export function PersonGrantAccessButton({
     <form action={grantPersonAccessAction} className="mt-5 space-y-4">
       <input type="hidden" name="personId" value={personId} />
       <input type="hidden" name="redirectTo" value={redirectTo} />
-      <input type="hidden" name="accessRole" value={accessRole} />
+      <input
+        type="hidden"
+        name="accessRole"
+        value={canSelectAccessTier ? accessRole : "collaborator"}
+      />
 
       <label className="space-y-2">
         <span className="flex items-center gap-2 text-sm font-semibold text-[#334155]">
           Nivel de acceso
           <span className="inline-block size-1.5 rounded-full bg-[var(--accent)]" />
         </span>
-        <div className="relative">
-          <Select
-            value={accessRole}
-            onChange={(event) =>
-              setAccessRole(event.target.value as AccessTierValue)
-            }
-            className="h-12 appearance-none rounded-[var(--panel-radius)] border-[#e5e7eb] bg-[#f9f9f9] pr-10 text-[15px] font-medium text-[#1f2937] shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(230,18,56,0.08)]"
-          >
-            {ACCESS_TIER_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
-          <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-[#98a2b3]" />
-        </div>
+        {canSelectAccessTier ? (
+          <div className="relative">
+            <Select
+              value={accessRole}
+              onChange={(event) =>
+                setAccessRole(event.target.value as AccessTierValue)
+              }
+              className="h-12 appearance-none rounded-[var(--panel-radius)] border-[#e5e7eb] bg-[#f9f9f9] pr-10 text-[15px] font-medium text-[#1f2937] shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(230,18,56,0.08)]"
+            >
+              {ACCESS_TIER_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-[#98a2b3]" />
+          </div>
+        ) : (
+          <div className="flex h-12 items-center rounded-[var(--panel-radius)] border border-[#e5e7eb] bg-[#f9f9f9] px-4 text-[15px] font-medium text-[#1f2937] shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)]">
+            {APP_ROLE_DISPLAY_NAMES.collaborator}
+          </div>
+        )}
       </label>
 
       <div className="rounded-[var(--panel-radius)] border border-[#e5e7eb] bg-[#f9f9f9] px-4 py-3 shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)]">
