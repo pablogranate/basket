@@ -45,7 +45,7 @@ function sanitizeFileSegment(value: string) {
 function buildGridExcelDocument(rows: GridExportRow[], periodLabel: string) {
   const headerRow = GRID_EXPORT_COLUMNS.map(
     (column) =>
-      `<th style="border:1px solid #dbe4f0;background:#0f172a;color:#ffffff;padding:10px 12px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;text-align:left;">${escapeHtml(
+      `<th style="border:1px solid #dbe4f0;background:#E31B23;color:#ffffff;padding:10px 12px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;text-align:left;">${escapeHtml(
         column.label,
       )}</th>`,
   ).join("");
@@ -71,7 +71,7 @@ function buildGridExcelDocument(rows: GridExportRow[], periodLabel: string) {
         <meta charset="utf-8" />
       </head>
       <body style="font-family:Arial,sans-serif;background:#ffffff;padding:24px;">
-        <div style="font-size:24px;font-weight:800;color:#0f172a;margin-bottom:6px;">Control de producción</div>
+        <div style="font-size:24px;font-weight:800;color:#E31B23;margin-bottom:6px;">Control de producción</div>
         <div style="font-size:12px;color:#64748b;margin-bottom:16px;">Periodo exportado: ${escapeHtml(periodLabel)}</div>
         <table style="border-collapse:collapse;width:100%;">
           <thead>
@@ -189,7 +189,7 @@ export function GridExportButton({
       disabled={!rows.length || isExporting}
       aria-label={isExporting ? "Exportando jornada" : "Descargar Excel y PDF"}
       title={isExporting ? "Exportando jornada" : "Descargar Excel y PDF"}
-      className="inline-flex size-[52px] items-center justify-center rounded-[var(--panel-radius)] bg-[#7c3aed] text-white shadow-[0_14px_28px_rgba(124,58,237,0.22)] transition hover:bg-[#6d28d9] disabled:cursor-not-allowed disabled:opacity-60"
+      className="inline-flex size-[52px] items-center justify-center rounded-[var(--panel-radius)] bg-[var(--accent)] text-white shadow-[var(--shadow-lift)] transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
     >
       <Download className="size-4" />
     </button>

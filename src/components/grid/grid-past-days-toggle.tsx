@@ -24,8 +24,8 @@ export function GridPastDaysToggle({
         onClick={() => setOpen((current) => !current)}
         aria-expanded={open}
         className={cn(
-          "inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--muted)] shadow-[0_8px_18px_rgba(15,23,42,0.06)] transition hover:border-[rgba(230,18,56,0.24)] hover:text-[var(--accent)]",
-          open && "border-[rgba(230,18,56,0.18)] bg-[#fff4f6] text-[var(--accent)]",
+          "inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--muted)] shadow-[var(--shadow-rest)] transition hover:border-[var(--accent-border)] hover:text-[var(--accent)]",
+          open && "border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]",
         )}
       >
         <History className="size-4" />

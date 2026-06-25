@@ -244,8 +244,8 @@ export function GridCalendarPicker({
         aria-label="Abrir calendario de producción"
         onClick={handleToggle}
         className={cn(
-          "panel-surface inline-flex size-[52px] items-center justify-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] text-[#607089] transition hover:text-[var(--accent)]",
-          open && "border-[rgba(230,18,56,0.2)] text-[var(--accent)]",
+          "panel-surface inline-flex size-[52px] items-center justify-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] text-[var(--n-500)] transition hover:text-[var(--accent)]",
+          open && "border-[var(--accent-border)] text-[var(--accent)]",
         )}
       >
         <CalendarDays className="size-5" />
@@ -257,7 +257,7 @@ export function GridCalendarPicker({
             <button
               type="button"
               onClick={() => handleMonthChange("prev")}
-              className="inline-flex size-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--background-soft)] text-[#607089] transition hover:border-[rgba(230,18,56,0.18)] hover:text-[var(--accent)]"
+              className="inline-flex size-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--background-soft)] text-[var(--n-500)] transition hover:border-[var(--accent-border)] hover:text-[var(--accent)]"
             >
               <ChevronLeft className="size-4" />
             </button>
@@ -272,7 +272,7 @@ export function GridCalendarPicker({
             <button
               type="button"
               onClick={() => handleMonthChange("next")}
-              className="inline-flex size-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--background-soft)] text-[#607089] transition hover:border-[rgba(230,18,56,0.18)] hover:text-[var(--accent)]"
+              className="inline-flex size-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--background-soft)] text-[var(--n-500)] transition hover:border-[var(--accent-border)] hover:text-[var(--accent)]"
             >
               <ChevronRight className="size-4" />
             </button>
@@ -282,7 +282,7 @@ export function GridCalendarPicker({
             {WEEKDAY_LABELS.map((label) => (
               <div
                 key={label}
-                className="px-2 py-1 text-center text-[10px] font-black uppercase tracking-[0.18em] text-[#94a3b8]"
+                className="px-2 py-1 text-center text-[10px] font-black uppercase tracking-[0.18em] text-[var(--n-400)]"
               >
                 {label}
               </div>
@@ -306,11 +306,11 @@ export function GridCalendarPicker({
                   className={cn(
                     "panel-radius min-h-[4.5rem] border px-2 py-2 text-left transition",
                     isCurrentMonth
-                      ? "border-[#edf1f6] bg-white hover:border-[rgba(230,18,56,0.2)] hover:bg-[#fff8fa]"
+                      ? "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--accent-border)] hover:bg-[var(--accent-soft)]"
                       : "border-transparent bg-transparent opacity-35",
                     isSelected &&
-                      "border-[rgba(230,18,56,0.28)] bg-[#fff1f4] ring-1 ring-[rgba(230,18,56,0.2)]",
-                    isToday && !isSelected && "border-[#dbe1ea] bg-[#f7f9fc]",
+                      "border-[var(--accent-border)] bg-[var(--accent-soft)] ring-1 ring-[var(--accent-border)]",
+                    isToday && !isSelected && "border-[var(--border)] bg-[var(--n-50)]",
                   )}
                 >
                   <span
@@ -320,7 +320,7 @@ export function GridCalendarPicker({
                         ? "text-[var(--accent)]"
                         : isCurrentMonth
                           ? "text-[var(--foreground)]"
-                          : "text-[#94a3b8]",
+                          : "text-[var(--n-400)]",
                     )}
                   >
                     {format(day, "d")}
@@ -337,7 +337,7 @@ export function GridCalendarPicker({
                       />
                     ))}
                     {overflow ? (
-                      <span className="text-[9px] font-bold text-[#94a3b8]">
+                      <span className="text-[9px] font-bold text-[var(--n-400)]">
                         +{overflow}
                       </span>
                     ) : null}
@@ -348,7 +348,7 @@ export function GridCalendarPicker({
           </div>
 
           <div className="mt-4 flex items-center justify-between gap-4 border-t border-[var(--border)] pt-3">
-            <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94a3b8]">
+            <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--n-400)]">
               {LEAGUE_DOT_STYLES.map((league) => (
                 <span key={league.label} className="inline-flex items-center gap-1.5">
                   <span
@@ -362,7 +362,7 @@ export function GridCalendarPicker({
               ))}
             </div>
             {loadingMonth === month ? (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94a3b8]">
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--n-400)]">
                 <Loader2 className="size-3 animate-spin" />
                 Cargando
               </span>
@@ -370,7 +370,7 @@ export function GridCalendarPicker({
           </div>
 
           {error ? (
-            <p className="mt-3 text-xs font-medium text-[#9f1633]">{error}</p>
+            <p className="mt-3 text-xs font-medium text-[var(--accent-strong)]">{error}</p>
           ) : null}
         </div>
       ) : null}
