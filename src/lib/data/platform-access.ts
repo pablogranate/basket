@@ -1,15 +1,26 @@
 import "server-only";
 
-import type { ProfileRow } from "@/lib/database.types";
+import type { AppRole, ProfileRow } from "@/lib/database.types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
-export async function personHasPlatformAccess(
+// Profile roles that grant a platform login. Kept in sync with PLATFORM_ACCESS_ROLES
+// in src/app/actions/people.ts.
+const PLATFORM_ACCESS_ROLES: readonly AppRole[] = [
+  "admin",
+  "editor",
+  "collaborator",
+];
+
+// Returns the active platform-access tier for an email, or null if the person
+// has no login. Callers use the tier to decide whether the current manager is
+// allowed to revoke it (see canManageAccessTier).
+export async function getPlatformAccessRole(
   email: string | null | undefined,
-): Promise<boolean> {
+): Promise<AppRole | null> {
   const normalizedEmail = email?.trim().toLowerCase();
 
   if (!normalizedEmail) {
-    return false;
+    return null;
   }
 
   try {
@@ -18,20 +29,29 @@ export async function personHasPlatformAccess(
 
     if (result.error) {
       console.error("[platform-access] failed to load profiles", result.error);
-      return false;
+      return null;
     }
 
     const profile = (
       (result.data as Pick<ProfileRow, "email" | "role">[] | null) ?? []
     ).find((row) => row.email?.toLowerCase() === normalizedEmail);
 
-    return (
-      profile?.role === "admin" ||
-      profile?.role === "editor" ||
-      profile?.role === "collaborator"
-    );
+    if (
+      profile?.role &&
+      (PLATFORM_ACCESS_ROLES as readonly string[]).includes(profile.role)
+    ) {
+      return profile.role;
+    }
+
+    return null;
   } catch (error) {
     console.error("[platform-access] unexpected failure", error);
-    return false;
+    return null;
   }
+}
+
+export async function personHasPlatformAccess(
+  email: string | null | undefined,
+): Promise<boolean> {
+  return (await getPlatformAccessRole(email)) !== null;
 }

@@ -38,10 +38,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { getToolbarIconButtonClassName } from "@/components/ui/toolbar-icon-button";
 import { ToolbarSearchField } from "@/components/ui/toolbar-search-field";
 import { requireUserContext } from "@/lib/auth";
+import {
+  canManageAccessTier,
+  isAccessManagerRole,
+} from "@/lib/auth-access";
 import { SECTION_COPY } from "@/lib/copy";
 import { ROLE_SEED } from "@/lib/constants";
+import type { AppRole } from "@/lib/database.types";
 import { getPeopleData } from "@/lib/data/dashboard";
-import { personHasPlatformAccess } from "@/lib/data/platform-access";
+import { getPlatformAccessRole } from "@/lib/data/platform-access";
 import { getAssignmentStateDisplayName, getRoleDisplayName } from "@/lib/display";
 import { isSupabaseConfigured } from "@/lib/env";
 import type { PeopleAiContextItem } from "@/lib/people-ai";
@@ -197,13 +202,19 @@ export default async function PeoplePage({ searchParams }: PageProps) {
   const selectedMeta = selectedPerson
     ? parsePersonNotesMeta(selectedPerson.notes)
     : null;
-  let selectedPersonHasPlatformAccess = false;
+  const canManageAccess = isAccessManagerRole(user.role);
+  const canSelectAccessTier = user.role === "admin";
+  let selectedPersonAccessRole: AppRole | null = null;
 
-  if (selectedPerson?.email && user.role === "admin") {
-    selectedPersonHasPlatformAccess = await personHasPlatformAccess(
-      selectedPerson.email,
-    );
+  if (selectedPerson?.email && canManageAccess) {
+    selectedPersonAccessRole = await getPlatformAccessRole(selectedPerson.email);
   }
+
+  const selectedPersonHasPlatformAccess = selectedPersonAccessRole !== null;
+  // Productores may revoke only Externo logins; admins may revoke any tier.
+  const canRevokeSelectedAccess =
+    selectedPersonAccessRole !== null &&
+    canManageAccessTier(user.role, selectedPersonAccessRole);
 
   const currentPeopleHref = buildPeopleHref(resolvedSearchParams, {
     edit: undefined,
@@ -279,7 +290,8 @@ export default async function PeoplePage({ searchParams }: PageProps) {
             {user.canEdit ? (
               <CreatePersonModal
                 canEdit={user.canEdit}
-                canManageAccess={user.role === "admin"}
+                canManageAccess={canManageAccess}
+                canSelectAccessTier={canSelectAccessTier}
                 redirectTo={currentPeopleHref}
                 roleOptions={ROLE_OPTIONS}
                 teamOptions={TEAM_OPTIONS}
@@ -567,7 +579,7 @@ export default async function PeoplePage({ searchParams }: PageProps) {
                 </section>
               </form>
 
-              {user.role === "admin" ? (
+              {canManageAccess ? (
                 <section className="border-t border-[#f1f3f5] bg-[#faf7f7] px-8 py-8">
                   <div className="rounded-[var(--panel-radius)] border-2 border-[rgba(211,49,49,0.10)] bg-white p-6 shadow-sm">
                     <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
@@ -620,15 +632,24 @@ export default async function PeoplePage({ searchParams }: PageProps) {
 
                     {selectedPerson.email ? (
                       selectedPersonHasPlatformAccess ? (
-                        <div className="mt-4 flex justify-end">
-                          <PersonRevokeAccessButton
-                            personId={selectedPerson.id}
-                            redirectTo={selectedPeopleHref ?? currentPeopleHref}
-                          />
-                        </div>
+                        canRevokeSelectedAccess ? (
+                          <div className="mt-4 flex justify-end">
+                            <PersonRevokeAccessButton
+                              personId={selectedPerson.id}
+                              redirectTo={
+                                selectedPeopleHref ?? currentPeopleHref
+                              }
+                            />
+                          </div>
+                        ) : (
+                          <p className="mt-4 text-sm text-[#667085]">
+                            Solo un admin puede revocar este acceso.
+                          </p>
+                        )
                       ) : (
                         <PersonGrantAccessButton
                           personId={selectedPerson.id}
+                          canSelectAccessTier={canSelectAccessTier}
                           redirectTo={selectedPeopleHref ?? currentPeopleHref}
                         />
                       )

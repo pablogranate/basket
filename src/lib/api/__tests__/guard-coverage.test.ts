@@ -101,6 +101,9 @@ const EXPORTED_ASYNC_FN_RE =
 const LOADER_ALLOWLIST = [
   "isUuidLike",
   "personHasPlatformAccess",
+  // Same identity-derivation helper as personHasPlatformAccess, returning the
+  // access tier (AppRole) instead of a boolean; keyed by email, not a ctx.
+  "getPlatformAccessRole",
   // Email/name-keyed person resolver shared by mi-jornada + attendance confirm;
   // it is keyed by identity params, not a ctx-scoped domain loader (PRD #7).
   "findLinkedPerson",

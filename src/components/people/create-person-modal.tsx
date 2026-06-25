@@ -80,12 +80,14 @@ function SectionHeading({
 export function CreatePersonModal({
   canEdit,
   canManageAccess,
+  canSelectAccessTier,
   redirectTo,
   roleOptions,
   teamOptions,
 }: {
   canEdit: boolean;
   canManageAccess: boolean;
+  canSelectAccessTier: boolean;
   redirectTo: string;
   roleOptions: string[];
   teamOptions: string[];
@@ -190,7 +192,11 @@ export function CreatePersonModal({
                 name="createPlatformAccess"
                 value={createPlatformAccess ? "on" : "off"}
               />
-              <input type="hidden" name="accessRole" value={accessRole} />
+              <input
+                type="hidden"
+                name="accessRole"
+                value={canSelectAccessTier ? accessRole : "collaborator"}
+              />
 
               <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto bg-[#faf7f7]">
                 <section className="border-b border-[#f1f3f5] bg-white px-8 py-8">
@@ -449,25 +455,36 @@ export function CreatePersonModal({
                         <div className="mt-5 space-y-4">
                           <label className="space-y-2">
                             <ModalFieldLabel required>Nivel de acceso</ModalFieldLabel>
-                            <div className="relative">
-                              <Select
-                                value={accessRole}
-                                onChange={(event) =>
-                                  setAccessRole(
-                                    event.target.value as AccessTierValue,
-                                  )
-                                }
-                                disabled={!canEdit}
-                                className={cn(fieldClassName, "appearance-none pr-10")}
+                            {canSelectAccessTier ? (
+                              <div className="relative">
+                                <Select
+                                  value={accessRole}
+                                  onChange={(event) =>
+                                    setAccessRole(
+                                      event.target.value as AccessTierValue,
+                                    )
+                                  }
+                                  disabled={!canEdit}
+                                  className={cn(fieldClassName, "appearance-none pr-10")}
+                                >
+                                  {ACCESS_TIER_OPTIONS.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </Select>
+                                <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-[#98a2b3]" />
+                              </div>
+                            ) : (
+                              <div
+                                className={cn(
+                                  fieldClassName,
+                                  "flex items-center",
+                                )}
                               >
-                                {ACCESS_TIER_OPTIONS.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </Select>
-                              <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-[#98a2b3]" />
-                            </div>
+                                {APP_ROLE_DISPLAY_NAMES.collaborator}
+                              </div>
+                            )}
                           </label>
 
                           <div className="rounded-[var(--panel-radius)] border border-[#e5e7eb] bg-[#f9f9f9] px-4 py-3 shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)]">
