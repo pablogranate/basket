@@ -542,7 +542,12 @@ export function MatchCard({
         </div>
       </summary>
 
-      <MatchCardDetails detailsId={detailsId} sections={sections} />
+      <MatchCardDetails
+        detailsId={detailsId}
+        matchId={match.id}
+        matchLabel={`${match.home_team} vs ${match.away_team}`}
+        sections={sections}
+      />
     </details>
   );
 }

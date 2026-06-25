@@ -9,6 +9,7 @@ import {
   Video,
 } from "lucide-react";
 
+import { MatchContactsModal } from "@/components/grid/match-contacts-modal";
 import { getCompactPersonName, getRoleDisplayName } from "@/lib/display";
 import type { AttendanceState } from "@/lib/grid/attendance";
 import { getAttendanceTextClass } from "@/lib/grid/attendance";
@@ -97,9 +98,13 @@ function Section({
 
 export function MatchCardDetails({
   detailsId,
+  matchId,
+  matchLabel,
   sections,
 }: {
   detailsId: string;
+  matchId: string;
+  matchLabel: string;
   sections: MatchCardSection[];
 }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -122,6 +127,9 @@ export function MatchCardDetails({
 
   return (
     <div className="overflow-hidden rounded-b-[10px] border-t border-[var(--border)] bg-[#fffefd] px-5 py-5 sm:px-6">
+      <div className="mb-5 flex justify-end">
+        <MatchContactsModal matchId={matchId} matchLabel={matchLabel} />
+      </div>
       <div className="grid gap-6 xl:grid-cols-4">
         {sections.map((section) => {
           const meta = SECTION_META[section.key];
