@@ -1,26 +1,45 @@
 @import "tailwindcss";
 
 :root {
-  --background: #fafafa;
-  --background-soft: #f6f4f4;
+  /* Warm-neutral scale (de-blued, faint warm tint) — BasquetPass identity */
+  --n-50: #faf9f8;
+  --n-100: #f4f2f1;
+  --n-200: #e7e4e2;
+  --n-300: #d6d1ce;
+  --n-400: #a8a09d;
+  --n-500: #847b78;
+  --n-600: #6b615f;
+  --n-700: #4a423f;
+  --n-800: #2e2826;
+  --n-900: #1c0d10;
+
+  /* Brand red ramp (Manual de Identidad: #E31B23) */
+  --accent: #e31b23;
+  --accent-strong: #c0141b;
+  --accent-soft: #fff0f1;
+  --accent-border: #f4cdcf;
+
+  /* Structural (re-based on the warm scale) */
+  --background: var(--n-50);
+  --background-soft: var(--n-100);
   --page-canvas: var(--background);
   --page-footer-bg: rgba(255, 255, 255, 0.72);
-  --foreground: #1c0d10;
+  --foreground: var(--n-900);
   --surface: #ffffff;
   --surface-muted: #fdfcfc;
-  --muted: #6b5d5f;
-  --border: #eeeeee;
-  --accent: #e61238;
-  --accent-soft: #fff0f3;
-  --accent-strong: #c61031;
+  --muted: var(--n-600);
+  --border: var(--n-200);
   --panel-radius: 10px;
-  --panel-shadow: 0 10px 24px rgba(28, 13, 16, 0.05);
+  --shadow-rest: 0 1px 2px rgba(28, 13, 16, 0.04), 0 1px 3px rgba(28, 13, 16, 0.06);
+  --shadow-lift: 0 10px 30px rgba(28, 13, 16, 0.1);
+  --panel-shadow: var(--shadow-lift);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-manrope);
+  --font-sans: var(--font-poppins);
+  --font-display: var(--font-oswald);
   --font-mono: var(--font-plex-mono);
 }
 
@@ -35,8 +54,8 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-manrope), sans-serif;
-  background-image: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+  font-family: var(--font-poppins), system-ui, sans-serif;
+  background-image: linear-gradient(180deg, #ffffff 0%, var(--n-50) 100%);
   min-height: 100vh;
 }
 
@@ -56,7 +75,7 @@ select option {
 }
 
 ::selection {
-  background: rgba(230, 18, 56, 0.18);
+  background: rgba(227, 27, 35, 0.18);
   color: white;
 }
 
@@ -93,6 +112,48 @@ select option {
 
   .mc-team-name {
     @apply mt-2 min-h-[2.1em] text-center text-[0.84rem] font-black leading-[1.04] tracking-[-0.03em] text-[var(--foreground)] [display:-webkit-box] overflow-hidden text-ellipsis [-webkit-box-orient:vertical] [-webkit-line-clamp:2] 2xl:mt-3 2xl:min-h-[2.16em] 2xl:text-[0.98rem];
+  }
+
+  /* Grid TABLE shared classes — same dedup intent as .mc-* above. The month
+     table renders ~278 rows × 22 cells; long Tailwind strings and per-cell
+     inline styles must NOT be repeated across rows. Hoist them here so they
+     appear once in the bundle and never in the serialized RSC payload. The one
+     legitimate per-row inline style is the dynamic league color. (Consumed by
+     grid-table.tsx — issue #34.) */
+  .gt-head {
+    @apply whitespace-nowrap border-b border-[var(--border)] px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--n-400)];
+    font-family: var(--font-oswald), system-ui, sans-serif;
+  }
+
+  .gt-cell {
+    @apply px-4 py-3 align-middle text-[13px] text-[var(--n-700)];
+  }
+
+  .gt-muted {
+    @apply text-[12px] font-medium text-[var(--n-500)];
+  }
+
+  .gt-empty {
+    @apply text-[12px] text-[var(--n-400)];
+  }
+
+  .gt-time {
+    @apply text-[1.4rem] font-bold leading-none;
+    font-family: var(--font-oswald), system-ui, sans-serif;
+    color: var(--accent);
+  }
+
+  /* Day-group header — full-width colspan row (preserves single-table sticky
+     header), branded Oswald uppercase. */
+  .gt-group {
+    @apply border-y border-[var(--border)] px-4 py-2.5 text-[13px] font-bold uppercase tracking-[0.1em] text-[var(--n-800)];
+    font-family: var(--font-oswald), system-ui, sans-serif;
+    background: var(--n-100);
+  }
+
+  .gt-group-count {
+    @apply inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold text-white;
+    background: var(--accent);
   }
 }
 

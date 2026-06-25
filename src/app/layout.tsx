@@ -1,19 +1,28 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Manrope } from "next/font/google";
+import { IBM_Plex_Mono, Oswald, Poppins } from "next/font/google";
 
 import { APP_NAME } from "@/lib/constants";
 import "./globals.css";
 
-const manrope = Manrope({
-  variable: "--font-manrope",
+const poppins = Poppins({
+  variable: "--font-poppins",
   subsets: ["latin"],
-  weight: ["400", "500", "700", "800"],
+  weight: ["400", "500", "600", "700", "900"],
+  display: "swap",
+});
+
+const oswald = Oswald({
+  variable: "--font-oswald",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
 });
 
 const plexMono = IBM_Plex_Mono({
   variable: "--font-plex-mono",
   subsets: ["latin"],
   weight: ["400", "500"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -33,7 +42,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body
-        className={`${manrope.variable} ${plexMono.variable} min-h-screen antialiased`}
+        className={`${poppins.variable} ${oswald.variable} ${plexMono.variable} min-h-screen antialiased`}
       >
         {children}
       </body>
