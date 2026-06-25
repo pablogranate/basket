@@ -97,10 +97,10 @@ const ASSIGNMENT_ROLE_BY_KEY: Partial<Record<keyof GridExportRow, string>> = {
 };
 
 const headerCellClassName =
-  "whitespace-nowrap px-5 py-4 text-[11px] font-black uppercase tracking-[0.18em] text-[#94a3b8]";
+  "whitespace-nowrap px-5 py-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--n-400)] font-[family-name:var(--font-oswald)]";
 
 const editTriggerClassName =
-  "inline-flex size-10 items-center justify-center rounded-full border border-[#d7dde7] bg-[#f4f6fa] text-[#16181d] shadow-none transition hover:border-[rgba(230,18,56,0.24)] hover:bg-[#fff3f6] hover:text-[var(--accent)]";
+  "inline-flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--n-100)] text-[var(--foreground)] shadow-none transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]";
 
 function normalizeHiddenColumns(value: unknown) {
   if (!Array.isArray(value)) {
@@ -297,14 +297,14 @@ function PickerCheckRow({
     <button
       type="button"
       onClick={onToggle}
-      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm font-medium text-[var(--foreground)] transition hover:bg-[#f4f6fa]"
+      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--n-100)]"
     >
       <span
         className={cn(
           "inline-flex size-4.5 shrink-0 items-center justify-center rounded-md border transition",
           visible
             ? "border-[var(--accent)] bg-[var(--accent)] text-white"
-            : "border-[#cbd5e1] bg-white text-transparent",
+            : "border-[var(--n-300)] bg-[var(--surface)] text-transparent",
         )}
       >
         <Check className="size-3" />
@@ -345,8 +345,8 @@ function GridColumnsPicker({
         type="button"
         onClick={() => setOpen((current) => !current)}
         className={cn(
-          "inline-flex h-10 items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-semibold text-[var(--muted)] transition hover:border-[rgba(230,18,56,0.24)] hover:text-[var(--accent)]",
-          open && "border-[rgba(230,18,56,0.24)] text-[var(--accent)]",
+          "inline-flex h-10 items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-semibold text-[var(--muted)] transition hover:border-[var(--accent-border)] hover:text-[var(--accent)]",
+          open && "border-[var(--accent-border)] text-[var(--accent)]",
         )}
       >
         <Columns3 className="size-4" />
@@ -354,7 +354,7 @@ function GridColumnsPicker({
       </button>
 
       {open ? (
-        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-30 max-h-96 w-60 overflow-y-auto rounded-[18px] border border-[var(--border)] bg-white p-2 shadow-[0_20px_48px_rgba(28,13,16,0.16)]">
+        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-30 max-h-96 w-60 overflow-y-auto rounded-[18px] border border-[var(--border)] bg-[var(--surface)] p-2 shadow-[var(--shadow-lift)]">
           {TOGGLEABLE_COLUMNS.map((column) => (
             <PickerCheckRow
               key={column.key}
@@ -643,9 +643,9 @@ export function GridTable({
         onDragOver={(event) => handleColumnDragOver(event, key)}
         className={cn(
           headerCellClassName,
-          "sticky top-0 z-20 bg-[#fafbfd]",
+          "sticky top-0 z-20 bg-[var(--n-50)]",
           "relative overflow-hidden",
-          draggedColumn === key && "bg-[#eef2f7]",
+          draggedColumn === key && "bg-[var(--n-100)]",
         )}
       >
         <span className="inline-flex max-w-full items-center gap-1.5">
@@ -656,8 +656,8 @@ export function GridTable({
             onDragStart={() => handleColumnDragStart(key)}
             onDragEnd={handleColumnDragEnd}
             className={cn(
-              "inline-flex size-5 shrink-0 cursor-grab items-center justify-center rounded-md text-[#c3cdda] transition hover:bg-[#eef2f7] hover:text-[#617187]",
-              draggedColumn === key && "bg-white text-[#617187] shadow-sm",
+              "inline-flex size-5 shrink-0 cursor-grab items-center justify-center rounded-md text-[var(--n-300)] transition hover:bg-[var(--n-100)] hover:text-[var(--n-600)]",
+              draggedColumn === key && "bg-[var(--surface)] text-[var(--n-600)] shadow-sm",
             )}
           >
             <GripVertical className="size-3" />
@@ -668,7 +668,7 @@ export function GridTable({
           aria-hidden
           onPointerDown={(event) => handleResizeStart(event, key)}
           onDoubleClick={() => resetColumnWidth(key)}
-          className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize touch-none select-none transition hover:bg-[rgba(230,18,56,0.32)]"
+          className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize touch-none select-none transition hover:bg-[var(--accent)]"
         />
       </th>
     );
@@ -689,14 +689,14 @@ export function GridTable({
             onClick={toggleEditMode}
             aria-pressed={editMode}
             className={cn(
-              "inline-flex h-10 items-center gap-2.5 rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-semibold transition hover:border-[rgba(230,18,56,0.24)]",
+              "inline-flex h-10 items-center gap-2.5 rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-semibold transition hover:border-[var(--accent-border)]",
               editMode ? "text-[var(--accent)]" : "text-[var(--muted)]",
             )}
           >
             <span
               className={cn(
                 "inline-flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition",
-                editMode ? "bg-[var(--accent)]" : "bg-[#cbd5e1]",
+                editMode ? "bg-[var(--accent)]" : "bg-[var(--n-300)]",
               )}
             >
               <span
@@ -725,13 +725,13 @@ export function GridTable({
       >
         <table className="min-w-full border-separate border-spacing-0 text-left">
           <thead>
-            <tr className="divide-x divide-[#edf1f6] bg-[#fafbfd]">
+            <tr className="divide-x divide-[var(--border)] bg-[var(--n-50)]">
               {visibleColumnKeys.map((key) => renderHeaderCell(key))}
               {canEdit ? (
                 <th
                   className={cn(
                     headerCellClassName,
-                    "sticky top-0 z-20 bg-[#fafbfd]",
+                    "sticky top-0 z-20 bg-[var(--n-50)]",
                   )}
                 >
                   Acciones
@@ -739,7 +739,7 @@ export function GridTable({
               ) : null}
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#edf1f6]">
+          <tbody className="divide-y divide-[var(--border)]">
             {rows.map(({ dayLabel, match }, rowIndex) => {
               const exportRow = toExportRows([match])[0];
 
@@ -747,7 +747,7 @@ export function GridTable({
                 <tr
                   key={match.id}
                   ref={rowIndex === todayRowIndex ? todayRowRef : undefined}
-                  className="group divide-x divide-[#edf1f6] transition hover:bg-[#fafbfd]"
+                  className="group divide-x divide-[var(--border)] transition hover:bg-[var(--accent-soft)]"
                 >
                   {visibleColumnKeys.map((key) => {
                     if (key === "Dia") {
@@ -804,7 +804,7 @@ export function GridTable({
                                 input: "text",
                               }}
                             />
-                            <span className="text-xs font-semibold uppercase text-[#93a0b2]">
+                            <span className="font-[family-name:var(--font-oswald)] text-xs font-semibold uppercase text-[var(--n-400)]">
                               vs
                             </span>
                             <GridTableCellEditor
@@ -876,6 +876,12 @@ export function GridTable({
                             people={people}
                             editor={editor}
                           />
+                        ) : columnKey === "Hora" && value ? (
+                          <span className="gt-time">{value}</span>
+                        ) : columnKey === "ID" && value ? (
+                          <span className="font-mono text-[13px] text-[var(--foreground)]">
+                            {value}
+                          </span>
                         ) : (
                           value || "—"
                         )}
