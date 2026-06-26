@@ -228,7 +228,7 @@ export function MatchCard({
   const leagueColor = getGridLeagueColor(match.competition);
   const venueLabel = match.venue ?? "Sede sin definir";
   const statusAccentClass =
-    match.status === "Realizado" ? "bg-[#26b36a]" : "bg-[#d7dde7]";
+    match.status === "Realizado" ? "bg-[#26b36a]" : "bg-[var(--n-200)]";
   const detailsId = `match-card-${match.id}`;
   const sections: MatchCardSection[] = [
     { key: "production", rows: buildProductionRows(match) },
@@ -248,7 +248,7 @@ export function MatchCard({
         <span
           aria-hidden="true"
           className={cn(
-            "pointer-events-none absolute left-[-12px] top-1/2 z-0 h-[118px] w-[30px] -translate-y-1/2 rounded-l-[10px] rounded-r-[6px] shadow-[inset_-1px_0_0_rgba(255,255,255,0.16),0_8px_18px_rgba(15,23,42,0.06)]",
+            "pointer-events-none absolute left-[-12px] top-1/2 z-0 h-[118px] w-[30px] -translate-y-1/2 rounded-l-[10px] rounded-r-[6px] shadow-[inset_-1px_0_0_rgba(255,255,255,0.16),0_8px_18px_rgba(28,13,16,0.06)]",
             statusAccentClass,
           )}
         />
@@ -267,13 +267,13 @@ export function MatchCard({
               league={leagueLabel}
               className={cn(
                 "h-16 w-16",
-                isUnassignedLeague && "rounded-2xl bg-[#e4eaf1]",
+                isUnassignedLeague && "rounded-2xl bg-[var(--n-100)]",
               )}
             />
             <p
               className={cn(
-                "text-[10px] font-bold uppercase tracking-[0.18em] text-[#70819b]",
-                isUnassignedLeague && "text-[#7f8ca0]",
+                "text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--n-500)]",
+                isUnassignedLeague && "text-[var(--n-500)]",
               )}
               style={leagueColor ? { color: leagueColor.text } : undefined}
             >
@@ -316,7 +316,7 @@ export function MatchCard({
                   </p>
                 </div>
 
-                <span className="self-center justify-self-center text-sm font-semibold uppercase tracking-[0.18em] text-[#93a0b2] 2xl:text-base">
+                <span className="self-center justify-self-center text-sm font-semibold uppercase tracking-[0.18em] text-[var(--n-400)] 2xl:text-base">
                   vs
                 </span>
 
@@ -353,7 +353,7 @@ export function MatchCard({
                 </div>
               </div>
 
-              <div className="mt-4 flex items-center justify-center gap-2 text-center text-[12px] font-semibold text-[#94a3b8]">
+              <div className="mt-4 flex items-center justify-center gap-2 text-center text-[12px] font-semibold text-[var(--n-400)]">
                 <MapPin className="size-3.5 shrink-0" />
                 <span className="truncate" title={venueLabel}>
                   {venueLabel}
@@ -482,7 +482,7 @@ export function MatchCard({
                   <span
                     className={cn(
                       badgeBaseClassName,
-                      "border border-[#f3cfd8] bg-[#fff3f6] text-[var(--accent)]",
+                      "border border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]",
                     )}
                   >
                     {match.production_code}
@@ -499,7 +499,7 @@ export function MatchCard({
                 <span
                   className={cn(
                     badgeBaseClassName,
-                    "border border-[#dbe1ea] bg-[#f7f8fa] text-[#637083]",
+                    "border border-[var(--n-200)] bg-[var(--n-50)] text-[var(--n-600)]",
                   )}
                 >
                   {formatProductionModeLabel(match.production_mode)}
