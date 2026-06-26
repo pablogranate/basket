@@ -93,7 +93,7 @@ const primaryCategories = new Set(["Coordinacion", "Produccion", "Talento"]);
 const pageStatusStyles: Record<string, string> = {
   Pendiente: "border-[#ecdcb0] bg-[#fff8ea] text-[#9a5a0f]",
   Confirmado: "border-[#cce8db] bg-[#effaf4] text-[#17654d]",
-  Realizado: "border-[#d7dbe8] bg-[#f5f7fc] text-[#4c5f91]",
+  Realizado: "border-[var(--n-200)] bg-[var(--n-50)] text-[var(--n-600)]",
 };
 
 function getInitials(name?: string | null) {
@@ -282,8 +282,8 @@ function PrincipalAssignmentCard({
       className={cn(
         "panel-surface group border bg-[var(--surface)] transition",
         conflict
-          ? "border-[#f0c8d1] bg-[#fff7f8]"
-          : "border-[var(--border)] hover:border-[#e4cdd1]",
+          ? "border-[var(--accent-border)] bg-[var(--accent-soft)]"
+          : "border-[var(--border)] hover:border-[var(--accent-border)]",
       )}
     >
       <summary className="flex cursor-pointer list-none items-center gap-4 p-4 [&::-webkit-details-marker]:hidden">
@@ -291,7 +291,7 @@ function PrincipalAssignmentCard({
           className={cn(
             "flex size-12 shrink-0 items-center justify-center rounded-full border text-sm font-extrabold",
             conflict
-              ? "border-[#f0c8d1] bg-[#fff0f3] text-[var(--accent)]"
+              ? "border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]"
               : "border-[var(--border)] bg-[var(--background-soft)] text-[var(--foreground)]",
           )}
         >
@@ -373,7 +373,7 @@ function CameraAssignmentCard({
       className={cn(
         "panel-surface group border bg-[var(--surface)] transition",
         conflict
-          ? "border-[#f0c8d1] bg-[#fff7f8]"
+          ? "border-[var(--accent-border)] bg-[var(--accent-soft)]"
           : pending
             ? "border-[#ecdcb0] bg-[#fffdf7]"
             : "border-[var(--border)]",
@@ -558,19 +558,19 @@ export default async function MatchDetailPage({
           <Home className="size-4" />
           Inicio
         </Link>
-        <ChevronRight className="size-4 text-[#c9b7bb]" />
+        <ChevronRight className="size-4 text-[var(--n-300)]" />
         <Link
           href="/grid"
           className="font-medium text-[var(--muted)] transition hover:text-[var(--accent)]"
         >
           Producción
         </Link>
-        <ChevronRight className="size-4 text-[#c9b7bb]" />
+        <ChevronRight className="size-4 text-[var(--n-300)]" />
         <span className="font-semibold text-[var(--foreground)]">Detalle de Partido</span>
       </nav>
 
       <section className="panel-surface relative overflow-hidden border border-[var(--border)] bg-[var(--surface)] p-6">
-        <div className="absolute inset-y-0 right-0 w-72 bg-gradient-to-l from-[rgba(230,18,56,0.06)] to-transparent pointer-events-none" />
+        <div className="absolute inset-y-0 right-0 w-72 bg-gradient-to-l from-[rgba(227,27,35,0.06)] to-transparent pointer-events-none" />
         <div className="relative z-10 flex flex-wrap justify-between gap-6">
           <div className="flex max-w-3xl flex-col gap-3">
             <div className="flex flex-wrap items-center gap-3">
@@ -627,21 +627,21 @@ export default async function MatchDetailPage({
             </Link>
             <Link
               href="#grupo"
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#f0c8d1] bg-[#fff0f3] px-4 text-sm font-semibold text-[var(--accent)] transition hover:bg-[#ffe5eb]"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[var(--accent-border)] bg-[var(--accent-soft)] px-4 text-sm font-semibold text-[var(--accent)] transition hover:bg-[var(--accent-border)]"
             >
               <UsersRound className="size-4" />
               GRUPO
             </Link>
             <Link
               href={`/match/${match.id}/notificar`}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#f0c8d1] bg-[#fff7f8] px-4 text-sm font-semibold text-[var(--accent)] transition hover:bg-[#ffecef]"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[var(--accent-border)] bg-[var(--accent-soft)] px-4 text-sm font-semibold text-[var(--accent)] transition hover:bg-[var(--accent-border)]"
             >
               <Megaphone className="size-4" />
               Notificar
             </Link>
             <a
               href="#operativa"
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(230,18,56,0.18)] transition hover:bg-[var(--accent-strong)]"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(227,27,35,0.18)] transition hover:bg-[var(--accent-strong)]"
             >
               <PencilLine className="size-4" />
               Editar asignaciones
@@ -657,9 +657,9 @@ export default async function MatchDetailPage({
       ) : null}
 
       {conflicts.length ? (
-        <div className="panel-surface border border-[#f0c8d1] bg-[#fff7f8] p-4">
+        <div className="panel-surface border border-[var(--accent-border)] bg-[var(--accent-soft)] p-4">
           <div className="flex items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#fff0f3] text-[var(--accent)]">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">
               <ShieldAlert className="size-5" />
             </div>
             <div>
@@ -843,7 +843,7 @@ export default async function MatchDetailPage({
                   <button
                     type="submit"
                     formAction={deleteMatchAction}
-                    className="inline-flex items-center justify-center rounded-xl border border-[#f0c8d1] bg-[#fff4f6] px-4 py-2.5 text-sm font-semibold text-[#ad1d39] transition hover:bg-[#ffe9ee]"
+                    className="inline-flex items-center justify-center rounded-xl border border-[var(--accent-border)] bg-[var(--accent-soft)] px-4 py-2.5 text-sm font-semibold text-[var(--accent-strong)] transition hover:bg-[var(--accent-border)]"
                   >
                     Eliminar
                   </button>
@@ -900,7 +900,7 @@ export default async function MatchDetailPage({
             {nextOpenPrincipal ? (
               <a
                 href={`#assignment-${nextOpenPrincipal.role.id}`}
-                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[#e4cdd1] bg-[#fffafb] text-sm font-semibold text-[#9a6a71] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--accent-border)] bg-[var(--accent-soft)] text-sm font-semibold text-[var(--accent-strong)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
               >
                 <Plus className="size-4" />
                 Añadir Miembro

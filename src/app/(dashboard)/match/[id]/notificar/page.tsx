@@ -79,7 +79,7 @@ export default async function MatchNotifyPage({ params, searchParams }: PageProp
         <h2 className="text-2xl font-black tracking-tight text-[var(--foreground)]">
           Esta pantalla es solo para coordinación
         </h2>
-        <p className="text-sm leading-6 text-[#617187]">
+        <p className="text-sm leading-6 text-[var(--n-600)]">
           Necesitas permisos de edición para enviar convocatorias desde el portal.
         </p>
       </Card>
@@ -177,30 +177,30 @@ export default async function MatchNotifyPage({ params, searchParams }: PageProp
           <Home className="size-4" />
           Inicio
         </Link>
-        <ChevronRight className="size-4 text-[#c9b7bb]" />
+        <ChevronRight className="size-4 text-[var(--n-300)]" />
         <Link
           href="/grid"
           className="font-medium text-[var(--muted)] transition hover:text-[var(--accent)]"
         >
           Producción
         </Link>
-        <ChevronRight className="size-4 text-[#c9b7bb]" />
+        <ChevronRight className="size-4 text-[var(--n-300)]" />
         <Link
           href={`/match/${match.id}`}
           className="font-medium text-[var(--muted)] transition hover:text-[var(--accent)]"
         >
           Detalle de partido
         </Link>
-        <ChevronRight className="size-4 text-[#c9b7bb]" />
+        <ChevronRight className="size-4 text-[var(--n-300)]" />
         <span className="font-semibold text-[var(--foreground)]">Notificar</span>
       </nav>
 
       <section className="panel-surface relative overflow-hidden border border-[var(--border)] bg-[var(--surface)] p-6">
-        <div className="absolute inset-y-0 right-0 w-72 bg-gradient-to-l from-[rgba(230,18,56,0.06)] to-transparent pointer-events-none" />
+        <div className="absolute inset-y-0 right-0 w-72 bg-gradient-to-l from-[rgba(227,27,35,0.06)] to-transparent pointer-events-none" />
         <div className="relative z-10 flex flex-wrap items-start justify-between gap-6">
           <div className="max-w-3xl space-y-4">
             <div className="flex flex-wrap items-center gap-3">
-              <Badge className="border-[#f0c8d1] bg-[#fff0f3] text-[var(--accent)]">
+              <Badge className="border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]">
                 {match.production_code ?? "Sin ID"}
               </Badge>
               <Badge>{match.competition ?? "Sin liga"}</Badge>
@@ -240,7 +240,7 @@ export default async function MatchNotifyPage({ params, searchParams }: PageProp
             </Link>
             <Link
               href="/grid"
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#f0c8d1] bg-[#fff0f3] px-4 text-sm font-semibold text-[var(--accent)] transition hover:bg-[#ffe5eb]"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[var(--accent-border)] bg-[var(--accent-soft)] px-4 text-sm font-semibold text-[var(--accent)] transition hover:bg-[var(--accent-border)]"
             >
               <Megaphone className="size-4" />
               Ir a Producción
