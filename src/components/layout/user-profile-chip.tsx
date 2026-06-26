@@ -140,8 +140,8 @@ export function UserProfileChip({
   };
 
   const avatarButtonClassName = mobileMenu
-    ? "relative flex size-14 items-center justify-center overflow-hidden rounded-full border border-[var(--border)] bg-[#edf1f4] shadow-sm ring-2 ring-white transition hover:border-[var(--accent)]"
-    : "group relative flex size-14 items-center justify-center overflow-hidden rounded-full border border-[var(--border)] bg-[#edf1f4] shadow-sm ring-2 ring-white transition hover:border-[var(--accent)]";
+    ? "relative flex size-14 items-center justify-center overflow-hidden rounded-full border border-[var(--border)] bg-[var(--n-100)] shadow-sm ring-2 ring-white transition hover:border-[var(--accent)]"
+    : "group relative flex size-14 items-center justify-center overflow-hidden rounded-full border border-[var(--border)] bg-[var(--n-100)] shadow-sm ring-2 ring-white transition hover:border-[var(--accent)]";
 
   const avatarContent = avatarSrc ? (
     <Image
@@ -152,7 +152,7 @@ export function UserProfileChip({
       className="object-cover"
     />
   ) : (
-    <div className="flex size-full items-center justify-center bg-[#d8e3e2] text-[#324b53]">
+    <div className="flex size-full items-center justify-center bg-[var(--n-200)] text-[var(--n-700)]">
       {fullName.trim() ? (
         <span className="text-sm font-extrabold">{getInitials(fullName)}</span>
       ) : (
@@ -177,13 +177,13 @@ export function UserProfileChip({
         </button>
 
         {menuOpen ? (
-          <div className="panel-surface absolute right-0 top-[calc(100%+0.75rem)] z-50 w-56 border border-[var(--border)] bg-[var(--surface)] p-2 shadow-[0_18px_40px_rgba(20,24,35,0.12)]">
+          <div className="panel-surface absolute right-0 top-[calc(100%+0.75rem)] z-50 w-56 border border-[var(--border)] bg-[var(--surface)] p-2 shadow-[var(--shadow-lift)]">
             <Link
               href="/mi-jornada"
               onClick={() => setMenuOpen(false)}
               className="flex w-full items-center gap-3 rounded-[calc(var(--panel-radius)-4px)] px-3 py-3 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--background-soft)]"
             >
-              <BriefcaseBusiness className="size-4 text-[#617187]" />
+              <BriefcaseBusiness className="size-4 text-[var(--n-600)]" />
               Mi jornada
             </Link>
             <Link
@@ -191,7 +191,7 @@ export function UserProfileChip({
               onClick={() => setMenuOpen(false)}
               className="flex w-full items-center gap-3 rounded-[calc(var(--panel-radius)-4px)] px-3 py-3 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--background-soft)]"
             >
-              <Shield className="size-4 text-[#617187]" />
+              <Shield className="size-4 text-[var(--n-600)]" />
               Equipos
             </Link>
             {!limitedCollaborator ? (
@@ -200,7 +200,7 @@ export function UserProfileChip({
                 onClick={() => setMenuOpen(false)}
                 className="flex w-full items-center gap-3 rounded-[calc(var(--panel-radius)-4px)] px-3 py-3 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--background-soft)]"
               >
-                <Settings2 className="size-4 text-[#617187]" />
+                <Settings2 className="size-4 text-[var(--n-600)]" />
                 Configuración
               </Link>
             ) : null}
@@ -209,7 +209,7 @@ export function UserProfileChip({
                 type="submit"
                 className="flex w-full items-center gap-3 rounded-[calc(var(--panel-radius)-4px)] px-3 py-3 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--background-soft)]"
               >
-                <LogOut className="size-4 text-[#617187]" />
+                <LogOut className="size-4 text-[var(--n-600)]" />
                 Cerrar sesión
               </button>
             </form>

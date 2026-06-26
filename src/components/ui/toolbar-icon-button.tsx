@@ -6,11 +6,11 @@ type ToolbarIconTone = "violet" | "success" | "accent" | "surface";
 
 const toolbarIconToneClassName: Record<ToolbarIconTone, string> = {
   violet:
-    "bg-[#7c3aed] text-white shadow-[0_14px_28px_rgba(124,58,237,0.22)] hover:bg-[#6d28d9]",
+    "bg-[var(--accent)] text-white shadow-[0_14px_28px_rgba(227,27,35,0.22)] hover:bg-[var(--accent-strong)]",
   success:
     "border border-[#22c55e] bg-[#22c55e] text-white shadow-[0_12px_28px_rgba(34,197,94,0.3)] hover:-translate-y-0.5 hover:border-[#16a34a] hover:bg-[#16a34a]",
   accent:
-    "bg-[var(--accent)] text-white shadow-[0_14px_28px_rgba(230,18,56,0.2)] hover:bg-[var(--accent-strong)]",
+    "bg-[var(--accent)] text-white shadow-[0_14px_28px_rgba(227,27,35,0.2)] hover:bg-[var(--accent-strong)]",
   surface:
     "border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] shadow-sm hover:bg-[var(--background-soft)]",
 };

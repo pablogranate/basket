@@ -100,7 +100,7 @@ export function DashboardAnnouncementBell({
         }
         aria-haspopup="dialog"
         className={cn(
-          "relative flex size-11 items-center justify-center rounded-2xl bg-[var(--surface)] text-[#52627b] transition",
+          "relative flex size-11 items-center justify-center rounded-2xl bg-[var(--surface)] text-[var(--n-700)] transition",
           announcement
             ? "hover:bg-[var(--background-soft)] hover:text-[var(--foreground)]"
             : "cursor-default opacity-60",
@@ -114,14 +114,14 @@ export function DashboardAnnouncementBell({
 
       {isOpen && announcement ? (
         <div
-          className="fixed inset-0 z-[90] flex items-center justify-center bg-[#101828]/60 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-[var(--n-900)]/60 p-4 backdrop-blur-sm"
           onClick={() => setIsOpen(false)}
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="dashboard-announcement-title"
-            className="panel-surface relative w-full max-w-xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_24px_64px_rgba(15,23,42,0.22)]"
+            className="panel-surface relative w-full max-w-xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-lift)]"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4 border-b border-[var(--border)] px-6 py-5">
@@ -134,7 +134,7 @@ export function DashboardAnnouncementBell({
                     <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">
                       Comunicado general
                     </p>
-                    <p className="mt-1 text-xs font-semibold text-[#94a3b8]">
+                    <p className="mt-1 text-xs font-semibold text-[var(--n-400)]">
                       {formatAnnouncementDate(announcement.updated_at)}
                     </p>
                   </div>
@@ -150,7 +150,7 @@ export function DashboardAnnouncementBell({
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--background-soft)] text-[#94a3b8] transition hover:bg-[#eef2f6] hover:text-[#52627a]"
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--background-soft)] text-[var(--n-400)] transition hover:bg-[var(--n-100)] hover:text-[var(--n-700)]"
                 aria-label="Cerrar comunicado"
               >
                 <X className="size-4" />
@@ -158,7 +158,7 @@ export function DashboardAnnouncementBell({
             </div>
 
             <div className="space-y-4 px-6 py-5">
-              <p className="whitespace-pre-line text-sm leading-7 text-[#5f6c80]">
+              <p className="whitespace-pre-line text-sm leading-7 text-[var(--n-600)]">
                 {announcement.body}
               </p>
             </div>

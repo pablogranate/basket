@@ -27,13 +27,13 @@ export function StatCard({
         ? "bg-[#fff0f3] text-[var(--accent)]"
         : tone === "info"
           ? "bg-[#eef4ff] text-[#315e9d]"
-          : "bg-[var(--background-soft)] text-[#6b7a90]";
+          : "bg-[var(--background-soft)] text-[var(--n-500)]";
 
   return (
     <div className={`rounded-[var(--panel-radius)] border px-5 py-4 ${toneClassName}`}>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#95a3ba]">
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--n-400)]">
             {label}
           </p>
           <p className="mt-3 text-[2rem] font-black leading-none">{value}</p>
