@@ -128,7 +128,7 @@ export default async function TeamsPage({ searchParams }: PageProps) {
         }
       />
 
-      <div className="flex items-center gap-3 border-b border-[#f0d9de]">
+      <div className="flex items-center gap-3 border-b border-[var(--accent-border)]">
         <div className="flex min-w-0 flex-1 overflow-x-auto">
           <Link
             href={buildTeamsHref(resolvedSearchParams, { league: undefined })}
@@ -136,7 +136,7 @@ export default async function TeamsPage({ searchParams }: PageProps) {
               "-mb-px whitespace-nowrap border-b-2 px-6 py-3 text-sm font-bold transition",
               !activeLeague
                 ? "border-[var(--accent)] text-[var(--accent)]"
-                : "border-transparent text-[#617187] hover:text-[var(--accent)]",
+                : "border-transparent text-[var(--n-600)] hover:text-[var(--accent)]",
             )}
           >
             Todos ({TEAM_DIRECTORY.length})
@@ -157,7 +157,7 @@ export default async function TeamsPage({ searchParams }: PageProps) {
                 "-mb-px whitespace-nowrap border-b-2 px-6 py-3 text-sm font-bold transition",
                 activeLeague === tab.value
                   ? "border-[var(--accent)] text-[var(--accent)]"
-                  : "border-transparent text-[#617187] hover:text-[var(--accent)]",
+                  : "border-transparent text-[var(--n-600)] hover:text-[var(--accent)]",
               )}
             >
               {tab.label} ({tab.count})
