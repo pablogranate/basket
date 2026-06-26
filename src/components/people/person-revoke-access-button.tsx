@@ -32,7 +32,7 @@ export function PersonRevokeAccessButton({
       <button
         type="submit"
         className={cn(
-          "inline-flex h-10 items-center gap-2 rounded-[var(--panel-radius)] px-4 text-sm font-semibold text-[var(--accent)] transition hover:bg-[rgba(211,49,49,0.06)]",
+          "inline-flex h-10 items-center gap-2 rounded-[var(--panel-radius)] px-4 text-sm font-semibold text-[var(--accent)] transition hover:bg-[rgba(227,27,35,0.06)]",
           className,
         )}
       >

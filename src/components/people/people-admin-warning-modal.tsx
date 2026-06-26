@@ -39,7 +39,7 @@ export function PeopleAdminWarningModal({
         type="button"
         onClick={() => setIsOpen(true)}
         className={cn(
-          "inline-flex size-9 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[#7b8798] transition hover:border-[#f0d9de] hover:bg-[#fff7f8] hover:text-[var(--accent)]",
+          "inline-flex size-9 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--n-500)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]",
           triggerClassName,
         )}
         title="Ver advertencia de edición"
@@ -50,16 +50,16 @@ export function PeopleAdminWarningModal({
 
       {isOpen ? (
         <div
-          className="fixed inset-0 z-[90] flex items-center justify-center bg-[#101828]/60 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-[var(--n-900)]/60 p-4 backdrop-blur-sm"
           onClick={() => setIsOpen(false)}
         >
           <div
-            className="panel-surface relative w-full max-w-lg border border-[var(--border)] bg-[var(--surface)] shadow-[0_24px_64px_rgba(15,23,42,0.22)]"
+            className="panel-surface relative w-full max-w-lg border border-[var(--border)] bg-[var(--surface)] shadow-[0_24px_64px_rgba(28,13,16,0.22)]"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-4">
               <div className="flex items-start gap-3">
-                <span className="mt-0.5 inline-flex size-10 items-center justify-center rounded-2xl bg-[#fff1f4] text-[var(--accent)]">
+                <span className="mt-0.5 inline-flex size-10 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent)]">
                   <Info className="size-5" />
                 </span>
                 <div>
@@ -74,14 +74,14 @@ export function PeopleAdminWarningModal({
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="inline-flex size-10 items-center justify-center rounded-full bg-[var(--background-soft)] text-[#94a3b8] transition hover:bg-[#eef2f6] hover:text-[#52627a]"
+                className="inline-flex size-10 items-center justify-center rounded-full bg-[var(--background-soft)] text-[var(--n-400)] transition hover:bg-[var(--n-100)] hover:text-[var(--n-600)]"
                 aria-label="Cerrar modal"
               >
                 <X className="size-4" />
               </button>
             </div>
 
-            <div className="space-y-4 px-6 py-5 text-sm leading-6 text-[#5f6c80]">
+            <div className="space-y-4 px-6 py-5 text-sm leading-6 text-[var(--n-600)]">
               <p>
                 Este lápiz edita el registro que tengas seleccionado en
                 <strong className="font-semibold text-[var(--foreground)]">

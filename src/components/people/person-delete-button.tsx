@@ -38,7 +38,7 @@ export function PersonDeleteButton({
       <button
         type="submit"
         className={cn(
-          "inline-flex size-9 items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[#7b8798] transition hover:border-[#f0d9de] hover:bg-[#fff0f3] hover:text-[#bf1e41]",
+          "inline-flex size-9 items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--n-500)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)]",
           className,
         )}
         title={title ?? `Eliminar ${fullName}`}

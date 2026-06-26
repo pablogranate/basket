@@ -49,12 +49,12 @@ function buildDirectoryHref(input: {
 function getStatePresentation(person: PersonListItem) {
   if (!person.active || person.assignment_state === "Inactivo") {
     return {
-      avatarShellClassName: "bg-[#eef2f6]",
+      avatarShellClassName: "bg-[var(--n-100)]",
       avatarInnerClassName:
-        "border-[#eef2f6] bg-[radial-gradient(circle_at_top_left,#f8fafc_0%,#e7ecf3_100%)]",
-      avatarTextClassName: "text-[#95a1b4]",
+        "border-[var(--n-100)] bg-[radial-gradient(circle_at_top_left,var(--n-50)_0%,var(--n-100)_100%)]",
+      avatarTextClassName: "text-[var(--n-400)]",
       toggleButtonClassName:
-        "border-[#d8dee8] bg-white/80 text-[#94a3b8] hover:border-[#cfd7e3] hover:bg-white hover:text-[#64748b]",
+        "border-[var(--n-200)] bg-white/80 text-[var(--n-400)] hover:border-[var(--n-200)] hover:bg-white hover:text-[var(--n-600)]",
     };
   }
 
@@ -121,13 +121,13 @@ export function PeopleDirectoryView({
             key={person.id}
             className={cn(
               "group relative w-full max-w-full overflow-hidden rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] shadow-[0_10px_24px_rgba(28,13,16,0.05)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(28,13,16,0.07)] sm:w-[330px] sm:max-w-[330px]",
-              isSelected && "border-[#f0d9de] ring-1 ring-[#f4d2da]",
+              isSelected && "border-[var(--accent-border)] ring-1 ring-[var(--accent-border)]",
             )}
           >
-            <div className="absolute -right-10 -top-10 size-40 rounded-full bg-[rgba(231,19,58,0.03)] blur-3xl" />
-            <div className="absolute -bottom-10 -left-10 size-40 rounded-full bg-[rgba(231,19,58,0.04)] blur-3xl" />
+            <div className="absolute -right-10 -top-10 size-40 rounded-full bg-[rgba(227,27,35,0.03)] blur-3xl" />
+            <div className="absolute -bottom-10 -left-10 size-40 rounded-full bg-[rgba(227,27,35,0.04)] blur-3xl" />
 
-            <div className="relative h-32 bg-[linear-gradient(135deg,rgba(231,19,58,0.12),transparent_72%)]">
+            <div className="relative h-32 bg-[linear-gradient(135deg,rgba(227,27,35,0.12),transparent_72%)]">
               <div className="absolute left-6 top-6 flex items-center gap-2 text-[var(--accent)]">
                 <rolePresentation.Icon className="size-4" />
                 <span className="text-[11px] font-bold uppercase tracking-[0.16em]">
@@ -161,7 +161,7 @@ export function PeopleDirectoryView({
             <div className="relative flex justify-center -mt-16">
               <div
                 className={cn(
-                  "rounded-full p-1.5 shadow-[0_8px_18px_rgba(15,23,42,0.05)]",
+                  "rounded-full p-1.5 shadow-[0_8px_18px_rgba(28,13,16,0.05)]",
                   state.avatarShellClassName,
                 )}
               >
@@ -190,13 +190,13 @@ export function PeopleDirectoryView({
                 </h3>
               </div>
 
-              <div className="mt-4 flex items-center justify-center gap-1.5 text-xs font-medium text-[#7b8798]">
+              <div className="mt-4 flex items-center justify-center gap-1.5 text-xs font-medium text-[var(--n-500)]">
                 {cityIndicator.emoji ? (
                   <span className="inline-flex size-4 items-center justify-center text-sm leading-none">
                     {cityIndicator.emoji}
                   </span>
                 ) : (
-                  <MapPin className="size-4 text-[#b0bccd]" />
+                  <MapPin className="size-4 text-[var(--n-300)]" />
                 )}
                 <p className="max-w-[16rem] truncate">
                   {cityLabel}
@@ -207,30 +207,30 @@ export function PeopleDirectoryView({
                 {person.email ? (
                   <a
                     href={`mailto:${person.email}`}
-                    className="group flex items-center gap-4 rounded-[var(--panel-radius)] border border-[#eef1f5] p-3 text-left transition hover:bg-[#fafbfc]"
+                    className="group flex items-center gap-4 rounded-[var(--panel-radius)] border border-[var(--n-100)] p-3 text-left transition hover:bg-[var(--n-50)]"
                   >
-                    <div className="flex size-10 items-center justify-center rounded-full bg-[#eef2ff] text-[#4f46e5] transition group-hover:bg-[#e0e7ff]">
+                    <div className="flex size-10 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)] transition group-hover:bg-[var(--accent-border)]">
                       <Mail className="size-4" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#a0abba]">
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--n-400)]">
                         Correo institucional
                       </p>
-                      <p className="truncate text-sm font-medium text-[#445164]">
+                      <p className="truncate text-sm font-medium text-[var(--n-700)]">
                         {person.email}
                       </p>
                     </div>
                   </a>
                 ) : (
-                  <div className="flex items-center gap-4 rounded-[var(--panel-radius)] border border-[#eef1f5] p-3 text-left">
-                    <div className="flex size-10 items-center justify-center rounded-full bg-[#f4f7fb] text-[#94a3b8]">
+                  <div className="flex items-center gap-4 rounded-[var(--panel-radius)] border border-[var(--n-100)] p-3 text-left">
+                    <div className="flex size-10 items-center justify-center rounded-full bg-[var(--n-100)] text-[var(--n-400)]">
                       <Mail className="size-4" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#a0abba]">
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--n-400)]">
                         Correo institucional
                       </p>
-                      <p className="truncate text-sm font-medium text-[#7b8798]">
+                      <p className="truncate text-sm font-medium text-[var(--n-500)]">
                         Sin correo
                       </p>
                     </div>
@@ -242,30 +242,30 @@ export function PeopleDirectoryView({
                     href={whatsappHref ?? undefined}
                     target="_blank"
                     rel="noreferrer"
-                    className="group flex items-center gap-4 rounded-[var(--panel-radius)] border border-[#eef1f5] p-3 text-left transition hover:bg-[#fafbfc]"
+                    className="group flex items-center gap-4 rounded-[var(--panel-radius)] border border-[var(--n-100)] p-3 text-left transition hover:bg-[var(--n-50)]"
                   >
                     <div className="flex size-10 items-center justify-center rounded-full bg-[#ecfdf3] text-[#16a34a] transition group-hover:bg-[#dcfce7]">
                       <MessageCircle className="size-4" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#a0abba]">
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--n-400)]">
                         Teléfono directo
                       </p>
-                      <p className="truncate text-sm font-medium text-[#445164]">
+                      <p className="truncate text-sm font-medium text-[var(--n-700)]">
                         {person.phone}
                       </p>
                     </div>
                   </a>
                 ) : (
-                  <div className="flex items-center gap-4 rounded-[var(--panel-radius)] border border-[#eef1f5] p-3 text-left">
-                    <div className="flex size-10 items-center justify-center rounded-full bg-[#f4f7fb] text-[#94a3b8]">
+                  <div className="flex items-center gap-4 rounded-[var(--panel-radius)] border border-[var(--n-100)] p-3 text-left">
+                    <div className="flex size-10 items-center justify-center rounded-full bg-[var(--n-100)] text-[var(--n-400)]">
                       <MessageCircle className="size-4" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#a0abba]">
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--n-400)]">
                         Teléfono directo
                       </p>
-                      <p className="truncate text-sm font-medium text-[#7b8798]">
+                      <p className="truncate text-sm font-medium text-[var(--n-500)]">
                         Sin teléfono
                       </p>
                     </div>
@@ -278,13 +278,13 @@ export function PeopleDirectoryView({
                   href={actionHref}
                   target={whatsappHref ? "_blank" : undefined}
                   rel={whatsappHref ? "noreferrer" : undefined}
-                  className="inline-flex h-12 flex-1 items-center justify-center rounded-[var(--panel-radius)] bg-[var(--accent)] px-6 text-sm font-bold text-white shadow-[0_12px_28px_rgba(231,19,58,0.2)] transition hover:brightness-110"
+                  className="inline-flex h-12 flex-1 items-center justify-center rounded-[var(--panel-radius)] bg-[var(--accent)] px-6 text-sm font-bold text-white shadow-[0_12px_28px_rgba(227,27,35,0.2)] transition hover:brightness-110"
                 >
                   {actionLabel}
                 </a>
                 <Link
                   href={profileHref}
-                  className="inline-flex size-12 items-center justify-center rounded-[var(--panel-radius)] border border-[#e6e9ef] text-[#6b778b] transition hover:bg-[#fafbfc] hover:text-[var(--foreground)]"
+                  className="inline-flex size-12 items-center justify-center rounded-[var(--panel-radius)] border border-[var(--n-200)] text-[var(--n-500)] transition hover:bg-[var(--n-50)] hover:text-[var(--foreground)]"
                 >
                   <UserRound className="size-4" />
                 </Link>
