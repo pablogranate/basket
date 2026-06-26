@@ -6,33 +6,9 @@ import { CollaboratorNav } from "@/components/layout/collaborator-nav";
 import { DashboardFooterMeta } from "@/components/layout/dashboard-footer-meta";
 import { UserProfileChip } from "@/components/layout/user-profile-chip";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { PRODUCT_COPY } from "@/lib/copy";
 import { getAppRoleDisplayName } from "@/lib/display";
 import type { AnnouncementSummary } from "@/lib/data/announcements";
 import type { UserContext } from "@/lib/types";
-
-function BasketMark() {
-  return (
-    <div className="flex size-10 items-center justify-center rounded-2xl bg-[var(--accent)] text-white shadow-[0_12px_28px_rgba(230,18,56,0.22)]">
-      <svg
-        viewBox="0 0 32 32"
-        aria-hidden="true"
-        className="size-5"
-        fill="none"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.8"
-      >
-        <circle cx="16" cy="16" r="11.5" />
-        <path d="M16 4.5v23" />
-        <path d="M5.5 16h21" />
-        <path d="M9.5 7.5c2.6 2.2 4 5.1 4 8.5s-1.4 6.3-4 8.5" />
-        <path d="M22.5 7.5c-2.6 2.2-4 5.1-4 8.5s1.4 6.3 4 8.5" />
-      </svg>
-    </div>
-  );
-}
 
 export function CollaboratorShell({
   children,
@@ -55,15 +31,12 @@ export function CollaboratorShell({
         <div className="flex h-20 items-center gap-4 px-4 sm:px-6 lg:px-8">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-3">
-              <BasketMark />
-              <div className="min-w-0">
-                <p className="text-base font-extrabold leading-none tracking-[-0.03em] text-[var(--foreground)]">
-                  {PRODUCT_COPY.collaboratorWordmark.line1}
-                </p>
-                <p className="mt-1 text-base font-extrabold leading-none tracking-[-0.03em] text-[var(--foreground)]">
-                  {PRODUCT_COPY.collaboratorWordmark.line2}
-                </p>
-              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/Basket.tv horizontal rojo.png"
+                alt="BasquetPass"
+                className="h-8 w-auto"
+              />
             </div>
           </div>
 
