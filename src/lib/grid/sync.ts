@@ -134,23 +134,6 @@ function parseDayMarker(value: unknown) {
   return match ? Number(match[1]) : null;
 }
 
-function parseTeams(matchText: unknown) {
-  const text = String(matchText ?? "").trim();
-  if (!text) {
-    return { home: "", away: "" };
-  }
-
-  const parts = text.split(/\s+vs\.?\s+/i);
-  if (parts.length >= 2) {
-    return {
-      home: parts[0].trim(),
-      away: parts.slice(1).join(" vs ").trim(),
-    };
-  }
-
-  return { home: text, away: text };
-}
-
 function toKickoffAt({
   year,
   month,
@@ -215,8 +198,8 @@ function parseTab(tabName: string, csvSource: string): SheetEntry[] {
       currentDay = dayMarker;
     }
 
-    const matchText = readCell(row, "partido");
-    if (!matchText) {
+    const home = readCell(row, "local");
+    if (!home) {
       continue;
     }
 
@@ -224,7 +207,7 @@ function parseTab(tabName: string, csvSource: string): SheetEntry[] {
       continue;
     }
 
-    const { home, away } = parseTeams(matchText);
+    const away = readCell(row, "visitante");
     const kickoffAt = toKickoffAt({ year, month, day: currentDay, time: readCell(row, "hora") });
 
     const assignments: Array<{ roleName: string; personName: string }> = [];
@@ -285,7 +268,7 @@ export function resolveSyncTabs(now: Date): string[] {
 // --- delta helpers ---
 
 function tripleKey(home: string, away: string, kickoffIso: string) {
-  return `${home}|${away}|${new Date(kickoffIso).getTime()}`;
+  return `${normalizeText(home)}|${normalizeText(away)}|${new Date(kickoffIso).getTime()}`;
 }
 
 // Postgres unique_violation; surfaced by supabase-js on the error `code`.
