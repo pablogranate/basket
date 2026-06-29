@@ -88,15 +88,15 @@ function DaySummaryCard({
   return (
     <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-4">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#95a3ba]">
+        <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--n-400)]">
           {label}
         </p>
         <span
           className={cn(
             "inline-flex size-10 shrink-0 items-center justify-center rounded-[var(--panel-radius)] border",
             tone === "accent"
-              ? "border-[#f4d4dc] bg-[#fff4f7] text-[var(--accent)]"
-              : "border-[var(--border)] bg-[var(--surface)] text-[#94a3b8]",
+              ? "border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]"
+              : "border-[var(--border)] bg-[var(--surface)] text-[var(--n-400)]",
           )}
         >
           <Icon className="size-4" />
@@ -303,7 +303,7 @@ export default async function CollaboratorDayPage() {
               description={contentUpdatedLabel}
               className="order-1 gap-0 md:block"
               contentClassName="mx-auto text-center md:mx-0 md:text-left"
-              descriptionClassName="mt-3 block w-full max-w-none text-center text-xs font-bold uppercase tracking-[0.14em] text-[#95a3ba] md:mx-0 md:text-left md:text-sm md:font-medium md:normal-case md:tracking-normal"
+              descriptionClassName="mt-3 block w-full max-w-none text-center text-xs font-bold uppercase tracking-[0.14em] text-[var(--n-400)] md:mx-0 md:text-left md:text-sm md:font-medium md:normal-case md:tracking-normal"
             />
             <div className="order-3 hidden md:order-2 md:flex md:justify-self-end">
               <SectionAiAssistant
