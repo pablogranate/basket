@@ -91,7 +91,7 @@ export function DashboardNav({
             className={cn(
               "flex items-center gap-3 rounded-[var(--panel-radius)] px-4 py-3.5 text-[15px] font-semibold transition",
               active
-                ? "bg-[var(--accent)] text-white shadow-[0_14px_32px_rgba(230,18,56,0.24)]"
+                ? "bg-[var(--accent)] text-white shadow-[0_14px_32px_rgba(227,27,35,0.24)]"
                 : "bg-[#0d1731] text-white hover:bg-[#132347]",
             )}
           >

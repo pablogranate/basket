@@ -31,7 +31,7 @@ export function SectionPageHeader({
         {description ? (
           <p
             className={cn(
-              "max-w-2xl text-sm font-medium text-[#617187]",
+              "max-w-2xl text-sm font-medium text-[var(--n-600)]",
               descriptionClassName,
             )}
           >

@@ -12,7 +12,7 @@ export default function SupportPage() {
         <h2 className="text-4xl font-black tracking-tight text-[var(--foreground)]">
           Soporte
         </h2>
-        <p className="max-w-2xl text-sm font-medium text-[#617187]">
+        <p className="max-w-2xl text-sm font-medium text-[var(--n-600)]">
           Contacta al equipo técnico si tienes problemas de acceso, errores en la
           consola o bloqueos operativos durante una transmisión.
         </p>
@@ -28,14 +28,14 @@ export default function SupportPage() {
               <h3 className="text-lg font-extrabold text-[var(--foreground)]">
                 Mesa de ayuda operativa
               </h3>
-              <p className="text-sm text-[#617187]">
+              <p className="text-sm text-[var(--n-600)]">
                 Usa este canal cuando algo te impida seguir operando.
               </p>
             </div>
           </div>
 
           <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-4">
-            <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-[#95a3ba]">
+            <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-[var(--n-400)]">
               <Mail className="size-4 text-[var(--accent)]" />
               Correo de soporte
             </div>
@@ -45,10 +45,10 @@ export default function SupportPage() {
           </div>
 
           <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-4 py-4">
-            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#95a3ba]">
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--n-400)]">
               Qué incluir en tu mensaje
             </p>
-            <ul className="mt-3 space-y-2 text-sm text-[#617187]">
+            <ul className="mt-3 space-y-2 text-sm text-[var(--n-600)]">
               <li>Nombre del partido o módulo afectado.</li>
               <li>Qué estabas intentando hacer cuando falló.</li>
               <li>Captura o mensaje de error si lo tienes.</li>
@@ -59,7 +59,7 @@ export default function SupportPage() {
           <div className="flex flex-wrap gap-3">
             <Link
               href={`mailto:${SUPPORT_EMAIL}?subject=Soporte%20Basket%20Production`}
-              className="inline-flex h-[52px] items-center justify-center gap-2 rounded-[var(--panel-radius)] bg-[var(--accent)] px-5 text-sm font-extrabold text-white shadow-[0_14px_28px_rgba(230,18,56,0.18)] transition hover:bg-[var(--accent-strong)]"
+              className="inline-flex h-[52px] items-center justify-center gap-2 rounded-[var(--panel-radius)] bg-[var(--accent)] px-5 text-sm font-extrabold text-white shadow-[0_14px_28px_rgba(227,27,35,0.18)] transition hover:bg-[var(--accent-strong)]"
             >
               <Mail className="size-4" />
               Contactar soporte
@@ -76,14 +76,14 @@ export default function SupportPage() {
               <h3 className="text-lg font-extrabold text-[var(--foreground)]">
                 Prioridad
               </h3>
-              <p className="text-sm text-[#617187]">
+              <p className="text-sm text-[var(--n-600)]">
                 Guía rápida para escalar mejor.
               </p>
             </div>
           </div>
 
           <div className="space-y-3">
-            <div className="rounded-[var(--panel-radius)] border border-[#f3d3da] bg-[#fff4f6] px-4 py-4">
+            <div className="rounded-[var(--panel-radius)] border border-[var(--accent-border)] bg-[var(--accent-soft)] px-4 py-4">
               <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--accent)]">
                 Crítico
               </p>
@@ -93,7 +93,7 @@ export default function SupportPage() {
             </div>
 
             <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-4">
-              <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-[#95a3ba]">
+              <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-[var(--n-400)]">
                 <Clock3 className="size-4 text-[var(--accent)]" />
                 Tiempo objetivo
               </div>

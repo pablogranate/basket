@@ -159,7 +159,7 @@ export default async function RolesPage({ searchParams }: PageProps) {
                           <button
                             type="submit"
                             formAction={deleteRoleAction}
-                            className="inline-flex items-center justify-center rounded-xl border border-[#f0c8d1] bg-[#fff4f6] px-4 py-2 text-sm font-semibold text-[#ad1d39] transition hover:bg-[#ffe9ee]"
+                            className="inline-flex items-center justify-center rounded-xl border border-[var(--accent-border)] bg-[var(--accent-soft)] px-4 py-2 text-sm font-semibold text-[var(--accent-strong)] transition hover:bg-[var(--accent-border)]"
                           >
                             Eliminar
                           </button>

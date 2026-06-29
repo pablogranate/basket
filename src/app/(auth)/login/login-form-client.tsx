@@ -88,7 +88,7 @@ export function LoginFormClient({ callbackURL }: { callbackURL: string }) {
   return (
     <div className="mt-5 space-y-[18px]">
       {error ? (
-        <p className="rounded-[var(--panel-radius)] border border-[rgba(230,18,56,0.28)] bg-[rgba(230,18,56,0.06)] px-4 py-3 text-sm font-medium text-[var(--accent)]">
+        <p className="rounded-[var(--panel-radius)] border border-[rgba(227,27,35,0.28)] bg-[rgba(227,27,35,0.06)] px-4 py-3 text-sm font-medium text-[var(--accent)]">
           {error}
         </p>
       ) : null}
@@ -127,7 +127,7 @@ export function LoginFormClient({ callbackURL }: { callbackURL: string }) {
               onChange={(event) => setEmail(event.target.value)}
               placeholder="operaciones@canal.com"
               required
-              className="block h-[52px] w-full rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] pl-11 pr-4 text-[15px] text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[rgba(230,18,56,0.12)] xl:h-14 xl:pl-12 xl:text-base"
+              className="block h-[52px] w-full rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] pl-11 pr-4 text-[15px] text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[rgba(227,27,35,0.12)] xl:h-14 xl:pl-12 xl:text-base"
             />
           </div>
         </label>
@@ -135,7 +135,7 @@ export function LoginFormClient({ callbackURL }: { callbackURL: string }) {
         <button
           type="submit"
           disabled={magicPending}
-          className="flex h-[52px] w-full items-center justify-center gap-2 rounded-[var(--panel-radius)] bg-[var(--accent)] text-[15px] font-bold text-white shadow-[0_8px_24px_rgba(230,18,56,0.26)] transition hover:opacity-90 disabled:opacity-60 xl:h-14 xl:text-base"
+          className="flex h-[52px] w-full items-center justify-center gap-2 rounded-[var(--panel-radius)] bg-[var(--accent)] text-[15px] font-bold text-white shadow-[0_8px_24px_rgba(227,27,35,0.26)] transition hover:opacity-90 disabled:opacity-60 xl:h-14 xl:text-base"
         >
           {magicPending ? "Enviando..." : "Enviarme un enlace de acceso"}
           <ArrowRight className="size-5" />

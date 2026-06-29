@@ -76,7 +76,7 @@ export function ProfileAvatarSettings({
 
   return (
     <div className="flex flex-col gap-5 md:flex-row md:items-center">
-      <div className="relative flex size-24 items-center justify-center overflow-hidden rounded-full border border-[var(--border)] bg-[#edf1f4] shadow-sm">
+      <div className="relative flex size-24 items-center justify-center overflow-hidden rounded-full border border-[var(--border)] bg-[var(--n-100)] shadow-sm">
         {avatarSrc ? (
           <Image
             src={avatarSrc}
@@ -86,7 +86,7 @@ export function ProfileAvatarSettings({
             className="object-cover"
           />
         ) : (
-          <div className="flex size-full items-center justify-center bg-[#d8e3e2] text-[#324b53]">
+          <div className="flex size-full items-center justify-center bg-[var(--n-200)] text-[var(--n-700)]">
             {fullName.trim() ? (
               <span className="text-xl font-extrabold">{getInitials(fullName)}</span>
             ) : (
@@ -97,7 +97,7 @@ export function ProfileAvatarSettings({
       </div>
 
       <div className="space-y-3">
-        <p className="text-sm leading-6 text-[#617187]">
+        <p className="text-sm leading-6 text-[var(--n-600)]">
           Tu avatar se usa en el header y queda asociado a tu sesión local en este
           navegador.
         </p>
@@ -113,7 +113,7 @@ export function ProfileAvatarSettings({
           <button
             type="button"
             onClick={() => applyAvatar(null)}
-            className="inline-flex items-center gap-2 rounded-xl border border-[#f0c8d1] bg-[#fff4f6] px-4 py-2.5 text-sm font-semibold text-[#ad1d39] transition hover:bg-[#ffe9ee]"
+            className="inline-flex items-center gap-2 rounded-xl border border-[var(--accent-border)] bg-[var(--accent-soft)] px-4 py-2.5 text-sm font-semibold text-[var(--accent-strong)] transition hover:bg-[var(--accent-border)]"
           >
             <Trash2 className="size-4" />
             Quitar avatar

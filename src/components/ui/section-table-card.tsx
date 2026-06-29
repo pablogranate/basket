@@ -35,7 +35,7 @@ export function SectionTableCard({
     >
       <div
         className={cn(
-          "flex items-center justify-between gap-4 border-b border-[#edf1f6] px-8 py-6",
+          "flex items-center justify-between gap-4 border-b border-[var(--n-100)] px-8 py-6",
           headerClassName,
         )}
       >
@@ -54,7 +54,7 @@ export function SectionTableCard({
       {footer ? (
         <div
           className={cn(
-            "flex items-center justify-between gap-4 bg-[#fafbfd] px-8 py-5",
+            "flex items-center justify-between gap-4 bg-[var(--n-50)] px-8 py-5",
             footerClassName,
           )}
         >

@@ -24,8 +24,8 @@ export function AuthPageShell({
   return (
     <div className="min-h-screen bg-[var(--background)]">
       <div className="grid min-h-screen lg:grid-cols-[1.1fr_0.9fr]">
-        <section className="relative hidden border-r border-[var(--border)] bg-[linear-gradient(180deg,#fffdfd_0%,#faf8f5_100%)] lg:flex lg:flex-col lg:justify-between lg:overflow-hidden lg:p-10 xl:p-12 2xl:p-16">
-          <div className="absolute inset-0 opacity-[0.045] [background-image:radial-gradient(circle_at_top_left,rgba(230,18,56,0.42),transparent_26%),linear-gradient(rgba(28,13,16,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(28,13,16,0.08)_1px,transparent_1px)] [background-size:auto,42px_42px,42px_42px]" />
+        <section className="relative hidden border-r border-[var(--border)] bg-[linear-gradient(180deg,var(--n-50)_0%,var(--n-50)_100%)] lg:flex lg:flex-col lg:justify-between lg:overflow-hidden lg:p-10 xl:p-12 2xl:p-16">
+          <div className="absolute inset-0 opacity-[0.045] [background-image:radial-gradient(circle_at_top_left,rgba(227,27,35,0.42),transparent_26%),linear-gradient(rgba(28,13,16,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(28,13,16,0.08)_1px,transparent_1px)] [background-size:auto,42px_42px,42px_42px]" />
 
           <div className="relative z-10 flex items-center gap-3">
             <div className="flex size-10 items-center justify-center rounded-xl bg-[var(--foreground)] text-white">

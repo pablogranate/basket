@@ -46,7 +46,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
         <h2 className="text-4xl font-black tracking-tight text-[var(--foreground)]">
           {SECTION_COPY.settings.title}
         </h2>
-        <p className="max-w-2xl text-sm font-medium leading-6 text-[#617187]">
+        <p className="max-w-2xl text-sm font-medium leading-6 text-[var(--n-600)]">
           {SECTION_COPY.settings.description}
         </p>
       </section>
@@ -62,7 +62,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
             <h3 className="text-lg font-extrabold text-[var(--foreground)]">
               Perfil y avatar
             </h3>
-            <p className="text-sm text-[#617187]">
+            <p className="text-sm text-[var(--n-600)]">
               {displayName} · {user.email}
             </p>
           </div>
@@ -83,30 +83,30 @@ export default async function SettingsPage({ searchParams }: PageProps) {
             <h3 className="text-lg font-extrabold text-[var(--foreground)]">
               Gemini
             </h3>
-            <p className="text-sm text-[#617187]">
+            <p className="text-sm text-[var(--n-600)]">
               Configura la clave para habilitar la IA del portal. Si eres admin,
               también quedará disponible para colaboradores y módulos operativos.
             </p>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3 text-sm text-[#617187]">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3 text-sm text-[var(--n-600)]">
           Estado actual:{" "}
           <span className="font-bold text-[var(--foreground)]">
             {settings.hasGeminiKey ? "Configurado" : "Sin configurar"}
           </span>
           {settings.geminiSource === "personal" ? (
-            <span className="ml-2 font-mono text-xs text-[#94a3b8]">
+            <span className="ml-2 font-mono text-xs text-[var(--n-400)]">
               config personal activa
             </span>
           ) : null}
           {settings.geminiSource === "portal" ? (
-            <span className="ml-2 font-mono text-xs text-[#94a3b8]">
+            <span className="ml-2 font-mono text-xs text-[var(--n-400)]">
               config global del portal activa
             </span>
           ) : null}
           {settings.geminiSource === "env" ? (
-            <span className="ml-2 font-mono text-xs text-[#94a3b8]">
+            <span className="ml-2 font-mono text-xs text-[var(--n-400)]">
               variable del servidor activa
             </span>
           ) : null}
@@ -115,11 +115,11 @@ export default async function SettingsPage({ searchParams }: PageProps) {
         <form action={saveGeminiSettingsAction} className="grid gap-4 md:grid-cols-2">
           <input type="hidden" name="redirectTo" value="/settings" />
           <label className="space-y-2 md:col-span-2">
-            <span className="text-sm font-bold text-[#334155]">
+            <span className="text-sm font-bold text-[var(--n-700)]">
               API key de Gemini
             </span>
             <div className="relative">
-              <KeyRound className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#94a3b8]" />
+              <KeyRound className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[var(--n-400)]" />
               <Input
                 name="geminiApiKey"
                 type="password"
@@ -127,12 +127,12 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                 className="h-11 rounded-xl bg-[var(--background-soft)] pl-11"
               />
             </div>
-            <span className="block text-xs text-[#94a3b8]">
+            <span className="block text-xs text-[var(--n-400)]">
               Prioridad efectiva: configuración personal, luego portal, luego variable del servidor.
             </span>
           </label>
           <label className="space-y-2">
-            <span className="text-sm font-bold text-[#334155]">Modelo</span>
+            <span className="text-sm font-bold text-[var(--n-700)]">Modelo</span>
             <Select
               name="geminiModel"
               defaultValue={settings.geminiModel}
@@ -165,7 +165,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
             <h3 className="text-lg font-extrabold text-[var(--foreground)]">
               Preferencias
             </h3>
-            <p className="text-sm text-[#617187]">
+            <p className="text-sm text-[var(--n-600)]">
               Ajustes básicos de interfaz y experiencia de uso.
             </p>
           </div>
@@ -174,7 +174,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
         <form action={savePreferencesAction} className="grid gap-4 md:grid-cols-2">
           <input type="hidden" name="redirectTo" value="/settings" />
           <label className="space-y-2">
-            <span className="text-sm font-bold text-[#334155]">
+            <span className="text-sm font-bold text-[var(--n-700)]">
               Densidad de interfaz
             </span>
             <Select
@@ -210,14 +210,14 @@ export default async function SettingsPage({ searchParams }: PageProps) {
               <h3 className="text-lg font-extrabold text-[var(--foreground)]">
                 Comunicado general
               </h3>
-              <p className="text-sm text-[#617187]">
+              <p className="text-sm text-[var(--n-600)]">
                 Publica un popup para todos los colaboradores después del login y
                 mantenlo disponible desde la campana del header.
               </p>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3 text-sm text-[#617187]">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3 text-sm text-[var(--n-600)]">
             Estado actual:{" "}
             <span className="font-bold text-[var(--foreground)]">
               {latestAnnouncement?.active
@@ -227,7 +227,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                   : "Sin comunicado cargado"}
             </span>
             {latestAnnouncement ? (
-              <span className="ml-2 text-xs text-[#94a3b8]">
+              <span className="ml-2 text-xs text-[var(--n-400)]">
                 Última edición: {new Intl.DateTimeFormat("es-CO", {
                   dateStyle: "medium",
                   timeStyle: "short",
@@ -245,7 +245,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
             />
 
             <label className="space-y-2">
-              <span className="text-sm font-bold text-[#334155]">Título</span>
+              <span className="text-sm font-bold text-[var(--n-700)]">Título</span>
               <Input
                 name="announcementTitle"
                 defaultValue={latestAnnouncement?.title ?? ""}
@@ -255,7 +255,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
             </label>
 
             <label className="space-y-2">
-              <span className="text-sm font-bold text-[#334155]">Mensaje</span>
+              <span className="text-sm font-bold text-[var(--n-700)]">Mensaje</span>
               <Textarea
                 name="announcementBody"
                 defaultValue={latestAnnouncement?.body ?? ""}
@@ -264,7 +264,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
               />
             </label>
 
-            <label className="inline-flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3 text-sm font-semibold text-[#334155]">
+            <label className="inline-flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3 text-sm font-semibold text-[var(--n-700)]">
               <input
                 type="checkbox"
                 name="announcementActive"
