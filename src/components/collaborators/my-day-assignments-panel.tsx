@@ -792,7 +792,7 @@ function AssignmentTable({
                       <Clock3 className="size-3.5 text-[var(--n-400)]" />
                       Hora
                     </p>
-                    <p className="mt-1 text-4xl font-black tracking-[-0.06em] text-[var(--accent)]">
+                    <p className="font-[family-name:var(--font-oswald)] mt-1 text-4xl font-bold tracking-[-0.06em] text-[var(--accent)]">
                       {assignment.timeLabel}
                     </p>
                   </div>

@@ -210,7 +210,7 @@ export default async function MatchNotifyPage({ params, searchParams }: PageProp
               <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">
                 Notificar
               </p>
-              <h1 className="mt-2 text-3xl font-black tracking-[-0.03em] text-[var(--foreground)] sm:text-4xl">
+              <h1 className="font-[family-name:var(--font-oswald)] mt-2 text-3xl font-bold tracking-[-0.03em] text-[var(--foreground)] sm:text-4xl">
                 {match.home_team} vs {match.away_team}
               </h1>
             </div>

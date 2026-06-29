@@ -588,7 +588,7 @@ export default async function MatchDetailPage({
                 imageClassName="p-2"
                 initialsClassName="text-sm"
               />
-              <h1 className="text-3xl font-black tracking-[-0.03em] text-[var(--foreground)] sm:text-4xl">
+              <h1 className="font-[family-name:var(--font-oswald)] text-3xl font-bold tracking-[-0.03em] text-[var(--foreground)] sm:text-4xl">
                 {match.home_team} vs {match.away_team}
               </h1>
               <TeamLogoMark

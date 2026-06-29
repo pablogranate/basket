@@ -133,7 +133,7 @@ export function TeamsWorkspaceClient({
           <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
             Equipos visibles
           </p>
-          <p className="mt-2 text-3xl font-black text-[var(--foreground)]">
+          <p className="font-[family-name:var(--font-oswald)] mt-2 text-3xl font-bold text-[var(--foreground)]">
             {mergedTeams.length}
           </p>
         </div>
@@ -141,7 +141,7 @@ export function TeamsWorkspaceClient({
           <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
             Ligas activas
           </p>
-          <p className="mt-2 text-3xl font-black text-[var(--foreground)]">
+          <p className="font-[family-name:var(--font-oswald)] mt-2 text-3xl font-bold text-[var(--foreground)]">
             {new Set(mergedTeams.map((team) => team.competition)).size}
           </p>
         </div>
@@ -149,7 +149,7 @@ export function TeamsWorkspaceClient({
           <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
             Incidencias
           </p>
-          <p className="mt-2 text-3xl font-black text-[var(--accent)]">
+          <p className="font-[family-name:var(--font-oswald)] mt-2 text-3xl font-bold text-[var(--accent)]">
             {incidentCount}
           </p>
         </div>
@@ -157,7 +157,7 @@ export function TeamsWorkspaceClient({
           <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
             Con responsable
           </p>
-          <p className="mt-2 text-3xl font-black text-[var(--foreground)]">
+          <p className="font-[family-name:var(--font-oswald)] mt-2 text-3xl font-bold text-[var(--foreground)]">
             {registeredCount}
           </p>
         </div>

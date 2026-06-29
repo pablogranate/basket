@@ -43,7 +43,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   return (
     <div className="space-y-8">
       <section className="space-y-2">
-        <h2 className="text-4xl font-black tracking-tight text-[var(--foreground)]">
+        <h2 className="font-[family-name:var(--font-oswald)] text-4xl font-bold tracking-tight text-[var(--foreground)]">
           {SECTION_COPY.settings.title}
         </h2>
         <p className="max-w-2xl text-sm font-medium leading-6 text-[var(--n-600)]">

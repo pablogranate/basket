@@ -951,7 +951,7 @@ export function CreateMatchModal({
               <div className="flex items-start justify-between gap-6 border-b border-[var(--border)] px-7 py-6">
                 <div className="space-y-2">
                   <div>
-                    <h2 className="text-3xl font-extrabold tracking-tight text-[var(--foreground)]">
+                    <h2 className="font-[family-name:var(--font-oswald)] text-3xl font-bold tracking-tight text-[var(--foreground)]">
                       {isEditing ? "Editar partido" : "Crear partido"}
                     </h2>
                   </div>

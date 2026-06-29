@@ -25,7 +25,7 @@ export function SectionPageHeader({
       )}
     >
       <div className={cn("space-y-2", contentClassName)}>
-        <h2 className="text-4xl font-black tracking-tight text-[var(--foreground)]">
+        <h2 className="font-[family-name:var(--font-oswald)] text-4xl font-bold tracking-tight text-[var(--foreground)]">
           {title}
         </h2>
         {description ? (

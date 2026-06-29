@@ -163,7 +163,7 @@ export default async function CollaboratorReportPage({ params }: PageProps) {
               <Clock3 className="size-4 text-[var(--accent)]" />
               Hora
             </div>
-            <div className="mt-2 text-3xl font-black text-[var(--accent)]">
+            <div className="font-[family-name:var(--font-oswald)] mt-2 text-3xl font-bold text-[var(--accent)]">
               {assignment.timeLabel}
             </div>
           </div>

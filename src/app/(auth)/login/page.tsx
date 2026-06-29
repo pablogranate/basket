@@ -42,7 +42,7 @@ export default async function LoginPage({ searchParams }: PageProps) {
               <p className="text-xs font-bold uppercase tracking-[0.32em] text-[var(--muted)]">
                 {APP_NAME}
               </p>
-              <h1 className="text-4xl font-black leading-[1.02] tracking-[-0.04em] text-[var(--foreground)] xl:text-5xl 2xl:text-6xl">
+              <h1 className="font-[family-name:var(--font-oswald)] text-4xl font-bold leading-[1.02] tracking-[-0.04em] text-[var(--foreground)] xl:text-5xl 2xl:text-6xl">
                 Operación, talento y técnica en una sola consola.
               </h1>
               <p className="max-w-xl text-base font-medium leading-relaxed text-[var(--muted)] xl:text-lg">
@@ -114,7 +114,7 @@ export default async function LoginPage({ searchParams }: PageProps) {
               <p className="text-xs font-bold uppercase tracking-[0.32em] text-[var(--muted)]">
                 {PRODUCT_COPY.loginHero.eyebrow}
               </p>
-              <h1 className="text-4xl font-black leading-[1.02] tracking-[-0.04em] text-[var(--foreground)] xl:text-5xl 2xl:text-6xl">
+              <h1 className="font-[family-name:var(--font-oswald)] text-4xl font-bold leading-[1.02] tracking-[-0.04em] text-[var(--foreground)] xl:text-5xl 2xl:text-6xl">
                 {PRODUCT_COPY.loginHero.titleLine1}
                 <br />
                 {PRODUCT_COPY.loginHero.titleLine2}.

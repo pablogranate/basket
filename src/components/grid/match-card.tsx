@@ -523,7 +523,7 @@ export function MatchCard({
                 <Clock3 className="mc-icon" />
                 Hora
               </p>
-              <p className="mt-1 text-4xl font-black tracking-[-0.06em] text-[var(--accent)]">
+              <p className="font-[family-name:var(--font-oswald)] mt-1 text-4xl font-bold tracking-[-0.06em] text-[var(--accent)]">
                 {formatMatchTime(match.kickoff_at, match.timezone)}
               </p>
             </div>

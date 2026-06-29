@@ -36,7 +36,7 @@ export function StatCard({
           <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--n-400)]">
             {label}
           </p>
-          <p className="mt-3 text-[2rem] font-black leading-none">{value}</p>
+          <p className="mt-3 font-[family-name:var(--font-oswald)] text-[2rem] font-bold leading-none">{value}</p>
         </div>
         <span
           className={`inline-flex size-11 items-center justify-center rounded-2xl ${iconToneClassName}`}

@@ -112,7 +112,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
                   </span>
                 ))}
               </div>
-              <h1 className="text-4xl font-black tracking-tight text-[var(--foreground)]">
+              <h1 className="font-[family-name:var(--font-oswald)] text-4xl font-bold tracking-tight text-[var(--foreground)]">
                 {team.official_name}
               </h1>
               <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-medium text-[var(--n-600)]">
