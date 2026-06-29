@@ -4,6 +4,15 @@ Glossary for the portal's domain language. Implementation lives in code; this fi
 
 ## Language
 
+### Notifications
+
+**Send time**:
+The instant a match's assigned people are notified, computed per match from its kickoff clock time in Argentina time (noon-inclusive): kickoff at or after 12:00 → 11:00 the same day; kickoff before 12:00 → 22:00 the day before. An hourly tick fires every match whose send time has passed; `day_notified_at` marks a match as already notified so it is not sent twice.
+_Avoid_: notification time, blast time
+
+**Enviar notificación a todos**:
+The manual per-match action (match detail header) that immediately sends WhatsApp + email to every current assignee, behind a confirmation dialog. It always sends regardless of whether the automatic send already fired, and (re)stamps `day_notified_at`.
+
 ### Grid sync
 
 **Local**:

@@ -28,7 +28,6 @@ export const appEnv = {
   openwaApiKey: process.env.OPENWA_API_KEY ?? "",
   openwaNotifyEnabled: process.env.OPENWA_NOTIFY_ENABLED !== "false",
   notificationsEnabled: process.env.NOTIFICATIONS_ENABLED !== "false",
-  notificationsCron: process.env.NOTIFICATIONS_CRON ?? "30 12 * * *",
 };
 
 export const isSupabaseConfigured = Boolean(

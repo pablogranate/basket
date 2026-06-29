@@ -29,6 +29,10 @@ import {
   AssignmentNotifyConfirm,
   type NotifyRecipient,
 } from "@/components/match/assignment-notify-confirm";
+import {
+  MatchNotifyAllButton,
+  type SendAllRecipient,
+} from "@/components/match/match-notify-all-button";
 import { GroupActions } from "@/components/match/group-actions";
 import { HistoryTimeline } from "@/components/match/history-timeline";
 import { TeamLogoMark } from "@/components/team-logo-mark";
@@ -534,6 +538,30 @@ export default async function MatchDetailPage({
         })
     : [];
 
+  const sendAllRecipientsByPerson = new Map<string, SendAllRecipient>();
+  for (const assignment of match.assignments) {
+    const person = assignment.person;
+    if (!person) {
+      continue;
+    }
+    const roleName = getRoleDisplayName(assignment.role.name);
+    const existing = sendAllRecipientsByPerson.get(person.id);
+    if (existing) {
+      if (roleName && !existing.roleNames.includes(roleName)) {
+        existing.roleNames.push(roleName);
+      }
+    } else {
+      sendAllRecipientsByPerson.set(person.id, {
+        personId: person.id,
+        personName: person.full_name,
+        roleNames: roleName ? [roleName] : [],
+        hasPhone: Boolean(person.phone?.trim()),
+        hasEmail: Boolean(person.email?.trim()),
+      });
+    }
+  }
+  const sendAllRecipients = [...sendAllRecipientsByPerson.values()];
+
   const principalAssignments = sortAssignments(
     match.assignments.filter((assignment) => primaryCategories.has(assignment.role.category)),
   );
@@ -639,6 +667,12 @@ export default async function MatchDetailPage({
               <Megaphone className="size-4" />
               Notificar
             </Link>
+            {user.canEdit ? (
+              <MatchNotifyAllButton
+                matchId={match.id}
+                recipients={sendAllRecipients}
+              />
+            ) : null}
             <a
               href="#operativa"
               className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(227,27,35,0.18)] transition hover:bg-[var(--accent-strong)]"

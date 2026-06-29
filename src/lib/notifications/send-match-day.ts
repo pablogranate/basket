@@ -3,7 +3,6 @@ import "server-only";
 import { formatInTimeZone } from "date-fns-tz";
 
 import { getDayRange } from "@/lib/date";
-import { getRoleDisplayName } from "@/lib/display";
 import { sendMatchNotificationEmail } from "@/lib/email/mailer";
 import { isOpenwaConfigured } from "@/lib/env";
 import {
@@ -18,20 +17,33 @@ import {
   type NotificationLogRow,
   type NotificationTrigger,
 } from "@/lib/notifications/log-rows";
+import {
+  buildMatchRecipients,
+  type AssignmentRecipientRow,
+} from "@/lib/notifications/recipients";
+import { computeSendAt } from "@/lib/notifications/schedule";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ensureErrorMessage } from "@/lib/utils";
 
-// The match-day blast trigger is fixed at 12:30 Argentina time. Per-match
-// timezone is display-only (D4c).
+// Per-match send time is keyed on kickoff clock time (see schedule.ts). The
+// hourly tick fires this for any match whose send time has passed. Per-match
+// display timezone is display-only (D4c).
 const ARG_TZ = "America/Argentina/Buenos_Aires";
-const SEND_HOUR = 12;
-const SEND_MINUTE = 30;
 // Small gap between WhatsApp sends to avoid OpenWA throttling/ban (D9b).
 const WHATSAPP_GAP_MS = 1500;
 
 type Trigger = "cron" | "catchup" | "boot";
 
-type NotifyMatchRow = {
+export type MatchNotifySummary = {
+  recipients: number;
+  waSent: number;
+  waSkipped: number;
+  emailSent: number;
+  emailSkipped: number;
+  noContact: number;
+};
+
+export type NotifyMatchRow = {
   id: string;
   away_team: string;
   competition: string | null;
@@ -42,46 +54,24 @@ type NotifyMatchRow = {
   venue: string | null;
 };
 
-type AssignmentNotifyRow = {
-  id: string;
-  role: { name: string } | null;
-  person: {
-    id: string;
-    full_name: string;
-    phone: string | null;
-    email: string | null;
-  } | null;
-};
-
-type Recipient = {
-  personId: string | null;
-  personName: string;
-  phone: string | null;
-  email: string | null;
-  roleNames: string[];
-};
-
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function isPastSendTime(now: Date) {
-  const hhmm = formatInTimeZone(now, ARG_TZ, "HH:mm");
-  const [hour, minute] = hhmm.split(":").map(Number);
-  return hour > SEND_HOUR || (hour === SEND_HOUR && minute >= SEND_MINUTE);
 }
 
 export async function runMatchDayNotifications(trigger: Trigger) {
   const now = new Date();
 
-  // The 12:30 cron fires exactly at the send time; catch-up/boot must verify
-  // we are already past 12:30 ARG before sending (D6).
-  if (trigger !== "cron" && !isPastSendTime(now)) {
-    return;
-  }
-
+  // Window spans today + tomorrow: the 22:00 tick notifies tomorrow's morning
+  // matches (send time = prior day 22:00). Per-match send time then decides
+  // which rows are actually due now.
   const today = formatInTimeZone(now, ARG_TZ, "yyyy-MM-dd");
-  const { startUtc, endUtc } = getDayRange(today, ARG_TZ);
+  const tomorrow = formatInTimeZone(
+    new Date(now.getTime() + 86400000),
+    ARG_TZ,
+    "yyyy-MM-dd",
+  );
+  const { startUtc } = getDayRange(today, ARG_TZ);
+  const { endUtc } = getDayRange(tomorrow, ARG_TZ);
 
   const supabase = createSupabaseAdminClient();
 
@@ -100,15 +90,19 @@ export async function runMatchDayNotifications(trigger: Trigger) {
     return;
   }
 
-  const matches = (matchesResult.data ?? []) as NotifyMatchRow[];
+  const candidates = (matchesResult.data ?? []) as NotifyMatchRow[];
+  // Due = the match's computed send time has passed.
+  const matches = candidates.filter(
+    (match) => computeSendAt(match.kickoff_at).getTime() <= now.getTime(),
+  );
 
   if (!matches.length) {
-    console.info(`[notifications] ${trigger}: no qualifying matches for ${today}`);
+    console.info(`[notifications] ${trigger}: no due matches at ${now.toISOString()}`);
     return;
   }
 
   console.info(
-    `[notifications] ${trigger}: ${matches.length} match(es) to notify for ${today}`,
+    `[notifications] ${trigger}: ${matches.length} due match(es) at ${now.toISOString()}`,
   );
 
   for (const match of matches) {
@@ -123,11 +117,11 @@ export async function runMatchDayNotifications(trigger: Trigger) {
   }
 }
 
-async function notifyMatch(
+export async function notifyMatch(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
   match: NotifyMatchRow,
   trigger: NotificationTrigger,
-) {
+): Promise<MatchNotifySummary> {
   const assignmentsResult = await supabase
     .from("assignments")
     .select(
@@ -140,37 +134,9 @@ async function notifyMatch(
     throw assignmentsResult.error;
   }
 
-  const assignmentRows = (assignmentsResult.data ?? []) as AssignmentNotifyRow[];
-  const recipientsByPerson = new Map<string, Recipient>();
-
-  for (const assignment of assignmentRows) {
-    const person = assignment.person;
-    if (!person) {
-      continue;
-    }
-
-    const phone = person.phone?.trim() || null;
-    const email = person.email?.trim() || null;
-    const key = `${person.full_name}::${phone ?? ""}::${email ?? ""}`;
-    const roleName = getRoleDisplayName(assignment.role?.name ?? "");
-    const existing = recipientsByPerson.get(key);
-
-    if (existing) {
-      if (roleName && !existing.roleNames.includes(roleName)) {
-        existing.roleNames.push(roleName);
-      }
-    } else {
-      recipientsByPerson.set(key, {
-        personId: person.id,
-        personName: person.full_name,
-        phone,
-        email,
-        roleNames: roleName ? [roleName] : [],
-      });
-    }
-  }
-
-  const recipients = [...recipientsByPerson.values()];
+  const recipients = buildMatchRecipients(
+    (assignmentsResult.data ?? []) as AssignmentRecipientRow[],
+  );
   const subject = buildMatchNotificationSubject(match);
   const matchLabel = `${match.home_team} vs ${match.away_team}`;
   const logRows: NotificationLogRow[] = [];
@@ -279,4 +245,13 @@ async function notifyMatch(
       `email ${emailSent} sent / ${emailSkipped} skipped, ` +
       `${noContact} without contact, ${recipients.length} recipient(s)`,
   );
+
+  return {
+    recipients: recipients.length,
+    waSent,
+    waSkipped,
+    emailSent,
+    emailSkipped,
+    noContact,
+  };
 }

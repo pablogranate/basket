@@ -15,6 +15,11 @@ import {
   buildRecipientLogRows,
   type NotificationLogRow,
 } from "@/lib/notifications/log-rows";
+import {
+  notifyMatch,
+  type NotifyMatchRow,
+} from "@/lib/notifications/send-match-day";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ensureErrorMessage } from "@/lib/utils";
 
@@ -30,6 +35,68 @@ type AssignmentNotifyRow = {
   role: { name: string } | null;
   person: { id: string; full_name: string; phone: string | null } | null;
 };
+
+// Manual "Enviar notificación a todos": fires WhatsApp + email to every current
+// assignee, always (regardless of day_notified_at), then (re)stamps the marker
+// so the automatic schedule treats the match as handled. Reuses the same send
+// core as the cron via notifyMatch. Admin client is justified here — it mirrors
+// the cron's privileged send and authorization is enforced by requireEditor.
+export async function sendAllMatchNotificationsAction(formData: FormData) {
+  const matchId = String(formData.get("matchId") ?? "");
+  const redirectTo = `/match/${matchId}`;
+
+  try {
+    await requireEditor();
+
+    if (!matchId) {
+      redirectWithNotice({
+        redirectTo: "/grid",
+        intent: "error",
+        notice: "No se indicó el partido a notificar.",
+      });
+      return;
+    }
+
+    const supabase = createSupabaseAdminClient();
+
+    const matchResult = await supabase
+      .from("matches")
+      .select(
+        "id, away_team, competition, home_team, kickoff_at, production_mode, timezone, venue",
+      )
+      .eq("id", matchId)
+      .single();
+
+    if (matchResult.error) {
+      throw matchResult.error;
+    }
+
+    const summary = await notifyMatch(
+      supabase,
+      matchResult.data as NotifyMatchRow,
+      "manual",
+    );
+
+    revalidatePath(redirectTo);
+    redirectWithNotice({
+      redirectTo,
+      intent: summary.recipients === 0 ? "error" : "success",
+      notice:
+        summary.recipients === 0
+          ? "No hay personas asignadas para notificar."
+          : `Notificación enviada — WhatsApp ${summary.waSent}/${summary.waSent + summary.waSkipped}, ` +
+            `correo ${summary.emailSent}/${summary.emailSent + summary.emailSkipped}, ` +
+            `${summary.recipients} convocados.`,
+    });
+  } catch (error) {
+    rethrowNavigationError(error);
+    redirectWithNotice({
+      redirectTo,
+      intent: "error",
+      notice: ensureErrorMessage(error),
+    });
+  }
+}
 
 export async function sendAssignmentNotificationsAction(formData: FormData) {
   const matchId = String(formData.get("matchId") ?? "");

@@ -6,8 +6,10 @@ import { appEnv } from "@/lib/env";
 import { runMatchDayNotifications } from "@/lib/notifications/send-match-day";
 
 const ARG_TZ = "America/Argentina/Buenos_Aires";
-// Hourly catch-up: no-ops when every qualifying match is already marked (D6).
-const CATCHUP_CRON = "0 * * * *";
+// Hourly tick is the sole engine. It fires exactly at 11:00 and 22:00 (the two
+// send times) and every other hour acts as a catch-up; per-match send time
+// decides which matches are due (see schedule.ts / send-match-day.ts).
+const TICK_CRON = "0 * * * *";
 
 let scheduled = false;
 
@@ -23,36 +25,21 @@ export function registerNotificationScheduler() {
     return;
   }
 
-  if (!cron.validate(appEnv.notificationsCron)) {
-    console.error(
-      `[notifications] invalid NOTIFICATIONS_CRON "${appEnv.notificationsCron}"; scheduler not started`,
-    );
-    return;
-  }
-
   scheduled = true;
 
   cron.schedule(
-    appEnv.notificationsCron,
-    () => {
-      void runMatchDayNotifications("cron");
-    },
-    { timezone: ARG_TZ },
-  );
-
-  cron.schedule(
-    CATCHUP_CRON,
+    TICK_CRON,
     () => {
       void runMatchDayNotifications("catchup");
     },
     { timezone: ARG_TZ },
   );
 
-  // Catch-up after a restart: if the process was down at 12:30, the boot tick
-  // sends today's still-unmarked qualifying matches once now >= 12:30 ARG.
+  // Catch-up after a restart: send any match whose send time has already passed
+  // and that is still unmarked.
   void runMatchDayNotifications("boot");
 
   console.info(
-    `[notifications] scheduler started (main "${appEnv.notificationsCron}", catch-up "${CATCHUP_CRON}", tz ${ARG_TZ})`,
+    `[notifications] scheduler started (hourly tick "${TICK_CRON}", tz ${ARG_TZ})`,
   );
 }
