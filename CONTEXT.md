@@ -19,4 +19,4 @@ The rolling 30-day span the grid sync operates on: `[start-of-today, start-of-to
 _Avoid_: sync range, sync horizon
 
 **Partido** (retired):
-The legacy single sheet column that held both teams as `"Local vs Visitante"`, split apart at parse time. Retired as of the Julio 25 tab — the sheet now ships `Local` and `Visitante` as separate columns. No longer read by the sync.
+The legacy single sheet column that held both teams as `"Local vs Visitante"`, split apart at parse time. Retired as of the Julio 26 tab — the sheet now ships `Local` and `Visitante` as separate columns. No longer read by the sync, and tabs before Julio 26 are never fetched.
