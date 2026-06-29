@@ -163,7 +163,7 @@ export function PeopleTable({
         className={cn(
           "px-6 py-4 transition-colors",
           column === "profile" && "px-8",
-          isDropTarget && "bg-[#f8fafc]",
+          isDropTarget && "bg-[var(--n-50)]",
         )}
         onDragOver={(event) => {
           event.preventDefault();
@@ -187,8 +187,8 @@ export function PeopleTable({
             onDragStart={() => handleColumnDragStart(column)}
             onDragEnd={handleColumnDragEnd}
             className={cn(
-              "inline-flex size-6 items-center justify-center rounded-md text-[#b0bccd] transition hover:bg-[#eef2f7] hover:text-[#617187]",
-              draggedColumn === column && "bg-white text-[#617187] shadow-sm",
+              "inline-flex size-6 items-center justify-center rounded-md text-[var(--n-300)] transition hover:bg-[var(--n-100)] hover:text-[var(--n-600)]",
+              draggedColumn === column && "bg-white text-[var(--n-600)] shadow-sm",
             )}
           >
             <GripVertical className="size-3.5" />
@@ -214,7 +214,7 @@ export function PeopleTable({
         return (
           <td key={column} className={cellClassName}>
             <div className="flex items-center gap-3">
-              <div className="grid size-10 shrink-0 place-items-center rounded-full border border-[var(--border)] bg-[#eef2f6] text-sm font-extrabold text-[#64748b]">
+              <div className="grid size-10 shrink-0 place-items-center rounded-full border border-[var(--border)] bg-[var(--n-100)] text-sm font-extrabold text-[var(--n-600)]">
                 {getInitials(person.full_name)}
               </div>
               <div className="min-w-0">
@@ -282,12 +282,12 @@ export function PeopleTable({
               <div className="flex items-center gap-2">
                 <span
                   title={cityIndicator.label}
-                  className="inline-flex size-8 items-center justify-center rounded-full bg-[#f4f7fb] text-sm"
+                  className="inline-flex size-8 items-center justify-center rounded-full bg-[var(--n-100)] text-sm"
                 >
                   {cityIndicator.emoji ? (
                     <span aria-hidden="true">{cityIndicator.emoji}</span>
                   ) : (
-                    <MapPin className="size-4 text-[#94a3b8]" />
+                    <MapPin className="size-4 text-[var(--n-400)]" />
                   )}
                 </span>
                 <p className="text-sm font-medium text-[var(--foreground)]">
@@ -306,12 +306,12 @@ export function PeopleTable({
                   <a
                     href={`mailto:${person.email}`}
                     aria-label={`Escribir por correo a ${person.full_name}`}
-                    className="inline-flex size-8 items-center justify-center rounded-full bg-[#eef2ff] text-[#4f46e5] transition hover:bg-[#e0e7ff]"
+                    className="inline-flex size-8 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)] transition hover:bg-[var(--accent-border)]"
                   >
                     <Mail className="size-4" />
                   </a>
                 ) : null}
-                <p className="text-xs font-medium text-[#70819b]">
+                <p className="text-xs font-medium text-[var(--n-500)]">
                   {person.email ?? "Sin correo"}
                 </p>
               </div>
@@ -340,13 +340,13 @@ export function PeopleTable({
                       "relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition",
                       person.active
                         ? "border-[#b8e7c7] bg-[#e9f9ee]"
-                        : "border-[#e6d8dd] bg-[#f4edf0]",
+                        : "border-[var(--n-200)] bg-[var(--n-100)]",
                       !canEdit && "cursor-not-allowed opacity-60",
                     )}
                   >
                     <span
                       className={cn(
-                        "pointer-events-none absolute left-1 inline-flex size-5 rounded-full bg-white shadow-[0_2px_6px_rgba(15,23,42,0.16)] transition-transform",
+                        "pointer-events-none absolute left-1 inline-flex size-5 rounded-full bg-white shadow-[0_2px_6px_rgba(28,13,16,0.16)] transition-transform",
                         person.active && "translate-x-5",
                       )}
                     />
@@ -359,7 +359,7 @@ export function PeopleTable({
       case "details":
         return (
           <td key={column} className={cellClassName}>
-            <p className="max-w-[22rem] truncate text-sm font-medium text-[#516173]">
+            <p className="max-w-[22rem] truncate text-sm font-medium text-[var(--n-600)]">
               {detailSummary || "Sin responsable asignado"}
             </p>
           </td>
@@ -373,13 +373,13 @@ export function PeopleTable({
     <div className="overflow-x-auto">
       <table className="min-w-full border-collapse text-left">
         <thead>
-          <tr className="bg-[#fafbfd] text-[11px] font-black uppercase tracking-[0.18em] text-[#94a3b8]">
+          <tr className="bg-[var(--n-50)] text-[11px] font-black uppercase tracking-[0.18em] text-[var(--n-400)]">
             {columnOrder.map((column) => renderHeader(column))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-[#edf1f6]">
+        <tbody className="divide-y divide-[var(--n-100)]">
           {people.map((person) => (
-            <tr key={person.id} className="group transition hover:bg-[#fafbfd]">
+            <tr key={person.id} className="group transition hover:bg-[var(--n-50)]">
               {columnOrder.map((column) => renderCell(person, column))}
             </tr>
           ))}

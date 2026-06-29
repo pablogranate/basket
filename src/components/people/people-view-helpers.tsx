@@ -30,9 +30,9 @@ export function getStatusBadgeClass(state: PersonListItem["assignment_state"]) {
     case "En asignacion":
       return "border-[#b8e7c7] bg-[#eefbf2] text-[#1b7d43] [&>span]:bg-[#23b25f]";
     case "Inactivo":
-      return "border-[#f2c6ce] bg-[#fff3f5] text-[#b42343] [&>span]:bg-[var(--accent)]";
+      return "border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent-strong)] [&>span]:bg-[var(--accent)]";
     default:
-      return "border-[#d8dee8] bg-[#f6f8fb] text-[#596980] [&>span]:bg-[#8ea0b7]";
+      return "border-[var(--n-200)] bg-[var(--n-100)] text-[var(--n-600)] [&>span]:bg-[var(--n-400)]";
   }
 }
 
@@ -139,11 +139,11 @@ export function getCityIndicator(city: string) {
 
 export const PEOPLE_DIRECTORY_ACTION_STYLES = {
   neutral:
-    "inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[#f8fafc] px-3 text-xs font-bold text-[#506075] transition hover:bg-[#f1f5f9]",
+    "inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--n-50)] px-3 text-xs font-bold text-[var(--n-600)] transition hover:bg-[var(--n-100)]",
   accent:
-    "inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#f0d9de] bg-[#fff6f8] px-3 text-xs font-bold text-[var(--accent)] transition hover:bg-[#fff0f3]",
+    "inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[var(--accent-border)] bg-[var(--accent-soft)] px-3 text-xs font-bold text-[var(--accent)] transition hover:bg-[var(--accent-border)]",
   disabled:
-    "inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[#f8fafc] px-3 text-xs font-bold text-[#9aa7ba]",
+    "inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--n-50)] px-3 text-xs font-bold text-[var(--n-400)]",
 };
 
 export { Mail, MapPin, MessageCircle };

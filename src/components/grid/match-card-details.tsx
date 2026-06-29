@@ -72,7 +72,7 @@ function Section({
 
           return (
             <div key={row.label} className="space-y-1">
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#a08f91]">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--n-400)]">
                 {getRoleDisplayName(row.label)}
               </p>
               <p

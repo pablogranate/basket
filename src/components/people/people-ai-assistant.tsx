@@ -62,14 +62,14 @@ export function PeopleAiAssistant({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[#415067] shadow-sm transition hover:border-[#d8dced] hover:bg-[#fafbff]"
+        className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--n-700)] shadow-sm transition hover:border-[var(--n-200)] hover:bg-[var(--n-50)]"
       >
         <Bot className="size-4 text-[var(--accent)]" />
         Pregúntale a la IA
       </button>
 
       {open ? (
-        <div className="fixed inset-0 z-50 flex justify-end bg-[rgba(15,23,42,0.18)] backdrop-blur-[2px]">
+        <div className="fixed inset-0 z-50 flex justify-end bg-[rgba(28,13,16,0.18)] backdrop-blur-[2px]">
           <div className="flex h-full w-full max-w-xl flex-col border-l border-[var(--border)] bg-[var(--surface)] shadow-[0_18px_42px_rgba(28,13,16,0.12)]">
             <div className="flex items-start justify-between gap-4 border-b border-[var(--border)] px-6 py-6">
               <div>
@@ -77,14 +77,14 @@ export function PeopleAiAssistant({
                   <span className="rounded-full bg-[var(--accent-soft)] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--accent)]">
                     Asistente IA
                   </span>
-                  <span className="text-xs text-[#94a3b8]">
+                  <span className="text-xs text-[var(--n-400)]">
                     Módulo Personal
                   </span>
                 </div>
                 <h3 className="text-2xl font-black tracking-tight text-[var(--foreground)]">
                   Consulta el personal visible
                 </h3>
-                <p className="mt-2 text-sm leading-6 text-[#617187]">
+                <p className="mt-2 text-sm leading-6 text-[var(--n-500)]">
                   Haz preguntas como “qué rol tiene Santiago Córdoba” o “quién
                   cubre Boca Juniors”.
                 </p>
@@ -92,7 +92,7 @@ export function PeopleAiAssistant({
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="inline-flex size-10 items-center justify-center rounded-full bg-[var(--background-soft)] text-[#94a3b8] transition hover:text-[var(--foreground)]"
+                className="inline-flex size-10 items-center justify-center rounded-full bg-[var(--background-soft)] text-[var(--n-400)] transition hover:text-[var(--foreground)]"
               >
                 <X className="size-4" />
               </button>
@@ -100,7 +100,7 @@ export function PeopleAiAssistant({
 
             <div className="space-y-5 px-6 py-6">
               {!hasGeminiKey ? (
-                <div className="rounded-2xl border border-[#f0d9de] bg-[#fff7f8] p-4 text-sm text-[#7a4150]">
+                <div className="rounded-2xl border border-[var(--accent-border)] bg-[var(--accent-soft)] p-4 text-sm text-[var(--accent-strong)]">
                   Configura tu API key de Gemini en Configuración para habilitar este
                   asistente.
                   <Link
@@ -114,21 +114,21 @@ export function PeopleAiAssistant({
               ) : null}
 
               <div className="rounded-2xl border border-[var(--border)] bg-[var(--background-soft)] p-4">
-                <label className="mb-2 block text-sm font-bold text-[#334155]">
+                <label className="mb-2 block text-sm font-bold text-[var(--n-700)]">
                   Tu pregunta
                 </label>
                 <textarea
                   value={question}
                   onChange={(event) => setQuestion(event.target.value)}
                   placeholder="Ej. Qué rol tiene Santiago Córdoba, Juan Camilo y Samuel Venegas?"
-                  className="min-h-28 w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[#94a3b8] focus:border-[var(--accent)] focus:ring-4 focus:ring-[rgba(230,18,56,0.08)]"
+                  className="min-h-28 w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--n-400)] focus:border-[var(--accent)] focus:ring-4 focus:ring-[rgba(227,27,35,0.08)]"
                 />
                 <div className="mt-4 flex justify-end">
                   <button
                     type="button"
                     onClick={submitQuestion}
                     disabled={!hasGeminiKey || isLoading}
-                    className="inline-flex items-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-bold text-white shadow-[0_12px_24px_rgba(230,18,56,0.18)] disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-bold text-white shadow-[0_12px_24px_rgba(227,27,35,0.18)] disabled:opacity-50"
                   >
                     {isLoading ? (
                       <LoaderCircle className="size-4 animate-spin" />
@@ -141,7 +141,7 @@ export function PeopleAiAssistant({
               </div>
 
               {error ? (
-                <div className="rounded-2xl border border-[#f2c6ce] bg-[#fff3f5] p-4 text-sm text-[#b42343]">
+                <div className="rounded-2xl border border-[var(--accent-border)] bg-[var(--accent-soft)] p-4 text-sm text-[var(--accent-strong)]">
                   {error}
                 </div>
               ) : null}
@@ -153,7 +153,7 @@ export function PeopleAiAssistant({
                     Respuesta
                   </h4>
                 </div>
-                <div className="min-h-36 whitespace-pre-wrap text-sm leading-7 text-[#42536b]">
+                <div className="min-h-36 whitespace-pre-wrap text-sm leading-7 text-[var(--n-700)]">
                   {answer ||
                     "Todavía no hay respuesta. Haz una consulta y la IA responderá usando solo el personal visible en esta pantalla."}
                 </div>

@@ -224,14 +224,14 @@ export function ProductionInsightsPanel({
             <Link
               href={previousDateHref}
               aria-label="Ir a la fecha anterior"
-              className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-[#d7dde7] bg-[#f4f6fa] text-[#6b7280] transition hover:border-[rgba(230,18,56,0.24)] hover:bg-[#fff3f6] hover:text-[var(--accent)]"
+              className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--n-100)] text-[var(--n-500)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
             >
               <ChevronLeft className="size-4" />
             </Link>
             <Link
               href={nextDateHref}
               aria-label="Ir a la fecha siguiente"
-              className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-[#d7dde7] bg-[#f4f6fa] text-[#6b7280] transition hover:border-[rgba(230,18,56,0.24)] hover:bg-[#fff3f6] hover:text-[var(--accent)]"
+              className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--n-100)] text-[var(--n-500)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
             >
               <ChevronRight className="size-4" />
             </Link>
@@ -283,7 +283,7 @@ export function ProductionInsightsPanel({
             Asignaciones por personal
           </h4>
           {assignedPeopleCount > 0 ? (
-            <span className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#8da0bb]">
+            <span className="text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--n-400)]">
               {assignedPeopleCount} en línea
             </span>
           ) : null}
@@ -307,7 +307,7 @@ export function ProductionInsightsPanel({
                       <p className="truncate text-[0.92rem] font-bold text-[var(--foreground)]">
                         {person.fullName}
                       </p>
-                      <p className="mt-0.5 truncate text-[9px] font-bold uppercase tracking-[0.14em] text-[#7587a1]">
+                      <p className="mt-0.5 truncate text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--n-500)]">
                         {person.roleLabel}
                       </p>
                     </div>
@@ -328,7 +328,7 @@ export function ProductionInsightsPanel({
               expandedLabel="Mostrar menos personal"
               className="py-[0.55rem]"
               lineClassName="border-[var(--border)]"
-              buttonClassName="border-[#d9e1eb] text-[#7d8ca1] hover:border-[#efc2cb] hover:bg-[#fff6f8] hover:text-[var(--accent)]"
+              buttonClassName="border-[var(--border)] text-[var(--n-500)] hover:border-[var(--accent-border)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
             />
           ) : null}
         </div>

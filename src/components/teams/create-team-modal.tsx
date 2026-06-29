@@ -169,7 +169,7 @@ export function CreateTeamModal({
           aria-label={isEditMode ? "Editar equipo" : "Editar equipos"}
           title={isEditMode ? "Editar equipo" : "Editar equipos"}
           className={cn(
-            "inline-flex items-center justify-center rounded-full bg-[#f4f7fb] text-[#70819b] transition hover:bg-[#eef2f6] hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60",
+            "inline-flex items-center justify-center rounded-full bg-[var(--n-100)] text-[var(--n-500)] transition hover:bg-[var(--n-100)] hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60",
             triggerClassName,
           )}
         >
@@ -183,7 +183,7 @@ export function CreateTeamModal({
             resetForm();
             setIsOpen(true);
           }}
-          className="inline-flex h-[52px] items-center gap-2 rounded-[var(--panel-radius)] bg-[var(--accent)] px-5 text-sm font-extrabold text-white shadow-[0_14px_28px_rgba(230,18,56,0.18)] transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex h-[52px] items-center gap-2 rounded-[var(--panel-radius)] bg-[var(--accent)] px-5 text-sm font-extrabold text-white shadow-[0_14px_28px_rgba(227,27,35,0.18)] transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isEditMode ? <Pencil className="size-4" /> : <Plus className="size-4" />}
           {isEditMode ? "Editar equipo" : "Registrar equipo"}
@@ -193,17 +193,17 @@ export function CreateTeamModal({
       {isOpen && typeof document !== "undefined"
         ? createPortal(
         <div
-          className="fixed inset-0 z-[300] flex items-center justify-center bg-[#101828]/60 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[300] flex items-center justify-center bg-[var(--n-900)]/60 p-4 backdrop-blur-sm"
           onClick={closeModal}
         >
           <div
-            className="panel-surface relative flex w-full max-w-3xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--surface)] shadow-[0_24px_64px_rgba(15,23,42,0.22)]"
+            className="panel-surface relative flex w-full max-w-3xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--surface)] shadow-[0_24px_64px_rgba(28,13,16,0.22)]"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="border-b border-[var(--border)] px-6 py-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3">
-                  <span className="inline-flex size-11 items-center justify-center rounded-2xl bg-[#fff4f6] text-[var(--accent)]">
+                  <span className="inline-flex size-11 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent)]">
                     <Shield className="size-5" />
                   </span>
                   <div>
@@ -223,7 +223,7 @@ export function CreateTeamModal({
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="inline-flex size-10 items-center justify-center rounded-full bg-[var(--background-soft)] text-[#94a3b8] transition hover:bg-[#eef2f6] hover:text-[#52627a]"
+                  className="inline-flex size-10 items-center justify-center rounded-full bg-[var(--background-soft)] text-[var(--n-400)] transition hover:bg-[var(--n-100)] hover:text-[var(--n-700)]"
                   aria-label="Cerrar modal"
                 >
                   <X className="size-4" />
@@ -232,10 +232,10 @@ export function CreateTeamModal({
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6 p-6">
-              <section className="rounded-[var(--panel-radius)] border border-[#eef1f4] bg-[#fbfbfb] p-5">
+              <section className="rounded-[var(--panel-radius)] border border-[var(--n-100)] bg-[#fbfbfb] p-5">
                 <div className="flex flex-col gap-5 md:flex-row md:items-center">
                   <div className="flex items-center gap-4">
-                    <div className="relative flex size-24 items-center justify-center overflow-hidden rounded-[var(--panel-radius)] border border-[#e5e7eb] bg-white shadow-sm">
+                    <div className="relative flex size-24 items-center justify-center overflow-hidden rounded-[var(--panel-radius)] border border-[var(--n-200)] bg-white shadow-sm">
                       {logoPreview ? (
                         <Image
                           src={logoPreview}
@@ -246,17 +246,17 @@ export function CreateTeamModal({
                           className="object-contain p-2"
                         />
                       ) : (
-                        <div className="flex size-full items-center justify-center bg-[#f3f4f6] text-[#98a2b3]">
+                        <div className="flex size-full items-center justify-center bg-[#f3f4f6] text-[var(--n-400)]">
                           <Shield className="size-9" />
                         </div>
                       )}
                     </div>
 
                     <div className="space-y-1">
-                      <p className="text-sm font-semibold text-[#344054]">
+                      <p className="text-sm font-semibold text-[var(--n-700)]">
                         Escudo del equipo
                       </p>
-                      <p className="max-w-[18rem] text-sm leading-6 text-[#667085]">
+                      <p className="max-w-[18rem] text-sm leading-6 text-[var(--n-500)]">
                         Sube el escudo en PNG 500 x 500, idealmente sin fondo.
                       </p>
                     </div>
@@ -267,7 +267,7 @@ export function CreateTeamModal({
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={!canEdit}
-                      className="inline-flex h-11 items-center gap-2 rounded-[var(--panel-radius)] border border-[#e5e7eb] bg-white px-4 text-sm font-semibold text-[#344054] transition hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex h-11 items-center gap-2 rounded-[var(--panel-radius)] border border-[var(--n-200)] bg-white px-4 text-sm font-semibold text-[var(--n-700)] transition hover:bg-[var(--n-50)] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <ImagePlus className="size-4 text-[var(--accent)]" />
                       Subir escudo
@@ -276,7 +276,7 @@ export function CreateTeamModal({
                       type="button"
                       onClick={clearLogo}
                       disabled={!logoPreview || !canEdit}
-                      className="inline-flex h-11 items-center gap-2 rounded-[var(--panel-radius)] border border-[#f0d5da] bg-[#fff7f8] px-4 text-sm font-semibold text-[#ad1d39] transition hover:bg-[#fff0f3] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex h-11 items-center gap-2 rounded-[var(--panel-radius)] border border-[var(--accent-border)] bg-[var(--accent-soft)] px-4 text-sm font-semibold text-[var(--accent-strong)] transition hover:bg-[var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Trash2 className="size-4" />
                       Quitar
@@ -295,7 +295,7 @@ export function CreateTeamModal({
 
               <div className="grid gap-6 md:grid-cols-2">
                 <label className="space-y-2">
-                  <span className="text-sm font-bold text-[#334155]">
+                  <span className="text-sm font-bold text-[var(--n-700)]">
                     Nombre oficial
                   </span>
                   <Input
@@ -306,7 +306,7 @@ export function CreateTeamModal({
                   />
                 </label>
                 <label className="space-y-2">
-                  <span className="text-sm font-bold text-[#334155]">
+                  <span className="text-sm font-bold text-[var(--n-700)]">
                     Liga
                   </span>
                   <Select
@@ -323,7 +323,7 @@ export function CreateTeamModal({
                   </Select>
                 </label>
                 <label className="space-y-2">
-                  <span className="text-sm font-bold text-[#334155]">
+                  <span className="text-sm font-bold text-[var(--n-700)]">
                     Estadio
                   </span>
                   <Input
@@ -334,7 +334,7 @@ export function CreateTeamModal({
                   />
                 </label>
                 <label className="space-y-2">
-                  <span className="text-sm font-bold text-[#334155]">
+                  <span className="text-sm font-bold text-[var(--n-700)]">
                     Responsable
                   </span>
                   <Input
@@ -345,7 +345,7 @@ export function CreateTeamModal({
                   />
                 </label>
                 <label className="space-y-2">
-                  <span className="text-sm font-bold text-[#334155]">
+                  <span className="text-sm font-bold text-[var(--n-700)]">
                     Sitio web
                   </span>
                   <Input
@@ -356,7 +356,7 @@ export function CreateTeamModal({
                   />
                 </label>
                 <label className="space-y-2">
-                  <span className="text-sm font-bold text-[#334155]">
+                  <span className="text-sm font-bold text-[var(--n-700)]">
                     Instagram
                   </span>
                   <Input
@@ -369,7 +369,7 @@ export function CreateTeamModal({
               </div>
 
               <label className="space-y-2">
-                <span className="text-sm font-bold text-[#334155]">
+                <span className="text-sm font-bold text-[var(--n-700)]">
                   Enlace oficial
                 </span>
                 <Input
@@ -381,7 +381,7 @@ export function CreateTeamModal({
               </label>
 
               {errorMessage ? (
-                <div className="rounded-xl border border-[#f0c8d1] bg-[#fff4f6] px-4 py-3 text-sm font-semibold text-[#ad1d39]">
+                <div className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-soft)] px-4 py-3 text-sm font-semibold text-[var(--accent-strong)]">
                   {errorMessage}
                 </div>
               ) : null}
@@ -397,7 +397,7 @@ export function CreateTeamModal({
                 </Button>
                 <button
                   type="submit"
-                  className="inline-flex h-11 items-center gap-2 rounded-xl bg-[var(--accent)] px-5 text-sm font-bold text-white shadow-[0_14px_28px_rgba(230,18,56,0.18)] transition hover:bg-[var(--accent-strong)]"
+                  className="inline-flex h-11 items-center gap-2 rounded-xl bg-[var(--accent)] px-5 text-sm font-bold text-white shadow-[0_14px_28px_rgba(227,27,35,0.18)] transition hover:bg-[var(--accent-strong)]"
                 >
                   <Save className="size-4" />
                   {isEditMode ? "Guardar cambios" : "Guardar equipo"}

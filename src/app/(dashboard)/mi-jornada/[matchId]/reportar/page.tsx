@@ -42,7 +42,7 @@ export default async function CollaboratorReportPage({ params }: PageProps) {
           <Link
             href="/mi-jornada"
             aria-label="Cerrar reporte"
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--background-soft)] text-[#94a3b8] transition hover:text-[var(--foreground)]"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--background-soft)] text-[var(--n-400)] transition hover:text-[var(--foreground)]"
           >
             <X className="size-4" />
           </Link>
@@ -62,7 +62,7 @@ export default async function CollaboratorReportPage({ params }: PageProps) {
           <div className="flex flex-wrap gap-2">
             <Link
               href="/mi-jornada"
-              className="inline-flex h-11 items-center justify-center rounded-[var(--panel-radius)] bg-[var(--accent)] px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(230,18,56,0.18)] transition hover:bg-[var(--accent-strong)]"
+              className="inline-flex h-11 items-center justify-center rounded-[var(--panel-radius)] bg-[var(--accent)] px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(227,27,35,0.18)] transition hover:bg-[var(--accent-strong)]"
             >
               Ir a mi jornada
             </Link>
@@ -113,7 +113,7 @@ export default async function CollaboratorReportPage({ params }: PageProps) {
         <Link
           href="/mi-jornada"
           aria-label="Cerrar reporte"
-          className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--background-soft)] text-[#94a3b8] transition hover:text-[var(--foreground)]"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--background-soft)] text-[var(--n-400)] transition hover:text-[var(--foreground)]"
         >
           <X className="size-4" />
         </Link>
@@ -139,7 +139,7 @@ export default async function CollaboratorReportPage({ params }: PageProps) {
                 {assignment.competition ?? "Sin liga"}
               </span>
               {assignment.productionMode ? (
-                <span className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-[11px] font-black uppercase tracking-[0.2em] text-[#617187]">
+                <span className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-[11px] font-black uppercase tracking-[0.2em] text-[var(--n-600)]">
                   {assignment.productionMode}
                 </span>
               ) : null}
@@ -149,7 +149,7 @@ export default async function CollaboratorReportPage({ params }: PageProps) {
               <h1 className="text-[31px] font-black tracking-tight leading-[1.02] text-[var(--foreground)]">
                 {assignment.homeTeam} vs {assignment.awayTeam}
               </h1>
-              <p className="mt-2 text-sm font-semibold text-[#617187]">
+              <p className="mt-2 text-sm font-semibold text-[var(--n-600)]">
                 Tu rol: {getRoleDisplayName(assignment.roleName)}
                 {assignment.roleCategory
                   ? ` · ${getRoleCategoryDisplayName(assignment.roleCategory)}`
@@ -159,11 +159,11 @@ export default async function CollaboratorReportPage({ params }: PageProps) {
           </div>
 
           <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3 text-right">
-            <div className="flex items-center justify-end gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-[#95a3ba]">
+            <div className="flex items-center justify-end gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-[var(--n-400)]">
               <Clock3 className="size-4 text-[var(--accent)]" />
               Hora
             </div>
-            <div className="mt-2 text-3xl font-black text-[var(--accent)]">
+            <div className="font-[family-name:var(--font-oswald)] mt-2 text-3xl font-bold text-[var(--accent)]">
               {assignment.timeLabel}
             </div>
           </div>
@@ -171,14 +171,14 @@ export default async function CollaboratorReportPage({ params }: PageProps) {
 
         <div className="grid gap-3 sm:grid-cols-4">
           <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3">
-            <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-[#95a3ba]">
+            <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-[var(--n-400)]">
               <CalendarDays className="size-4 text-[var(--accent)]" />
               Fecha
             </div>
             <p className="mt-2 text-sm font-semibold">{assignment.dateLabel}</p>
           </div>
           <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3">
-            <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-[#95a3ba]">
+            <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-[var(--n-400)]">
               <MapPin className="size-4 text-[var(--accent)]" />
               Sede
             </div>
@@ -187,7 +187,7 @@ export default async function CollaboratorReportPage({ params }: PageProps) {
             </p>
           </div>
           <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3">
-            <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-[#95a3ba]">
+            <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-[var(--n-400)]">
               <UserRound className="size-4 text-[var(--accent)]" />
               Responsable
             </div>
@@ -196,7 +196,7 @@ export default async function CollaboratorReportPage({ params }: PageProps) {
             </p>
           </div>
           <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3">
-            <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-[#95a3ba]">
+            <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-[var(--n-400)]">
               <Radio className="size-4 text-[var(--accent)]" />
               Mi nota
             </div>

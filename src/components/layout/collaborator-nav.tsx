@@ -33,8 +33,8 @@ export function CollaboratorNav({
               className={cn(
                 "flex min-w-0 flex-1 items-center justify-center gap-2 rounded-[var(--panel-radius)] px-4 py-3 text-sm font-bold transition",
                 active
-                  ? "bg-[var(--accent)] text-white shadow-[0_14px_28px_rgba(230,18,56,0.18)]"
-                  : "bg-[var(--surface)] text-[#617187] hover:bg-[var(--background-soft)] hover:text-[var(--foreground)]",
+                  ? "bg-[var(--accent)] text-white shadow-[0_14px_28px_rgba(227,27,35,0.18)]"
+                  : "bg-[var(--surface)] text-[var(--n-600)] hover:bg-[var(--background-soft)] hover:text-[var(--foreground)]",
               )}
             >
               <Icon className="size-4" />
@@ -60,8 +60,8 @@ export function CollaboratorNav({
             className={cn(
               "inline-flex h-11 items-center gap-2 rounded-full px-4 text-sm font-bold transition",
               active
-                ? "bg-[var(--accent)] text-white shadow-[0_14px_28px_rgba(230,18,56,0.18)]"
-                : "text-[#617187] hover:bg-[var(--background-soft)] hover:text-[var(--foreground)]",
+                ? "bg-[var(--accent)] text-white shadow-[0_14px_28px_rgba(227,27,35,0.18)]"
+                : "text-[var(--n-600)] hover:bg-[var(--background-soft)] hover:text-[var(--foreground)]",
             )}
           >
             <Icon className="size-4" />

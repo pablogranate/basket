@@ -28,7 +28,7 @@ export function CreateMatchForm({
   className?: string;
 }) {
   const fieldClassName =
-    "h-11 rounded-[14px] border-[var(--border)] bg-[#f7f7f7] px-3.5 text-[14px] font-medium text-[var(--foreground)] placeholder:text-[var(--muted)] focus:bg-white";
+    "h-11 rounded-[14px] border-[var(--border)] bg-[var(--n-50)] px-3.5 text-[14px] font-medium text-[var(--foreground)] placeholder:text-[var(--muted)] focus:bg-white";
 
   return (
     <Card
@@ -212,7 +212,7 @@ export function CreateMatchForm({
               name="notes"
               disabled={!canEdit}
               placeholder="Notas operativas, técnicas o contexto editorial"
-              className="min-h-[110px] rounded-[16px] border-[var(--border)] bg-[#f7f7f7] px-3.5 py-3 text-[14px] font-medium text-[var(--foreground)] placeholder:text-[var(--muted)] focus:bg-white"
+              className="min-h-[110px] rounded-[16px] border-[var(--border)] bg-[var(--n-50)] px-3.5 py-3 text-[14px] font-medium text-[var(--foreground)] placeholder:text-[var(--muted)] focus:bg-white"
             />
           </label>
 

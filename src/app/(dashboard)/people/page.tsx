@@ -353,8 +353,8 @@ export default async function PeoplePage({ searchParams }: PageProps) {
         }
         badge={
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#d8dee8] bg-[#f6f8fb] px-3 py-1 text-xs font-bold text-[#596980]">
-              <span className="size-1.5 rounded-full bg-[#8ea0b7]" />
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--n-200)] bg-[var(--n-100)] px-3 py-1 text-xs font-bold text-[var(--n-600)]">
+              <span className="size-1.5 rounded-full bg-[var(--n-400)]" />
               {activeCount} Activos
             </span>
             <SegmentedControl
@@ -389,7 +389,7 @@ export default async function PeoplePage({ searchParams }: PageProps) {
                 {selectedPerson ? (
                   <Link
                     href={selectedPeopleHref ?? currentPeopleHref}
-                    className="inline-flex size-9 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[#7b8798] transition hover:border-[#f0d9de] hover:bg-[#fff7f8] hover:text-[var(--accent)]"
+                    className="inline-flex size-9 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--n-500)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
                     title={`Editar ${selectedPerson.full_name}`}
                   >
                     <PencilLine className="size-4" />
@@ -432,27 +432,27 @@ export default async function PeoplePage({ searchParams }: PageProps) {
       </SectionTableCard>
 
       {selectedPerson ? (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[rgba(15,23,42,0.48)] p-4 backdrop-blur-sm">
-          <div className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-[1000px] flex-col overflow-hidden rounded-[var(--panel-radius)] border border-[#e6e8ec] bg-white shadow-[0_32px_80px_rgba(15,23,42,0.26)]">
-            <div className="flex items-center justify-between border-b border-[#f1f3f5] px-8 py-6">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[rgba(28,13,16,0.48)] p-4 backdrop-blur-sm">
+          <div className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-[1000px] flex-col overflow-hidden rounded-[var(--panel-radius)] border border-[var(--n-100)] bg-white shadow-[var(--shadow-lift)]">
+            <div className="flex items-center justify-between border-b border-[var(--n-100)] px-8 py-6">
               <div className="space-y-1">
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--accent)]">
                   Personal
                 </p>
-                <h3 className="text-[2rem] font-extrabold tracking-[-0.04em] text-[#1b1520]">
+                <h3 className="text-[2rem] font-extrabold tracking-[-0.04em] text-[var(--n-900)]">
                   Editar personal
                 </h3>
               </div>
               <Link
                 href={currentPeopleHref}
-                className="inline-flex size-10 items-center justify-center rounded-xl text-[#98a2b3] transition hover:bg-[#f7f5f6] hover:text-[#5b6472]"
+                className="inline-flex size-10 items-center justify-center rounded-xl text-[var(--n-400)] transition hover:bg-[var(--n-100)] hover:text-[var(--n-600)]"
                 aria-label="Cerrar modal"
               >
                 <X className="size-5" />
               </Link>
             </div>
 
-            <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto bg-[#faf7f7]">
+            <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto bg-[var(--n-50)]">
               <form id="edit-person-form" action={upsertPersonAction}>
                 <input type="hidden" name="redirectTo" value={currentPeopleHref} />
                 <input type="hidden" name="personId" value={selectedPerson.id} />
@@ -463,58 +463,58 @@ export default async function PeoplePage({ searchParams }: PageProps) {
                     <div className="space-y-6 lg:col-span-2">
                       <div className="grid gap-6 md:grid-cols-2">
                         <label className="space-y-2">
-                          <span className="text-sm font-semibold text-[#334155]">
+                          <span className="text-sm font-semibold text-[var(--n-700)]">
                             Nombre completo
                           </span>
                           <Input
                             name="fullName"
                             defaultValue={selectedPerson.full_name}
                             disabled={!user.canEdit}
-                            className="h-12 rounded-[var(--panel-radius)] border-[#e5e7eb] bg-[#f9f9f9] text-[15px] font-medium text-[#1f2937] placeholder:text-[#98a2b3] shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(230,18,56,0.08)]"
+                            className="h-12 rounded-[var(--panel-radius)] border-[var(--n-200)] bg-[var(--n-50)] text-[15px] font-medium text-[var(--n-800)] placeholder:text-[var(--n-400)] shadow-[inset_0_2px_4px_rgba(28,13,16,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(227,27,35,0.08)]"
                           />
                         </label>
                         <label className="space-y-2">
-                          <span className="text-sm font-semibold text-[#334155]">
+                          <span className="text-sm font-semibold text-[var(--n-700)]">
                             Teléfono
                           </span>
                           <Input
                             name="phone"
                             defaultValue={selectedPerson.phone ?? ""}
                             disabled={!user.canEdit}
-                            className="h-12 rounded-[var(--panel-radius)] border-[#e5e7eb] bg-[#f9f9f9] text-[15px] font-medium text-[#1f2937] placeholder:text-[#98a2b3] shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(230,18,56,0.08)]"
+                            className="h-12 rounded-[var(--panel-radius)] border-[var(--n-200)] bg-[var(--n-50)] text-[15px] font-medium text-[var(--n-800)] placeholder:text-[var(--n-400)] shadow-[inset_0_2px_4px_rgba(28,13,16,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(227,27,35,0.08)]"
                           />
                         </label>
                         <label className="space-y-2">
-                          <span className="text-sm font-semibold text-[#334155]">
+                          <span className="text-sm font-semibold text-[var(--n-700)]">
                             Correo electrónico
                           </span>
                           <Input
                             name="email"
                             defaultValue={selectedPerson.email ?? ""}
                             disabled={!user.canEdit}
-                            className="h-12 rounded-[var(--panel-radius)] border-[#e5e7eb] bg-[#f9f9f9] text-[15px] font-medium text-[#1f2937] placeholder:text-[#98a2b3] shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(230,18,56,0.08)]"
+                            className="h-12 rounded-[var(--panel-radius)] border-[var(--n-200)] bg-[var(--n-50)] text-[15px] font-medium text-[var(--n-800)] placeholder:text-[var(--n-400)] shadow-[inset_0_2px_4px_rgba(28,13,16,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(227,27,35,0.08)]"
                           />
                         </label>
                         <label className="space-y-2">
-                          <span className="text-sm font-semibold text-[#334155]">
+                          <span className="text-sm font-semibold text-[var(--n-700)]">
                             Ciudad
                           </span>
                           <Input
                             name="city"
                             defaultValue={selectedMeta?.city ?? ""}
                             disabled={!user.canEdit}
-                            className="h-12 rounded-[var(--panel-radius)] border-[#e5e7eb] bg-[#f9f9f9] text-[15px] font-medium text-[#1f2937] placeholder:text-[#98a2b3] shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(230,18,56,0.08)]"
+                            className="h-12 rounded-[var(--panel-radius)] border-[var(--n-200)] bg-[var(--n-50)] text-[15px] font-medium text-[var(--n-800)] placeholder:text-[var(--n-400)] shadow-[inset_0_2px_4px_rgba(28,13,16,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(227,27,35,0.08)]"
                           />
                         </label>
                         <label className="space-y-2">
-                          <span className="text-sm font-semibold text-[#334155]">
+                          <span className="text-sm font-semibold text-[var(--n-700)]">
                             Rol principal
                           </span>
                           <Select
                             name="roleName"
                             defaultValue={selectedMeta?.role ?? ""}
                             disabled={!user.canEdit}
-                            className="h-12 rounded-[var(--panel-radius)] border-[#e5e7eb] bg-[#f9f9f9] text-[15px] font-medium text-[#1f2937] shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(230,18,56,0.08)]"
+                            className="h-12 rounded-[var(--panel-radius)] border-[var(--n-200)] bg-[var(--n-50)] text-[15px] font-medium text-[var(--n-800)] shadow-[inset_0_2px_4px_rgba(28,13,16,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(227,27,35,0.08)]"
                           >
                             <option value="">Seleccionar rol...</option>
                             {ROLE_OPTIONS.map((roleName) => (
@@ -530,7 +530,7 @@ export default async function PeoplePage({ searchParams }: PageProps) {
                             disabled={!user.canEdit}
                           />
                         </div>
-                        <label className="flex items-center gap-3 rounded-[var(--panel-radius)] border border-[#e5e7eb] bg-[#f9f9f9] px-4 py-3 text-sm font-semibold text-[#1f2937] shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)]">
+                        <label className="flex items-center gap-3 rounded-[var(--panel-radius)] border border-[var(--n-200)] bg-[var(--n-50)] px-4 py-3 text-sm font-semibold text-[var(--n-800)] shadow-[inset_0_2px_4px_rgba(28,13,16,0.04)]">
                           <input
                             type="checkbox"
                             name="active"
@@ -542,7 +542,7 @@ export default async function PeoplePage({ searchParams }: PageProps) {
                           Activo para asignación
                         </label>
                         <label className="space-y-2 md:col-span-2">
-                          <span className="text-sm font-semibold text-[#334155]">
+                          <span className="text-sm font-semibold text-[var(--n-700)]">
                             Responsable
                           </span>
                           <>
@@ -552,7 +552,7 @@ export default async function PeoplePage({ searchParams }: PageProps) {
                               defaultValue={selectedMeta?.coverage ?? ""}
                               placeholder="Escribe o pega equipos y el sistema te sugerirá coincidencias"
                               disabled={!user.canEdit}
-                              className="h-12 rounded-[var(--panel-radius)] border-[#e5e7eb] bg-[#f9f9f9] text-[15px] font-medium text-[#1f2937] placeholder:text-[#98a2b3] shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(230,18,56,0.08)]"
+                              className="h-12 rounded-[var(--panel-radius)] border-[var(--n-200)] bg-[var(--n-50)] text-[15px] font-medium text-[var(--n-800)] placeholder:text-[var(--n-400)] shadow-[inset_0_2px_4px_rgba(28,13,16,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(227,27,35,0.08)]"
                             />
                             <datalist id="people-team-options-edit">
                               {TEAM_OPTIONS.map((teamName) => (
@@ -565,14 +565,14 @@ export default async function PeoplePage({ searchParams }: PageProps) {
                     </div>
 
                     <div className="space-y-2">
-                      <span className="text-sm font-semibold text-[#334155]">
+                      <span className="text-sm font-semibold text-[var(--n-700)]">
                         Notas
                       </span>
                       <Textarea
                         name="notes"
                         defaultValue={selectedMeta?.notes ?? ""}
                         disabled={!user.canEdit}
-                        className="min-h-[260px] rounded-[var(--panel-radius)] border-[#e5e7eb] bg-[#f9f9f9] text-[15px] font-medium text-[#1f2937] placeholder:text-[#98a2b3] shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(230,18,56,0.08)]"
+                        className="min-h-[260px] rounded-[var(--panel-radius)] border-[var(--n-200)] bg-[var(--n-50)] text-[15px] font-medium text-[var(--n-800)] placeholder:text-[var(--n-400)] shadow-[inset_0_2px_4px_rgba(28,13,16,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(227,27,35,0.08)]"
                       />
                     </div>
                   </div>
@@ -580,19 +580,19 @@ export default async function PeoplePage({ searchParams }: PageProps) {
               </form>
 
               {canManageAccess ? (
-                <section className="border-t border-[#f1f3f5] bg-[#faf7f7] px-8 py-8">
-                  <div className="rounded-[var(--panel-radius)] border-2 border-[rgba(211,49,49,0.10)] bg-white p-6 shadow-sm">
+                <section className="border-t border-[var(--n-100)] bg-[var(--n-50)] px-8 py-8">
+                  <div className="rounded-[var(--panel-radius)] border-2 border-[var(--accent-border)] bg-white p-6 shadow-sm">
                     <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                       <div className="flex gap-4">
-                        <div className="inline-flex size-12 items-center justify-center rounded-2xl bg-[rgba(211,49,49,0.1)] text-[var(--accent)]">
+                        <div className="inline-flex size-12 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent)]">
                           <ShieldCheck className="size-6" />
                         </div>
 
                         <div className="space-y-1">
-                          <h4 className="font-bold text-[#111827]">
+                          <h4 className="font-bold text-[var(--n-900)]">
                             Acceso a la plataforma
                           </h4>
-                          <p className="max-w-xl text-sm text-[#667085]">
+                          <p className="max-w-xl text-sm text-[var(--n-500)]">
                             {selectedPerson.email
                               ? selectedPersonHasPlatformAccess
                                 ? "Este colaborador puede iniciar sesión y entrar directo a Mi jornada."
@@ -608,7 +608,7 @@ export default async function PeoplePage({ searchParams }: PageProps) {
                             "relative inline-flex h-7 w-14 items-center rounded-full transition",
                             selectedPersonHasPlatformAccess
                               ? "bg-[var(--accent)]"
-                              : "bg-[#d8dee8]",
+                              : "bg-[var(--n-200)]",
                           )}
                           aria-hidden="true"
                         >
@@ -642,7 +642,7 @@ export default async function PeoplePage({ searchParams }: PageProps) {
                             />
                           </div>
                         ) : (
-                          <p className="mt-4 text-sm text-[#667085]">
+                          <p className="mt-4 text-sm text-[var(--n-500)]">
                             Solo un admin puede revocar este acceso.
                           </p>
                         )
@@ -659,14 +659,14 @@ export default async function PeoplePage({ searchParams }: PageProps) {
               ) : null}
             </div>
 
-            <div className="flex items-center justify-between gap-4 border-t border-[#f1f3f5] bg-white px-8 py-5">
+            <div className="flex items-center justify-between gap-4 border-t border-[var(--n-100)] bg-white px-8 py-5">
               <div>
                 {user.canEdit ? (
                   <PersonDeleteButton
                     personId={selectedPerson.id}
                     fullName={selectedPerson.full_name}
                     redirectTo={currentPeopleHref}
-                    className="h-11 w-auto rounded-[var(--panel-radius)] border-[#111827] bg-[#111827] px-5 text-sm font-bold text-white hover:border-black hover:bg-black hover:text-white"
+                    className="h-11 w-auto rounded-[var(--panel-radius)] border-[var(--n-900)] bg-[var(--n-900)] px-5 text-sm font-bold text-white hover:border-black hover:bg-black hover:text-white"
                     label="Eliminar usuario"
                   />
                 ) : null}
@@ -675,7 +675,7 @@ export default async function PeoplePage({ searchParams }: PageProps) {
               <div className="flex items-center gap-4">
                 <Link
                   href={currentPeopleHref}
-                  className="inline-flex h-11 items-center justify-center rounded-[var(--panel-radius)] px-6 text-sm font-bold text-[#667085] transition hover:bg-[#f2f4f7]"
+                  className="inline-flex h-11 items-center justify-center rounded-[var(--panel-radius)] px-6 text-sm font-bold text-[var(--n-500)] transition hover:bg-[var(--n-100)]"
                 >
                   Cancelar
                 </Link>
@@ -684,7 +684,7 @@ export default async function PeoplePage({ searchParams }: PageProps) {
                   <Button
                     type="submit"
                     form="edit-person-form"
-                    className="h-11 rounded-[var(--panel-radius)] px-8 text-sm font-bold shadow-[0_14px_32px_rgba(230,18,56,0.18)]"
+                    className="h-11 rounded-[var(--panel-radius)] px-8 text-sm font-bold shadow-[0_14px_32px_rgba(227,27,35,0.18)]"
                   >
                     Guardar cambios
                   </Button>

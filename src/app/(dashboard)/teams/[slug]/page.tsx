@@ -26,7 +26,7 @@ function getIncidentBadgeClass(incidentCount: number) {
     return "bg-[#fff7e8] text-[#c97a13]";
   }
 
-  return "bg-[#f4f7fb] text-[#70819b]";
+  return "bg-[var(--n-100)] text-[var(--n-500)]";
 }
 
 function ExternalLinkItem({
@@ -40,7 +40,7 @@ function ExternalLinkItem({
 }) {
   if (!href) {
     return (
-      <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3 text-sm font-medium text-[#94a3b8]">
+      <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3 text-sm font-medium text-[var(--n-400)]">
         {icon}
         <span>{label}: sin cargar</span>
       </div>
@@ -52,7 +52,7 @@ function ExternalLinkItem({
       href={href}
       target="_blank"
       rel="noreferrer"
-      className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm font-semibold text-[var(--foreground)] transition hover:border-[#efc2cb] hover:bg-[#fff7f8]"
+      className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm font-semibold text-[var(--foreground)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-soft)]"
     >
       {icon}
       <span>{label}</span>
@@ -83,12 +83,12 @@ export default async function TeamDetailPage({ params }: PageProps) {
 
   return (
     <div className="space-y-8">
-      <nav className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-[#94a3b8]">
+      <nav className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-[var(--n-400)]">
         <Link href="/teams" className="transition hover:text-[var(--accent)]">
           Equipos
         </Link>
         <span>/</span>
-        <span className="text-[#627086]">{team.official_name}</span>
+        <span className="text-[var(--n-500)]">{team.official_name}</span>
       </nav>
 
       <section className="rounded-[24px] border border-[var(--border)] bg-[var(--surface)] p-8 shadow-[0_10px_28px_rgba(28,13,16,0.05)]">
@@ -97,7 +97,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
             <TeamLogoMark
               teamName={team.official_name}
               competition={team.competition}
-              className="size-28 rounded-[28px] border-[#f0dbe0] bg-white shadow-[0_12px_24px_rgba(28,13,16,0.06)]"
+              className="size-28 rounded-[28px] border-[var(--accent-border)] bg-white shadow-[0_12px_24px_rgba(28,13,16,0.06)]"
               imageClassName="p-4"
               initialsClassName="text-lg tracking-[0.14em]"
             />
@@ -112,10 +112,10 @@ export default async function TeamDetailPage({ params }: PageProps) {
                   </span>
                 ))}
               </div>
-              <h1 className="text-4xl font-black tracking-tight text-[var(--foreground)]">
+              <h1 className="font-[family-name:var(--font-oswald)] text-4xl font-bold tracking-tight text-[var(--foreground)]">
                 {team.official_name}
               </h1>
-              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-medium text-[#617187]">
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-medium text-[var(--n-600)]">
                 <span className="flex items-center gap-2">
                   <MapPinned className="size-4" />
                   {team.stadium ?? "Sin estadio cargado"}
@@ -138,7 +138,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
                     <a
                       href={`mailto:${responsibleContact.email}`}
                       aria-label={`Escribir por correo a ${responsibleContact.fullName}`}
-                      className="inline-flex size-8 items-center justify-center rounded-full bg-[#eef2ff] text-[#4f46e5] transition hover:bg-[#e0e7ff]"
+                      className="inline-flex size-8 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)] transition hover:bg-[var(--accent-border)]"
                     >
                       <Mail className="size-4" />
                     </a>
@@ -162,7 +162,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <Card className="space-y-6">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-[#94a3b8]">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
               Resumen operativo
             </p>
             <h2 className="mt-2 text-2xl font-black text-[var(--foreground)]">
@@ -172,7 +172,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--background-soft)] px-4 py-4">
-              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#94a3b8]">
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[var(--n-400)]">
                 Nombre oficial
               </p>
               <p className="mt-2 text-base font-bold text-[var(--foreground)]">
@@ -180,7 +180,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
               </p>
             </div>
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--background-soft)] px-4 py-4">
-              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#94a3b8]">
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[var(--n-400)]">
                 Liga
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -195,7 +195,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
               </div>
             </div>
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--background-soft)] px-4 py-4">
-              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#94a3b8]">
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[var(--n-400)]">
                 Estadio
               </p>
               <p className="mt-2 text-base font-bold text-[var(--foreground)]">
@@ -203,7 +203,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
               </p>
             </div>
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--background-soft)] px-4 py-4">
-              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#94a3b8]">
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[var(--n-400)]">
                 Responsable
               </p>
               <div className="mt-2 flex items-center gap-2">
@@ -225,7 +225,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
                   <a
                     href={`mailto:${responsibleContact.email}`}
                     aria-label={`Escribir por correo a ${responsibleContact.fullName}`}
-                    className="inline-flex size-8 items-center justify-center rounded-full bg-[#eef2ff] text-[#4f46e5] transition hover:bg-[#e0e7ff]"
+                    className="inline-flex size-8 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)] transition hover:bg-[var(--accent-border)]"
                   >
                     <Mail className="size-4" />
                   </a>
@@ -237,7 +237,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
 
         <Card className="space-y-4">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-[#94a3b8]">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
               Enlaces oficiales
             </p>
             <h2 className="mt-2 text-xl font-black text-[var(--foreground)]">

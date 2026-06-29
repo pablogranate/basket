@@ -29,7 +29,7 @@ export default async function LoginPage({ searchParams }: PageProps) {
     return (
       <div className="min-h-screen bg-[var(--background)]">
         <div className="grid min-h-screen lg:grid-cols-[1.1fr_0.9fr]">
-          <section className="hidden border-r border-[var(--border)] bg-[linear-gradient(180deg,#fffdfd_0%,#faf8f5_100%)] lg:flex lg:flex-col lg:justify-between lg:p-10 xl:p-12 2xl:p-16">
+          <section className="hidden border-r border-[var(--border)] bg-[linear-gradient(180deg,var(--n-50)_0%,var(--n-50)_100%)] lg:flex lg:flex-col lg:justify-between lg:p-10 xl:p-12 2xl:p-16">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-xl bg-[var(--foreground)] text-white">
                 <Video className="size-5" />
@@ -42,7 +42,7 @@ export default async function LoginPage({ searchParams }: PageProps) {
               <p className="text-xs font-bold uppercase tracking-[0.32em] text-[var(--muted)]">
                 {APP_NAME}
               </p>
-              <h1 className="text-4xl font-black leading-[1.02] tracking-[-0.04em] text-[var(--foreground)] xl:text-5xl 2xl:text-6xl">
+              <h1 className="font-[family-name:var(--font-oswald)] text-4xl font-bold leading-[1.02] tracking-[-0.04em] text-[var(--foreground)] xl:text-5xl 2xl:text-6xl">
                 Operación, talento y técnica en una sola consola.
               </h1>
               <p className="max-w-xl text-base font-medium leading-relaxed text-[var(--muted)] xl:text-lg">
@@ -97,8 +97,8 @@ export default async function LoginPage({ searchParams }: PageProps) {
   return (
     <div className="min-h-screen bg-[var(--background)]">
       <div className="grid min-h-screen lg:grid-cols-[1.1fr_0.9fr]">
-        <section className="relative hidden border-r border-[var(--border)] bg-[linear-gradient(180deg,#fffdfd_0%,#faf8f5_100%)] lg:flex lg:flex-col lg:justify-between lg:overflow-hidden lg:p-10 xl:p-12 2xl:p-16">
-          <div className="absolute inset-0 opacity-[0.045] [background-image:radial-gradient(circle_at_top_left,rgba(230,18,56,0.42),transparent_26%),linear-gradient(rgba(28,13,16,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(28,13,16,0.08)_1px,transparent_1px)] [background-size:auto,42px_42px,42px_42px]" />
+        <section className="relative hidden border-r border-[var(--border)] bg-[linear-gradient(180deg,var(--n-50)_0%,var(--n-50)_100%)] lg:flex lg:flex-col lg:justify-between lg:overflow-hidden lg:p-10 xl:p-12 2xl:p-16">
+          <div className="absolute inset-0 opacity-[0.045] [background-image:radial-gradient(circle_at_top_left,rgba(227,27,35,0.42),transparent_26%),linear-gradient(rgba(28,13,16,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(28,13,16,0.08)_1px,transparent_1px)] [background-size:auto,42px_42px,42px_42px]" />
 
             <div className="relative z-10 flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-xl bg-[var(--foreground)] text-white">
@@ -114,7 +114,7 @@ export default async function LoginPage({ searchParams }: PageProps) {
               <p className="text-xs font-bold uppercase tracking-[0.32em] text-[var(--muted)]">
                 {PRODUCT_COPY.loginHero.eyebrow}
               </p>
-              <h1 className="text-4xl font-black leading-[1.02] tracking-[-0.04em] text-[var(--foreground)] xl:text-5xl 2xl:text-6xl">
+              <h1 className="font-[family-name:var(--font-oswald)] text-4xl font-bold leading-[1.02] tracking-[-0.04em] text-[var(--foreground)] xl:text-5xl 2xl:text-6xl">
                 {PRODUCT_COPY.loginHero.titleLine1}
                 <br />
                 {PRODUCT_COPY.loginHero.titleLine2}.

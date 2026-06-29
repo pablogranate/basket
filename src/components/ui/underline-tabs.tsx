@@ -62,7 +62,7 @@ export function UnderlineTabs({
                 itemClassName,
                 item.active
                   ? "border-[var(--accent)] text-[var(--accent)]"
-                  : "border-transparent text-[#94a3b8] hover:text-[#617187]",
+                  : "border-transparent text-[var(--n-400)] hover:text-[var(--n-600)]",
               )}
             >
               {Icon ? <Icon className="size-3.5 shrink-0" /> : null}

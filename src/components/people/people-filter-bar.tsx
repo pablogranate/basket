@@ -91,7 +91,7 @@ export function PeopleFilterBar({
         <button
           type="button"
           onClick={() => router.push(buildHref({ role: "", state: "", city: "", team: "" }))}
-          className="inline-flex h-11 items-center gap-1.5 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-semibold text-[#667085] transition hover:border-[#f0d9de] hover:bg-[#fff7f8] hover:text-[var(--accent)]"
+          className="inline-flex h-11 items-center gap-1.5 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-semibold text-[var(--n-500)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
         >
           <X className="size-4" />
           Limpiar filtros
@@ -116,7 +116,7 @@ function FilterSelect({
 }) {
   return (
     <label className="flex min-w-[180px] flex-1 flex-col gap-1.5">
-      <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#8a94a6]">
+      <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--n-400)]">
         {label}
       </span>
       <Select

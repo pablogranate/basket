@@ -26,9 +26,9 @@ function getInitials(name: string) {
 const linkBaseClass =
   "inline-flex size-10 items-center justify-center rounded-full border transition";
 const linkActiveClass =
-  "border-[#c9d8fb] bg-[#eef4ff] text-[#2b6be7] hover:brightness-105";
+  "border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)] hover:brightness-105";
 const linkDisabledClass =
-  "cursor-not-allowed border-[var(--border)] bg-[#f4f6fa] text-[#b1bccd]";
+  "cursor-not-allowed border-[var(--border)] bg-[var(--n-100)] text-[var(--n-300)]";
 
 export function MatchContactsModal({
   matchId,
@@ -102,7 +102,7 @@ export function MatchContactsModal({
       <button
         type="button"
         onClick={openModal}
-        className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--background-soft)] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#5f6d84] transition hover:border-[rgba(230,18,56,0.24)] hover:text-[var(--accent)]"
+        className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--background-soft)] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--n-600)] transition hover:border-[rgba(227,27,35,0.24)] hover:text-[var(--accent)]"
       >
         <Users className="size-3.5" />
         Ver contactos
@@ -110,16 +110,16 @@ export function MatchContactsModal({
 
       {isOpen && isMounted
         ? createPortal(
-            <div className="fixed inset-0 z-[300] flex items-start justify-center bg-[rgba(15,23,42,0.48)] px-4 py-8 backdrop-blur-sm">
+            <div className="fixed inset-0 z-[300] flex items-start justify-center bg-[rgba(28,13,16,0.48)] px-4 py-8 backdrop-blur-sm">
               <div
                 className="absolute inset-0"
                 aria-hidden="true"
                 onClick={() => setIsOpen(false)}
               />
-              <div className="relative z-[1] flex max-h-[calc(100vh-4rem)] w-full max-w-[640px] flex-col overflow-hidden rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] shadow-[0_32px_80px_rgba(15,23,42,0.22)]">
+              <div className="relative z-[1] flex max-h-[calc(100vh-4rem)] w-full max-w-[640px] flex-col overflow-hidden rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-lift)]">
                 <div className="flex items-start justify-between gap-6 border-b border-[var(--border)] px-7 py-6">
                   <div className="min-w-0 space-y-1">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#8ea0bb]">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--n-400)]">
                       Contactos del equipo
                     </p>
                     <h2 className="truncate text-xl font-extrabold tracking-tight text-[var(--foreground)]">
@@ -147,12 +147,12 @@ export function MatchContactsModal({
                       ))}
                     </div>
                   ) : error ? (
-                    <div className="space-y-4 rounded-[var(--panel-radius)] border border-[#efbcc7] bg-[#fff5f7] px-5 py-5 text-sm font-semibold text-[#b73656]">
+                    <div className="space-y-4 rounded-[var(--panel-radius)] border border-[var(--accent-border)] bg-[var(--accent-soft)] px-5 py-5 text-sm font-semibold text-[var(--accent-strong)]">
                       <p>{error}</p>
                       <button
                         type="button"
                         onClick={() => void loadContacts()}
-                        className="inline-flex items-center rounded-full border border-[#efbcc7] bg-white px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#b73656] transition hover:brightness-105"
+                        className="inline-flex items-center rounded-full border border-[var(--accent-border)] bg-white px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--accent-strong)] transition hover:brightness-105"
                       >
                         Reintentar
                       </button>
@@ -187,7 +187,7 @@ export function MatchContactsModal({
                                 >
                                   {contact.name}
                                 </p>
-                                <p className="mt-1 truncate text-[10px] font-bold uppercase tracking-[0.16em] text-[#7587a1]">
+                                <p className="mt-1 truncate text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--n-500)]">
                                   {contact.roles.join(" · ") || "Sin rol"}
                                 </p>
                                 <p className="mt-1 truncate text-xs font-semibold text-[var(--muted)]">
@@ -257,7 +257,7 @@ export function MatchContactsModal({
                       })}
                     </div>
                   ) : (
-                    <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-5 text-sm font-semibold text-[#7d8ca4]">
+                    <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-5 text-sm font-semibold text-[var(--n-500)]">
                       Sin personas asignadas.
                     </div>
                   )}

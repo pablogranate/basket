@@ -51,7 +51,7 @@ function ModalFieldLabel({
   required?: boolean;
 }) {
   return (
-    <span className="flex items-center gap-2 text-sm font-semibold text-[#334155]">
+    <span className="flex items-center gap-2 text-sm font-semibold text-[var(--n-700)]">
       {children}
       {required ? (
         <span className="inline-block size-1.5 rounded-full bg-[var(--accent)]" />
@@ -69,8 +69,8 @@ function SectionHeading({
 }) {
   return (
     <div className="mb-6 flex items-center gap-2">
-      <span className="text-[#98a2b3]">{icon}</span>
-      <h4 className="text-sm font-black uppercase tracking-[0.2em] text-[#667085]">
+      <span className="text-[var(--n-400)]">{icon}</span>
+      <h4 className="text-sm font-black uppercase tracking-[0.2em] text-[var(--n-500)]">
         {title}
       </h4>
     </div>
@@ -145,14 +145,14 @@ export function CreatePersonModal({
   };
 
   const fieldClassName =
-    "h-12 rounded-[var(--panel-radius)] border-[#e5e7eb] bg-[#f9f9f9] text-[15px] font-medium text-[#1f2937] placeholder:text-[#98a2b3] shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(230,18,56,0.08)]";
+    "h-12 rounded-[var(--panel-radius)] border-[var(--n-200)] bg-[var(--n-50)] text-[15px] font-medium text-[var(--n-800)] placeholder:text-[var(--n-400)] shadow-[inset_0_2px_4px_rgba(28,13,16,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(227,27,35,0.08)]";
 
   return (
     <>
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="inline-flex h-[52px] items-center gap-2 rounded-[var(--panel-radius)] bg-[var(--accent)] px-5 py-2.5 text-sm font-bold text-white shadow-[0_16px_32px_rgba(230,18,56,0.22)] transition hover:bg-[var(--accent-strong)]"
+        className="inline-flex h-[52px] items-center gap-2 rounded-[var(--panel-radius)] bg-[var(--accent)] px-5 py-2.5 text-sm font-bold text-white shadow-[0_16px_32px_rgba(227,27,35,0.22)] transition hover:bg-[var(--accent-strong)]"
       >
         <UserPlus2 className="size-4" />
         Crear personal
@@ -160,24 +160,24 @@ export function CreatePersonModal({
 
       {isOpen ? (
         <div
-          className="fixed inset-0 z-[90] flex items-center justify-center bg-[rgba(15,23,42,0.48)] p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-[rgba(28,13,16,0.48)] p-4 backdrop-blur-sm"
           onClick={() => setIsOpen(false)}
         >
           <div
-            className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-[1000px] flex-col overflow-hidden rounded-[var(--panel-radius)] border border-[#e6e8ec] bg-white shadow-[0_32px_80px_rgba(15,23,42,0.26)]"
+            className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-[1000px] flex-col overflow-hidden rounded-[var(--panel-radius)] border border-[var(--n-100)] bg-white shadow-[0_32px_80px_rgba(28,13,16,0.26)]"
             onClick={(event) => event.stopPropagation()}
           >
-            <header className="shrink-0 border-b border-[#f1f3f5] bg-white px-8 py-6">
+            <header className="shrink-0 border-b border-[var(--n-100)] bg-white px-8 py-6">
               <div className="flex items-center justify-between gap-4">
                 <div className="space-y-1">
-                  <h3 className="text-[2rem] font-extrabold tracking-[-0.04em] text-[#1b1520]">
+                  <h3 className="text-[2rem] font-extrabold tracking-[-0.04em] text-[var(--n-900)]">
                     Crear personal
                   </h3>
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className="inline-flex size-10 items-center justify-center rounded-xl text-[#98a2b3] transition hover:bg-[#f7f5f6] hover:text-[#5b6472]"
+                  className="inline-flex size-10 items-center justify-center rounded-xl text-[var(--n-400)] transition hover:bg-[var(--n-100)] hover:text-[var(--n-600)]"
                   aria-label="Cerrar modal"
                 >
                   <X className="size-5" />
@@ -198,11 +198,11 @@ export function CreatePersonModal({
                 value={canSelectAccessTier ? accessRole : "collaborator"}
               />
 
-              <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto bg-[#faf7f7]">
-                <section className="border-b border-[#f1f3f5] bg-white px-8 py-8">
+              <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto bg-[var(--n-50)]">
+                <section className="border-b border-[var(--n-100)] bg-white px-8 py-8">
                   <div className="flex flex-wrap items-center gap-8">
                     <div className="relative group">
-                      <div className="relative flex size-32 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-[#eef2f6] shadow-[0_10px_24px_rgba(15,23,42,0.12)]">
+                      <div className="relative flex size-32 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-[var(--n-100)] shadow-[0_10px_24px_rgba(28,13,16,0.12)]">
                         {avatarPreview ? (
                           <Image
                             src={avatarPreview}
@@ -213,7 +213,7 @@ export function CreatePersonModal({
                             className="object-cover"
                           />
                         ) : (
-                          <div className="flex size-full items-center justify-center text-[#7b8798]">
+                          <div className="flex size-full items-center justify-center text-[var(--n-500)]">
                             {initials ? (
                               <span className="text-[2rem] font-black tracking-[-0.04em]">
                                 {initials}
@@ -237,10 +237,10 @@ export function CreatePersonModal({
 
                     <div className="min-w-[280px] flex-1 space-y-4">
                       <div>
-                        <h4 className="text-lg font-semibold text-[#111827]">
+                        <h4 className="text-lg font-semibold text-[var(--n-900)]">
                           Fotografía de perfil
                         </h4>
-                        <p className="mt-1 text-sm text-[#667085]">
+                        <p className="mt-1 text-sm text-[var(--n-500)]">
                           Sube una imagen JPG o PNG. Tamaño máximo sugerido: 2 MB.
                         </p>
                       </div>
@@ -250,7 +250,7 @@ export function CreatePersonModal({
                           type="button"
                           onClick={() => fileInputRef.current?.click()}
                           disabled={!canEdit}
-                          className="inline-flex h-11 items-center gap-2 rounded-[var(--panel-radius)] border border-[#e5e7eb] bg-[#f8fafc] px-5 text-sm font-semibold text-[#475467] transition hover:bg-[#eef2f6] disabled:cursor-not-allowed disabled:opacity-60"
+                          className="inline-flex h-11 items-center gap-2 rounded-[var(--panel-radius)] border border-[var(--n-200)] bg-[var(--n-50)] px-5 text-sm font-semibold text-[var(--n-700)] transition hover:bg-[var(--n-100)] disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           <ImagePlus className="size-4 text-[var(--accent)]" />
                           Cambiar foto
@@ -259,7 +259,7 @@ export function CreatePersonModal({
                           type="button"
                           onClick={clearAvatar}
                           disabled={!avatarPreview || !canEdit}
-                          className="inline-flex h-11 items-center gap-2 rounded-[var(--panel-radius)] px-5 text-sm font-semibold text-[var(--accent)] transition hover:bg-[rgba(230,18,56,0.05)] disabled:cursor-not-allowed disabled:opacity-50"
+                          className="inline-flex h-11 items-center gap-2 rounded-[var(--panel-radius)] px-5 text-sm font-semibold text-[var(--accent)] transition hover:bg-[rgba(227,27,35,0.05)] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <Trash2 className="size-4" />
                           Eliminar
@@ -278,7 +278,7 @@ export function CreatePersonModal({
                 </section>
 
                 <div className="lg:grid lg:grid-cols-3">
-                  <section className="border-b border-[#f1f3f5] bg-white px-8 py-8 lg:col-span-2 lg:border-b-0 lg:border-r">
+                  <section className="border-b border-[var(--n-100)] bg-white px-8 py-8 lg:col-span-2 lg:border-b-0 lg:border-r">
                     <SectionHeading
                       icon={<UserRound className="size-5" />}
                       title="Información principal"
@@ -344,7 +344,7 @@ export function CreatePersonModal({
                                 </option>
                               ))}
                             </Select>
-                            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-[#98a2b3]" />
+                            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-[var(--n-400)]" />
                           </div>
                         </label>
 
@@ -357,7 +357,7 @@ export function CreatePersonModal({
                         <ModalFieldLabel>Responsable</ModalFieldLabel>
                         <div className="group">
                           <div className="relative">
-                            <UserSearch className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#98a2b3] transition group-focus-within:text-[var(--accent)]" />
+                            <UserSearch className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[var(--n-400)] transition group-focus-within:text-[var(--accent)]" />
                             <Input
                               name="coverageTeams"
                               list="people-team-options"
@@ -371,7 +371,7 @@ export function CreatePersonModal({
                               ))}
                             </datalist>
                           </div>
-                          <p className="pl-1 text-[11px] italic text-[#98a2b3]">
+                          <p className="pl-1 text-[11px] italic text-[var(--n-400)]">
                             Empieza a escribir para ver sugerencias de personal directivo
                           </p>
                         </div>
@@ -392,7 +392,7 @@ export function CreatePersonModal({
                           name="notes"
                           placeholder="Añade cualquier detalle relevante sobre el perfil del colaborador..."
                           disabled={!canEdit}
-                          className="min-h-[140px] rounded-[var(--panel-radius)] border-[#e5e7eb] bg-[#f9f9f9] text-[15px] font-medium text-[#1f2937] placeholder:text-[#98a2b3] shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(230,18,56,0.08)] lg:min-h-0 lg:flex-1"
+                          className="min-h-[140px] rounded-[var(--panel-radius)] border-[var(--n-200)] bg-[var(--n-50)] text-[15px] font-medium text-[var(--n-800)] placeholder:text-[var(--n-400)] shadow-[inset_0_2px_4px_rgba(28,13,16,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(227,27,35,0.08)] lg:min-h-0 lg:flex-1"
                         />
                       </label>
                     </section>
@@ -400,19 +400,19 @@ export function CreatePersonModal({
                 </div>
 
                 {canManageAccess ? (
-                  <section className="border-t border-[#f1f3f5] bg-[#faf7f7] px-8 py-8">
-                    <div className="rounded-[var(--panel-radius)] border-2 border-[rgba(211,49,49,0.10)] bg-white p-6 shadow-sm">
+                  <section className="border-t border-[var(--n-100)] bg-[var(--n-50)] px-8 py-8">
+                    <div className="rounded-[var(--panel-radius)] border-2 border-[var(--accent-border)] bg-white p-6 shadow-sm">
                       <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                         <div className="flex gap-4">
-                          <div className="inline-flex size-12 items-center justify-center rounded-2xl bg-[rgba(211,49,49,0.1)] text-[var(--accent)]">
+                          <div className="inline-flex size-12 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent)]">
                             <ShieldCheck className="size-6" />
                           </div>
 
                           <div className="space-y-1">
-                            <h4 className="font-bold text-[#111827]">
+                            <h4 className="font-bold text-[var(--n-900)]">
                               Acceso a la plataforma
                             </h4>
-                            <p className="max-w-xl text-sm text-[#667085]">
+                            <p className="max-w-xl text-sm text-[var(--n-500)]">
                               Permite que este colaborador inicie sesión con su correo y entre directo a Mi jornada.
                             </p>
                           </div>
@@ -429,7 +429,7 @@ export function CreatePersonModal({
                             disabled={!canEdit}
                             className={cn(
                               "relative inline-flex h-7 w-14 items-center rounded-full transition",
-                              createPlatformAccess ? "bg-[var(--accent)]" : "bg-[#d8dee8]",
+                              createPlatformAccess ? "bg-[var(--accent)]" : "bg-[var(--n-200)]",
                               !canEdit && "cursor-not-allowed opacity-60",
                             )}
                           >
@@ -473,7 +473,7 @@ export function CreatePersonModal({
                                     </option>
                                   ))}
                                 </Select>
-                                <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-[#98a2b3]" />
+                                <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-[var(--n-400)]" />
                               </div>
                             ) : (
                               <div
@@ -487,11 +487,11 @@ export function CreatePersonModal({
                             )}
                           </label>
 
-                          <div className="rounded-[var(--panel-radius)] border border-[#e5e7eb] bg-[#f9f9f9] px-4 py-3 shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)]">
-                            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#95a3ba]">
+                          <div className="rounded-[var(--panel-radius)] border border-[var(--n-200)] bg-[var(--n-50)] px-4 py-3 shadow-[inset_0_2px_4px_rgba(28,13,16,0.04)]">
+                            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
                               Correo de ingreso
                             </p>
-                            <p className="mt-1 text-sm font-medium text-[#344054]">
+                            <p className="mt-1 text-sm font-medium text-[var(--n-700)]">
                               Se enviará una invitación al correo del formulario. El
                               colaborador ingresa con un enlace de acceso (o Google);
                               no se define contraseña.
@@ -505,7 +505,7 @@ export function CreatePersonModal({
                           type="button"
                           onClick={() => setCreatePlatformAccess(false)}
                           disabled={!createPlatformAccess || !canEdit}
-                          className="inline-flex h-10 items-center gap-2 rounded-[var(--panel-radius)] px-4 text-sm font-semibold text-[var(--accent)] transition hover:bg-[rgba(211,49,49,0.06)] disabled:cursor-not-allowed disabled:opacity-40"
+                          className="inline-flex h-10 items-center gap-2 rounded-[var(--panel-radius)] px-4 text-sm font-semibold text-[var(--accent)] transition hover:bg-[var(--accent-border)] disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           <Power className="size-4" />
                           Revocar acceso
@@ -516,11 +516,11 @@ export function CreatePersonModal({
                 ) : null}
               </div>
 
-              <footer className="mt-auto flex shrink-0 items-center justify-end gap-4 border-t border-[#f1f3f5] bg-white px-8 py-5 shadow-[0_-4px_12px_rgba(0,0,0,0.03)]">
+              <footer className="mt-auto flex shrink-0 items-center justify-end gap-4 border-t border-[var(--n-100)] bg-white px-8 py-5 shadow-[0_-4px_12px_rgba(0,0,0,0.03)]">
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className="inline-flex h-11 items-center justify-center rounded-[var(--panel-radius)] px-6 text-sm font-bold text-[#667085] transition hover:bg-[#f2f4f7]"
+                  className="inline-flex h-11 items-center justify-center rounded-[var(--panel-radius)] px-6 text-sm font-bold text-[var(--n-500)] transition hover:bg-[var(--n-100)]"
                 >
                   Cancelar
                 </button>
@@ -528,7 +528,7 @@ export function CreatePersonModal({
                 {canEdit ? (
                   <SubmitButton
                     pendingLabel="Guardando..."
-                    className="h-11 gap-2 rounded-[var(--panel-radius)] px-8 text-sm font-bold shadow-[0_14px_32px_rgba(230,18,56,0.18)]"
+                    className="h-11 gap-2 rounded-[var(--panel-radius)] px-8 text-sm font-bold shadow-[0_14px_32px_rgba(227,27,35,0.18)]"
                   >
                     <Save className="size-4" />
                     Guardar personal

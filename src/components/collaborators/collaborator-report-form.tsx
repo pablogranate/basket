@@ -101,7 +101,7 @@ const SIGNAL_OPTIONS: SignalOption[] = ["BP", "BP / IMG"];
 const REPORT_ICON_BUBBLE_BASE =
   "inline-flex items-center justify-center rounded-full border border-[#ece6df] bg-[#faf7f3] shadow-[0_4px_12px_rgba(43,30,17,0.06)]";
 const REPORT_FIELD_LABEL_CLASS =
-  "text-[13px] font-semibold tracking-[-0.01em] text-[#617187]";
+  "text-[13px] font-semibold tracking-[-0.01em] text-[var(--n-600)]";
 const MAX_CAPTURE_BYTES = 1024 * 1024;
 const JPEG_QUALITY_STEPS = [0.9, 0.82, 0.74, 0.66, 0.58, 0.5];
 const SCALE_STEPS = [1, 0.92, 0.84, 0.76, 0.68, 0.6];
@@ -381,7 +381,7 @@ function IncidentLevelSelector({
                 "flex min-h-[86px] min-w-0 flex-col items-center justify-center gap-2 rounded-[var(--panel-radius)] border px-1.5 py-3 text-center transition",
                 active
                   ? option.activeClassName
-                  : "border-[var(--border)] bg-white text-[var(--muted)] hover:border-[#d7d0ca] hover:bg-[#fbfcfe]",
+                  : "border-[var(--border)] bg-white text-[var(--muted)] hover:border-[#d7d0ca] hover:bg-[var(--n-50)]",
               )}
             >
               <span
@@ -487,7 +487,7 @@ function SelectStateField({
         >
           <Icon className="size-4" />
         </span>
-        <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 shrink-0 -translate-y-1/2 text-[#8b96aa]" />
+        <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 shrink-0 -translate-y-1/2 text-[var(--n-500)]" />
       </label>
     </div>
   );
@@ -515,7 +515,7 @@ function ObservationFlagToggle({
           : "border-[var(--border)] bg-[var(--background-soft)] hover:border-[#ead2d8]",
       )}
     >
-      <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[#95a3ba] sm:text-[11px] sm:tracking-[0.2em]">
+      <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--n-400)] sm:text-[11px] sm:tracking-[0.2em]">
         {label}
       </span>
       <span
@@ -524,7 +524,7 @@ function ObservationFlagToggle({
           "size-8 text-xs font-black transition sm:size-9 sm:self-end",
           active
             ? "border-[var(--accent)] bg-[var(--accent)] text-white"
-            : "text-[#8ea0b8]",
+            : "text-[var(--n-400)]",
         )}
       >
         {active ? <X className="size-4" /> : <Icon className="size-4" />}
@@ -810,13 +810,13 @@ export function CollaboratorReportForm({
       {showMatchSummary ? (
         <Card className="space-y-5 p-5">
           <div className="space-y-1">
-            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#95a3ba]">
+            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[var(--n-400)]">
               Parte móvil
             </p>
             <h3 className="text-2xl font-black tracking-tight text-[var(--foreground)]">
               Reportar novedades
             </h3>
-            <p className="text-sm text-[#617187]">
+            <p className="text-sm text-[var(--n-600)]">
               Carga rápida para {assignment.homeTeam} vs {assignment.awayTeam}. Puedes
               guardar borrador local o enviar el reporte definitivo desde aquí.
             </p>
@@ -824,21 +824,21 @@ export function CollaboratorReportForm({
 
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3">
-              <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-[#95a3ba]">
+              <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-[var(--n-400)]">
                 <CalendarDays className="size-4 text-[var(--accent)]" />
                 Fecha
               </div>
               <p className="mt-2 text-sm font-semibold">{assignment.dateLabel}</p>
             </div>
             <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3">
-              <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-[#95a3ba]">
+              <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-[var(--n-400)]">
                 <Clock3 className="size-4 text-[var(--accent)]" />
                 Hora
               </div>
               <p className="mt-2 text-sm font-semibold">{assignment.timeLabel}</p>
             </div>
             <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3">
-              <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-[#95a3ba]">
+              <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-[var(--n-400)]">
                 <MapPin className="size-4 text-[var(--accent)]" />
                 Sede
               </div>
@@ -851,7 +851,7 @@ export function CollaboratorReportForm({
       ) : null}
 
       <Card className="space-y-5 p-5">
-        <h4 className="text-sm font-black uppercase tracking-[0.22em] text-[#95a3ba]">
+        <h4 className="text-sm font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
           Estado general
         </h4>
 
@@ -889,7 +889,7 @@ export function CollaboratorReportForm({
       </Card>
 
       <Card className="space-y-5 p-5">
-        <h4 className="text-sm font-black uppercase tracking-[0.22em] text-[#95a3ba]">
+        <h4 className="text-sm font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
           Contexto del partido
         </h4>
         <div className="grid grid-cols-2 gap-3">
@@ -920,7 +920,7 @@ export function CollaboratorReportForm({
       </Card>
 
       <Card className="space-y-5 p-5">
-        <h4 className="text-sm font-black uppercase tracking-[0.22em] text-[#95a3ba]">
+        <h4 className="text-sm font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
           Pruebas de salida
         </h4>
         <div className="grid gap-4">
@@ -967,7 +967,7 @@ export function CollaboratorReportForm({
       </Card>
 
       <Card className="space-y-5 p-5">
-        <h4 className="text-sm font-black uppercase tracking-[0.22em] text-[#95a3ba]">
+        <h4 className="text-sm font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
           Problemas detectados
         </h4>
         <div className="grid grid-cols-2 gap-3">
@@ -1000,7 +1000,7 @@ export function CollaboratorReportForm({
                     REPORT_ICON_BUBBLE_BASE,
                     active
                       ? "size-9 border-[#f3cfd8] bg-[#fff1f3] text-[var(--accent)]"
-                      : "size-9 text-[#8ea0b8]",
+                      : "size-9 text-[var(--n-400)]",
                   )}
                 >
                   <Icon className="size-4" />
@@ -1023,17 +1023,17 @@ export function CollaboratorReportForm({
 
       <Card className="space-y-5 p-5">
         <div className="space-y-1">
-          <h4 className="text-sm font-black uppercase tracking-[0.22em] text-[#95a3ba]">
+          <h4 className="text-sm font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
             Bloque técnico
           </h4>
-          <p className="text-sm text-[#617187]">
+          <p className="text-sm text-[var(--n-600)]">
             Sube la foto, la IA lo lee; si no, escríbelo.
           </p>
         </div>
 
         <div className="grid grid-cols-3 gap-x-2 gap-y-3">
           <div className="min-w-0 space-y-2">
-            <p className="text-center text-[13px] font-semibold tracking-[-0.01em] text-[#617187]">
+            <p className="text-center text-[13px] font-semibold tracking-[-0.01em] text-[var(--n-600)]">
               Speed Test
             </p>
             <button
@@ -1063,7 +1063,7 @@ export function CollaboratorReportForm({
             </button>
           </div>
           <div className="min-w-0 space-y-2">
-            <p className="text-center text-[13px] font-semibold tracking-[-0.01em] text-[#617187]">
+            <p className="text-center text-[13px] font-semibold tracking-[-0.01em] text-[var(--n-600)]">
               Ping
             </p>
             <button
@@ -1093,7 +1093,7 @@ export function CollaboratorReportForm({
             </button>
           </div>
           <div className="min-w-0 space-y-2">
-            <p className="text-center text-[13px] font-semibold tracking-[-0.01em] text-[#617187]">
+            <p className="text-center text-[13px] font-semibold tracking-[-0.01em] text-[var(--n-600)]">
               GPU
             </p>
             <button
@@ -1150,7 +1150,7 @@ export function CollaboratorReportForm({
                     "mt-2 break-words text-[10px] leading-tight",
                     captureState.speedtest.state === "error"
                       ? "text-[#aa2945]"
-                      : "text-[#617187]",
+                      : "text-[var(--n-600)]",
                   )}
                 >
                   {captureState.speedtest.message}
@@ -1165,7 +1165,7 @@ export function CollaboratorReportForm({
                     "mt-2 break-words text-[10px] leading-tight",
                     captureState.ping.state === "error"
                       ? "text-[#aa2945]"
-                      : "text-[#617187]",
+                      : "text-[var(--n-600)]",
                   )}
                 >
                   {captureState.ping.message}
@@ -1180,7 +1180,7 @@ export function CollaboratorReportForm({
                     "mt-2 break-words text-[10px] leading-tight",
                     captureState.gpu.state === "error"
                       ? "text-[#aa2945]"
-                      : "text-[#617187]",
+                      : "text-[var(--n-600)]",
                   )}
                 >
                   {captureState.gpu.message}
@@ -1200,7 +1200,7 @@ export function CollaboratorReportForm({
                 }))
               }
               placeholder="22.1"
-              className="h-11 min-w-0 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-3 text-sm font-medium text-[var(--foreground)] outline-none transition placeholder:text-[#9aa6b7] focus:border-[var(--accent)] focus:bg-[var(--surface)]"
+              className="h-11 min-w-0 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-3 text-sm font-medium text-[var(--foreground)] outline-none transition placeholder:text-[var(--n-400)] focus:border-[var(--accent)] focus:bg-[var(--surface)]"
             />
             <input
               type="text"
@@ -1212,7 +1212,7 @@ export function CollaboratorReportForm({
                 }))
               }
               placeholder="60 ms"
-              className="h-11 min-w-0 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-3 text-sm font-medium text-[var(--foreground)] outline-none transition placeholder:text-[#9aa6b7] focus:border-[var(--accent)] focus:bg-[var(--surface)]"
+              className="h-11 min-w-0 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-3 text-sm font-medium text-[var(--foreground)] outline-none transition placeholder:text-[var(--n-400)] focus:border-[var(--accent)] focus:bg-[var(--surface)]"
             />
             <input
               type="text"
@@ -1224,15 +1224,15 @@ export function CollaboratorReportForm({
                 }))
               }
               placeholder="40%"
-              className="h-11 min-w-0 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-3 text-sm font-medium text-[var(--foreground)] outline-none transition placeholder:text-[#9aa6b7] focus:border-[var(--accent)] focus:bg-[var(--surface)]"
+              className="h-11 min-w-0 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-3 text-sm font-medium text-[var(--foreground)] outline-none transition placeholder:text-[var(--n-400)] focus:border-[var(--accent)] focus:bg-[var(--surface)]"
             />
           </section>
         </div>
       </Card>
 
       {capturePickerKind ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(15,23,42,0.26)] p-4 sm:items-center">
-          <div className="w-full max-w-sm rounded-[calc(var(--panel-radius)+4px)] bg-white p-5 shadow-[0_24px_60px_rgba(15,23,42,0.18)]">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(28,13,16,0.26)] p-4 sm:items-center">
+          <div className="w-full max-w-sm rounded-[calc(var(--panel-radius)+4px)] bg-white p-5 shadow-[0_24px_60px_rgba(28,13,16,0.18)]">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h4 className="text-lg font-black tracking-tight text-[var(--foreground)]">
@@ -1242,14 +1242,14 @@ export function CollaboratorReportForm({
                       ? "Ping"
                       : "GPU"}
                 </h4>
-                <p className="mt-1 text-sm text-[#617187]">
+                <p className="mt-1 text-sm text-[var(--n-600)]">
                   Elige si quieres tomar una foto ahora o subirla desde la galería.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setCapturePickerKind(null)}
-                className="inline-flex size-10 items-center justify-center rounded-full bg-[#f8fafc] text-[#94a3b8] transition hover:bg-[#eef2f6] hover:text-[#52627a]"
+                className="inline-flex size-10 items-center justify-center rounded-full bg-[var(--n-50)] text-[var(--n-400)] transition hover:bg-[var(--n-100)] hover:text-[var(--n-700)]"
                 aria-label="Cerrar selector de captura"
               >
                 <X className="size-4" />
@@ -1259,7 +1259,7 @@ export function CollaboratorReportForm({
               <button
                 type="button"
                 onClick={() => triggerCaptureSource("camera")}
-                className="flex items-center gap-3 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-4 py-4 text-left transition hover:border-[var(--accent)] hover:bg-[#fff7f9]"
+                className="flex items-center gap-3 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-4 py-4 text-left transition hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
               >
                 <span className={cn(REPORT_ICON_BUBBLE_BASE, "size-10 text-[var(--accent)]")}>
                   <Camera className="size-4" />
@@ -1268,7 +1268,7 @@ export function CollaboratorReportForm({
                   <span className="block text-sm font-bold text-[var(--foreground)]">
                     Tomar foto
                   </span>
-                  <span className="block text-xs text-[#617187]">
+                  <span className="block text-xs text-[var(--n-600)]">
                     Abre la cámara del celular.
                   </span>
                 </span>
@@ -1276,16 +1276,16 @@ export function CollaboratorReportForm({
               <button
                 type="button"
                 onClick={() => triggerCaptureSource("gallery")}
-                className="flex items-center gap-3 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-4 py-4 text-left transition hover:border-[var(--accent)] hover:bg-[#fff7f9]"
+                className="flex items-center gap-3 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-4 py-4 text-left transition hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
               >
-                <span className={cn(REPORT_ICON_BUBBLE_BASE, "size-10 text-[#617187]")}>
+                <span className={cn(REPORT_ICON_BUBBLE_BASE, "size-10 text-[var(--n-600)]")}>
                   <Images className="size-4" />
                 </span>
                 <span>
                   <span className="block text-sm font-bold text-[var(--foreground)]">
                     Subir desde galería
                   </span>
-                  <span className="block text-xs text-[#617187]">
+                  <span className="block text-xs text-[var(--n-600)]">
                     El archivo se convierte a JPG y se comprime antes de leerlo.
                   </span>
                 </span>
@@ -1297,7 +1297,7 @@ export function CollaboratorReportForm({
 
       <Card className="space-y-5 p-5">
         <div className="space-y-1">
-          <h4 className="text-sm font-black uppercase tracking-[0.22em] text-[#95a3ba]">
+          <h4 className="text-sm font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
             Observaciones
           </h4>
         </div>
@@ -1351,7 +1351,7 @@ export function CollaboratorReportForm({
       </Card>
 
       <Card className="space-y-5 p-5">
-        <h4 className="text-sm font-black uppercase tracking-[0.22em] text-[#95a3ba]">
+        <h4 className="text-sm font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
           Otras novedades
         </h4>
         <div className="grid grid-cols-3 gap-3">
@@ -1391,8 +1391,8 @@ export function CollaboratorReportForm({
         </div>
       </Card>
 
-      <div className="grid gap-3 rounded-[var(--panel-radius)] border border-[var(--border)] bg-white p-4 shadow-[0_18px_42px_rgba(15,23,42,0.12)]">
-        <div className="flex items-center gap-2 text-sm text-[#617187]">
+      <div className="grid gap-3 rounded-[var(--panel-radius)] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-lift)]">
+        <div className="flex items-center gap-2 text-sm text-[var(--n-600)]">
           {isSending ? (
             <Loader2 className="size-4 animate-spin text-[var(--accent)]" />
           ) : saveTone === "error" ? (
@@ -1411,7 +1411,7 @@ export function CollaboratorReportForm({
           <button
             type="button"
             onClick={saveDraft}
-            className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-[var(--panel-radius)] border border-[#2b6be7] bg-[#2b6be7] px-2 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(43,107,231,0.22)] transition hover:border-[#1f5ad1] hover:bg-[#1f5ad1]"
+            className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-[var(--panel-radius)] border border-[var(--accent)] bg-[var(--accent)] px-2 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(227,27,35,0.22)] transition hover:border-[var(--accent-strong)] hover:bg-[var(--accent-strong)]"
           >
             <Save className="mr-2 size-4" />
             Guardar
@@ -1423,7 +1423,7 @@ export function CollaboratorReportForm({
             </span>
           </Link>
           <Button
-            className="h-12 px-2 bg-[var(--accent)] text-white shadow-[0_12px_24px_rgba(230,18,56,0.22)] hover:bg-[var(--accent-strong)] disabled:cursor-wait disabled:opacity-80"
+            className="h-12 px-2 bg-[var(--accent)] text-white shadow-[0_12px_24px_rgba(227,27,35,0.22)] hover:bg-[var(--accent-strong)] disabled:cursor-wait disabled:opacity-80"
             onClick={handleSendDraft}
             disabled={isSending}
           >

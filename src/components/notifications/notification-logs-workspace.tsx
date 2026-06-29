@@ -121,7 +121,7 @@ export function NotificationLogsWorkspace({
                   key={row.id}
                   className={cn(
                     "border-b border-[var(--border)] align-top",
-                    failed && "bg-[#fff4f6]",
+                    failed && "bg-[var(--accent-soft)]",
                   )}
                 >
                   <td className="whitespace-nowrap px-4 py-3 text-[var(--muted)]">
@@ -143,7 +143,7 @@ export function NotificationLogsWorkspace({
                   <td
                     className={cn(
                       "whitespace-nowrap px-4 py-3 font-semibold",
-                      failed && "text-[#ad1d39]",
+                      failed && "text-[var(--accent-strong)]",
                     )}
                   >
                     {label(STATUS_LABELS, row.status)}
@@ -151,7 +151,7 @@ export function NotificationLogsWorkspace({
                   <td className="px-4 py-3 text-[var(--muted)]">
                     {label(TRIGGER_LABELS, row.trigger)}
                   </td>
-                  <td className="px-4 py-3 text-[#ad1d39]">
+                  <td className="px-4 py-3 text-[var(--accent-strong)]">
                     {failed ? row.error ?? "—" : ""}
                   </td>
                 </tr>

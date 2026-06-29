@@ -1,15 +1,11 @@
 export const PRODUCT_COPY = {
-  appName: "Basket Prod.",
-  portalLabel: "Portal",
+  appName: "BasquetPass",
+  portalLabel: "Portal Operativo",
   releaseLabel: "Consola operativa v0.1.0",
-  collaboratorWordmark: {
-    line1: "Basket",
-    line2: "Prod.",
-  },
   loginHero: {
     eyebrow: "Operación en vivo",
-    titleLine1: "Basket",
-    titleLine2: "Prod.",
+    titleLine1: "Basquet",
+    titleLine2: "Pass",
     description:
       "Coordinación ejecutiva para transmisiones en vivo, gestión integral de talento y monitoreo del equipo técnico en tiempo real.",
   },

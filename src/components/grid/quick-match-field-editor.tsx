@@ -85,7 +85,7 @@ export function QuickMatchFieldEditor({
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="inline-flex size-7 items-center justify-center rounded-full border border-[var(--border)] bg-[#f8fafb] text-[var(--muted)] transition hover:text-[var(--foreground)]"
+              className="inline-flex size-7 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--n-50)] text-[var(--muted)] transition hover:text-[var(--foreground)]"
             >
               <X className="size-4" />
             </button>
@@ -105,7 +105,7 @@ export function QuickMatchFieldEditor({
                   <select
                     name="value"
                     defaultValue={value}
-                    className="h-11 w-full appearance-none rounded-xl border border-[var(--border)] bg-[#f8fafb] px-3 pr-10 text-sm font-medium text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[rgba(230,18,56,0.12)]"
+                    className="h-11 w-full appearance-none rounded-xl border border-[var(--border)] bg-[var(--n-50)] px-3 pr-10 text-sm font-medium text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[rgba(227,27,35,0.12)]"
                   >
                     {(options ?? []).map((option) => (
                       <option key={option} value={option}>
@@ -125,7 +125,7 @@ export function QuickMatchFieldEditor({
                   name="value"
                   defaultValue={value}
                   list={listId}
-                  className="h-11 w-full rounded-xl border border-[var(--border)] bg-[#f8fafb] px-3 text-sm font-medium text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[rgba(230,18,56,0.12)]"
+                  className="h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--n-50)] px-3 text-sm font-medium text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[rgba(227,27,35,0.12)]"
                 />
               </label>
             )}

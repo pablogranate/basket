@@ -407,15 +407,15 @@ function SectionBlock({
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-5 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-6 py-6 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+    <section className="space-y-5 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-6 py-6 shadow-[var(--shadow-lift)]">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-[0.98rem] font-extrabold uppercase tracking-[0.2em] text-[#8ea0bb]">
+          <p className="text-[0.98rem] font-extrabold uppercase tracking-[0.2em] text-[var(--n-400)]">
             {step}. {title}
           </p>
         </div>
         {status ? (
-          <span className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--background-soft)] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#617089]">
+          <span className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--background-soft)] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--n-600)]">
             {status}
           </span>
         ) : null}
@@ -438,11 +438,11 @@ function LabeledField({
 }) {
   return (
     <label className="space-y-2">
-      <span className="flex items-center gap-2 text-[0.82rem] font-semibold text-[#5f6d84]">
+      <span className="flex items-center gap-2 text-[0.82rem] font-semibold text-[var(--n-600)]">
         {label}
         {required ? <span className="text-[var(--accent)]">*</span> : null}
         {alert ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-[#fff4f6] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[#c12d4d]">
+          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--accent-strong)]">
             Falta
           </span>
         ) : null}
@@ -681,7 +681,7 @@ export function CreateMatchModal({
 
   const fieldSurfaceClass = "h-[54px] bg-[var(--background-soft)] text-[15px]";
   const missingFieldClass =
-    "border-[#efbcc7] bg-[#fff5f7] focus:border-[#df5575] focus:ring-[rgba(223,85,117,0.12)]";
+    "border-[var(--accent-border)] bg-[var(--accent-soft)] focus:border-[var(--accent)] focus:ring-[rgba(227,27,35,0.12)]";
 
   const peopleOptions = useMemo(
     () =>
@@ -900,9 +900,9 @@ export function CreateMatchModal({
         <button
           type="button"
           className={cn(
-            "inline-flex size-9 items-center justify-center rounded-full border border-[#d7dde7] bg-[#f4f6fa] text-[#16181d] transition hover:border-[rgba(230,18,56,0.24)] hover:bg-[#fff3f6] hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50",
+            "inline-flex size-9 items-center justify-center rounded-full border border-[var(--n-200)] bg-[var(--n-50)] text-[var(--n-900)] transition hover:border-[rgba(227,27,35,0.24)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50",
             isOpen &&
-              "border-[rgba(230,18,56,0.24)] bg-[#fff3f6] text-[var(--accent)]",
+              "border-[rgba(227,27,35,0.24)] bg-[var(--accent-soft)] text-[var(--accent)]",
             triggerClassName,
           )}
           onMouseDown={(event) => {
@@ -941,17 +941,17 @@ export function CreateMatchModal({
 
       {isOpen && isMounted
         ? createPortal(
-        <div className="fixed inset-0 z-[300] flex items-start justify-center bg-[rgba(15,23,42,0.48)] px-4 py-8 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[300] flex items-start justify-center bg-[rgba(28,13,16,0.48)] px-4 py-8 backdrop-blur-sm">
           <div
             className="absolute inset-0"
             aria-hidden="true"
             onClick={resetAndClose}
           />
-          <div className="relative z-[1] flex max-h-[calc(100vh-4rem)] w-full max-w-[1120px] flex-col overflow-hidden rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] shadow-[0_32px_80px_rgba(15,23,42,0.22)]">
+          <div className="relative z-[1] flex max-h-[calc(100vh-4rem)] w-full max-w-[1120px] flex-col overflow-hidden rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] shadow-[0_32px_80px_rgba(28,13,16,0.22)]">
               <div className="flex items-start justify-between gap-6 border-b border-[var(--border)] px-7 py-6">
                 <div className="space-y-2">
                   <div>
-                    <h2 className="text-3xl font-extrabold tracking-tight text-[var(--foreground)]">
+                    <h2 className="font-[family-name:var(--font-oswald)] text-3xl font-bold tracking-tight text-[var(--foreground)]">
                       {isEditing ? "Editar partido" : "Crear partido"}
                     </h2>
                   </div>
@@ -1336,7 +1336,7 @@ export function CreateMatchModal({
                         </div>
 
                         <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-4">
-                          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#8ea0bb]">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--n-400)]">
                             Mensaje base
                           </p>
                           <pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-6 text-[var(--foreground)]">
@@ -1368,7 +1368,7 @@ export function CreateMatchModal({
                                     <p className="truncate text-sm font-bold text-[var(--foreground)]">
                                       {recipient.fullName}
                                     </p>
-                                    <p className="mt-1 truncate text-[10px] font-bold uppercase tracking-[0.16em] text-[#7587a1]">
+                                    <p className="mt-1 truncate text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--n-500)]">
                                       {recipient.roles.join(" · ")}
                                     </p>
                                   </div>
@@ -1396,8 +1396,8 @@ export function CreateMatchModal({
                                     className={cn(
                                       "inline-flex size-11 items-center justify-center rounded-full border transition",
                                       recipient.emailHref
-                                        ? "border-[#c9d8fb] bg-[#eef4ff] text-[#2b6be7] hover:brightness-105"
-                                        : "cursor-not-allowed border-[var(--border)] bg-[#f4f6fa] text-[#b1bccd]",
+                                        ? "border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)] hover:brightness-105"
+                                        : "cursor-not-allowed border-[var(--border)] bg-[var(--n-50)] text-[var(--n-300)]",
                                     )}
                                   >
                                     <Mail className="size-4" />
@@ -1415,7 +1415,7 @@ export function CreateMatchModal({
                                       "inline-flex size-11 items-center justify-center rounded-full border transition",
                                       recipient.whatsappHref
                                         ? "border-[#c9ead8] bg-[#eefbf3] text-[#1b8b56] hover:brightness-105"
-                                        : "cursor-not-allowed border-[var(--border)] bg-[#f4f6fa] text-[#b1bccd]",
+                                        : "cursor-not-allowed border-[var(--border)] bg-[var(--n-50)] text-[var(--n-300)]",
                                     )}
                                   >
                                     <MessageCircleMore className="size-4" />
@@ -1425,7 +1425,7 @@ export function CreateMatchModal({
                             ))}
                           </div>
                         ) : (
-                          <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-5 text-sm font-semibold text-[#7d8ca4]">
+                          <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-5 text-sm font-semibold text-[var(--n-500)]">
                             Primero asigna al menos una persona en el bloque de Personal para poder
                             preparar la convocatoria.
                           </div>
@@ -1433,18 +1433,18 @@ export function CreateMatchModal({
                       </div>
                     </SectionBlock>
 
-                    <div className="overflow-hidden rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+                    <div className="overflow-hidden rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-lift)]">
                       <button
                         type="button"
                         className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left"
                         onClick={() => setShowAdvanced((current) => !current)}
                       >
                         <div>
-                          <p className="text-[11px] font-extrabold uppercase tracking-[0.24em] text-[#8ea0bb]">
+                          <p className="text-[11px] font-extrabold uppercase tracking-[0.24em] text-[var(--n-400)]">
                             Detalles adicionales
                           </p>
                         </div>
-                        <span className="inline-flex size-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--background-soft)] text-[#617089]">
+                        <span className="inline-flex size-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--background-soft)] text-[var(--n-600)]">
                           {showAdvanced ? (
                             <ChevronUp className="size-4.5" />
                           ) : (
@@ -1458,7 +1458,7 @@ export function CreateMatchModal({
                           <div className="grid gap-5 xl:grid-cols-2">
                             <div className="space-y-4 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] p-5">
                               <div className="flex items-start gap-3">
-                                <div className="flex size-10 items-center justify-center rounded-full bg-white text-[var(--accent)] shadow-[0_6px_18px_rgba(15,23,42,0.08)]">
+                                <div className="flex size-10 items-center justify-center rounded-full bg-white text-[var(--accent)] shadow-[0_6px_18px_rgba(28,13,16,0.08)]">
                                   <Camera className="size-4.5" />
                                 </div>
                                 <div>
@@ -1482,7 +1482,7 @@ export function CreateMatchModal({
                                   <Button
                                     type="button"
                                     variant="secondary"
-                                    className="h-11 justify-center gap-2 border-dashed border-[#d7dde7] text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                                    className="h-11 justify-center gap-2 border-dashed border-[var(--n-200)] text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
                                     onClick={() =>
                                       setVisibleCameraCount((current) =>
                                         Math.min(current + 1, CAMERA_FIELD_CONFIGS.length),
@@ -1498,7 +1498,7 @@ export function CreateMatchModal({
 
                             <div className="space-y-4 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] p-5">
                               <div className="flex items-start gap-3">
-                                <div className="flex size-10 items-center justify-center rounded-full bg-white text-[var(--accent)] shadow-[0_6px_18px_rgba(15,23,42,0.08)]">
+                                <div className="flex size-10 items-center justify-center rounded-full bg-white text-[var(--accent)] shadow-[0_6px_18px_rgba(28,13,16,0.08)]">
                                   <Mic2 className="size-4.5" />
                                 </div>
                                 <div>
@@ -1531,7 +1531,7 @@ export function CreateMatchModal({
                   </div>
 
                   <aside className="order-first space-y-4 self-start xl:order-last xl:sticky xl:top-0">
-                    <div className="overflow-hidden rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] shadow-[0_22px_48px_rgba(15,23,42,0.08)]">
+                    <div className="overflow-hidden rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-lift)]">
                       <div className="space-y-4 px-5 py-5">
                         <div className="rounded-[var(--panel-radius)] bg-[var(--background-soft)] p-4">
                           <div className="flex items-center justify-between gap-3">
@@ -1541,7 +1541,7 @@ export function CreateMatchModal({
                                 className="size-10 shrink-0 rounded-[var(--panel-radius)]"
                               />
                               <div className="min-w-0">
-                                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#8ea0bb]">
+                                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--n-400)]">
                                   Liga
                                 </p>
                                 <p className="truncate text-sm font-bold text-[var(--foreground)]">
@@ -1550,7 +1550,7 @@ export function CreateMatchModal({
                               </div>
                             </div>
                             <div className="text-right">
-                              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#8ea0bb]">
+                              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--n-400)]">
                                 Hora
                               </p>
                               <p className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">
@@ -1563,7 +1563,7 @@ export function CreateMatchModal({
                         <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-white p-4">
                           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center">
                             <div className="space-y-2">
-                              <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-[var(--background-soft)] shadow-[0_8px_18px_rgba(15,23,42,0.06)]">
+                              <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-[var(--background-soft)] shadow-[0_8px_18px_rgba(28,13,16,0.06)]">
                                 <ClientTeamLogoMark
                                   teamName={previewHomeTeamLabel}
                                   competition={previewCompetitionLabel}
@@ -1578,7 +1578,7 @@ export function CreateMatchModal({
                             </div>
                             <p className="text-lg font-extrabold text-[var(--accent)]">VS</p>
                             <div className="space-y-2">
-                              <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-[var(--background-soft)] shadow-[0_8px_18px_rgba(15,23,42,0.06)]">
+                              <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-[var(--background-soft)] shadow-[0_8px_18px_rgba(28,13,16,0.06)]">
                                 <ClientTeamLogoMark
                                   teamName={previewAwayTeamLabel}
                                   competition={previewCompetitionLabel}
@@ -1606,7 +1606,7 @@ export function CreateMatchModal({
 
                         <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-white p-4">
                           <div className="flex items-center justify-between gap-3">
-                            <p className="text-[11px] font-extrabold uppercase tracking-[0.24em] text-[#8ea0bb]">
+                            <p className="text-[11px] font-extrabold uppercase tracking-[0.24em] text-[var(--n-400)]">
                               Checklist rápido
                             </p>
                             <span className="text-sm font-bold text-[var(--foreground)]">
@@ -1625,7 +1625,7 @@ export function CreateMatchModal({
                               missingFieldLabels.map((label) => (
                                 <span
                                   key={label}
-                                  className="rounded-full bg-[var(--background-soft)] px-3 py-1 text-[11px] font-semibold text-[#617089]"
+                                  className="rounded-full bg-[var(--background-soft)] px-3 py-1 text-[11px] font-semibold text-[var(--n-600)]"
                                 >
                                   {label}
                                 </span>
@@ -1640,7 +1640,7 @@ export function CreateMatchModal({
                         </div>
 
                         <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-white p-4">
-                          <p className="text-[11px] font-extrabold uppercase tracking-[0.24em] text-[#8ea0bb]">
+                          <p className="text-[11px] font-extrabold uppercase tracking-[0.24em] text-[var(--n-400)]">
                             Roles clave
                           </p>
                           <div className="mt-3 grid gap-x-5 gap-y-4 sm:grid-cols-2">
@@ -1657,7 +1657,7 @@ export function CreateMatchModal({
                                   size="md"
                                 />
                                 <div className="min-w-0">
-                                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#8ea0bb]">
+                                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--n-400)]">
                                     {role.label}
                                   </p>
                                   <p className="mt-1 truncate text-sm font-semibold text-[var(--foreground)]">
@@ -1669,7 +1669,7 @@ export function CreateMatchModal({
                           </div>
                           <div className="mt-5 grid gap-3 border-t border-[var(--border)] pt-4 sm:grid-cols-2 xl:grid-cols-1">
                             <div className="space-y-1">
-                              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#8ea0bb]">
+                              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--n-400)]">
                                 Personal asignado
                               </p>
                               <p className="mt-1 text-xl font-extrabold text-[var(--foreground)]">
@@ -1677,7 +1677,7 @@ export function CreateMatchModal({
                               </p>
                             </div>
                             <div className="space-y-1">
-                              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#8ea0bb]">
+                              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--n-400)]">
                                 Detalle técnico
                               </p>
                               <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">
@@ -1721,7 +1721,7 @@ export function CreateMatchModal({
                       type="submit"
                       variant="secondary"
                       formAction={deleteMatchAction}
-                      className="h-11 border-[#efbcc7] bg-[#fff5f7] text-[#b73656] hover:bg-[#ffecee]"
+                      className="h-11 border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent-strong)] hover:bg-[var(--accent-border)]"
                       onClick={(event) => {
                         if (
                           !window.confirm(

@@ -51,7 +51,7 @@ export function DashboardFooterMeta({ userName }: { userName: string }) {
       <p className="text-sm font-black tracking-tight text-[var(--foreground)]">
         {userName}
       </p>
-      <p className="text-xs font-medium text-[#7b8aa1]">
+      <p className="text-xs font-medium text-[var(--n-500)]">
         {dateTimeLabel ?? <span className="opacity-0">00 de marzo de 2026 · 00:00</span>}
       </p>
     </div>

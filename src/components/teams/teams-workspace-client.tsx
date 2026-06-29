@@ -130,34 +130,34 @@ export function TeamsWorkspaceClient({
 
       <section className="panel-surface grid gap-4 border border-[var(--border)] bg-white p-6 sm:grid-cols-2 xl:grid-cols-4">
         <div className="text-center">
-          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#94a3b8]">
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
             Equipos visibles
           </p>
-          <p className="mt-2 text-3xl font-black text-[var(--foreground)]">
+          <p className="font-[family-name:var(--font-oswald)] mt-2 text-3xl font-bold text-[var(--foreground)]">
             {mergedTeams.length}
           </p>
         </div>
         <div className="text-center">
-          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#94a3b8]">
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
             Ligas activas
           </p>
-          <p className="mt-2 text-3xl font-black text-[var(--foreground)]">
+          <p className="font-[family-name:var(--font-oswald)] mt-2 text-3xl font-bold text-[var(--foreground)]">
             {new Set(mergedTeams.map((team) => team.competition)).size}
           </p>
         </div>
         <div className="text-center">
-          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#94a3b8]">
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
             Incidencias
           </p>
-          <p className="mt-2 text-3xl font-black text-[var(--accent)]">
+          <p className="font-[family-name:var(--font-oswald)] mt-2 text-3xl font-bold text-[var(--accent)]">
             {incidentCount}
           </p>
         </div>
         <div className="text-center">
-          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#94a3b8]">
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
             Con responsable
           </p>
-          <p className="mt-2 text-3xl font-black text-[var(--foreground)]">
+          <p className="font-[family-name:var(--font-oswald)] mt-2 text-3xl font-bold text-[var(--foreground)]">
             {registeredCount}
           </p>
         </div>

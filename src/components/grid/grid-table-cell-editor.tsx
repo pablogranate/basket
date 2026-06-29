@@ -49,7 +49,7 @@ type GridTableCellEditorProps = {
 };
 
 const editorFieldClassName =
-  "h-8 w-full min-w-[7rem] rounded-lg border border-[var(--accent)] bg-white px-2 text-sm font-medium text-[var(--foreground)] outline-none ring-2 ring-[rgba(230,18,56,0.12)]";
+  "h-8 w-full min-w-[7rem] rounded-lg border border-[var(--accent)] bg-[var(--surface)] px-2 text-sm font-medium text-[var(--foreground)] outline-none ring-2 ring-[var(--accent-border)]";
 
 function PendingFieldset({ children }: { children: React.ReactNode }) {
   const { pending } = useFormStatus();
@@ -102,7 +102,7 @@ export function GridTableCellEditor({
         }}
         title="Editar"
         className={cn(
-          "block w-full cursor-pointer truncate rounded-md px-1.5 py-1 text-left text-sm transition hover:bg-[#eef2f7]",
+          "block w-full cursor-pointer truncate rounded-md px-1.5 py-1 text-left text-sm transition hover:bg-[var(--n-100)]",
           className,
         )}
       >

@@ -259,7 +259,7 @@ function AssignmentDetailPill({
       {variant === "person" ? (
         <span
           className={cn(
-            "mt-0.5 inline-flex shrink-0 items-center justify-center rounded-full border border-[#ecd9de] bg-[#fff3f6] font-black text-[var(--accent)]",
+            "mt-0.5 inline-flex shrink-0 items-center justify-center rounded-full border border-[var(--accent-border)] bg-[var(--accent-soft)] font-black text-[var(--accent)]",
             compact ? "size-8 text-[9px]" : "size-9 text-[10px]",
           )}
         >
@@ -271,7 +271,7 @@ function AssignmentDetailPill({
             "mt-0.5 inline-flex shrink-0 items-center justify-center rounded-full",
             tone === "success"
               ? "bg-[#eafaf0] text-[#1daa59]"
-              : "bg-[#f3f6fa] text-[#9aa8bd]",
+              : "bg-[var(--n-100)] text-[var(--n-400)]",
             compact ? "size-8" : "size-9",
           )}
         >
@@ -282,7 +282,7 @@ function AssignmentDetailPill({
       <div className="min-w-0">
         <div
           className={cn(
-            "font-black uppercase text-[#9aa8bd]",
+            "font-black uppercase text-[var(--n-400)]",
             compact ? "text-[9px] tracking-[0.14em]" : "text-[10px] tracking-[0.16em]",
           )}
         >
@@ -442,7 +442,7 @@ function AssignmentCard({
         </div>
 
         <div
-          className="-mx-4 border-t-2 bg-[#f6f7fb] px-4 py-4"
+          className="-mx-4 border-t-2 bg-[var(--n-100)] px-4 py-4"
           style={{ borderTopColor: leagueAccent }}
         >
           <div className="relative z-10">
@@ -451,25 +451,25 @@ function AssignmentCard({
                 <ClientTeamLogoMark
                   teamName={assignment.homeTeam}
                   competition={assignment.competition}
-                  className="size-16 rounded-full border border-[#e8edf3] bg-white shadow-[0_10px_22px_rgba(15,23,42,0.08)]"
+                  className="size-16 rounded-full border border-[var(--n-200)] bg-white shadow-[0_10px_22px_rgba(28,13,16,0.08)]"
                   imageClassName="p-2"
                   initialsClassName="text-sm"
                 />
               </div>
 
               <div className="flex shrink-0 flex-col items-center justify-center">
-                <div className="h-px w-8 bg-[#dfe5ed]" />
+                <div className="h-px w-8 bg-[var(--n-200)]" />
                 <span className="py-1.5 text-[18px] font-black italic text-[var(--accent)]">
                   vs
                 </span>
-                <div className="h-px w-8 bg-[#dfe5ed]" />
+                <div className="h-px w-8 bg-[var(--n-200)]" />
               </div>
 
               <div className="flex justify-center">
                 <ClientTeamLogoMark
                   teamName={assignment.awayTeam}
                   competition={assignment.competition}
-                  className="size-16 rounded-full border border-[#e8edf3] bg-white shadow-[0_10px_22px_rgba(15,23,42,0.08)]"
+                  className="size-16 rounded-full border border-[var(--n-200)] bg-white shadow-[0_10px_22px_rgba(28,13,16,0.08)]"
                   imageClassName="p-2"
                   initialsClassName="text-sm"
                 />
@@ -493,7 +493,7 @@ function AssignmentCard({
             </div>
           </div>
 
-          <div className="mt-3.5 flex items-center justify-center gap-2 text-center text-[12px] font-semibold text-[#94a3b8]">
+          <div className="mt-3.5 flex items-center justify-center gap-2 text-center text-[12px] font-semibold text-[var(--n-400)]">
             <MapPin className="size-3.5" />
             <span className="truncate">{assignment.venue ?? "Sede por definir"}</span>
           </div>
@@ -514,7 +514,7 @@ function AssignmentCard({
           onClick={() => onOpenGroup(assignment.assignmentId)}
           className="inline-flex h-10 items-center justify-center gap-2 rounded-[var(--panel-radius)] bg-[#1faa52] px-3 text-xs font-black text-white shadow-[0_14px_28px_rgba(31,170,82,0.18)] transition hover:brightness-105"
         >
-          <span className="inline-flex size-6 items-center justify-center rounded-full bg-[#eef2f5] shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
+          <span className="inline-flex size-6 items-center justify-center rounded-full bg-[var(--n-100)] shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
             <MessageCircleMore className="size-3.5 text-[#1faa52]" />
           </span>
           Grupo
@@ -523,10 +523,10 @@ function AssignmentCard({
         <button
           type="button"
           onClick={() => onOpenReport(assignment.assignmentId)}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-[var(--panel-radius)] bg-[#7a36da] px-3 text-xs font-black text-white shadow-[0_14px_28px_rgba(122,54,218,0.22)] transition hover:brightness-105"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-[var(--panel-radius)] bg-[var(--accent)] px-3 text-xs font-black text-white shadow-[0_14px_28px_rgba(227,27,35,0.22)] transition hover:brightness-105"
         >
-          <span className="inline-flex size-6 items-center justify-center rounded-full bg-[#eef2f5] shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
-            <Megaphone className="size-3.5 text-[#7a36da]" />
+          <span className="inline-flex size-6 items-center justify-center rounded-full bg-[var(--n-100)] shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
+            <Megaphone className="size-3.5 text-[var(--accent)]" />
           </span>
           Reportar
         </button>
@@ -551,7 +551,7 @@ function AssignmentTable({
       {assignments.map((assignment) => {
         const isSelected = selectedAssignmentId === assignment.assignmentId;
         const leagueLabel = assignment.competition ?? "Sin liga";
-        const statusAccentClass = assignment.confirmed ? "bg-[#26b36a]" : "bg-[#d7dde7]";
+        const statusAccentClass = assignment.confirmed ? "bg-[#26b36a]" : "bg-[var(--n-200)]";
         const responsible = getAssignmentTablePersonValue(
           assignment.responsibleName ?? assignment.ownerName,
         );
@@ -565,14 +565,14 @@ function AssignmentTable({
             onClick={() => onOpenGroup(assignment.assignmentId)}
             className={cn(
               "panel-surface group relative overflow-visible border border-[var(--border)] bg-[var(--surface)] transition",
-              "cursor-pointer hover:shadow-[0_16px_36px_rgba(15,23,42,0.08)]",
-              isSelected && "border-[#f0d9de] shadow-[0_16px_36px_rgba(230,18,56,0.08)]",
+              "cursor-pointer hover:shadow-[0_16px_36px_rgba(28,13,16,0.08)]",
+              isSelected && "border-[var(--accent-border)] shadow-[0_16px_36px_rgba(227,27,35,0.08)]",
             )}
           >
             <span
               aria-hidden="true"
               className={cn(
-                "pointer-events-none absolute left-[-12px] top-1/2 z-0 h-[118px] w-[30px] -translate-y-1/2 rounded-l-[10px] rounded-r-[6px] shadow-[inset_-1px_0_0_rgba(255,255,255,0.16),0_8px_18px_rgba(15,23,42,0.06)]",
+                "pointer-events-none absolute left-[-12px] top-1/2 z-0 h-[118px] w-[30px] -translate-y-1/2 rounded-l-[10px] rounded-r-[6px] shadow-[inset_-1px_0_0_rgba(255,255,255,0.16),0_8px_18px_rgba(28,13,16,0.06)]",
                 statusAccentClass,
               )}
             />
@@ -585,7 +585,7 @@ function AssignmentTable({
               >
                 <div className="relative z-10 flex flex-col items-center justify-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-5 text-center xl:border-b-0 xl:border-r">
                   <LeagueLogoMarkClient league={leagueLabel} className="h-16 w-16" />
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#70819b]">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--n-500)]">
                     {leagueLabel}
                   </p>
                 </div>
@@ -607,7 +607,7 @@ function AssignmentTable({
                         </p>
                       </div>
 
-                      <span className="self-center justify-self-center text-sm font-semibold uppercase tracking-[0.18em] text-[#93a0b2]">
+                      <span className="self-center justify-self-center text-sm font-semibold uppercase tracking-[0.18em] text-[var(--n-400)]">
                         vs
                       </span>
 
@@ -626,7 +626,7 @@ function AssignmentTable({
                       </div>
                     </div>
 
-                    <div className="mt-4 flex items-center justify-center gap-2 text-center text-[12px] font-semibold text-[#94a3b8]">
+                    <div className="mt-4 flex items-center justify-center gap-2 text-center text-[12px] font-semibold text-[var(--n-400)]">
                       <MapPin className="size-3.5 shrink-0" />
                       <span className="truncate">{assignment.venue ?? "Sede por definir"}</span>
                     </div>
@@ -635,8 +635,8 @@ function AssignmentTable({
 
                 <div className="grid gap-4 border-b border-[var(--border)] px-5 py-5 xl:border-b-0 xl:border-r xl:px-6">
                   <div className="flex items-center gap-2">
-                    <ShieldUser className="size-3.5 text-[#a7b4c8]" />
-                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#a7b4c8]">
+                    <ShieldUser className="size-3.5 text-[var(--n-400)]" />
+                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--n-400)]">
                       Staff
                     </p>
                   </div>
@@ -688,8 +688,8 @@ function AssignmentTable({
 
                 <div className="grid gap-4 border-b border-[var(--border)] px-5 py-5 xl:border-b-0 xl:border-r xl:px-6">
                   <div className="flex items-center gap-2">
-                    <Mic2 className="size-3.5 text-[#a7b4c8]" />
-                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#a7b4c8]">
+                    <Mic2 className="size-3.5 text-[var(--n-400)]" />
+                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--n-400)]">
                       Cobertura
                     </p>
                   </div>
@@ -740,15 +740,15 @@ function AssignmentTable({
                 <div className="grid gap-4 border-b border-[var(--border)] px-5 py-5 xl:border-b-0 xl:border-r xl:px-6">
                   {assignment.productionCode ? (
                     <div>
-                      <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#a7b4c8]">
-                        <Hash className="size-3.5 text-[#a7b4c8]" />
+                      <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--n-400)]">
+                        <Hash className="size-3.5 text-[var(--n-400)]" />
                         ID evento
                       </p>
                       <div className="mt-2">
                         <span
                           className={cn(
                             badgeBaseClassName,
-                            "border border-[#f3cfd8] bg-[#fff3f6] text-[var(--accent)]",
+                            "border border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]",
                           )}
                         >
                           {assignment.productionCode}
@@ -757,15 +757,15 @@ function AssignmentTable({
                     </div>
                   ) : null}
                   <div>
-                    <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#a7b4c8]">
-                      <Video className="size-3.5 text-[#a7b4c8]" />
+                    <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--n-400)]">
+                      <Video className="size-3.5 text-[var(--n-400)]" />
                       {PRODUCTION_SHORT_LABEL}
                     </p>
                     <div className="mt-2">
                       <span
                         className={cn(
                           badgeBaseClassName,
-                          "border border-[#dbe1ea] bg-[#f7f8fa] text-[#637083]",
+                          "border border-[var(--n-200)] bg-[var(--n-50)] text-[var(--n-600)]",
                         )}
                       >
                         {formatAssignmentProductionModeLabel(assignment.productionMode)}
@@ -779,8 +779,8 @@ function AssignmentTable({
 
                 <div className="grid gap-4 border-b border-[var(--border)] px-5 py-5 xl:border-b-0 xl:px-6 xl:pr-24">
                   <div>
-                    <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#a7b4c8]">
-                      <CalendarDays className="size-3.5 text-[#a7b4c8]" />
+                    <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--n-400)]">
+                      <CalendarDays className="size-3.5 text-[var(--n-400)]" />
                       Fecha
                     </p>
                     <p className="mt-2 text-sm font-bold text-[var(--foreground)]">
@@ -788,11 +788,11 @@ function AssignmentTable({
                     </p>
                   </div>
                   <div>
-                    <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#a7b4c8]">
-                      <Clock3 className="size-3.5 text-[#a7b4c8]" />
+                    <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--n-400)]">
+                      <Clock3 className="size-3.5 text-[var(--n-400)]" />
                       Hora
                     </p>
-                    <p className="mt-1 text-4xl font-black tracking-[-0.06em] text-[var(--accent)]">
+                    <p className="font-[family-name:var(--font-oswald)] mt-1 text-4xl font-bold tracking-[-0.06em] text-[var(--accent)]">
                       {assignment.timeLabel}
                     </p>
                   </div>
@@ -826,7 +826,7 @@ function AssignmentTable({
                     event.stopPropagation();
                     onOpenReport(assignment.assignmentId);
                   }}
-                  className="inline-flex size-10 items-center justify-center rounded-full bg-[#7a36da] text-white shadow-[0_12px_24px_rgba(122,54,218,0.22)] transition hover:brightness-105"
+                  className="inline-flex size-10 items-center justify-center rounded-full bg-[var(--accent)] text-white shadow-[0_12px_24px_rgba(227,27,35,0.22)] transition hover:brightness-105"
                   aria-label="Abrir reporte"
                   title="Abrir reporte"
                 >
@@ -839,7 +839,7 @@ function AssignmentTable({
       })}
 
       {!assignments.length ? (
-        <div className="flex min-h-[42rem] items-center justify-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] text-sm font-semibold text-[#7d8ca4]">
+        <div className="flex min-h-[42rem] items-center justify-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] text-sm font-semibold text-[var(--n-500)]">
           No hay partidos para mostrar en esta vista.
         </div>
       ) : (
@@ -859,7 +859,7 @@ function AssignmentAssistantShell({
   return (
     <>
       <div
-        className="fixed inset-0 z-[90] flex items-end justify-center bg-[#101828]/55 p-3 backdrop-blur-sm xl:hidden"
+        className="fixed inset-0 z-[90] flex items-end justify-center bg-[var(--n-900)]/55 p-3 backdrop-blur-sm xl:hidden"
         onClick={onClose}
       >
         <div
@@ -879,7 +879,7 @@ function AssignmentAssistantShell({
 
 function DrawerSectionHeading({ children }: { children: ReactNode }) {
   return (
-    <h4 className="text-[11px] font-black uppercase tracking-[0.18em] text-[#94a3b8]">
+    <h4 className="text-[11px] font-black uppercase tracking-[0.18em] text-[var(--n-400)]">
       {children}
     </h4>
   );
@@ -893,8 +893,8 @@ function DrawerHighlightCard({
   value: string;
 }) {
   return (
-    <div className="rounded-[var(--panel-radius)] border border-[#e3e8f0] bg-[#f8fafc] px-4 py-4">
-      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#7f8ea6]">
+    <div className="rounded-[var(--panel-radius)] border border-[var(--n-200)] bg-[var(--n-50)] px-4 py-4">
+      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--n-500)]">
         {label}
       </p>
       <p className="mt-2 text-[1.55rem] font-black leading-tight tracking-[-0.03em] text-[var(--foreground)]">
@@ -923,7 +923,7 @@ function DrawerPersonCard({
         size="md"
       />
       <div className="min-w-0">
-        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#94a3b8]">
+        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--n-400)]">
           {label}
         </p>
         <p className="mt-1 text-sm font-bold leading-tight text-[var(--foreground)]">
@@ -947,11 +947,11 @@ function DrawerInfoCard({
 }) {
   return (
     <div className="panel-radius flex min-h-[84px] items-center gap-3 border border-[var(--border)] bg-white p-4">
-      <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[#f4f7fb] text-[#7c8aa0]">
+      <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--n-100)] text-[var(--n-500)]">
         <Icon className="size-[18px]" />
       </span>
       <div className="min-w-0">
-        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#94a3b8]">
+        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--n-400)]">
           {label}
         </p>
         <p className={cn("mt-1 text-sm font-bold leading-tight text-[var(--foreground)]", valueClassName)}>
@@ -973,14 +973,14 @@ function DrawerStatusCard({
         "panel-radius flex min-h-[84px] items-center justify-between gap-3 border px-4 py-3",
         confirmed
           ? "border-[#d7eadf] bg-[#f3fcf6]"
-          : "border-[#e3e8f0] bg-[#f8fafc]",
+          : "border-[var(--n-200)] bg-[var(--n-50)]",
       )}
     >
       <div>
         <p
           className={cn(
             "text-[10px] font-black uppercase tracking-[0.16em]",
-            confirmed ? "text-[#178a56]" : "text-[#6b7c92]",
+            confirmed ? "text-[#178a56]" : "text-[var(--n-600)]",
           )}
         >
           Estado del reporte
@@ -997,7 +997,7 @@ function DrawerStatusCard({
       <span
         className={cn(
           "inline-flex size-10 items-center justify-center rounded-full",
-          confirmed ? "bg-[#dcfce7] text-[#12b76a]" : "bg-[#eef2f6] text-[#7c8aa0]",
+          confirmed ? "bg-[#dcfce7] text-[#12b76a]" : "bg-[var(--n-100)] text-[var(--n-500)]",
         )}
       >
         {confirmed ? <CheckCircle2 className="size-7" /> : <Clock3 className="size-5" />}
@@ -1019,7 +1019,7 @@ function AttendanceSubmitButton({ disabled }: { disabled: boolean }) {
       className={cn(
         "inline-flex h-9 items-center justify-center rounded-full px-5 text-xs font-black transition",
         disabled
-          ? "cursor-not-allowed bg-[#eef2f6] text-[#aab4c4]"
+          ? "cursor-not-allowed bg-[var(--n-100)] text-[var(--n-300)]"
           : "bg-[#178a56] text-white hover:bg-[#13744a]",
         pending && "opacity-70",
       )}
@@ -1051,7 +1051,7 @@ function AttendanceChoiceButton({
           ? tone === "attend"
             ? "border-[#178a56] bg-[#178a56] text-white"
             : "border-[var(--accent)] bg-[var(--accent)] text-white"
-          : "border-[var(--border)] bg-white text-[#6b7c92] hover:border-[#c2ccda]",
+          : "border-[var(--border)] bg-white text-[var(--n-600)] hover:border-[var(--n-200)]",
       )}
     >
       {children}
@@ -1093,15 +1093,15 @@ function AttendanceInlineControl({
           : "Sin respuesta";
 
     return (
-      <div className="panel-radius border border-[#e3e8f0] bg-[#f8fafc] px-4 py-3">
+      <div className="panel-radius border border-[var(--n-200)] bg-[var(--n-50)] px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#6b7c92]">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--n-600)]">
               Asistencia
             </p>
             <p className="mt-1.5 text-sm font-bold text-[var(--foreground)]">{label}</p>
           </div>
-          <span className="inline-flex size-9 items-center justify-center rounded-full bg-[#eef2f6] text-[#7c8aa0]">
+          <span className="inline-flex size-9 items-center justify-center rounded-full bg-[var(--n-100)] text-[var(--n-500)]">
             {response === "attending" ? (
               <CheckCircle2 className="size-6" />
             ) : (
@@ -1110,7 +1110,7 @@ function AttendanceInlineControl({
           </span>
         </div>
         {response === "declined" && assignment.attendanceNote?.trim() ? (
-          <p className="mt-2 text-xs font-semibold leading-5 text-[#65758e]">
+          <p className="mt-2 text-xs font-semibold leading-5 text-[var(--n-600)]">
             “{assignment.attendanceNote.trim()}”
           </p>
         ) : null}
@@ -1127,14 +1127,14 @@ function AttendanceInlineControl({
           ? "border-[#d7eadf] bg-[#f3fcf6]"
           : response === "declined"
             ? "border-[#f3d2da] bg-[#fff5f7]"
-            : "border-[#e3e8f0] bg-[#f8fafc]",
+            : "border-[var(--n-200)] bg-[var(--n-50)]",
       )}
     >
       <input type="hidden" name="assignmentId" value={assignment.assignmentId} />
       <input type="hidden" name="redirectTo" value="/mi-jornada" />
       <input type="hidden" name="response" value={choice ?? ""} />
 
-      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#6b7c92]">
+      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--n-600)]">
         ¿Vas a asistir?
       </p>
 
@@ -1164,7 +1164,7 @@ function AttendanceInlineControl({
           onChange={(event) => setNote(event.currentTarget.value)}
           rows={2}
           placeholder="Motivo (opcional)"
-          className="mt-2 w-full resize-none rounded-[var(--panel-radius)] border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none placeholder:text-[#9aa8bd] focus:border-[var(--accent)]"
+          className="mt-2 w-full resize-none rounded-[var(--panel-radius)] border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--n-400)] focus:border-[var(--accent)]"
         />
       ) : null}
 
@@ -1208,12 +1208,12 @@ function GroupAssistantDrawer({
   }, []);
 
   const drawerContent = (
-    <div className="min-w-0 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] shadow-[0_18px_40px_rgba(20,24,35,0.08)]">
+    <div className="min-w-0 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] shadow-[0_18px_40px_rgba(28,13,16,0.08)]">
       <div className="relative border-b border-[var(--border)] p-6">
         <div className="mb-4 flex items-center justify-center gap-4 xl:justify-between">
           <div className="flex flex-wrap items-center justify-center gap-2 xl:justify-start">
             {assignment.productionMode ? (
-              <span className="inline-flex rounded-full border border-[#f3cfd8] bg-[#fff3f6] px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--accent)]">
+              <span className="inline-flex rounded-full border border-[var(--accent-border)] bg-[var(--accent-soft)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--accent)]">
                 {getProductionModeLabel(assignment.productionMode)}
               </span>
             ) : null}
@@ -1230,7 +1230,7 @@ function GroupAssistantDrawer({
           <button
             type="button"
             onClick={onClose}
-            className="absolute right-3 top-3 inline-flex size-10 items-center justify-center rounded-full bg-[var(--background-soft)] text-[#94a3b8] sm:right-4 sm:top-4"
+            className="absolute right-3 top-3 inline-flex size-10 items-center justify-center rounded-full bg-[var(--background-soft)] text-[var(--n-400)] sm:right-4 sm:top-4"
             aria-label="Cerrar asistente de grupo"
           >
             <X className="size-4" />
@@ -1247,18 +1247,18 @@ function GroupAssistantDrawer({
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm text-[#70819b] xl:justify-start">
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm text-[var(--n-500)] xl:justify-start">
           <span className="inline-flex items-center gap-2">
-            <CalendarDays className="size-4 text-[#b1b8c5]" />
+            <CalendarDays className="size-4 text-[var(--n-300)]" />
             {formatAssignmentDrawerDate(assignment)}
           </span>
           <span className="inline-flex items-center gap-2">
-            <Clock3 className="size-4 text-[#b1b8c5]" />
+            <Clock3 className="size-4 text-[var(--n-300)]" />
             {assignment.timeLabel}
           </span>
         </div>
-        <div className="mt-2 inline-flex w-full items-start justify-center gap-2 text-sm text-[#70819b] xl:w-auto xl:justify-start">
-          <MapPin className="mt-0.5 size-4 shrink-0 text-[#b1b8c5]" />
+        <div className="mt-2 inline-flex w-full items-start justify-center gap-2 text-sm text-[var(--n-500)] xl:w-auto xl:justify-start">
+          <MapPin className="mt-0.5 size-4 shrink-0 text-[var(--n-300)]" />
           <span>{assignment.venue ?? "Sede por definir"}</span>
         </div>
       </div>
@@ -1287,7 +1287,7 @@ function GroupAssistantDrawer({
         {tab === "group" ? (
           <div className="space-y-4">
             <div className="space-y-2">
-              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#95a3ba]">
+              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--n-400)]">
                 Integrantes
               </p>
               <div className="space-y-4">
@@ -1314,7 +1314,7 @@ function GroupAssistantDrawer({
                             <p className="truncate text-[0.92rem] font-bold text-[var(--foreground)]">
                               {contact.personName ?? "Sin asignar"}
                             </p>
-                            <p className="mt-0.5 truncate text-[9px] font-bold uppercase tracking-[0.14em] text-[#7587a1]">
+                            <p className="mt-0.5 truncate text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--n-500)]">
                               {getRoleDisplayName(contact.roleName)}
                             </p>
                           </div>
@@ -1332,20 +1332,20 @@ function GroupAssistantDrawer({
                               <MessageCircleMore className="size-4" />
                             </Link>
                           ) : (
-                            <span className="inline-flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-[#f4f6fa] text-[#b1bccd]">
+                            <span className="inline-flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--n-50)] text-[var(--n-300)]">
                               <MessageCircleMore className="size-4" />
                             </span>
                           )}
                           {contactEmail ? (
                             <Link
                               href={contactEmail}
-                              className="inline-flex size-10 items-center justify-center rounded-full border border-[#c9d8fb] bg-[#eef4ff] text-[#2b6be7] transition hover:brightness-105"
+                              className="inline-flex size-10 items-center justify-center rounded-full border border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)] transition hover:brightness-105"
                               aria-label={`Enviar correo a ${contact.personName ?? "contacto"}`}
                             >
                               <Mail className="size-4" />
                             </Link>
                           ) : (
-                            <span className="inline-flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-[#f4f6fa] text-[#b1bccd]">
+                            <span className="inline-flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--n-50)] text-[var(--n-300)]">
                               <Mail className="size-4" />
                             </span>
                           )}
@@ -1354,7 +1354,7 @@ function GroupAssistantDrawer({
                     );
                   })
                 ) : (
-                  <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[#f8fafc] px-4 py-5 text-sm font-semibold text-[#7d8ca4]">
+                  <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--n-50)] px-4 py-5 text-sm font-semibold text-[var(--n-500)]">
                     Aún no hay integrantes vinculados a este partido.
                   </div>
                 )}
@@ -1456,10 +1456,10 @@ function GroupAssistantDrawer({
                       key={`${assignment.assignmentId}-${item.label}`}
                       className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-white px-4 py-4"
                     >
-                      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#95a3ba]">
+                      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[var(--n-400)]">
                         {item.label}
                       </p>
-                      <p className="mt-2 text-sm font-semibold leading-6 text-[#65758e]">
+                      <p className="mt-2 text-sm font-semibold leading-6 text-[var(--n-600)]">
                         {item.value}
                       </p>
                     </div>
@@ -1484,12 +1484,12 @@ function ReportAssistantDrawer({
 }) {
   const leagueAccent = getAssignmentLeagueAccentColor(assignment.competition);
   const drawerContent = (
-    <div className="min-w-0 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] shadow-[0_18px_40px_rgba(20,24,35,0.08)]">
+    <div className="min-w-0 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] shadow-[0_18px_40px_rgba(28,13,16,0.08)]">
       <div className="relative border-b border-[var(--border)] p-6">
         <div className="mb-4 flex items-center justify-center gap-4 xl:justify-between">
           <div className="flex flex-wrap items-center justify-center gap-2 xl:justify-start">
             {assignment.productionMode ? (
-              <span className="inline-flex rounded-full border border-[#f3cfd8] bg-[#fff3f6] px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--accent)]">
+              <span className="inline-flex rounded-full border border-[var(--accent-border)] bg-[var(--accent-soft)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--accent)]">
                 {getProductionModeLabel(assignment.productionMode)}
               </span>
             ) : null}
@@ -1506,7 +1506,7 @@ function ReportAssistantDrawer({
           <button
             type="button"
             onClick={onClose}
-            className="absolute right-3 top-3 inline-flex size-10 items-center justify-center rounded-full bg-[var(--background-soft)] text-[#94a3b8] sm:right-4 sm:top-4"
+            className="absolute right-3 top-3 inline-flex size-10 items-center justify-center rounded-full bg-[var(--background-soft)] text-[var(--n-400)] sm:right-4 sm:top-4"
             aria-label="Cerrar reporte"
           >
             <X className="size-4" />
@@ -1523,18 +1523,18 @@ function ReportAssistantDrawer({
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm text-[#70819b] xl:justify-start">
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm text-[var(--n-500)] xl:justify-start">
           <span className="inline-flex items-center gap-2">
-            <CalendarDays className="size-4 text-[#b1b8c5]" />
+            <CalendarDays className="size-4 text-[var(--n-300)]" />
             {formatAssignmentDrawerDate(assignment)}
           </span>
           <span className="inline-flex items-center gap-2">
-            <Clock3 className="size-4 text-[#b1b8c5]" />
+            <Clock3 className="size-4 text-[var(--n-300)]" />
             {assignment.timeLabel}
           </span>
         </div>
-        <div className="mt-2 inline-flex w-full items-start justify-center gap-2 text-sm text-[#70819b] xl:w-auto xl:justify-start">
-          <MapPin className="mt-0.5 size-4 shrink-0 text-[#b1b8c5]" />
+        <div className="mt-2 inline-flex w-full items-start justify-center gap-2 text-sm text-[var(--n-500)] xl:w-auto xl:justify-start">
+          <MapPin className="mt-0.5 size-4 shrink-0 text-[var(--n-300)]" />
           <span>{assignment.venue ?? "Sede por definir"}</span>
         </div>
       </div>
@@ -1569,8 +1569,8 @@ function MyDayPastToggle({
         onClick={() => setOpen((current) => !current)}
         aria-expanded={open}
         className={cn(
-          "inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--muted)] shadow-[0_8px_18px_rgba(15,23,42,0.06)] transition hover:border-[rgba(230,18,56,0.24)] hover:text-[var(--accent)]",
-          open && "border-[rgba(230,18,56,0.18)] bg-[#fff4f6] text-[var(--accent)]",
+          "inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--muted)] shadow-[0_8px_18px_rgba(28,13,16,0.06)] transition hover:border-[rgba(227,27,35,0.24)] hover:text-[var(--accent)]",
+          open && "border-[rgba(227,27,35,0.18)] bg-[var(--accent-soft)] text-[var(--accent)]",
         )}
       >
         <History className="size-4" />
@@ -1672,7 +1672,7 @@ export function MyDayAssignmentsPanel({
         {topContent}
 
         {showDemoToday ? (
-          <div className="rounded-[var(--panel-radius)] border border-[#d9dff2] bg-[#f7f9ff] px-4 py-3 text-sm font-semibold text-[#5e6f8c]">
+          <div className="rounded-[var(--panel-radius)] border border-[var(--n-200)] bg-[var(--n-50)] px-4 py-3 text-sm font-semibold text-[var(--n-600)]">
             {!hasLinkedPerson ? "Aún no encontramos tu vínculo en Personal. " : null}
             Te dejamos una{" "}
             <span className="font-black text-[var(--accent)]">vista demo</span>{" "}
@@ -1686,12 +1686,12 @@ export function MyDayAssignmentsPanel({
               <h2 className="text-2xl font-black tracking-tight text-[var(--foreground)]">
                 Tus partidos
               </h2>
-              <p className="mt-1 text-sm text-[#617187]">
+              <p className="mt-1 text-sm text-[var(--n-600)]">
                 Partidos asignados de hoy en adelante.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-[#95a3ba]">
+              <span className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-[var(--n-400)]">
                 {assignments.length} próximos
               </span>
               {canViewGrid ? (
@@ -1710,13 +1710,13 @@ export function MyDayAssignmentsPanel({
             renderList(assignments)
           ) : (
             <Card className="space-y-3 rounded-[var(--panel-radius)] p-6">
-              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#95a3ba]">
+              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[var(--n-400)]">
                 Sin partidos próximos
               </p>
               <h3 className="text-2xl font-black tracking-tight text-[var(--foreground)]">
                 No tienes partidos asignados de hoy en adelante
               </h3>
-              <p className="text-sm leading-7 text-[#617187]">
+              <p className="text-sm leading-7 text-[var(--n-600)]">
                 {pastAssignments.length
                   ? "Revisa los partidos anteriores del mes más abajo."
                   : "Cuando te asignen un partido aparecerá aquí."}

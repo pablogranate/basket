@@ -41,14 +41,14 @@ export function InsightBarRow({
             headerClassName,
           )}
         >
-          <span className={cn("truncate text-sm font-bold text-[#617187]", labelClassName)}>
+          <span className={cn("truncate text-sm font-bold text-[var(--n-600)]", labelClassName)}>
             {label}
           </span>
           <span className={cn("shrink-0 text-sm font-black text-[var(--foreground)]", valueClassName)}>
             {value}
           </span>
         </div>
-        <div className={cn("h-2.5 overflow-hidden rounded-full bg-[#edf1f6]", barContainerClassName)}>
+        <div className={cn("h-2.5 overflow-hidden rounded-full bg-[var(--n-100)]", barContainerClassName)}>
           {bar}
         </div>
       </div>

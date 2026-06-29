@@ -58,26 +58,26 @@ export function MatchSummaryCell({
           teamName={teams.homeTeam}
           competition={competition}
           className={cn(
-            "rounded-full border-2 border-[var(--surface)] bg-[#f8fafc]",
+            "rounded-full border-2 border-[var(--surface)] bg-[var(--n-50)]",
             compact ? "size-9" : "size-12",
           )}
-          initialsClassName="text-[11px] tracking-[0.12em] text-[#70819b]"
+          initialsClassName="text-[11px] tracking-[0.12em] text-[var(--n-500)]"
         />
         <ClientTeamLogoMark
           teamName={teams.awayTeam}
           competition={competition}
           className={cn(
-            "rounded-full border-2 border-[var(--surface)] bg-[#f8fafc]",
+            "rounded-full border-2 border-[var(--surface)] bg-[var(--n-50)]",
             compact ? "size-9" : "size-12",
           )}
-          initialsClassName="text-[11px] tracking-[0.12em] text-[#70819b]"
+          initialsClassName="text-[11px] tracking-[0.12em] text-[var(--n-500)]"
         />
       </div>
       <div className="min-w-0 flex-1">
         <div className={cn("flex flex-wrap items-center", compact ? "mb-1.5 gap-1.5" : "mb-2 gap-2")}>
           {idLabel ? (
             <span
-              className={`${badgeBaseClassName} border border-[#f3cfd8] bg-[#fff3f6] text-[var(--accent)]`}
+              className={`${badgeBaseClassName} border border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]`}
             >
               {idLabel}
             </span>
@@ -117,25 +117,25 @@ export function MatchSummaryCell({
         {hasMetaRow ? (
           <div
             className={cn(
-              "mt-1 flex flex-wrap items-center text-xs font-medium text-[#70819b]",
+              "mt-1 flex flex-wrap items-center text-xs font-medium text-[var(--n-500)]",
               compact ? "gap-2.5" : "gap-4",
             )}
           >
             {metaDate ? (
               <span className="inline-flex items-center gap-1.5">
-                <CalendarDays className="size-3.5 text-[#b1b8c5]" />
+                <CalendarDays className="size-3.5 text-[var(--n-300)]" />
                 {metaDate}
               </span>
             ) : null}
             {metaTime ? (
               <span className="inline-flex items-center gap-1.5">
-                <Clock3 className="size-3.5 text-[#b1b8c5]" />
+                <Clock3 className="size-3.5 text-[var(--n-300)]" />
                 {metaTime}
               </span>
             ) : null}
           </div>
         ) : (
-          <span className="mt-1 block text-xs font-medium text-[#70819b]">
+          <span className="mt-1 block text-xs font-medium text-[var(--n-500)]">
             {competition}
           </span>
         )}

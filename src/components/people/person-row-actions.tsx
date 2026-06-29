@@ -16,7 +16,7 @@ export function PersonRowActions({
     <div className="flex items-center justify-end gap-2">
       <Link
         href={`/people?edit=${personId}`}
-        className="inline-flex size-9 items-center justify-center rounded-lg text-[#7b8798] transition hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
+        className="inline-flex size-9 items-center justify-center rounded-lg text-[var(--n-500)] transition hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
         title="Editar"
       >
         <PencilLine className="size-4" />
@@ -37,7 +37,7 @@ export function PersonRowActions({
         <input type="hidden" name="redirectTo" value="/people" />
         <button
           type="submit"
-          className="inline-flex size-9 items-center justify-center rounded-lg text-[#7b8798] transition hover:bg-[#fff0f3] hover:text-[#bf1e41]"
+          className="inline-flex size-9 items-center justify-center rounded-lg text-[var(--n-500)] transition hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)]"
           title="Eliminar"
         >
           <Trash2 className="size-4" />

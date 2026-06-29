@@ -19,7 +19,7 @@ type MatchCardActionsProps = {
 };
 
 const controlClassName =
-  "inline-flex size-10 items-center justify-center rounded-full border border-[#d7dde7] bg-[#f4f6fa] text-[#16181d] transition hover:border-[rgba(230,18,56,0.24)] hover:bg-[#fff3f6] hover:text-[var(--accent)]";
+  "inline-flex size-10 items-center justify-center rounded-full border border-[var(--n-200)] bg-[var(--n-50)] text-[var(--n-900)] transition hover:border-[rgba(227,27,35,0.24)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]";
 
 export function MatchCardActions({
   canEdit,
@@ -96,7 +96,7 @@ export function MatchCardActions({
         className={cn(
           controlClassName,
           isOpen &&
-            "rotate-180 border-[rgba(230,18,56,0.24)] bg-[#fff3f6] text-[var(--accent)]",
+            "rotate-180 border-[rgba(227,27,35,0.24)] bg-[var(--accent-soft)] text-[var(--accent)]",
         )}
       >
         <ChevronDown className="size-4" />

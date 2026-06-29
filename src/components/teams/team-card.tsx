@@ -40,7 +40,7 @@ function getIncidentBadgeClass(incidentCount: number) {
     return "bg-[#fff7e8] text-[#c97a13]";
   }
 
-  return "bg-[#f4f7fb] text-[#70819b]";
+  return "bg-[var(--n-100)] text-[var(--n-500)]";
 }
 
 function TeamLinkIcon({
@@ -63,7 +63,7 @@ function TeamLinkIcon({
       href={href}
       target="_blank"
       rel="noreferrer"
-      className="inline-flex size-9 items-center justify-center rounded-full border border-[#e6e4e6] bg-white text-[#8b94a6] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+      className="inline-flex size-9 items-center justify-center rounded-full border border-[#e6e4e6] bg-white text-[var(--n-400)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
     >
       {children}
     </a>
@@ -171,7 +171,7 @@ export function TeamCard({
             {team.official_name}
           </h3>
 
-          <div className="mt-3 space-y-2 text-sm text-[#70819b]">
+          <div className="mt-3 space-y-2 text-sm text-[var(--n-500)]">
             <div className="flex items-center gap-2">
               <MapPinned className="size-4 shrink-0" />
               <span>{team.stadium ?? "Sin estadio cargado"}</span>
@@ -194,7 +194,7 @@ export function TeamCard({
                 <a
                   href={`mailto:${responsibleContact.email}`}
                   aria-label={`Escribir por correo a ${responsibleContact.fullName}`}
-                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[#eef2ff] text-[#4f46e5] transition hover:bg-[#e0e7ff]"
+                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)] transition hover:bg-[var(--accent-border)]"
                 >
                   <Mail className="size-4" />
                 </a>

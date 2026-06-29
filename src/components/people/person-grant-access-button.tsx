@@ -38,7 +38,7 @@ export function PersonGrantAccessButton({
       />
 
       <label className="space-y-2">
-        <span className="flex items-center gap-2 text-sm font-semibold text-[#334155]">
+        <span className="flex items-center gap-2 text-sm font-semibold text-[var(--n-700)]">
           Nivel de acceso
           <span className="inline-block size-1.5 rounded-full bg-[var(--accent)]" />
         </span>
@@ -49,7 +49,7 @@ export function PersonGrantAccessButton({
               onChange={(event) =>
                 setAccessRole(event.target.value as AccessTierValue)
               }
-              className="h-12 appearance-none rounded-[var(--panel-radius)] border-[#e5e7eb] bg-[#f9f9f9] pr-10 text-[15px] font-medium text-[#1f2937] shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(230,18,56,0.08)]"
+              className="h-12 appearance-none rounded-[var(--panel-radius)] border-[var(--n-200)] bg-[var(--n-50)] pr-10 text-[15px] font-medium text-[var(--n-800)] shadow-[inset_0_2px_4px_rgba(28,13,16,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(227,27,35,0.08)]"
             >
               {ACCESS_TIER_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -57,20 +57,20 @@ export function PersonGrantAccessButton({
                 </option>
               ))}
             </Select>
-            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-[#98a2b3]" />
+            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-[var(--n-400)]" />
           </div>
         ) : (
-          <div className="flex h-12 items-center rounded-[var(--panel-radius)] border border-[#e5e7eb] bg-[#f9f9f9] px-4 text-[15px] font-medium text-[#1f2937] shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)]">
+          <div className="flex h-12 items-center rounded-[var(--panel-radius)] border border-[var(--n-200)] bg-[var(--n-50)] px-4 text-[15px] font-medium text-[var(--n-800)] shadow-[inset_0_2px_4px_rgba(28,13,16,0.04)]">
             {APP_ROLE_DISPLAY_NAMES.collaborator}
           </div>
         )}
       </label>
 
-      <div className="rounded-[var(--panel-radius)] border border-[#e5e7eb] bg-[#f9f9f9] px-4 py-3 shadow-[inset_0_2px_4px_rgba(15,23,42,0.04)]">
-        <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#95a3ba]">
+      <div className="rounded-[var(--panel-radius)] border border-[var(--n-200)] bg-[var(--n-50)] px-4 py-3 shadow-[inset_0_2px_4px_rgba(28,13,16,0.04)]">
+        <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
           Correo de ingreso
         </p>
-        <p className="mt-1 text-sm font-medium text-[#344054]">
+        <p className="mt-1 text-sm font-medium text-[var(--n-700)]">
           Se enviará una invitación al correo del colaborador. Ingresa con un
           enlace de acceso (o Google); no se define contraseña.
         </p>

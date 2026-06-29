@@ -80,7 +80,7 @@ export function LeagueLogoMarkClient({
           className="object-contain p-0.5"
         />
       ) : (
-        <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[#70819b]">
+        <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--n-500)]">
           {getLeagueInitials(league)}
         </span>
       )}
