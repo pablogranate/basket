@@ -23,7 +23,7 @@ export const appEnv = {
   mailFrom: process.env.MAIL_FROM ?? process.env.SMTP_USER ?? "",
   intakeApiKey: process.env.INTAKE_API_KEY ?? "",
   gridSyncEnabled: process.env.GRID_SYNC_ENABLED !== "false",
-  gridSyncCron: process.env.GRID_SYNC_CRON ?? "0 */6 * * *",
+  gridSyncCron: process.env.GRID_SYNC_CRON ?? "*/30 * * * *",
   openwaApiUrl: process.env.OPENWA_API_URL ?? "",
   openwaApiKey: process.env.OPENWA_API_KEY ?? "",
   openwaNotifyEnabled: process.env.OPENWA_NOTIFY_ENABLED !== "false",

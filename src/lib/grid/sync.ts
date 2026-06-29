@@ -11,8 +11,8 @@ const SHEET_ID = "18Zqlayhde5XpOehkXOa1FKtaBSXhDGDfvqMvstT5Rm8";
 const TIMEZONE = "America/Argentina/Buenos_Aires";
 const DEFAULT_DURATION_MINUTES = 150;
 
-// How many months ahead of the current month to sync (current + N).
-const SYNC_MONTHS_AHEAD = 2;
+// Rolling window the sync operates on: today through the next 30 days.
+const SYNC_WINDOW_DAYS = 30;
 
 const MONTHS: Record<string, number> = {
   enero: 1,
@@ -134,23 +134,6 @@ function parseDayMarker(value: unknown) {
   return match ? Number(match[1]) : null;
 }
 
-function parseTeams(matchText: unknown) {
-  const text = String(matchText ?? "").trim();
-  if (!text) {
-    return { home: "", away: "" };
-  }
-
-  const parts = text.split(/\s+vs\.?\s+/i);
-  if (parts.length >= 2) {
-    return {
-      home: parts[0].trim(),
-      away: parts.slice(1).join(" vs ").trim(),
-    };
-  }
-
-  return { home: text, away: text };
-}
-
 function toKickoffAt({
   year,
   month,
@@ -215,8 +198,8 @@ function parseTab(tabName: string, csvSource: string): SheetEntry[] {
       currentDay = dayMarker;
     }
 
-    const matchText = readCell(row, "partido");
-    if (!matchText) {
+    const home = readCell(row, "local");
+    if (!home) {
       continue;
     }
 
@@ -224,7 +207,7 @@ function parseTab(tabName: string, csvSource: string): SheetEntry[] {
       continue;
     }
 
-    const { home, away } = parseTeams(matchText);
+    const away = readCell(row, "visitante");
     const kickoffAt = toKickoffAt({ year, month, day: currentDay, time: readCell(row, "hora") });
 
     const assignments: Array<{ roleName: string; personName: string }> = [];
@@ -270,14 +253,43 @@ export function startOfTodayInTimezone(now: Date): Date {
   return fromZonedTime(`${parts}T00:00:00`, TIMEZONE);
 }
 
-// Current month + the next SYNC_MONTHS_AHEAD months as "<MesEs> <YY>".
+// Exclusive end of the rolling sync window, as an instant. Fixed 24h-day math
+// is exact because Argentina observes no DST (see ADR 0002).
+export function endOfSyncWindow(now: Date): Date {
+  return new Date(
+    startOfTodayInTimezone(now).getTime() + SYNC_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+  );
+}
+
+// Calendar year + month (1-12) of an instant, read in the sheet timezone.
+function zonedYearMonth(instant: Date): { year: number; month: number } {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+  }).formatToParts(instant);
+  const year = Number(parts.find((part) => part.type === "year")?.value);
+  const month = Number(parts.find((part) => part.type === "month")?.value);
+  return { year, month };
+}
+
+// Every month tab the rolling window touches (1-3), as "<MesEs> <YY>".
+// Derived from the same tz boundaries as the entry filter so the two agree.
 export function resolveSyncTabs(now: Date): string[] {
+  const start = zonedYearMonth(startOfTodayInTimezone(now));
+  const end = zonedYearMonth(endOfSyncWindow(now));
+
   const tabs: string[] = [];
-  for (let offset = 0; offset <= SYNC_MONTHS_AHEAD; offset += 1) {
-    const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + offset, 1));
-    const monthName = MONTH_NAMES[date.getUTCMonth()];
-    const yearSuffix = String(date.getUTCFullYear() % 100).padStart(2, "0");
+  let { year, month } = start;
+  while (year < end.year || (year === end.year && month <= end.month)) {
+    const monthName = MONTH_NAMES[month - 1];
+    const yearSuffix = String(year % 100).padStart(2, "0");
     tabs.push(`${monthName} ${yearSuffix}`);
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
   }
   return tabs;
 }
@@ -285,7 +297,7 @@ export function resolveSyncTabs(now: Date): string[] {
 // --- delta helpers ---
 
 function tripleKey(home: string, away: string, kickoffIso: string) {
-  return `${home}|${away}|${new Date(kickoffIso).getTime()}`;
+  return `${normalizeText(home)}|${normalizeText(away)}|${new Date(kickoffIso).getTime()}`;
 }
 
 // Postgres unique_violation; surfaced by supabase-js on the error `code`.
@@ -370,14 +382,17 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
       }
     }
 
-    // Never touch matches before the current day: drop past entries so the
-    // sync neither creates, updates, nor rewrites assignments for them.
-    const cutoff = startOfTodayInTimezone(now).getTime();
-    const futureEntries = entries.filter(
-      (entry) => new Date(entry.match.kickoff_at).getTime() >= cutoff,
-    );
+    // Only touch matches inside the rolling window [today, today + 30d):
+    // drop past entries and anything beyond the horizon so the sync neither
+    // creates, updates, nor rewrites assignments for them.
+    const windowStart = startOfTodayInTimezone(now).getTime();
+    const windowEnd = endOfSyncWindow(now).getTime();
+    const windowEntries = entries.filter((entry) => {
+      const kickoff = new Date(entry.match.kickoff_at).getTime();
+      return kickoff >= windowStart && kickoff < windowEnd;
+    });
     entries.length = 0;
-    entries.push(...futureEntries);
+    entries.push(...windowEntries);
 
     if (entries.length) {
       // 2. Preload existing matches in the synced kickoff window.

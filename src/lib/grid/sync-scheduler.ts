@@ -6,8 +6,9 @@ import { appEnv } from "@/lib/env";
 import { getLastSuccessfulSync, runGridSync } from "@/lib/grid/sync";
 
 // Skip a cron run if a success started within this window. Guards against
-// duplicate fires across server restarts or multiple workers sharing the DB.
-const MIN_GAP_MS = 5 * 60 * 60 * 1000 + 55 * 60 * 1000; // ~5h55m
+// duplicate fires across server restarts or multiple workers sharing the DB,
+// while still allowing the normal 30-minute cadence through.
+const MIN_GAP_MS = 25 * 60 * 1000; // 25m
 
 let scheduled = false;
 
