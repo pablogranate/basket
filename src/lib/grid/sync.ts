@@ -14,6 +14,11 @@ const DEFAULT_DURATION_MINUTES = 150;
 // Rolling window the sync operates on: today through the next 30 days.
 const SYNC_WINDOW_DAYS = 30;
 
+// First tab that uses the Local/Visitante columns. Earlier tabs still carry the
+// retired single "Partido" column, so they must never be fetched or parsed.
+// See ADR 0001 (format switch) and ADR 0003 (cutover floor).
+const FORMAT_CUTOVER = { year: 2026, month: 7 }; // Julio 26
+
 const MONTHS: Record<string, number> = {
   enero: 1,
   febrero: 2,
@@ -273,8 +278,17 @@ function zonedYearMonth(instant: Date): { year: number; month: number } {
   return { year, month };
 }
 
+// True when (year, month) is strictly before the Local/Visitante cutover.
+function isBeforeCutover(year: number, month: number): boolean {
+  return (
+    year < FORMAT_CUTOVER.year ||
+    (year === FORMAT_CUTOVER.year && month < FORMAT_CUTOVER.month)
+  );
+}
+
 // Every month tab the rolling window touches (1-3), as "<MesEs> <YY>".
 // Derived from the same tz boundaries as the entry filter so the two agree.
+// Tabs before the format cutover (old "Partido" column) are excluded.
 export function resolveSyncTabs(now: Date): string[] {
   const start = zonedYearMonth(startOfTodayInTimezone(now));
   const end = zonedYearMonth(endOfSyncWindow(now));
@@ -282,9 +296,11 @@ export function resolveSyncTabs(now: Date): string[] {
   const tabs: string[] = [];
   let { year, month } = start;
   while (year < end.year || (year === end.year && month <= end.month)) {
-    const monthName = MONTH_NAMES[month - 1];
-    const yearSuffix = String(year % 100).padStart(2, "0");
-    tabs.push(`${monthName} ${yearSuffix}`);
+    if (!isBeforeCutover(year, month)) {
+      const monthName = MONTH_NAMES[month - 1];
+      const yearSuffix = String(year % 100).padStart(2, "0");
+      tabs.push(`${monthName} ${yearSuffix}`);
+    }
     month += 1;
     if (month > 12) {
       month = 1;

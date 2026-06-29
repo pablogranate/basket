@@ -1,6 +1,6 @@
 # Grid sync reads Local/Visitante columns; tripleKey is normalized
 
-As of the Julio 25 tab, the "Grilla Producción 25/26" sheet replaced its single `Partido` column (`"Local vs Visitante"`) with two columns, `Local` and `Visitante`. The runtime sync (`src/lib/grid/sync.ts`, used by both the manual sync button and the cron scheduler) now reads those two cells directly and drops the old `parseTeams` "vs" split. Every tab uses the new format — there is no per-tab format detection.
+As of the Julio 26 tab, the "Grilla Producción 25/26" sheet replaced its single `Partido` column (`"Local vs Visitante"`) with two columns, `Local` and `Visitante`. The runtime sync (`src/lib/grid/sync.ts`, used by both the manual sync button and the cron scheduler) now reads those two cells directly and drops the old `parseTeams` "vs" split. Every tab uses the new format — there is no per-tab format detection.
 
 ## Consequences
 
