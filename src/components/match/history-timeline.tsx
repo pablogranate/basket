@@ -17,7 +17,7 @@ export function HistoryTimeline({
   return (
     <section className="space-y-4 border-t border-[var(--border)] pt-8">
       <div className="flex items-center gap-2">
-        <History className="size-5 text-[#b9969c]" />
+        <History className="size-5 text-[var(--n-400)]" />
         <h3 className="text-2xl font-bold tracking-tight text-[var(--foreground)]">
           Actividad Reciente
         </h3>
@@ -36,8 +36,8 @@ export function HistoryTimeline({
                     <div
                       className={
                         index === 0
-                          ? "size-3 rounded-full bg-[var(--accent)] ring-4 ring-[rgba(230,18,56,0.16)]"
-                          : "size-3 rounded-full bg-[#dfcfd2]"
+                          ? "size-3 rounded-full bg-[var(--accent)] ring-4 ring-[rgba(227,27,35,0.16)]"
+                          : "size-3 rounded-full bg-[var(--n-300)]"
                       }
                     />
                   </div>
@@ -55,7 +55,7 @@ export function HistoryTimeline({
                     </p>
                   ) : null}
 
-                  <p className="mt-1 text-xs font-medium text-[#b48a90]">
+                  <p className="mt-1 text-xs font-medium text-[var(--n-500)]">
                     {formatDistanceToNowStrict(parseISO(entry.created_at), {
                       addSuffix: true,
                       locale: es,
