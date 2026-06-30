@@ -65,8 +65,8 @@ export async function recordAttendanceConfirmation(
   }
 
   // attendance_confirmed_at stays the "will attend" signal (set only when
-  // attending); declined/pending leave it NULL. attendance_note only persists
-  // for a decline.
+  // attending); pending leaves it NULL. attendance_note is the optional note the
+  // person leaves alongside their confirmation; cleared when there is no response.
   const updateResult = await supabase
     .from("assignments")
     .update(
@@ -74,8 +74,7 @@ export async function recordAttendanceConfirmation(
         attendance_response: params.response,
         attendance_confirmed_at:
           params.response === "attending" ? new Date().toISOString() : null,
-        attendance_note:
-          params.response === "declined" ? params.note?.trim() || null : null,
+        attendance_note: params.response ? params.note?.trim() || null : null,
       }),
     )
     .eq("id", params.assignmentId);
