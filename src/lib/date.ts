@@ -28,6 +28,24 @@ export function formatMatchTime(
   return formatInTimeZone(kickoffAt, timezone, pattern, { locale: es });
 }
 
+export const PENDING_KICKOFF_TIME_LABEL = "Pend. Confirmación";
+
+export function isPendingKickoffTime(
+  kickoffAt: string,
+  timezone = DEFAULT_TIMEZONE,
+) {
+  return formatInTimeZone(kickoffAt, timezone, "HH:mm") === "00:00";
+}
+
+export function formatMatchTimeLabel(
+  kickoffAt: string,
+  timezone = DEFAULT_TIMEZONE,
+) {
+  return isPendingKickoffTime(kickoffAt, timezone)
+    ? PENDING_KICKOFF_TIME_LABEL
+    : formatMatchTime(kickoffAt, timezone);
+}
+
 export function formatMatchDate(
   kickoffAt: string,
   timezone = DEFAULT_TIMEZONE,

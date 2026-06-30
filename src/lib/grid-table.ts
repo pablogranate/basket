@@ -3,7 +3,7 @@ import {
   normalizeCommentaryPlan,
   RESPONSIBLE_DISPLAY_LABEL,
 } from "@/lib/constants";
-import { formatMatchDate } from "@/lib/date";
+import { formatMatchDate, formatMatchTimeLabel } from "@/lib/date";
 import type { MatchListItem } from "@/lib/types";
 
 export type GridExportRow = {
@@ -75,7 +75,7 @@ export function toExportRows(matches: MatchListItem[]): GridExportRow[] {
     ID: match.production_code ?? "",
     Liga: match.competition ?? "",
     Partido: `${match.home_team} vs ${match.away_team}`,
-    Hora: formatMatchDate(match.kickoff_at, match.timezone, "HH:mm"),
+    Hora: formatMatchTimeLabel(match.kickoff_at, match.timezone),
     Responsable:
       getAssignmentName(
         match,

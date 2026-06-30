@@ -24,7 +24,7 @@ import {
   PRODUCTION_SHORT_LABEL,
   RESPONSIBLE_DISPLAY_LABEL,
 } from "@/lib/constants";
-import { formatMatchTime } from "@/lib/date";
+import { formatMatchTimeLabel, isPendingKickoffTime } from "@/lib/date";
 import { getCompactPersonName } from "@/lib/display";
 import { getAttendanceState, getAttendanceTextClass } from "@/lib/grid/attendance";
 import { getGridLeagueColor } from "@/lib/league-grid-colors";
@@ -523,8 +523,15 @@ export function MatchCard({
                 <Clock3 className="mc-icon" />
                 Hora
               </p>
-              <p className="font-[family-name:var(--font-oswald)] mt-1 text-4xl font-bold tracking-[-0.06em] text-[var(--accent)]">
-                {formatMatchTime(match.kickoff_at, match.timezone)}
+              <p
+                className={cn(
+                  "font-[family-name:var(--font-oswald)] mt-1 font-bold tracking-[-0.06em] text-[var(--accent)]",
+                  isPendingKickoffTime(match.kickoff_at, match.timezone)
+                    ? "text-lg"
+                    : "text-4xl",
+                )}
+              >
+                {formatMatchTimeLabel(match.kickoff_at, match.timezone)}
               </p>
             </div>
           </div>
