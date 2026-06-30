@@ -1068,8 +1068,8 @@ function AttendanceInlineControl({
 }: {
   assignment: CollaboratorAssignmentItem;
 }) {
-  const [choice, setChoice] = useState<"attending" | "declined" | null>(
-    assignment.attendanceResponse,
+  const [choice, setChoice] = useState<"attending" | null>(
+    assignment.attendanceResponse === "attending" ? "attending" : null,
   );
   const [note, setNote] = useState(assignment.attendanceNote ?? "");
 
@@ -1109,7 +1109,7 @@ function AttendanceInlineControl({
             )}
           </span>
         </div>
-        {response === "declined" && assignment.attendanceNote?.trim() ? (
+        {assignment.attendanceNote?.trim() ? (
           <p className="mt-2 text-xs font-semibold leading-5 text-[var(--n-600)]">
             “{assignment.attendanceNote.trim()}”
           </p>
@@ -1125,9 +1125,7 @@ function AttendanceInlineControl({
         "panel-radius border px-4 py-3",
         response === "attending"
           ? "border-[#d7eadf] bg-[#f3fcf6]"
-          : response === "declined"
-            ? "border-[#f3d2da] bg-[#fff5f7]"
-            : "border-[var(--n-200)] bg-[var(--n-50)]",
+          : "border-[var(--n-200)] bg-[var(--n-50)]",
       )}
     >
       <input type="hidden" name="assignmentId" value={assignment.assignmentId} />
@@ -1147,26 +1145,16 @@ function AttendanceInlineControl({
           <CheckCircle2 className="size-3.5" />
           Asistiré
         </AttendanceChoiceButton>
-        <AttendanceChoiceButton
-          active={choice === "declined"}
-          tone="decline"
-          onClick={() => setChoice("declined")}
-        >
-          <X className="size-3.5" />
-          No asistiré
-        </AttendanceChoiceButton>
       </div>
 
-      {choice === "declined" ? (
-        <textarea
-          name="note"
-          value={note}
-          onChange={(event) => setNote(event.currentTarget.value)}
-          rows={2}
-          placeholder="Motivo (opcional)"
-          className="mt-2 w-full resize-none rounded-[var(--panel-radius)] border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--n-400)] focus:border-[var(--accent)]"
-        />
-      ) : null}
+      <textarea
+        name="note"
+        value={note}
+        onChange={(event) => setNote(event.currentTarget.value)}
+        rows={2}
+        placeholder="Notas (opcional)"
+        className="mt-2 w-full resize-none rounded-[var(--panel-radius)] border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--n-400)] focus:border-[var(--accent)]"
+      />
 
       <div className="mt-2.5 flex items-center justify-end">
         <AttendanceSubmitButton disabled={!choice} />
