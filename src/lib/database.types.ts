@@ -376,6 +376,7 @@ export interface Database {
           created_count: number;
           updated_count: number;
           skipped_count: number;
+          deleted_count: number;
           assignments_upserted: number;
           assignments_deleted: number;
           people_created: number;
@@ -390,6 +391,7 @@ export interface Database {
           created_count?: number;
           updated_count?: number;
           skipped_count?: number;
+          deleted_count?: number;
           assignments_upserted?: number;
           assignments_deleted?: number;
           people_created?: number;
@@ -403,6 +405,7 @@ export interface Database {
           created_count?: number;
           updated_count?: number;
           skipped_count?: number;
+          deleted_count?: number;
           assignments_upserted?: number;
           assignments_deleted?: number;
           people_created?: number;
