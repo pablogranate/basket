@@ -32,7 +32,7 @@ async function runScheduledSync() {
     }
 
     console.info(
-      `[grid-sync] cron run done: ${result.created} creados, ${result.updated} actualizados, ${result.unchanged} sin cambios, asignaciones +${result.assignmentsUpserted}/-${result.assignmentsDeleted}`,
+      `[grid-sync] cron run done: ${result.created} creados, ${result.updated} actualizados, ${result.unchanged} sin cambios, ${result.deleted} eliminados, asignaciones +${result.assignmentsUpserted}/-${result.assignmentsDeleted}`,
     );
   } catch (error) {
     console.error("[grid-sync] cron run failed", error);

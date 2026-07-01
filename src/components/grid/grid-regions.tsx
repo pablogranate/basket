@@ -3,7 +3,6 @@ import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 
 import { SectionAiAssistant } from "@/components/ai/section-ai-assistant";
-import { CreateMatchModal } from "@/components/grid/create-match-modal";
 import { GridExportButton } from "@/components/grid/grid-export-button";
 import { GridSyncButton } from "@/components/grid/grid-sync-button";
 import { GridTable } from "@/components/grid/grid-table";
@@ -12,7 +11,7 @@ import { MatchCard } from "@/components/grid/match-card";
 import { PeopleProvider } from "@/components/grid/people-context";
 import { ProductionInsightsPanel } from "@/components/grid/production-insights-panel";
 import { EmptyState } from "@/components/ui/empty-state";
-import { formatMatchDate, getDateInputValue, toDateKey } from "@/lib/date";
+import { formatMatchDate, toDateKey } from "@/lib/date";
 import { getGridData } from "@/lib/data/dashboard";
 import type { GridFilters } from "@/lib/data/dashboard";
 import { buildProductionInsightsSummary } from "@/lib/grid/insights";
@@ -135,7 +134,7 @@ export async function GridHeaderDataActions({
   redirectTo: string;
   summaryDateLabel: string;
 }) {
-  const [{ dayGroups, owners }, settings, lastSync] = await Promise.all([
+  const [{ dayGroups }, settings, lastSync] = await Promise.all([
     loadGrid(user, filters),
     getSettingsSnapshot(),
     user.canEdit ? getLastSuccessfulSync() : Promise.resolve(null),
@@ -190,14 +189,6 @@ export async function GridHeaderDataActions({
         hasGeminiKey={settings.hasGeminiKey}
         buttonVariant="icon"
       />
-      <CreateMatchModal
-        people={owners}
-        redirectTo={redirectTo}
-        canEdit={user.canEdit}
-        initialDate={
-          filters.view === "day" ? filters.date : getDateInputValue()
-        }
-      />
     </>
   );
 }
@@ -235,7 +226,7 @@ export async function GridContent({
     return (
       <EmptyState
         title="No hay partidos cargados para esta vista"
-        description="Crea un partido desde Nuevo partido o cambia entre Hoy y Mes para revisar otra jornada."
+        description="Los partidos se sincronizan desde la grilla de producción. Cambia entre Hoy y Mes para revisar otra jornada."
       />
     );
   }

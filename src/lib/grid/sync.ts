@@ -81,6 +81,7 @@ export type GridSyncResult = {
   created: number;
   updated: number;
   unchanged: number;
+  deleted: number;
   assignmentsUpserted: number;
   assignmentsDeleted: number;
   peopleCreated: number;
@@ -365,6 +366,7 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
     created: 0,
     updated: 0,
     unchanged: 0,
+    deleted: 0,
     assignmentsUpserted: 0,
     assignmentsDeleted: 0,
     peopleCreated: 0,
@@ -409,6 +411,10 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
     });
     entries.length = 0;
     entries.push(...windowEntries);
+
+    // Ids of every match created or matched while processing in-window entries.
+    // The delete pass treats any in-window match NOT in this set as removed.
+    const touchedMatchIds = new Set<string>();
 
     if (entries.length) {
       // 2. Preload existing matches in the synced kickoff window.
@@ -658,6 +664,8 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
             }
           }
 
+          touchedMatchIds.add(matchId);
+
           // Assignment delta — mirror sheet within sheet-managed roles only.
           const desired = new Map<string, string>();
           for (const assignment of entry.assignments) {
@@ -719,12 +727,88 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
       }
     }
 
+    // 7. Delete pass — hard-remove in-window matches that vanished from the
+    // sheet. Clean-run-only: a missing tab or a per-entry error makes a still
+    // present match look "removed", so skip the entire pass in that case.
+    // Runs even when entries.length === 0 (a legitimately emptied but
+    // successfully-fetched month must still purge its window matches).
+    if (result.tabsMissing.length === 0 && result.errors.length === 0) {
+      const windowStartIso = new Date(windowStart).toISOString();
+      const windowEndIso = new Date(windowEnd).toISOString();
+
+      // Dedicated full-window select — the entries-derived min/max range is
+      // empty on a zero-entry run, so this must not reuse it.
+      const candidatesQuery = await supabase
+        .from("matches")
+        .select("id, home_team, away_team, kickoff_at")
+        .gte("kickoff_at", windowStartIso)
+        .lt("kickoff_at", windowEndIso);
+
+      if (candidatesQuery.error) {
+        // A failed candidate read must not abort a run that already saved.
+        result.errors.push(candidatesQuery.error.message);
+      } else {
+        // Only months actually covered by a synced tab are eligible: a window
+        // month with no tab coverage (e.g. pre-cutover) is not "missing", so
+        // its matches must never be deleted.
+        const coveredMonths = new Set<string>();
+        for (const tabName of result.tabsSynced) {
+          const { year, month } = parseTabPeriod(tabName);
+          coveredMonths.add(`${year}-${month}`);
+        }
+
+        type CandidateRow = Pick<
+          MatchRow,
+          "id" | "home_team" | "away_team" | "kickoff_at"
+        >;
+        const candidates = (candidatesQuery.data ?? []) as CandidateRow[];
+
+        const deletable = candidates.filter((match) => {
+          if (touchedMatchIds.has(match.id)) {
+            return false;
+          }
+          const { year, month } = zonedYearMonth(new Date(match.kickoff_at));
+          return coveredMonths.has(`${year}-${month}`);
+        });
+
+        const deletedLabels: string[] = [];
+        for (const rowChunk of chunk(deletable, 300)) {
+          const remove = await supabase
+            .from("matches")
+            .delete()
+            .in(
+              "id",
+              rowChunk.map((match) => match.id),
+            );
+          if (remove.error) {
+            // Error-tolerant: a delete failure must not abort a run that
+            // already created/updated successfully.
+            result.errors.push(remove.error.message);
+            continue;
+          }
+          result.deleted += rowChunk.length;
+          for (const match of rowChunk) {
+            deletedLabels.push(
+              `${match.home_team} vs ${match.away_team} @ ${match.kickoff_at}`,
+            );
+          }
+        }
+
+        // Only forensic trail: the match's audit_log rows cascade away with it,
+        // so the delete leaves no audit record.
+        if (deletedLabels.length) {
+          console.info("[grid-sync] deleted:", deletedLabels);
+        }
+      }
+    }
+
     await supabase.from("grid_sync_runs").insert({
       trigger,
       status: "success",
       created_count: result.created,
       updated_count: result.updated,
       skipped_count: result.unchanged,
+      deleted_count: result.deleted,
       assignments_upserted: result.assignmentsUpserted,
       assignments_deleted: result.assignmentsDeleted,
       people_created: result.peopleCreated,
@@ -744,6 +828,7 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
       created_count: result.created,
       updated_count: result.updated,
       skipped_count: result.unchanged,
+      deleted_count: result.deleted,
       assignments_upserted: result.assignmentsUpserted,
       assignments_deleted: result.assignmentsDeleted,
       people_created: result.peopleCreated,

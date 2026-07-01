@@ -16,6 +16,7 @@ function buildSyncNotice(result: Awaited<ReturnType<typeof runGridSync>>) {
     `${result.created} creados`,
     `${result.updated} actualizados`,
     `${result.unchanged} sin cambios`,
+    `${result.deleted} eliminados`,
   ];
 
   if (result.assignmentsUpserted || result.assignmentsDeleted) {
