@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+
 import Link from "next/link";
 import {
   Camera,
@@ -37,7 +39,7 @@ import { StatCard } from "@/components/ui/stat-card";
 import { Textarea } from "@/components/ui/textarea";
 import { getToolbarIconButtonClassName } from "@/components/ui/toolbar-icon-button";
 import { ToolbarSearchField } from "@/components/ui/toolbar-search-field";
-import { requireUserContext } from "@/lib/auth";
+import { requireUserContext, type UserContext } from "@/lib/auth";
 import {
   canManageAccessTier,
   isAccessManagerRole,
@@ -177,59 +179,19 @@ export default async function PeoplePage({ searchParams }: PageProps) {
     return <SetupPanel />;
   }
 
-  // Settings only reads cookies + a request-cached app_settings row — overlap
-  // it with the auth + people round-trips instead of paying it serially.
+  // Fire the people + settings reads without awaiting so the page shell
+  // (header, toolbar) streams immediately; the data region and the
+  // data-dependent header buttons resolve under their own Suspense boundaries
+  // sharing the same promise (single round-trip).
   const settingsPromise = getSettingsSnapshot();
   const user = await requireUserContext();
-  const [allPeople, settings] = await Promise.all([
-    getPeopleData(user),
-    settingsPromise,
-  ]);
+  const peoplePromise = getPeopleData(user);
   const filters = parsePeopleFilters(resolvedSearchParams);
-  const filterOptions = derivePeopleFilterOptions(allPeople);
-  const people = applyPeopleFilters({ people: allPeople, filters, query });
-  const activePeople = people.filter((person) => person.active);
-  const activeCount = activePeople.length;
-  const inactiveCount = people.length - activeCount;
-  const relatorCount = activePeople.filter(
-    (person) => getPersonRole(person) === "Relator",
-  ).length;
-  const producerCount = activePeople.filter(
-    (person) => getPersonRole(person) === "Productor",
-  ).length;
-  const cameraCount = activePeople.filter((person) =>
-    getPersonRole(person).startsWith("Camara"),
-  ).length;
-  const exportHref = toCsvHref(people);
-  const aiContext = toPeopleAiContext(people);
-  const selectedPerson =
-    allPeople.find((person) => person.id === editPersonId) ?? null;
-  const selectedMeta = selectedPerson
-    ? parsePersonNotesMeta(selectedPerson.notes)
-    : null;
   const canManageAccess = isAccessManagerRole(user.role);
   const canSelectAccessTier = user.role === "admin";
-  let selectedPersonAccessRole: AppRole | null = null;
-
-  if (selectedPerson?.email && canManageAccess) {
-    selectedPersonAccessRole = await getPlatformAccessRole(selectedPerson.email);
-  }
-
-  const selectedPersonHasPlatformAccess = selectedPersonAccessRole !== null;
-  // Productores may revoke only Externo logins; admins may revoke any tier.
-  const canRevokeSelectedAccess =
-    selectedPersonAccessRole !== null &&
-    canManageAccessTier(user.role, selectedPersonAccessRole);
-
   const currentPeopleHref = buildPeopleHref(resolvedSearchParams, {
     edit: undefined,
   });
-  const selectedPeopleHref = selectedPerson
-    ? buildPeopleHref(resolvedSearchParams, {
-        edit: selectedPerson.id,
-        view: viewMode === "directory" ? "directory" : undefined,
-      })
-    : null;
 
   return (
     <div className="space-y-10">
@@ -263,35 +225,14 @@ export default async function PeoplePage({ searchParams }: PageProps) {
                 <input type="hidden" name="team" value={filters.team} />
               ) : null}
             </ToolbarSearchField>
-            {people.length ? (
-              <>
-                <a
-                  href={exportHref}
-                  download="basket-production-personal.csv"
-                  aria-label="Descargar lista de personal"
-                  title="Descargar lista de personal"
-                  className={getToolbarIconButtonClassName({ tone: "violet" })}
-                >
-                  <Download className="size-4" />
-                </a>
-                <SectionAiAssistant
-                  section="Personal"
-                  title="Consulta el personal visible"
-                  description="Haz preguntas sobre roles, coberturas, disponibilidad, teléfonos o correos del personal cargado en esta pantalla."
-                  placeholder="Ej. ¿Qué rol tiene Santiago Córdoba y quién cubre Boca Juniors?"
-                  contextLabel="Personal visible en la vista actual"
-                  context={aiContext}
-                  guidance="Prioriza rol principal, responsable de equipos, estado, teléfono, email y notas. Si preguntan por una persona, responde solo con lo visible en esta pantalla."
-                  examples={[
-                    "¿Qué rol tiene Santiago Córdoba?",
-                    "¿Quién cubre Boca Juniors?",
-                    "¿Qué datos hay de Juan Camilo y Samuel Venegas?",
-                  ]}
-                  hasGeminiKey={settings.hasGeminiKey}
-                  buttonVariant="icon"
-                />
-              </>
-            ) : null}
+            <Suspense fallback={null}>
+              <PeopleHeaderExtras
+                peoplePromise={peoplePromise}
+                settingsPromise={settingsPromise}
+                filters={filters}
+                query={query}
+              />
+            </Suspense>
             {user.canEdit ? (
               <CreatePersonModal
                 canEdit={user.canEdit}
@@ -308,6 +249,156 @@ export default async function PeoplePage({ searchParams }: PageProps) {
 
       <PageMessage intent={intent} message={notice} />
 
+      <Suspense fallback={<PeopleDataSkeleton />}>
+        <PeopleDataRegion
+          peoplePromise={peoplePromise}
+          user={user}
+          resolvedSearchParams={resolvedSearchParams}
+          filters={filters}
+          query={query}
+          viewMode={viewMode}
+          editPersonId={editPersonId}
+          canManageAccess={canManageAccess}
+          canSelectAccessTier={canSelectAccessTier}
+          currentPeopleHref={currentPeopleHref}
+        />
+      </Suspense>
+    </div>
+  );
+}
+
+async function PeopleHeaderExtras({
+  peoplePromise,
+  settingsPromise,
+  filters,
+  query,
+}: {
+  peoplePromise: Promise<PersonListItem[]>;
+  settingsPromise: ReturnType<typeof getSettingsSnapshot>;
+  filters: ReturnType<typeof parsePeopleFilters>;
+  query: string;
+}) {
+  const [allPeople, settings] = await Promise.all([
+    peoplePromise,
+    settingsPromise,
+  ]);
+  const people = applyPeopleFilters({ people: allPeople, filters, query });
+
+  if (!people.length) {
+    return null;
+  }
+
+  return (
+    <>
+      <a
+        href={toCsvHref(people)}
+        download="basket-production-personal.csv"
+        aria-label="Descargar lista de personal"
+        title="Descargar lista de personal"
+        className={getToolbarIconButtonClassName({ tone: "violet" })}
+      >
+        <Download className="size-4" />
+      </a>
+      <SectionAiAssistant
+        section="Personal"
+        title="Consulta el personal visible"
+        description="Haz preguntas sobre roles, coberturas, disponibilidad, teléfonos o correos del personal cargado en esta pantalla."
+        placeholder="Ej. ¿Qué rol tiene Santiago Córdoba y quién cubre Boca Juniors?"
+        contextLabel="Personal visible en la vista actual"
+        context={toPeopleAiContext(people)}
+        guidance="Prioriza rol principal, responsable de equipos, estado, teléfono, email y notas. Si preguntan por una persona, responde solo con lo visible en esta pantalla."
+        examples={[
+          "¿Qué rol tiene Santiago Córdoba?",
+          "¿Quién cubre Boca Juniors?",
+          "¿Qué datos hay de Juan Camilo y Samuel Venegas?",
+        ]}
+        hasGeminiKey={settings.hasGeminiKey}
+        buttonVariant="icon"
+      />
+    </>
+  );
+}
+
+function PeopleDataSkeleton() {
+  return (
+    <div className="space-y-10" aria-busy="true" aria-live="polite">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <div
+            key={index}
+            className="h-24 animate-pulse rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)]"
+          />
+        ))}
+      </div>
+      <div className="h-96 animate-pulse rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)]" />
+    </div>
+  );
+}
+
+async function PeopleDataRegion({
+  peoplePromise,
+  user,
+  resolvedSearchParams,
+  filters,
+  query,
+  viewMode,
+  editPersonId,
+  canManageAccess,
+  canSelectAccessTier,
+  currentPeopleHref,
+}: {
+  peoplePromise: Promise<PersonListItem[]>;
+  user: UserContext;
+  resolvedSearchParams: Record<string, string | string[] | undefined>;
+  filters: ReturnType<typeof parsePeopleFilters>;
+  query: string;
+  viewMode: "table" | "directory";
+  editPersonId: string | undefined;
+  canManageAccess: boolean;
+  canSelectAccessTier: boolean;
+  currentPeopleHref: string;
+}) {
+  const allPeople = await peoplePromise;
+  const filterOptions = derivePeopleFilterOptions(allPeople);
+  const people = applyPeopleFilters({ people: allPeople, filters, query });
+  const activePeople = people.filter((person) => person.active);
+  const activeCount = activePeople.length;
+  const inactiveCount = people.length - activeCount;
+  const relatorCount = activePeople.filter(
+    (person) => getPersonRole(person) === "Relator",
+  ).length;
+  const producerCount = activePeople.filter(
+    (person) => getPersonRole(person) === "Productor",
+  ).length;
+  const cameraCount = activePeople.filter((person) =>
+    getPersonRole(person).startsWith("Camara"),
+  ).length;
+  const selectedPerson =
+    allPeople.find((person) => person.id === editPersonId) ?? null;
+  const selectedMeta = selectedPerson
+    ? parsePersonNotesMeta(selectedPerson.notes)
+    : null;
+  let selectedPersonAccessRole: AppRole | null = null;
+
+  if (selectedPerson?.email && canManageAccess) {
+    selectedPersonAccessRole = await getPlatformAccessRole(selectedPerson.email);
+  }
+
+  const selectedPersonHasPlatformAccess = selectedPersonAccessRole !== null;
+  // Productores may revoke only Externo logins; admins may revoke any tier.
+  const canRevokeSelectedAccess =
+    selectedPersonAccessRole !== null &&
+    canManageAccessTier(user.role, selectedPersonAccessRole);
+
+  const selectedPeopleHref = selectedPerson
+    ? buildPeopleHref(resolvedSearchParams, {
+        edit: selectedPerson.id,
+        view: viewMode === "directory" ? "directory" : undefined,
+      })
+    : null;
+
+  return (
+    <>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         <StatCard
           label="Personal activo"
@@ -707,6 +798,6 @@ export default async function PeoplePage({ searchParams }: PageProps) {
           </div>
         </div>
       ) : null}
-    </div>
+    </>
   );
 }
