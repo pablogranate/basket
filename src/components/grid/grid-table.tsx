@@ -55,6 +55,12 @@ const COLUMN_WIDTHS_STORAGE_KEY =
 const COLUMN_ORDER_STORAGE_KEY =
   "basket-production.grid.table-column-order.v1";
 const MIN_COLUMN_WIDTH = 64;
+// Fixed width of the pinned Acciones gutter (two size-10 icon buttons + gap +
+// horizontal padding). Kept fixed so Partido's sticky left offset is known
+// without measuring the resizable Partido column.
+const ACTIONS_COLUMN_WIDTH = 128;
+const PINNED_CELL_CLASSNAME =
+  "sticky z-30 bg-[var(--surface)] group-hover:bg-[var(--accent-soft)]";
 
 const TABLE_COLUMNS = GRID_EXPORT_COLUMNS.filter(
   (column) => column.key !== "Dia",
@@ -633,35 +639,42 @@ export function GridTable({
     }
   }
 
-  function renderHeaderCell(key: string) {
+  function renderHeaderCell(key: string, pinLeft?: number) {
     const label = COLUMN_LABEL_BY_KEY.get(key) ?? key;
+    // Pinned headers (Partido) freeze to the left and sit above the scrolling
+    // header. They keep resize but drop reorder — a pinned column always
+    // renders at the fixed left-most data position.
+    const pinned = pinLeft != null;
 
     return (
       <th
         key={key}
-        style={getWidthStyle(key)}
-        onDragOver={(event) => handleColumnDragOver(event, key)}
+        style={{ ...getWidthStyle(key), ...(pinned ? { left: pinLeft } : {}) }}
+        onDragOver={pinned ? undefined : (event) => handleColumnDragOver(event, key)}
         className={cn(
           headerCellClassName,
-          "sticky top-0 z-20 bg-[var(--n-50)]",
+          "sticky top-0 bg-[var(--n-50)]",
+          pinned ? "z-40" : "z-20",
           "relative overflow-hidden",
           draggedColumn === key && "bg-[var(--n-100)]",
         )}
       >
         <span className="inline-flex max-w-full items-center gap-1.5">
-          <button
-            type="button"
-            draggable
-            aria-label={`Reordenar columna ${label}`}
-            onDragStart={() => handleColumnDragStart(key)}
-            onDragEnd={handleColumnDragEnd}
-            className={cn(
-              "inline-flex size-5 shrink-0 cursor-grab items-center justify-center rounded-md text-[var(--n-300)] transition hover:bg-[var(--n-100)] hover:text-[var(--n-600)]",
-              draggedColumn === key && "bg-[var(--surface)] text-[var(--n-600)] shadow-sm",
-            )}
-          >
-            <GripVertical className="size-3" />
-          </button>
+          {pinned ? null : (
+            <button
+              type="button"
+              draggable
+              aria-label={`Reordenar columna ${label}`}
+              onDragStart={() => handleColumnDragStart(key)}
+              onDragEnd={handleColumnDragEnd}
+              className={cn(
+                "inline-flex size-5 shrink-0 cursor-grab items-center justify-center rounded-md text-[var(--n-300)] transition hover:bg-[var(--n-100)] hover:text-[var(--n-600)]",
+                draggedColumn === key && "bg-[var(--surface)] text-[var(--n-600)] shadow-sm",
+              )}
+            >
+              <GripVertical className="size-3" />
+            </button>
+          )}
           <span className="truncate">{label}</span>
         </span>
         <span
@@ -679,6 +692,164 @@ export function GridTable({
   );
 
   const editingEnabled = canEdit && editMode;
+
+  // Frozen left block: [Acciones | Partido | …scrolling columns]. Partido is
+  // pulled out of the scrolling flow and pinned to the left so match identity
+  // stays visible on horizontal scroll; Acciones is pinned beside it so row
+  // actions are always reachable without scrolling to the far right.
+  const partidoVisible = visibleColumnKeys.includes("Partido");
+  const scrollingColumnKeys = visibleColumnKeys.filter(
+    (key) => key !== "Partido",
+  );
+  const partidoLeft = canEdit ? ACTIONS_COLUMN_WIDTH : 0;
+  const actionsWidthStyle: React.CSSProperties = {
+    width: ACTIONS_COLUMN_WIDTH,
+    minWidth: ACTIONS_COLUMN_WIDTH,
+    maxWidth: ACTIONS_COLUMN_WIDTH,
+  };
+
+  function renderBodyCell(
+    key: string,
+    match: MatchListItem,
+    exportRow: GridExportRow,
+    dayLabel: string,
+    pinLeft?: number,
+  ) {
+    const pinned = pinLeft != null;
+    const pinStyle: React.CSSProperties = pinned ? { left: pinLeft } : {};
+    const pinClass = pinned ? PINNED_CELL_CLASSNAME : "";
+
+    if (key === "Dia") {
+      return (
+        <td
+          key={key}
+          style={{ ...getWidthStyle("Dia"), ...pinStyle }}
+          className={cn(
+            "whitespace-nowrap px-5 py-3 text-sm font-semibold text-[var(--foreground)]",
+            columnWidths.Dia && "overflow-hidden text-ellipsis",
+            pinClass,
+          )}
+        >
+          {dayLabel}
+        </td>
+      );
+    }
+
+    const columnKey = key as keyof GridExportRow;
+    const rawValue = exportRow[columnKey];
+    // Assignment columns: render the unassigned placeholder as a dash in the
+    // table; the picker still labels it "Sin asignar".
+    const value =
+      ASSIGNMENT_ROLE_BY_KEY[columnKey] && rawValue === "Sin asignar"
+        ? "-"
+        : rawValue;
+    const isWide = WIDE_TEXT_KEYS.has(columnKey);
+    const editor = editingEnabled ? getCellEditor(columnKey, match) : null;
+
+    if (columnKey === "Partido" && editingEnabled) {
+      return (
+        <td
+          key={columnKey}
+          style={{ ...getWidthStyle(columnKey), ...pinStyle }}
+          className={cn(
+            "whitespace-nowrap px-5 py-3 text-sm text-[var(--foreground)]",
+            columnWidths[columnKey] && "overflow-hidden text-ellipsis",
+            pinClass,
+          )}
+        >
+          <div className="flex items-center gap-1">
+            <GridTableCellEditor
+              key={`home-${match.home_team}`}
+              matchId={match.id}
+              redirectTo={redirectTo}
+              display={match.home_team}
+              people={people}
+              editor={{
+                kind: "match",
+                field: "homeTeam",
+                value: match.home_team,
+                input: "text",
+              }}
+            />
+            <span className="font-[family-name:var(--font-oswald)] text-xs font-semibold uppercase text-[var(--n-400)]">
+              vs
+            </span>
+            <GridTableCellEditor
+              key={`away-${match.away_team}`}
+              matchId={match.id}
+              redirectTo={redirectTo}
+              display={match.away_team}
+              people={people}
+              editor={{
+                kind: "match",
+                field: "awayTeam",
+                value: match.away_team,
+                input: "text",
+              }}
+            />
+          </div>
+        </td>
+      );
+    }
+
+    const leagueColor = columnKey === "Liga" ? getGridLeagueColor(value) : null;
+
+    const assignmentRoleName = ASSIGNMENT_ROLE_BY_KEY[columnKey];
+    const attendanceAssignment = assignmentRoleName
+      ? match.assignments.find((item) => item.role.name === assignmentRoleName)
+      : undefined;
+    const attendanceClass = attendanceAssignment
+      ? getAttendanceTextClass(
+          getAttendanceState(
+            attendanceAssignment.attendance_response,
+            attendanceAssignment.person_id,
+          ),
+        )
+      : "";
+
+    return (
+      <td
+        key={columnKey}
+        title={isWide ? value || undefined : undefined}
+        style={{
+          ...getWidthStyle(columnKey),
+          ...(leagueColor && {
+            backgroundColor: leagueColor.background,
+            color: leagueColor.text,
+          }),
+          ...pinStyle,
+        }}
+        className={cn(
+          "px-5 py-3 text-sm",
+          isWide
+            ? "max-w-[22rem] truncate text-[var(--muted)]"
+            : "whitespace-nowrap text-[var(--foreground)]",
+          columnWidths[columnKey] && "overflow-hidden text-ellipsis",
+          !editor && attendanceClass,
+          pinClass,
+        )}
+      >
+        {editor ? (
+          <GridTableCellEditor
+            key={value}
+            matchId={match.id}
+            redirectTo={redirectTo}
+            display={value}
+            people={people}
+            editor={editor}
+          />
+        ) : columnKey === "Hora" && value ? (
+          <span className="gt-time">{value}</span>
+        ) : columnKey === "ID" && value ? (
+          <span className="font-mono text-[13px] text-[var(--foreground)]">
+            {value}
+          </span>
+        ) : (
+          value || "—"
+        )}
+      </td>
+    );
+  }
 
   return (
     <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)]">
@@ -726,17 +897,19 @@ export function GridTable({
         <table className="min-w-full border-separate border-spacing-0 text-left">
           <thead>
             <tr className="divide-x divide-[var(--border)] bg-[var(--n-50)]">
-              {visibleColumnKeys.map((key) => renderHeaderCell(key))}
               {canEdit ? (
                 <th
+                  style={actionsWidthStyle}
                   className={cn(
                     headerCellClassName,
-                    "sticky top-0 z-20 bg-[var(--n-50)]",
+                    "sticky left-0 top-0 z-40 bg-[var(--n-50)]",
                   )}
                 >
                   Acciones
                 </th>
               ) : null}
+              {partidoVisible ? renderHeaderCell("Partido", partidoLeft) : null}
+              {scrollingColumnKeys.map((key) => renderHeaderCell(key))}
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border)]">
@@ -749,147 +922,14 @@ export function GridTable({
                   ref={rowIndex === todayRowIndex ? todayRowRef : undefined}
                   className="group divide-x divide-[var(--border)] transition hover:bg-[var(--accent-soft)]"
                 >
-                  {visibleColumnKeys.map((key) => {
-                    if (key === "Dia") {
-                      return (
-                        <td
-                          key={key}
-                          style={getWidthStyle("Dia")}
-                          className={cn(
-                            "whitespace-nowrap px-5 py-3 text-sm font-semibold text-[var(--foreground)]",
-                            columnWidths.Dia && "overflow-hidden text-ellipsis",
-                          )}
-                        >
-                          {dayLabel}
-                        </td>
-                      );
-                    }
-
-                    const columnKey = key as keyof GridExportRow;
-                    const rawValue = exportRow[columnKey];
-                    // Assignment columns: render the unassigned placeholder as a
-                    // dash in the table; the picker still labels it "Sin asignar".
-                    const value =
-                      ASSIGNMENT_ROLE_BY_KEY[columnKey] &&
-                      rawValue === "Sin asignar"
-                        ? "-"
-                        : rawValue;
-                    const isWide = WIDE_TEXT_KEYS.has(columnKey);
-                    const editor = editingEnabled
-                      ? getCellEditor(columnKey, match)
-                      : null;
-
-                    if (columnKey === "Partido" && editingEnabled) {
-                      return (
-                        <td
-                          key={columnKey}
-                          style={getWidthStyle(columnKey)}
-                          className={cn(
-                            "whitespace-nowrap px-5 py-3 text-sm text-[var(--foreground)]",
-                            columnWidths[columnKey] &&
-                              "overflow-hidden text-ellipsis",
-                          )}
-                        >
-                          <div className="flex items-center gap-1">
-                            <GridTableCellEditor
-                              key={`home-${match.home_team}`}
-                              matchId={match.id}
-                              redirectTo={redirectTo}
-                              display={match.home_team}
-                              people={people}
-                              editor={{
-                                kind: "match",
-                                field: "homeTeam",
-                                value: match.home_team,
-                                input: "text",
-                              }}
-                            />
-                            <span className="font-[family-name:var(--font-oswald)] text-xs font-semibold uppercase text-[var(--n-400)]">
-                              vs
-                            </span>
-                            <GridTableCellEditor
-                              key={`away-${match.away_team}`}
-                              matchId={match.id}
-                              redirectTo={redirectTo}
-                              display={match.away_team}
-                              people={people}
-                              editor={{
-                                kind: "match",
-                                field: "awayTeam",
-                                value: match.away_team,
-                                input: "text",
-                              }}
-                            />
-                          </div>
-                        </td>
-                      );
-                    }
-
-                    const leagueColor =
-                      columnKey === "Liga"
-                        ? getGridLeagueColor(value)
-                        : null;
-
-                    const assignmentRoleName =
-                      ASSIGNMENT_ROLE_BY_KEY[columnKey];
-                    const attendanceAssignment = assignmentRoleName
-                      ? match.assignments.find(
-                          (item) => item.role.name === assignmentRoleName,
-                        )
-                      : undefined;
-                    const attendanceClass = attendanceAssignment
-                      ? getAttendanceTextClass(
-                          getAttendanceState(
-                            attendanceAssignment.attendance_response,
-                            attendanceAssignment.person_id,
-                          ),
-                        )
-                      : "";
-
-                    return (
-                      <td
-                        key={columnKey}
-                        title={isWide ? value || undefined : undefined}
-                        style={{
-                          ...getWidthStyle(columnKey),
-                          ...(leagueColor && {
-                            backgroundColor: leagueColor.background,
-                            color: leagueColor.text,
-                          }),
-                        }}
-                        className={cn(
-                          "px-5 py-3 text-sm",
-                          isWide
-                            ? "max-w-[22rem] truncate text-[var(--muted)]"
-                            : "whitespace-nowrap text-[var(--foreground)]",
-                          columnWidths[columnKey] &&
-                            "overflow-hidden text-ellipsis",
-                          !editor && attendanceClass,
-                        )}
-                      >
-                        {editor ? (
-                          <GridTableCellEditor
-                            key={value}
-                            matchId={match.id}
-                            redirectTo={redirectTo}
-                            display={value}
-                            people={people}
-                            editor={editor}
-                          />
-                        ) : columnKey === "Hora" && value ? (
-                          <span className="gt-time">{value}</span>
-                        ) : columnKey === "ID" && value ? (
-                          <span className="font-mono text-[13px] text-[var(--foreground)]">
-                            {value}
-                          </span>
-                        ) : (
-                          value || "—"
-                        )}
-                      </td>
-                    );
-                  })}
                   {canEdit ? (
-                    <td className="whitespace-nowrap px-5 py-3">
+                    <td
+                      style={actionsWidthStyle}
+                      className={cn(
+                        "whitespace-nowrap px-5 py-3 left-0",
+                        PINNED_CELL_CLASSNAME,
+                      )}
+                    >
                       <div className="flex items-center gap-2">
                         <Link
                           href={`/match/${match.id}`}
@@ -917,6 +957,18 @@ export function GridTable({
                       </div>
                     </td>
                   ) : null}
+                  {partidoVisible
+                    ? renderBodyCell(
+                        "Partido",
+                        match,
+                        exportRow,
+                        dayLabel,
+                        partidoLeft,
+                      )
+                    : null}
+                  {scrollingColumnKeys.map((key) =>
+                    renderBodyCell(key, match, exportRow, dayLabel),
+                  )}
                 </tr>
               );
             })}
