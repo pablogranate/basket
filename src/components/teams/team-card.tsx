@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 
 import { ClientTeamLogoMark } from "@/components/team-logo-mark-client";
-import { CreateTeamModal } from "@/components/teams/create-team-modal";
+import { CreateTeamModal } from "@/components/teams/create-team-modal-lazy";
 import type { TeamResponsibleContact } from "@/lib/team-responsibles";
 import {
   getTeamLeagueAccentColor,

@@ -28,7 +28,7 @@ import { useFormStatus } from "react-dom";
 import { setAttendanceConfirmationAction } from "@/app/actions/matches";
 import { LeagueLogoMarkClient } from "@/components/league-logo-mark-client";
 import { ClientTeamLogoMark } from "@/components/team-logo-mark-client";
-import { CollaboratorReportForm } from "@/components/collaborators/collaborator-report-form";
+import dynamic from "next/dynamic";
 import { badgeBaseClassName } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { HoverAvatarBadge } from "@/components/ui/hover-avatar-badge";
@@ -44,6 +44,16 @@ import type {
 import { getProductionModeLabel } from "@/lib/constants";
 import { getRoleDisplayName } from "@/lib/display";
 import { buildWhatsAppUrl, cn, normalizeText } from "@/lib/utils";
+
+// Lazy: the report form (~49KB) only mounts when a collaborator opens the
+// reporting flow, so keep it out of the initial /mi-jornada bundle.
+const CollaboratorReportForm = dynamic(
+  () =>
+    import("@/components/collaborators/collaborator-report-form").then(
+      (mod) => mod.CollaboratorReportForm,
+    ),
+  { ssr: false },
+);
 
 type MyDayAssignmentsPanelProps = {
   hasLinkedPerson: boolean;

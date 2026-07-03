@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { SectionAiAssistant } from "@/components/ai/section-ai-assistant";
-import { CreateTeamModal } from "@/components/teams/create-team-modal";
+import { CreateTeamModal } from "@/components/teams/create-team-modal-lazy";
 import { PageCanvasTone } from "@/components/layout/page-canvas-tone";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 import { TeamsWorkspaceClient } from "@/components/teams/teams-workspace-client";

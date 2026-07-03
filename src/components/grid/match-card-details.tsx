@@ -9,11 +9,22 @@ import {
   Video,
 } from "lucide-react";
 
-import { MatchContactsModal } from "@/components/grid/match-contacts-modal";
+import dynamic from "next/dynamic";
+
 import { getCompactPersonName, getRoleDisplayName } from "@/lib/display";
 import type { AttendanceState } from "@/lib/grid/attendance";
 import { getAttendanceTextClass } from "@/lib/grid/attendance";
 import { cn } from "@/lib/utils";
+
+// Lazy: the contacts modal only mounts when a card is expanded and its button
+// clicked, so keep it out of the initial grid bundle.
+const MatchContactsModal = dynamic(
+  () =>
+    import("@/components/grid/match-contacts-modal").then(
+      (mod) => mod.MatchContactsModal,
+    ),
+  { ssr: false },
+);
 
 export type SectionRow = {
   label: string;
