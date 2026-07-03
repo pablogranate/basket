@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { FixturesCategoryFilter } from "@/components/fixtures/fixtures-category-filter";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 
 type Fixture = {
@@ -56,7 +57,7 @@ export default async function FixturesPage({
 
       {/* Filtro de categoría */}
       <Suspense fallback={<FixturesFilterSkeleton />}>
-        <FixturesCategoryFilter category={category} />
+        <FixturesCategoryFilterSection category={category} />
       </Suspense>
 
       {/* Tabla por fecha */}
@@ -67,7 +68,7 @@ export default async function FixturesPage({
   );
 }
 
-async function FixturesCategoryFilter({ category }: { category: string }) {
+async function FixturesCategoryFilterSection({ category }: { category: string }) {
   const supabase = await createSupabaseServerClient();
   const categories = await supabase
     .from("fixtures")
@@ -78,32 +79,13 @@ async function FixturesCategoryFilter({ category }: { category: string }) {
 
   const uniqueCategories = [
     ...new Set((categories.data || []).map((r) => r.category).filter(Boolean)),
-  ];
+  ] as string[];
 
   return (
-    <div className="flex gap-2 flex-wrap">
-      <a
-        href="/fixtures"
-        className={`px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
-          !category ? "bg-blue-600 text-white border-blue-600" : "border-gray-300 text-gray-600 hover:bg-gray-50"
-        }`}
-      >
-        Todas
-      </a>
-      {uniqueCategories.map((cat) => (
-        <a
-          key={cat}
-          href={`/fixtures?category=${encodeURIComponent(cat!)}`}
-          className={`px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
-            cat === category
-              ? "bg-blue-600 text-white border-blue-600"
-              : "border-gray-300 text-gray-600 hover:bg-gray-50"
-          }`}
-        >
-          {cat}
-        </a>
-      ))}
-    </div>
+    <FixturesCategoryFilter
+      categories={uniqueCategories}
+      activeCategory={category}
+    />
   );
 }
 

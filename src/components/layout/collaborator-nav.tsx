@@ -29,7 +29,6 @@ export function CollaboratorNav({
             <Link
               key={item.href}
               href={item.href}
-              prefetch={false}
               className={cn(
                 "flex min-w-0 flex-1 items-center justify-center gap-2 rounded-[var(--panel-radius)] px-4 py-3 text-sm font-bold transition",
                 active
@@ -56,7 +55,6 @@ export function CollaboratorNav({
           <Link
             key={item.href}
             href={item.href}
-            prefetch={false}
             className={cn(
               "inline-flex h-11 items-center gap-2 rounded-full px-4 text-sm font-bold transition",
               active

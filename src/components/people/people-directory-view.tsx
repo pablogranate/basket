@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { Power, UserRound } from "lucide-react";
+import { UserRound } from "lucide-react";
 
-import { togglePersonActiveAction } from "@/app/actions/people";
 import {
   getCityIndicator,
   getInitials,
@@ -11,6 +10,7 @@ import {
   MapPin,
   MessageCircle,
 } from "@/components/people/people-view-helpers";
+import { PersonActiveToggle } from "@/components/people/person-active-toggle";
 import type { PeopleFilters } from "@/lib/people-filters";
 import { parsePersonNotesMeta } from "@/lib/people-notes";
 import type { PersonListItem } from "@/lib/types";
@@ -134,28 +134,15 @@ export function PeopleDirectoryView({
                   {roleLabel}
                 </span>
               </div>
-              <form action={togglePersonActiveAction} className="absolute right-5 top-5">
-                <input type="hidden" name="personId" value={person.id} />
-                <input
-                  type="hidden"
-                  name="active"
-                  value={person.active ? "off" : "on"}
-                />
-                <input type="hidden" name="redirectTo" value={currentDirectoryHref} />
-                <button
-                  type="submit"
-                  disabled={!canEdit}
-                  aria-label={`${person.active ? "Desactivar" : "Activar"} a ${person.full_name}`}
-                  title={person.active ? "Desactivar" : "Activar"}
-                  className={cn(
-                    "inline-flex size-9 items-center justify-center rounded-full border transition",
-                    state.toggleButtonClassName,
-                    !canEdit && "cursor-not-allowed opacity-60",
-                  )}
-                >
-                  <Power className="size-4" />
-                </button>
-              </form>
+              <PersonActiveToggle
+                variant="power"
+                personId={person.id}
+                active={person.active}
+                fullName={person.full_name}
+                canEdit={canEdit}
+                redirectTo={currentDirectoryHref}
+                className="absolute right-5 top-5"
+              />
             </div>
 
             <div className="relative flex justify-center -mt-16">

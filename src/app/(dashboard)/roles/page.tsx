@@ -1,7 +1,8 @@
-import { deleteRoleAction, upsertRoleAction } from "@/app/actions/roles";
+import { upsertRoleAction } from "@/app/actions/roles";
 import { SectionAiAssistant } from "@/components/ai/section-ai-assistant";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 import { SetupPanel } from "@/components/layout/setup-panel";
+import { RoleDeleteButton } from "@/components/roles/role-delete-button";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -156,13 +157,7 @@ export default async function RolesPage({ searchParams }: PageProps) {
                           <SubmitButton pendingLabel="Guardando...">
                             Guardar rol
                           </SubmitButton>
-                          <button
-                            type="submit"
-                            formAction={deleteRoleAction}
-                            className="inline-flex items-center justify-center rounded-xl border border-[var(--accent-border)] bg-[var(--accent-soft)] px-4 py-2 text-sm font-semibold text-[var(--accent-strong)] transition hover:bg-[var(--accent-border)]"
-                          >
-                            Eliminar
-                          </button>
+                          <RoleDeleteButton />
                         </>
                       ) : (
                         <Button variant="secondary" disabled>

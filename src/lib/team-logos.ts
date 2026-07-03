@@ -318,6 +318,35 @@ export function getTeamInitials(name?: string | null) {
   return parts.map((part) => part[0]?.toUpperCase() ?? "").join("") || "EQ";
 }
 
+// Server-side pre-resolution for logo-dense screens. Resolves each distinct
+// (teamName, competition) pair once and returns a plain, serializable record
+// keyed exactly like ClientTeamLogoMark's cache key, so the client component can
+// paint the crest from the initial markup instead of fetching /api/team-logo per
+// instance on mount. Dedupes so the per-render cost stays O(distinct teams).
+export function resolveTeamLogoMap(
+  pairs: Array<{ teamName: string | null | undefined; competition?: string | null }>,
+): Record<string, string | null> {
+  const map: Record<string, string | null> = {};
+
+  for (const { teamName, competition } of pairs) {
+    if (!teamName?.trim()) {
+      continue;
+    }
+
+    // Key verbatim on teamName (not trimmed) so it matches ClientTeamLogoMark's
+    // cacheKey exactly; getTeamLogoPath normalizes internally.
+    const key = `${teamName}::${competition ?? ""}`;
+
+    if (key in map) {
+      continue;
+    }
+
+    map[key] = getTeamLogoPath({ teamName, competition });
+  }
+
+  return map;
+}
+
 export function getTeamLogoPath(params: {
   teamName: string;
   competition?: string | null;
