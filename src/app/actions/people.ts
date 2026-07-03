@@ -7,7 +7,7 @@ import {
   redirectWithNotice,
   rethrowNavigationError,
 } from "@/app/actions/helpers";
-import { requireEditor } from "@/lib/auth";
+import { clearProfileCache, requireEditor } from "@/lib/auth";
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
 import {
   canManageAccessTier,
@@ -91,6 +91,8 @@ async function revokePlatformAccessByEmail(
     throw deleteProfile.error;
   }
 
+  clearProfileCache();
+
   return true;
 }
 
@@ -138,6 +140,8 @@ async function grantPlatformAccess({
       throw profileInsert.error;
     }
   }
+
+  clearProfileCache();
 
   await sendCollaboratorInviteEmail({
     to: email,

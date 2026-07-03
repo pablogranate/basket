@@ -177,12 +177,17 @@ export default async function PeoplePage({ searchParams }: PageProps) {
     return <SetupPanel />;
   }
 
+  // Settings only reads cookies + a request-cached app_settings row — overlap
+  // it with the auth + people round-trips instead of paying it serially.
+  const settingsPromise = getSettingsSnapshot();
   const user = await requireUserContext();
-  const allPeople = await getPeopleData(user);
+  const [allPeople, settings] = await Promise.all([
+    getPeopleData(user),
+    settingsPromise,
+  ]);
   const filters = parsePeopleFilters(resolvedSearchParams);
   const filterOptions = derivePeopleFilterOptions(allPeople);
   const people = applyPeopleFilters({ people: allPeople, filters, query });
-  const settings = await getSettingsSnapshot();
   const activePeople = people.filter((person) => person.active);
   const activeCount = activePeople.length;
   const inactiveCount = people.length - activeCount;

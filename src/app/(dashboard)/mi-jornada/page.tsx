@@ -219,9 +219,12 @@ export default async function CollaboratorDayPage() {
     return <SetupPanel />;
   }
 
-  const user = await getUserContext();
+  // Settings is independent of the user — resolve both concurrently.
+  const [user, settings] = await Promise.all([
+    getUserContext(),
+    getSettingsSnapshot(),
+  ]);
   const guestMode = appEnv.allowGuestMiJornadaAccess && !user.userId;
-  const settings = await getSettingsSnapshot();
   const emptyData = {
     person: null,
     linkedBy: null,

@@ -63,12 +63,15 @@ function buildTeamsHref(
 
 export default async function TeamsPage({ searchParams }: PageProps) {
   const resolvedSearchParams = await searchParams;
-  const user = await getUserContext();
+  // Settings is independent of the user — resolve both concurrently.
+  const [user, settings] = await Promise.all([
+    getUserContext(),
+    getSettingsSnapshot(),
+  ]);
   const query = readSearchValue(resolvedSearchParams.q);
   const activeLeague = readSearchValue(resolvedSearchParams.league);
   const teams = getTeamDirectoryData({ query, league: activeLeague });
   const canManageTeams = user.canEdit && !isCollaboratorLimitedRole(user.role);
-  const settings = await getSettingsSnapshot();
   const tabs = getTeamDirectoryTabs();
   const leagueAccent = activeLeague
     ? getTeamLeagueAccentColor(activeLeague)

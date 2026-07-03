@@ -9,6 +9,41 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type UserContext = Awaited<ReturnType<typeof getUserContext>>;
 
+// Cross-request profile cache: profiles change rarely and only through the
+// people actions (which call clearProfileCache on every mutation); the TTL
+// bounds staleness from out-of-band edits (direct SQL). Null is cached too —
+// but only after the first-login auto-link attempt has run — so unprovisioned
+// sessions don't rescan unlinked profiles on every request. Assumes a single
+// Node process (pm2 fork mode); revisit before clustering (ADR 0005).
+const PROFILE_CACHE_TTL_MS = 30_000;
+const profileCache = new Map<
+  string,
+  { profile: ProfileRow | null; expiresAt: number }
+>();
+
+export function clearProfileCache() {
+  profileCache.clear();
+}
+
+async function resolveProfile(
+  authUserId: string,
+  email: string | null,
+): Promise<ProfileRow | null> {
+  const cached = profileCache.get(authUserId);
+
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.profile;
+  }
+
+  const profile = await loadProfile(authUserId, email);
+  profileCache.set(authUserId, {
+    profile,
+    expiresAt: Date.now() + PROFILE_CACHE_TTL_MS,
+  });
+
+  return profile;
+}
+
 export const getUserContext = cache(async () => {
   const session = await auth.api.getSession({ headers: await headers() });
 
@@ -26,6 +61,44 @@ export const getUserContext = cache(async () => {
 
   const authUserId = session.user.id;
   const email = session.user.email ?? null;
+  const profile = await resolveProfile(authUserId, email);
+
+  // Authenticated but unprovisioned: no access, routed to /no-access (D-11/D-13).
+  if (!profile) {
+    return {
+      userId: authUserId,
+      profileId: null,
+      email,
+      profile: null,
+      role: "viewer" as AppRole,
+      canEdit: false,
+      hasAccess: false,
+    };
+  }
+
+  const role: AppRole = profile.role ?? "viewer";
+
+  return {
+    userId: authUserId,
+    // Domain actor id (uuid, FK target for created_by/changed_by/etc.). Distinct
+    // from userId, which is the Better Auth text id post-cutover.
+    profileId: profile.id,
+    email,
+    profile,
+    role,
+    canEdit:
+      role === "admin" ||
+      role === "editor" ||
+      role === "coordinator" ||
+      role === "collaborator",
+    hasAccess: true,
+  };
+});
+
+async function loadProfile(
+  authUserId: string,
+  email: string | null,
+): Promise<ProfileRow | null> {
   const supabaseAdmin = createSupabaseAdminClient();
 
   let profile: ProfileRow | null = null;
@@ -78,37 +151,8 @@ export const getUserContext = cache(async () => {
     }
   }
 
-  // Authenticated but unprovisioned: no access, routed to /no-access (D-11/D-13).
-  if (!profile) {
-    return {
-      userId: authUserId,
-      profileId: null,
-      email,
-      profile: null,
-      role: "viewer" as AppRole,
-      canEdit: false,
-      hasAccess: false,
-    };
-  }
-
-  const role: AppRole = profile.role ?? "viewer";
-
-  return {
-    userId: authUserId,
-    // Domain actor id (uuid, FK target for created_by/changed_by/etc.). Distinct
-    // from userId, which is the Better Auth text id post-cutover.
-    profileId: profile.id,
-    email,
-    profile,
-    role,
-    canEdit:
-      role === "admin" ||
-      role === "editor" ||
-      role === "coordinator" ||
-      role === "collaborator",
-    hasAccess: true,
-  };
-});
+  return profile;
+}
 
 export async function requireUserContext() {
   const context = await getUserContext();
