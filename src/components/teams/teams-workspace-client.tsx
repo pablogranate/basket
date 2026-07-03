@@ -7,9 +7,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import {
   buildTeamResponsibleLookup,
   getTeamResponsibleContact,
+  type TeamResponsiblePerson,
 } from "@/lib/team-responsibles";
 import type { TeamDirectoryItem } from "@/lib/team-directory";
-import type { PersonListItem } from "@/lib/types";
 import {
   CUSTOM_TEAMS_CHANGED_EVENT,
   readCustomTeams,
@@ -51,7 +51,7 @@ export function TeamsWorkspaceClient({
   canManageTeams = false,
 }: {
   initialTeams: TeamDirectoryItem[];
-  people: PersonListItem[];
+  people: TeamResponsiblePerson[];
   activeLeague: string;
   query: string;
   canManageTeams?: boolean;

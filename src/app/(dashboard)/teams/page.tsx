@@ -9,7 +9,7 @@ import { ToolbarSearchField } from "@/components/ui/toolbar-search-field";
 import { getUserContext } from "@/lib/auth";
 import { SECTION_COPY } from "@/lib/copy";
 import { isCollaboratorLimitedRole } from "@/lib/constants";
-import { getPeopleData } from "@/lib/data/dashboard";
+import { getPeopleContactList } from "@/lib/data/dashboard";
 import { getSettingsSnapshot } from "@/lib/settings";
 import {
   getTeamLeagueAccentColor,
@@ -62,7 +62,7 @@ export default async function TeamsPage({ searchParams }: PageProps) {
   const query = readSearchValue(resolvedSearchParams.q);
   const activeLeague = readSearchValue(resolvedSearchParams.league);
   const teams = getTeamDirectoryData({ query, league: activeLeague });
-  const people = user.userId ? await getPeopleData(user) : [];
+  const people = user.userId ? await getPeopleContactList(user) : [];
   const canManageTeams = user.canEdit && !isCollaboratorLimitedRole(user.role);
   const settings = await getSettingsSnapshot();
   const tabs = getTeamDirectoryTabs();

@@ -12,6 +12,7 @@ import {
 } from "@/lib/date";
 import type { UserContext } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { TeamResponsiblePerson } from "@/lib/team-responsibles";
 import type { MatchRow, PersonRow, RoleRow } from "@/lib/database.types";
 import type {
   AuditEntry,
@@ -46,8 +47,6 @@ type ActiveRole = Pick<
 type GridAssignment = MatchListItem["assignments"][number];
 type PersonAssignmentSummary = {
   person_id: string | null;
-  updated_at: string;
-  role: { name: string; sort_order: number } | null;
   match: { kickoff_at: string; duration_minutes: number } | null;
 };
 
@@ -554,19 +553,24 @@ async function getAssignmentConflicts(params: {
 export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]> {
   void ctx;
   const supabase = await createSupabaseServerClient();
-  const [peopleResult, assignmentsResult, functionsResult] = await Promise.all([
-    supabase
-      .from("people")
-      .select("*")
-      .order("full_name"),
-    supabase
-      .from("assignments")
-      .select(
-        "person_id, updated_at, role:roles!assignments_role_id_fkey(name, sort_order), match:matches!assignments_match_id_fkey(kickoff_at, duration_minutes)",
-      )
-      .not("person_id", "is", null),
-    supabase.from("person_functions").select("person_id, function_key"),
-  ]);
+  const now = new Date();
+  // Bound the assignments read to matches that could still be current. The
+  // count only cares about matches whose end is >= now; a 1-day lower bound on
+  // kickoff safely covers any in-progress match without scanning all history.
+  const windowStartIso = subDays(now, 1).toISOString();
+  const [peopleResult, assignmentsResult, functionsResult, rolesResult] =
+    await Promise.all([
+      supabase.from("people").select("*").order("full_name"),
+      supabase
+        .from("assignments")
+        .select(
+          "person_id, match:matches!assignments_match_id_fkey!inner(kickoff_at, duration_minutes)",
+        )
+        .not("person_id", "is", null)
+        .gte("match.kickoff_at", windowStartIso),
+      supabase.from("person_functions").select("person_id, function_key"),
+      supabase.from("roles").select("id, name"),
+    ]);
 
   if (peopleResult.error) {
     throw peopleResult.error;
@@ -578,6 +582,10 @@ export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]>
 
   if (functionsResult.error) {
     throw functionsResult.error;
+  }
+
+  if (rolesResult.error) {
+    throw rolesResult.error;
   }
 
   const functionsByPerson = new Map<string, PersonFunctionKey[]>();
@@ -592,60 +600,38 @@ export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]>
     functionsByPerson.set(row.person_id, bucket);
   }
 
-  const now = new Date();
-  const assignmentRows = (assignmentsResult.data ?? []) as PersonAssignmentSummary[];
-  const assignmentsByPerson = new Map<
-    string,
-    Array<{
-      updated_at: string;
-      role: { name: string; sort_order: number } | null;
-      match: { kickoff_at: string; duration_minutes: number } | null;
-    }>
-  >();
+  const roleNameById = new Map<string, string>();
 
-  for (const assignment of assignmentRows) {
+  for (const role of rolesResult.data ?? []) {
+    roleNameById.set(role.id, role.name);
+  }
+
+  const currentCountByPerson = new Map<string, number>();
+
+  for (const assignment of (assignmentsResult.data ?? []) as PersonAssignmentSummary[]) {
     const personId = assignment.person_id;
 
-    if (!personId) {
+    if (!personId || !assignment.match) {
       continue;
     }
 
-    const bucket = assignmentsByPerson.get(personId) ?? [];
-    bucket.push({
-      updated_at: assignment.updated_at,
-      role: assignment.role,
-      match: assignment.match,
-    });
-    assignmentsByPerson.set(personId, bucket);
+    const end = parseISO(
+      getMatchEndIso(
+        assignment.match.kickoff_at,
+        assignment.match.duration_minutes,
+      ),
+    );
+
+    if (end >= now) {
+      currentCountByPerson.set(personId, (currentCountByPerson.get(personId) ?? 0) + 1);
+    }
   }
 
   return ((peopleResult.data ?? []) as PersonRow[]).map((person) => {
-    const assignments = (assignmentsByPerson.get(person.id) ?? []).sort((left, right) => {
-      const leftRole = left.role?.sort_order ?? Number.MAX_SAFE_INTEGER;
-      const rightRole = right.role?.sort_order ?? Number.MAX_SAFE_INTEGER;
-
-      if (leftRole !== rightRole) {
-        return leftRole - rightRole;
-      }
-
-      return right.updated_at.localeCompare(left.updated_at);
-    });
-
-    const primaryRole = assignments.find((assignment) => assignment.role?.name)?.role?.name ?? null;
-    const currentAssignmentCount = assignments.filter((assignment) => {
-      if (!assignment.match) {
-        return false;
-      }
-
-      const end = parseISO(
-        getMatchEndIso(
-          assignment.match.kickoff_at,
-          assignment.match.duration_minutes,
-        ),
-      );
-
-      return end >= now;
-    }).length;
+    const currentAssignmentCount = currentCountByPerson.get(person.id) ?? 0;
+    const primaryRole = person.role_id
+      ? roleNameById.get(person.role_id) ?? null
+      : null;
 
     const assignmentState = !person.active
       ? "Inactivo"
@@ -661,6 +647,23 @@ export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]>
       functions: functionsByPerson.get(person.id) ?? [],
     };
   });
+}
+
+export async function getPeopleContactList(
+  ctx: UserContext,
+): Promise<TeamResponsiblePerson[]> {
+  void ctx;
+  const supabase = await createSupabaseServerClient();
+  const result = await supabase
+    .from("people")
+    .select("full_name, phone, email, active, notes")
+    .order("full_name");
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  return (result.data ?? []) as TeamResponsiblePerson[];
 }
 
 export async function getRolesData(ctx: UserContext): Promise<{

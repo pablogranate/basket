@@ -5,7 +5,7 @@ import { ExternalLink, Globe, Instagram, Mail, MapPinned, MessageCircle, ShieldA
 import { TeamLogoMark } from "@/components/team-logo-mark";
 import { Card } from "@/components/ui/card";
 import { getUserContext } from "@/lib/auth";
-import { getPeopleData } from "@/lib/data/dashboard";
+import { getPeopleContactList } from "@/lib/data/dashboard";
 import {
   buildTeamResponsibleLookup,
   getTeamResponsibleContact,
@@ -70,7 +70,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
   }
 
   const user = await getUserContext();
-  const people = user.userId ? await getPeopleData(user) : [];
+  const people = user.userId ? await getPeopleContactList(user) : [];
   const responsibleLookup = buildTeamResponsibleLookup(people);
   const responsibleContact = getTeamResponsibleContact(
     team.official_name,
