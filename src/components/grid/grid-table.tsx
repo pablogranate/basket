@@ -653,9 +653,13 @@ export function GridTable({
         onDragOver={pinned ? undefined : (event) => handleColumnDragOver(event, key)}
         className={cn(
           headerCellClassName,
+          // `sticky` must survive cn()/twMerge — never pair it with another
+          // position utility (e.g. `relative`) here or twMerge drops it and the
+          // header stops freezing. `sticky` already anchors the absolute resize
+          // handle below.
           "sticky top-0 bg-[var(--n-50)]",
           pinned ? "z-40" : "z-20",
-          "relative overflow-hidden",
+          "overflow-hidden",
           draggedColumn === key && "bg-[var(--n-100)]",
         )}
       >
