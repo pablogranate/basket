@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { Mail, MessageCircleMore, Phone, Users, X } from "lucide-react";
 
@@ -38,19 +38,16 @@ export function MatchContactsModal({
   matchLabel: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
   const [contacts, setContacts] = useState<MatchContact[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // SSR-safe portal gate: document is only available after mount.
-    setIsMounted(true);
-
-    return () => {
-      setIsMounted(false);
-    };
-  }, []);
+  // SSR-safe portal gate: document is only available after client mount.
+  const isMounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
   useEffect(() => {
     if (!isOpen) {
