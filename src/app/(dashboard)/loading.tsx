@@ -1,8 +1,9 @@
-// Suspense boundary for the dashboard route group. Its presence is what caps
-// Next.js Link prefetching to a cheap skeleton: prefetch fetches this fallback
-// instead of fully rendering the target route (and running its data loaders) on
-// the server. Without it, hovering/viewport-prefetched nav links stampede the
-// server with full page renders. Real navigations briefly show this skeleton.
+// Suspense boundary for the dashboard route group. Its presence is what makes
+// Link prefetch cheap: App Router prefetch stops at this boundary, so warming a
+// nav link fetches the shared layout + this static skeleton + the route JS
+// chunk only — it does NOT execute the target route's async data loaders. That
+// is why nav links prefetch by default (no render stampede). Real navigations
+// briefly show this skeleton before the streamed content lands.
 export default function DashboardLoading() {
   return (
     <div className="min-w-0 space-y-8" aria-busy="true" aria-live="polite">

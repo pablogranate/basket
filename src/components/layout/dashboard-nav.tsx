@@ -60,7 +60,6 @@ export function DashboardNav({
             <Link
               key={item.href}
               href={item.href}
-              prefetch={false}
               className={cn(
                 "inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold transition",
                 active
@@ -87,7 +86,6 @@ export function DashboardNav({
           <Link
             key={item.href}
             href={item.href}
-            prefetch={false}
             className={cn(
               "flex items-center gap-3 rounded-[var(--panel-radius)] px-4 py-3.5 text-[15px] font-semibold transition",
               active

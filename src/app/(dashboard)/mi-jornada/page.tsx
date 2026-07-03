@@ -5,6 +5,7 @@ import { Hash, Sparkles, UserRound } from "lucide-react";
 
 import { SectionAiAssistant } from "@/components/ai/section-ai-assistant";
 import { MyDayAssignmentsPanel } from "@/components/collaborators/my-day-assignments-panel";
+import { TeamLogoResolutionProvider } from "@/components/team-logo-resolution-context";
 import { SetupPanel } from "@/components/layout/setup-panel";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 import { getUserContext } from "@/lib/auth";
@@ -16,6 +17,7 @@ import {
 } from "@/lib/data/collaborators";
 import { appEnv, isSupabaseConfigured } from "@/lib/env";
 import { getSettingsSnapshot } from "@/lib/settings";
+import { resolveTeamLogoMap } from "@/lib/team-logos";
 import { cn } from "@/lib/utils";
 
 function capitalizeSentence(value: string) {
@@ -261,6 +263,15 @@ export default async function CollaboratorDayPage() {
     : data.upcomingAssignments;
   const pastAssignments = data.pastMonthAssignments;
 
+  // Resolve every visible crest on the server so the assignment cards paint
+  // logos from the initial markup instead of fetching /api/team-logo per crest.
+  const teamLogoMap = resolveTeamLogoMap(
+    [...upcomingAssignments, ...pastAssignments].flatMap((assignment) => [
+      { teamName: assignment.homeTeam, competition: assignment.competition },
+      { teamName: assignment.awayTeam, competition: assignment.competition },
+    ]),
+  );
+
   const totalUpcoming = upcomingAssignments.length;
   const pendingUpcoming = upcomingAssignments.filter(
     (assignment) => !assignment.attendanceResponse,
@@ -281,6 +292,7 @@ export default async function CollaboratorDayPage() {
 
   return (
     <div className="w-full max-w-none pb-10">
+      <TeamLogoResolutionProvider value={teamLogoMap}>
       <MyDayAssignmentsPanel
         hasLinkedPerson={Boolean(data.person)}
         showDemoToday={showDemo}
@@ -340,6 +352,7 @@ export default async function CollaboratorDayPage() {
           </div>
         }
       />
+      </TeamLogoResolutionProvider>
     </div>
   );
 }

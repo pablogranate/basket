@@ -6,6 +6,7 @@ import { CreateTeamModal } from "@/components/teams/create-team-modal-lazy";
 import { PageCanvasTone } from "@/components/layout/page-canvas-tone";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 import { TeamsWorkspaceClient } from "@/components/teams/teams-workspace-client";
+import { TeamLogoResolutionProvider } from "@/components/team-logo-resolution-context";
 import { ToolbarSearchField } from "@/components/ui/toolbar-search-field";
 import { getUserContext } from "@/lib/auth";
 import { SECTION_COPY } from "@/lib/copy";
@@ -21,6 +22,7 @@ import {
   TEAM_DIRECTORY,
   type TeamDirectoryItem,
 } from "@/lib/team-directory";
+import { resolveTeamLogoMap } from "@/lib/team-logos";
 import { cn } from "@/lib/utils";
 
 type PageProps = {
@@ -196,15 +198,25 @@ async function TeamsDirectoryRegion({
   canManageTeams: boolean;
 }) {
   const people = user.userId ? await getPeopleContactList(user) : [];
+  // Pre-resolve crests for the server-known teams so cards paint logos on first
+  // paint; client-only extras (locally created teams) still fall back to fetch.
+  const teamLogoMap = resolveTeamLogoMap(
+    initialTeams.map((team) => ({
+      teamName: team.official_name,
+      competition: team.competition,
+    })),
+  );
 
   return (
-    <TeamsWorkspaceClient
-      initialTeams={initialTeams}
-      people={people}
-      activeLeague={activeLeague}
-      query={query}
-      canManageTeams={canManageTeams}
-    />
+    <TeamLogoResolutionProvider value={teamLogoMap}>
+      <TeamsWorkspaceClient
+        initialTeams={initialTeams}
+        people={people}
+        activeLeague={activeLeague}
+        query={query}
+        canManageTeams={canManageTeams}
+      />
+    </TeamLogoResolutionProvider>
   );
 }
 

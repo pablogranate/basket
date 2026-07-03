@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 
+import { useResolvedTeamLogo } from "@/components/team-logo-resolution-context";
 import { cn } from "@/lib/utils";
 
 const teamLogoCache = new Map<string, string | null>();
@@ -19,12 +20,17 @@ function getTeamInitials(teamName: string) {
 export function ClientTeamLogoMark({
   teamName,
   competition,
+  logoSrc,
   className,
   imageClassName,
   initialsClassName,
 }: {
   teamName: string;
   competition?: string | null;
+  // Pre-resolved crest path (string), explicit null (resolved → initials), or
+  // undefined (unknown → resolve via context, else fetch). Passing a value here
+  // skips both the context lookup and the network fetch.
+  logoSrc?: string | null;
   className?: string;
   imageClassName?: string;
   initialsClassName?: string;
@@ -33,6 +39,17 @@ export function ClientTeamLogoMark({
     () => `${teamName}::${competition ?? ""}`,
     [competition, teamName],
   );
+  const contextLogo = useResolvedTeamLogo(cacheKey);
+
+  // Resolution priority: explicit prop → server-built context map → fetch.
+  const hasExplicit = logoSrc !== undefined;
+  const preResolved: string | null | undefined = hasExplicit
+    ? logoSrc
+    : contextLogo.resolved
+      ? contextLogo.src
+      : undefined;
+  const needsFetch = preResolved === undefined;
+
   const cachedLogoSrc = teamLogoCache.get(cacheKey);
   const [resolvedLogo, setResolvedLogo] = useState<{
     key: string;
@@ -41,15 +58,18 @@ export function ClientTeamLogoMark({
     key: cacheKey,
     src: cachedLogoSrc ?? null,
   });
-  const logoSrc =
+  const fetchedLogoSrc =
     cachedLogoSrc !== undefined
       ? cachedLogoSrc
       : resolvedLogo.key === cacheKey
         ? resolvedLogo.src
         : null;
+  const displaySrc = needsFetch ? fetchedLogoSrc : preResolved;
 
   useEffect(() => {
-    if (cachedLogoSrc !== undefined) {
+    // Skip the network entirely when the crest was resolved ahead of render
+    // (explicit prop or server-built context map) or already cached.
+    if (!needsFetch || cachedLogoSrc !== undefined) {
       return;
     }
 
@@ -90,7 +110,7 @@ export function ClientTeamLogoMark({
     return () => {
       ignore = true;
     };
-  }, [cacheKey, cachedLogoSrc, competition, teamName]);
+  }, [cacheKey, cachedLogoSrc, competition, needsFetch, teamName]);
 
   return (
     <div
@@ -99,9 +119,9 @@ export function ClientTeamLogoMark({
         className,
       )}
     >
-      {logoSrc ? (
+      {displaySrc ? (
         <Image
-          src={logoSrc}
+          src={displaySrc}
           alt={`Escudo de ${teamName}`}
           fill
           unoptimized
