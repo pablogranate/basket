@@ -9,6 +9,7 @@ export type PeopleFilters = {
   state: string;
   city: string;
   team: string;
+  hideInactive: boolean;
 };
 
 export const EMPTY_PEOPLE_FILTERS: PeopleFilters = {
@@ -16,6 +17,7 @@ export const EMPTY_PEOPLE_FILTERS: PeopleFilters = {
   state: "",
   city: "",
   team: "",
+  hideInactive: false,
 };
 
 // Raw `assignment_state` values (unaccented), not their display labels.
@@ -58,11 +60,18 @@ export function parsePeopleFilters(params: RawSearchParams): PeopleFilters {
     state: pickEnum(getParam(params, "state"), STATE_FILTER_VALUES),
     city: getParam(params, "city"),
     team: getParam(params, "team"),
+    hideInactive: getParam(params, "hideInactive") === "1",
   };
 }
 
 export function hasActivePeopleFilters(filters: PeopleFilters): boolean {
-  return Boolean(filters.role || filters.state || filters.city || filters.team);
+  return Boolean(
+    filters.role ||
+      filters.state ||
+      filters.city ||
+      filters.team ||
+      filters.hideInactive,
+  );
 }
 
 function getPersonRoleValue(
@@ -117,6 +126,10 @@ export function applyPeopleFilters({
     }
 
     if (filters.state && person.assignment_state !== filters.state) {
+      return false;
+    }
+
+    if (filters.hideInactive && person.assignment_state === "Inactivo") {
       return false;
     }
 

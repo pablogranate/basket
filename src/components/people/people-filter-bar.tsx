@@ -11,6 +11,7 @@ import {
   type PeopleFilters,
 } from "@/lib/people-filters";
 import type { PersonListItem } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 type PeopleFilterBarProps = {
   filters: PeopleFilters;
@@ -26,7 +27,8 @@ export function PeopleFilterBar({
   query,
 }: PeopleFilterBarProps) {
   const router = useRouter();
-  const hasActiveFilters = FILTER_KEYS.some((key) => filters[key]);
+  const hasActiveFilters =
+    FILTER_KEYS.some((key) => filters[key]) || filters.hideInactive;
 
   function buildHref(overrides: Partial<PeopleFilters>) {
     const params = new URLSearchParams();
@@ -40,6 +42,10 @@ export function PeopleFilterBar({
       if (next[key]) {
         params.set(key, next[key]);
       }
+    }
+
+    if (next.hideInactive) {
+      params.set("hideInactive", "1");
     }
 
     const search = params.toString();
@@ -81,10 +87,51 @@ export function PeopleFilterBar({
         options={options.teams}
         onChange={(value) => handleChange("team", value)}
       />
+      <label className="flex flex-col gap-1.5">
+        <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--n-400)]">
+          Inactivos
+        </span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={filters.hideInactive}
+          onClick={() =>
+            router.push(buildHref({ hideInactive: !filters.hideInactive }))
+          }
+          className="inline-flex h-11 items-center gap-2.5 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-semibold text-[var(--n-600)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-soft)]"
+        >
+          <span
+            className={cn(
+              "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition",
+              filters.hideInactive
+                ? "border-[var(--accent-border)] bg-[var(--accent)]"
+                : "border-[var(--n-200)] bg-[var(--n-100)]",
+            )}
+          >
+            <span
+              className={cn(
+                "pointer-events-none absolute left-0.5 inline-flex size-3.5 rounded-full bg-white shadow-[0_1px_3px_rgba(28,13,16,0.2)] transition-transform",
+                filters.hideInactive && "translate-x-4",
+              )}
+            />
+          </span>
+          Ocultar inactivos
+        </button>
+      </label>
       {hasActiveFilters ? (
         <button
           type="button"
-          onClick={() => router.push(buildHref({ role: "", state: "", city: "", team: "" }))}
+          onClick={() =>
+            router.push(
+              buildHref({
+                role: "",
+                state: "",
+                city: "",
+                team: "",
+                hideInactive: false,
+              }),
+            )
+          }
           className="inline-flex h-11 items-center gap-1.5 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-semibold text-[var(--n-500)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
         >
           <X className="size-4" />

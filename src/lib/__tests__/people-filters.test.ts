@@ -93,6 +93,7 @@ describe("parsePeopleFilters", () => {
       state: "En asignacion",
       city: "Bogotá",
       team: "Boca Juniors",
+      hideInactive: false,
     });
   });
 
@@ -136,6 +137,19 @@ describe("applyPeopleFilters", () => {
       query: "",
     });
     expect(result.map((p) => p.full_name)).toEqual(["Samuel Venegas"]);
+  });
+
+  it("hides Inactivo people when hideInactive is set, keeping the rest", () => {
+    const result = applyPeopleFilters({
+      people: PEOPLE,
+      filters: { ...EMPTY_PEOPLE_FILTERS, hideInactive: true },
+      query: "",
+    });
+    expect(result.every((p) => p.assignment_state !== "Inactivo")).toBe(true);
+    expect(result.map((p) => p.full_name)).not.toContain("Samuel Venegas");
+    expect(result).toHaveLength(
+      PEOPLE.filter((p) => p.assignment_state !== "Inactivo").length,
+    );
   });
 
   it("matches Ciudad across casing/accent variants", () => {

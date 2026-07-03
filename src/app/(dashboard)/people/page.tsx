@@ -209,6 +209,9 @@ export default async function PeoplePage({ searchParams }: PageProps) {
               {filters.team ? (
                 <input type="hidden" name="team" value={filters.team} />
               ) : null}
+              {filters.hideInactive ? (
+                <input type="hidden" name="hideInactive" value="1" />
+              ) : null}
             </ToolbarSearchField>
             <Suspense fallback={null}>
               <PeopleHeaderExtras
