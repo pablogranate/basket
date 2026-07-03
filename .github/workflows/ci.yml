@@ -18,7 +18,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -35,3 +35,11 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          # Placeholder values so eager module-eval guards (Better Auth
+          # identity DB + OAuth) don't throw during page-data collection.
+          # The build never opens a DB connection; postgres-js is lazy.
+          AUTH_DATABASE_URL: postgres://ci:ci@localhost:5432/ci
+          BETTER_AUTH_SECRET: ci-placeholder-secret-not-used-at-runtime
+          GOOGLE_CLIENT_ID: ci-placeholder
+          GOOGLE_CLIENT_SECRET: ci-placeholder
