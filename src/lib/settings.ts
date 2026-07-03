@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 
 import { appEnv } from "@/lib/env";
@@ -47,7 +48,11 @@ function isMissingAppSettingsError(error: unknown) {
   return maybeCode === "42P01" || maybeMessage.includes("app_settings");
 }
 
-async function getPortalGeminiConfig() {
+// Request-scoped memo: the app_settings read fires once per request even when
+// getSettingsSnapshot/getGeminiRuntimeConfig are called from several places
+// (header AI gating, layout, page). React.cache is per-request — the Gemini key
+// stays fresh across edits (no cross-request promotion).
+const getPortalGeminiConfig = cache(async () => {
   try {
     const supabase = await createSupabaseServerClient();
     const result = await supabase
@@ -83,7 +88,7 @@ async function getPortalGeminiConfig() {
       model: "gemini-2.5-flash" as GeminiModel,
     };
   }
-}
+});
 
 export async function getGeminiRuntimeConfig(): Promise<GeminiRuntimeConfig> {
   const store = await cookies();

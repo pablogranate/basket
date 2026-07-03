@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 
@@ -23,6 +25,23 @@ type Fixture = {
   synced_at: string;
 };
 
+const formatFixtureDate = (d: string) => {
+  const [y, m, day] = d.split("-");
+  return `${day}/${m}/${y}`;
+};
+
+// Fixtures accumulate every sync; old seasons never leave the table. Bound both
+// reads to a recent+upcoming window (and cap rows) so the query cost stays flat
+// as history grows instead of scanning the whole table on every navigation.
+const FIXTURE_WINDOW_DAYS = 21;
+const FIXTURE_ROW_LIMIT = 1000;
+
+const getFixtureWindowStartIso = () => {
+  const start = new Date();
+  start.setUTCDate(start.getUTCDate() - FIXTURE_WINDOW_DAYS);
+  return start.toISOString().slice(0, 10);
+};
+
 export default async function FixturesPage({
   searchParams,
 }: {
@@ -31,25 +50,75 @@ export default async function FixturesPage({
   const params = await searchParams;
   const category = (params.category as string) || "";
 
+  return (
+    <div className="p-6 space-y-6">
+      <SectionPageHeader title="Fixtures" description="Partidos por categoría" />
+
+      {/* Filtro de categoría */}
+      <Suspense fallback={<FixturesFilterSkeleton />}>
+        <FixturesCategoryFilter category={category} />
+      </Suspense>
+
+      {/* Tabla por fecha */}
+      <Suspense fallback={<FixturesTableSkeleton />}>
+        <FixturesTable category={category} />
+      </Suspense>
+    </div>
+  );
+}
+
+async function FixturesCategoryFilter({ category }: { category: string }) {
   const supabase = await createSupabaseServerClient();
-  const query = supabase
-    .from("fixtures")
-    .select("*")
-    .order("match_date", { ascending: true })
-    .order("match_time", { ascending: true });
-
-  const { data: fixtures } = await (category ? query.ilike("category", `%${category}%`) : query)
-    .returns<Fixture[]>();
-
   const categories = await supabase
     .from("fixtures")
     .select("category")
+    .gte("match_date", getFixtureWindowStartIso())
     .order("category")
     .returns<{ category: string | null }[]>();
 
   const uniqueCategories = [
     ...new Set((categories.data || []).map((r) => r.category).filter(Boolean)),
   ];
+
+  return (
+    <div className="flex gap-2 flex-wrap">
+      <a
+        href="/fixtures"
+        className={`px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
+          !category ? "bg-blue-600 text-white border-blue-600" : "border-gray-300 text-gray-600 hover:bg-gray-50"
+        }`}
+      >
+        Todas
+      </a>
+      {uniqueCategories.map((cat) => (
+        <a
+          key={cat}
+          href={`/fixtures?category=${encodeURIComponent(cat!)}`}
+          className={`px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
+            cat === category
+              ? "bg-blue-600 text-white border-blue-600"
+              : "border-gray-300 text-gray-600 hover:bg-gray-50"
+          }`}
+        >
+          {cat}
+        </a>
+      ))}
+    </div>
+  );
+}
+
+async function FixturesTable({ category }: { category: string }) {
+  const supabase = await createSupabaseServerClient();
+  const query = supabase
+    .from("fixtures")
+    .select("*")
+    .gte("match_date", getFixtureWindowStartIso())
+    .order("match_date", { ascending: true })
+    .order("match_time", { ascending: true })
+    .limit(FIXTURE_ROW_LIMIT);
+
+  const { data: fixtures } = await (category ? query.ilike("category", `%${category}%`) : query)
+    .returns<Fixture[]>();
 
   const grouped = (fixtures || []).reduce<Record<string, Fixture[]>>((acc, f) => {
     const key = f.match_date || "Sin fecha";
@@ -58,41 +127,8 @@ export default async function FixturesPage({
     return acc;
   }, {});
 
-  const formatDate = (d: string) => {
-    const [y, m, day] = d.split("-");
-    return `${day}/${m}/${y}`;
-  };
-
   return (
-    <div className="p-6 space-y-6">
-      <SectionPageHeader title="Fixtures" description="Partidos por categoría" />
-
-      {/* Filtro de categoría */}
-      <div className="flex gap-2 flex-wrap">
-        <a
-          href="/fixtures"
-          className={`px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
-            !category ? "bg-blue-600 text-white border-blue-600" : "border-gray-300 text-gray-600 hover:bg-gray-50"
-          }`}
-        >
-          Todas
-        </a>
-        {uniqueCategories.map((cat) => (
-          <a
-            key={cat}
-            href={`/fixtures?category=${encodeURIComponent(cat!)}`}
-            className={`px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
-              cat === category
-                ? "bg-blue-600 text-white border-blue-600"
-                : "border-gray-300 text-gray-600 hover:bg-gray-50"
-            }`}
-          >
-            {cat}
-          </a>
-        ))}
-      </div>
-
-      {/* Tabla por fecha */}
+    <>
       {Object.keys(grouped).length === 0 ? (
         <p className="text-gray-500 text-sm">
           No hay fixtures cargados para esta categoría. Ejecutá el script de sync.
@@ -101,7 +137,7 @@ export default async function FixturesPage({
         Object.entries(grouped).map(([date, matches]) => (
           <div key={date}>
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
-              {date === "Sin fecha" ? "Sin fecha" : formatDate(date)}
+              {date === "Sin fecha" ? "Sin fecha" : formatFixtureDate(date)}
             </h2>
             <div className="rounded-lg border overflow-hidden">
               <table className="w-full text-sm">
@@ -149,6 +185,32 @@ export default async function FixturesPage({
           ? new Date(fixtures[0].synced_at).toLocaleString("es-AR")
           : "nunca"}
       </p>
+    </>
+  );
+}
+
+function FixturesFilterSkeleton() {
+  return (
+    <div className="flex gap-2 flex-wrap" aria-busy="true">
+      {Array.from({ length: 5 }).map((_, index) => (
+        <div
+          key={index}
+          className="h-7 w-24 animate-pulse rounded-full bg-[var(--background-soft)]"
+        />
+      ))}
+    </div>
+  );
+}
+
+function FixturesTableSkeleton() {
+  return (
+    <div className="space-y-6" aria-busy="true" aria-live="polite">
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div
+          key={index}
+          className="h-40 animate-pulse rounded-lg border border-[var(--border)] bg-[var(--surface)]"
+        />
+      ))}
     </div>
   );
 }

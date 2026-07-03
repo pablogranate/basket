@@ -9,31 +9,27 @@ import {
   Video,
 } from "lucide-react";
 
-import { MatchContactsModal } from "@/components/grid/match-contacts-modal";
+import dynamic from "next/dynamic";
+
+import { getMatchCardSectionsAction } from "@/app/actions/match-card-sections";
 import { getCompactPersonName, getRoleDisplayName } from "@/lib/display";
-import type { AttendanceState } from "@/lib/grid/attendance";
 import { getAttendanceTextClass } from "@/lib/grid/attendance";
-import { cn } from "@/lib/utils";
+import type {
+  MatchCardSection,
+  MatchCardSectionKey,
+  SectionRow,
+} from "@/lib/grid/match-card-sections";
+import { cn, ensureErrorMessage } from "@/lib/utils";
 
-export type SectionRow = {
-  label: string;
-  value: string;
-  muted?: boolean;
-  compactValue?: boolean;
-  multiline?: boolean;
-  attendanceState?: AttendanceState;
-};
-
-export type MatchCardSectionKey =
-  | "production"
-  | "cameras"
-  | "talent"
-  | "observations";
-
-export type MatchCardSection = {
-  key: MatchCardSectionKey;
-  rows: SectionRow[];
-};
+// Lazy: the contacts modal only mounts when a card is expanded and its button
+// clicked, so keep it out of the initial grid bundle.
+const MatchContactsModal = dynamic(
+  () =>
+    import("@/components/grid/match-contacts-modal").then(
+      (mod) => mod.MatchContactsModal,
+    ),
+  { ssr: false },
+);
 
 const SECTION_META: Record<
   MatchCardSectionKey,
@@ -100,14 +96,14 @@ export function MatchCardDetails({
   detailsId,
   matchId,
   matchLabel,
-  sections,
 }: {
   detailsId: string;
   matchId: string;
   matchLabel: string;
-  sections: MatchCardSection[];
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [sections, setSections] = useState<MatchCardSection[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const details = document.getElementById(detailsId);
@@ -121,6 +117,33 @@ export function MatchCardDetails({
     return () => details.removeEventListener("toggle", handler);
   }, [detailsId]);
 
+  useEffect(() => {
+    // Fetch the detail rows on first expand only; they are no longer serialized
+    // into the collapsed card's Flight payload. Cache across close/reopen.
+    if (!isOpen || sections !== null) {
+      return;
+    }
+
+    let active = true;
+
+    getMatchCardSectionsAction(matchId)
+      .then((result) => {
+        if (active) {
+          setSections(result);
+          setError(null);
+        }
+      })
+      .catch((caught) => {
+        if (active) {
+          setError(ensureErrorMessage(caught));
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isOpen, matchId, sections]);
+
   if (!isOpen) {
     return null;
   }
@@ -130,20 +153,48 @@ export function MatchCardDetails({
       <div className="mb-5 flex justify-end">
         <MatchContactsModal matchId={matchId} matchLabel={matchLabel} />
       </div>
-      <div className="grid gap-6 xl:grid-cols-4">
-        {sections.map((section) => {
-          const meta = SECTION_META[section.key];
+      {error ? (
+        <p className="rounded-[var(--panel-radius)] border border-[var(--accent-border)] bg-[var(--accent-soft)] px-5 py-4 text-sm font-semibold text-[var(--accent-strong)]">
+          {error}
+        </p>
+      ) : sections === null ? (
+        <SectionsSkeleton />
+      ) : (
+        <div className="grid gap-6 xl:grid-cols-4">
+          {sections.map((section) => {
+            const meta = SECTION_META[section.key];
 
-          return (
-            <Section
-              key={section.key}
-              title={meta.title}
-              icon={meta.icon}
-              rows={section.rows}
-            />
-          );
-        })}
-      </div>
+            return (
+              <Section
+                key={section.key}
+                title={meta.title}
+                icon={meta.icon}
+                rows={section.rows}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SectionsSkeleton() {
+  return (
+    <div className="grid gap-6 xl:grid-cols-4" aria-busy="true" aria-live="polite">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div key={index} className="flex flex-col gap-4">
+          <div className="h-4 w-2/3 animate-pulse rounded bg-[var(--background-soft)]" />
+          <div className="flex flex-col gap-4">
+            {Array.from({ length: 3 }).map((__, row) => (
+              <div key={row} className="space-y-1">
+                <div className="h-2.5 w-1/2 animate-pulse rounded bg-[var(--background-soft)]" />
+                <div className="h-3.5 w-4/5 animate-pulse rounded bg-[var(--background-soft)]" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

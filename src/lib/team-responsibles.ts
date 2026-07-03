@@ -8,6 +8,11 @@ export type TeamResponsibleContact = {
   email: string | null;
 };
 
+export type TeamResponsiblePerson = Pick<
+  PersonListItem,
+  "full_name" | "phone" | "email" | "active" | "notes"
+>;
+
 type TeamResponsibleLookup = {
   byTeam: Map<string, TeamResponsibleContact>;
   byName: Map<string, TeamResponsibleContact>;
@@ -31,7 +36,7 @@ function normalizeManagerValue(value: string | null | undefined) {
 }
 
 export function buildTeamResponsibleLookup(
-  people: PersonListItem[],
+  people: TeamResponsiblePerson[],
 ): TeamResponsibleLookup {
   const byTeam = new Map<string, TeamResponsibleContact>();
   const byName = new Map<string, TeamResponsibleContact>();

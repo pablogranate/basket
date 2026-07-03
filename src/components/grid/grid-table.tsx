@@ -10,7 +10,7 @@ import {
   PencilLine,
 } from "lucide-react";
 
-import { CreateMatchModal } from "@/components/grid/create-match-modal";
+import { CreateMatchModal } from "@/components/grid/create-match-modal-lazy";
 import {
   GridTableCellEditor,
   type GridCellEditor,

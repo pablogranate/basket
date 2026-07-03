@@ -20,7 +20,7 @@ import { SetupPanel } from "@/components/layout/setup-panel";
 import { PeopleDirectoryView } from "@/components/people/people-directory-view";
 import { PeopleFilterBar } from "@/components/people/people-filter-bar";
 import { PeopleAdminWarningModal } from "@/components/people/people-admin-warning-modal";
-import { CreatePersonModal } from "@/components/people/create-person-modal";
+import { CreatePersonModal } from "@/components/people/create-person-modal-lazy";
 import { PersonFunctionsField } from "@/components/people/person-functions-field";
 import { PersonDeleteButton } from "@/components/people/person-delete-button";
 import { PersonGrantAccessButton } from "@/components/people/person-grant-access-button";

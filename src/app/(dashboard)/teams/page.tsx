@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { SectionAiAssistant } from "@/components/ai/section-ai-assistant";
-import { CreateTeamModal } from "@/components/teams/create-team-modal";
+import { CreateTeamModal } from "@/components/teams/create-team-modal-lazy";
 import { PageCanvasTone } from "@/components/layout/page-canvas-tone";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 import { TeamsWorkspaceClient } from "@/components/teams/teams-workspace-client";
@@ -9,7 +10,8 @@ import { ToolbarSearchField } from "@/components/ui/toolbar-search-field";
 import { getUserContext } from "@/lib/auth";
 import { SECTION_COPY } from "@/lib/copy";
 import { isCollaboratorLimitedRole } from "@/lib/constants";
-import { getPeopleData } from "@/lib/data/dashboard";
+import type { UserContext } from "@/lib/auth";
+import { getPeopleContactList } from "@/lib/data/dashboard";
 import { getSettingsSnapshot } from "@/lib/settings";
 import {
   getTeamLeagueAccentColor,
@@ -17,6 +19,7 @@ import {
   getTeamDirectoryData,
   getTeamDirectoryTabs,
   TEAM_DIRECTORY,
+  type TeamDirectoryItem,
 } from "@/lib/team-directory";
 import { cn } from "@/lib/utils";
 
@@ -62,7 +65,6 @@ export default async function TeamsPage({ searchParams }: PageProps) {
   const query = readSearchValue(resolvedSearchParams.q);
   const activeLeague = readSearchValue(resolvedSearchParams.league);
   const teams = getTeamDirectoryData({ query, league: activeLeague });
-  const people = user.userId ? await getPeopleData(user) : [];
   const canManageTeams = user.canEdit && !isCollaboratorLimitedRole(user.role);
   const settings = await getSettingsSnapshot();
   const tabs = getTeamDirectoryTabs();
@@ -167,13 +169,58 @@ export default async function TeamsPage({ searchParams }: PageProps) {
 
       </div>
 
-      <TeamsWorkspaceClient
-        initialTeams={teams}
-        people={people}
-        activeLeague={activeLeague}
-        query={query}
-        canManageTeams={canManageTeams}
-      />
+      <Suspense fallback={<TeamsDirectorySkeleton />}>
+        <TeamsDirectoryRegion
+          user={user}
+          initialTeams={teams}
+          activeLeague={activeLeague}
+          query={query}
+          canManageTeams={canManageTeams}
+        />
+      </Suspense>
+    </div>
+  );
+}
+
+async function TeamsDirectoryRegion({
+  user,
+  initialTeams,
+  activeLeague,
+  query,
+  canManageTeams,
+}: {
+  user: UserContext;
+  initialTeams: TeamDirectoryItem[];
+  activeLeague: string;
+  query: string;
+  canManageTeams: boolean;
+}) {
+  const people = user.userId ? await getPeopleContactList(user) : [];
+
+  return (
+    <TeamsWorkspaceClient
+      initialTeams={initialTeams}
+      people={people}
+      activeLeague={activeLeague}
+      query={query}
+      canManageTeams={canManageTeams}
+    />
+  );
+}
+
+function TeamsDirectorySkeleton() {
+  return (
+    <div
+      className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+      aria-busy="true"
+      aria-live="polite"
+    >
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div
+          key={index}
+          className="h-44 animate-pulse rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)]"
+        />
+      ))}
     </div>
   );
 }

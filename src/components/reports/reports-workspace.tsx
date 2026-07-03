@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 
 import { SectionAiAssistant } from "@/components/ai/section-ai-assistant";
-import { IncidentsWorkspace } from "@/components/incidents/incidents-workspace";
+import dynamic from "next/dynamic";
 import { LeagueLogoMarkClient } from "@/components/league-logo-mark-client";
 import { ClientTeamLogoMark } from "@/components/team-logo-mark-client";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
@@ -51,6 +51,16 @@ import type {
 import type { IncidentRecord } from "@/lib/incidents";
 import { getTeamLeagueColorSet } from "@/lib/team-directory";
 import { cn } from "@/lib/utils";
+
+// Lazy: the incidents workspace (~82KB) only renders on the incidents tab, so
+// keep it out of the initial /reports bundle until that tab is opened.
+const IncidentsWorkspace = dynamic(
+  () =>
+    import("@/components/incidents/incidents-workspace").then(
+      (mod) => mod.IncidentsWorkspace,
+    ),
+  { ssr: false },
+);
 
 type ReportSortKey =
   | "league"

@@ -9,11 +9,8 @@ import {
 } from "lucide-react";
 
 import { MatchCardActions } from "@/components/grid/match-card-actions";
-import {
-  MatchCardDetails,
-  type MatchCardSection,
-  type SectionRow,
-} from "@/components/grid/match-card-details";
+import { MatchCardDetails } from "@/components/grid/match-card-details";
+import { getAssignmentValue } from "@/lib/grid/match-card-sections";
 import { TeamLogoMark } from "@/components/team-logo-mark";
 import { LeagueLogoMarkClient } from "@/components/league-logo-mark-client";
 import { QuickMatchFieldEditor } from "@/components/grid/quick-match-field-editor";
@@ -26,7 +23,7 @@ import {
 } from "@/lib/constants";
 import { formatMatchTimeLabel, isPendingKickoffTime } from "@/lib/date";
 import { getCompactPersonName } from "@/lib/display";
-import { getAttendanceState, getAttendanceTextClass } from "@/lib/grid/attendance";
+import { getAttendanceTextClass } from "@/lib/grid/attendance";
 import { getGridLeagueColor } from "@/lib/league-grid-colors";
 import { toMatchEditPrefill } from "@/lib/grid/match-prefill";
 import { getTeamLeagueLabel } from "@/lib/team-directory";
@@ -53,124 +50,6 @@ function formatGridDate(kickoffAt: string, timezone: string) {
     .replaceAll(".", "")
     .replaceAll(",", "")
     .toUpperCase();
-}
-
-function getAssignmentValue(
-  match: MatchListItem,
-  roleName: string,
-  fallback?: string | null,
-) {
-  const assignment = match.assignments.find((item) => item.role.name === roleName);
-  const value = assignment?.person?.full_name ?? fallback ?? "TBD";
-
-  return {
-    value,
-    muted: !assignment?.person?.full_name && !fallback,
-    attendanceState: getAttendanceState(
-      assignment?.attendance_response ?? null,
-      assignment?.person_id ?? null,
-    ),
-  };
-}
-
-function buildProductionRows(match: MatchListItem): SectionRow[] {
-  const responsible = getAssignmentValue(
-    match,
-    "Responsable",
-    match.owner?.full_name ?? null,
-  );
-  const director = getAssignmentValue(match, "Realizador");
-  const control = getAssignmentValue(match, "Operador de Control");
-  const support = getAssignmentValue(match, "Soporte tecnico");
-
-  return [
-    {
-      label: RESPONSIBLE_DISPLAY_LABEL,
-      value: responsible.value,
-      muted: responsible.muted,
-      compactValue: true,
-      attendanceState: responsible.attendanceState,
-    },
-    {
-      label: "Realizador",
-      value: director.value,
-      muted: director.muted,
-      compactValue: true,
-      attendanceState: director.attendanceState,
-    },
-    {
-      label: "Operador de Control",
-      value: control.value,
-      muted: control.muted,
-      compactValue: true,
-      attendanceState: control.attendanceState,
-    },
-    {
-      label: "Soporte tecnico",
-      value: support.value,
-      muted: support.muted,
-      compactValue: true,
-      attendanceState: support.attendanceState,
-    },
-  ];
-}
-
-function buildCategoryRows(
-  match: MatchListItem,
-  category: string,
-  limit = 4,
-): SectionRow[] {
-  return match.assignments
-    .filter((assignment) => assignment.role.category === category)
-    .sort((left, right) => left.role.sort_order - right.role.sort_order)
-    .slice(0, limit)
-    .map((assignment) => ({
-      label: assignment.role.name,
-      value: assignment.person?.full_name ?? "TBD",
-      muted: !assignment.person?.full_name,
-      compactValue: true,
-      attendanceState: getAttendanceState(
-        assignment.attendance_response,
-        assignment.person_id,
-      ),
-    }));
-}
-
-function buildNamedRows(
-  match: MatchListItem,
-  roleNames: string[],
-): SectionRow[] {
-  return roleNames.map((roleName) => {
-    const item = getAssignmentValue(match, roleName);
-
-    return {
-      label: roleName,
-      value: item.value,
-      muted: item.muted,
-      compactValue: true,
-      attendanceState: item.attendanceState,
-    };
-  });
-}
-
-function buildObservationRows(match: MatchListItem): SectionRow[] {
-  const transport = match.transport?.trim() ?? "";
-  const notes = match.notes?.trim() ?? "";
-
-  return [
-    {
-      label: "Transporte",
-      value: transport || "Sin datos",
-      muted: !transport,
-      multiline: true,
-    },
-    {
-      label: "Observaciones",
-      value: notes || "Sin observaciones",
-      muted: !notes,
-      multiline: true,
-    },
-  ];
 }
 
 function getInitials(name: string) {
@@ -205,14 +84,6 @@ export function MatchCard({
   redirectTo: string;
   canEdit: boolean;
 }) {
-  const cameraRows = buildCategoryRows(match, "Camaras");
-  const talentRows = buildNamedRows(match, [
-    "Relator",
-    "Comentario 1",
-    "Comentario 2",
-    "Campo",
-  ]);
-  const observationRows = buildObservationRows(match);
   const responsible = getAssignmentValue(
     match,
     "Responsable",
@@ -230,12 +101,6 @@ export function MatchCard({
   const statusAccentClass =
     match.status === "Realizado" ? "bg-[#26b36a]" : "bg-[var(--n-200)]";
   const detailsId = `match-card-${match.id}`;
-  const sections: MatchCardSection[] = [
-    { key: "production", rows: buildProductionRows(match) },
-    { key: "cameras", rows: cameraRows },
-    { key: "talent", rows: talentRows },
-    { key: "observations", rows: observationRows },
-  ];
 
   return (
     <details
@@ -553,7 +418,6 @@ export function MatchCard({
         detailsId={detailsId}
         matchId={match.id}
         matchLabel={`${match.home_team} vs ${match.away_team}`}
-        sections={sections}
       />
     </details>
   );

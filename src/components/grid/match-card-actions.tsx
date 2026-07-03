@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, Maximize2, PencilLine } from "lucide-react";
 
-import { CreateMatchModal } from "@/components/grid/create-match-modal";
+import { CreateMatchModal } from "@/components/grid/create-match-modal-lazy";
 import { usePeople } from "@/components/grid/people-context";
 import { formatMatchDate } from "@/lib/date";
 import type { MatchEditPrefill } from "@/lib/types";
