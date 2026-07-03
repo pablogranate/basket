@@ -30,6 +30,18 @@ const formatFixtureDate = (d: string) => {
   return `${day}/${m}/${y}`;
 };
 
+// Fixtures accumulate every sync; old seasons never leave the table. Bound both
+// reads to a recent+upcoming window (and cap rows) so the query cost stays flat
+// as history grows instead of scanning the whole table on every navigation.
+const FIXTURE_WINDOW_DAYS = 21;
+const FIXTURE_ROW_LIMIT = 1000;
+
+const getFixtureWindowStartIso = () => {
+  const start = new Date();
+  start.setUTCDate(start.getUTCDate() - FIXTURE_WINDOW_DAYS);
+  return start.toISOString().slice(0, 10);
+};
+
 export default async function FixturesPage({
   searchParams,
 }: {
@@ -60,6 +72,7 @@ async function FixturesCategoryFilter({ category }: { category: string }) {
   const categories = await supabase
     .from("fixtures")
     .select("category")
+    .gte("match_date", getFixtureWindowStartIso())
     .order("category")
     .returns<{ category: string | null }[]>();
 
@@ -99,8 +112,10 @@ async function FixturesTable({ category }: { category: string }) {
   const query = supabase
     .from("fixtures")
     .select("*")
+    .gte("match_date", getFixtureWindowStartIso())
     .order("match_date", { ascending: true })
-    .order("match_time", { ascending: true });
+    .order("match_time", { ascending: true })
+    .limit(FIXTURE_ROW_LIMIT);
 
   const { data: fixtures } = await (category ? query.ilike("category", `%${category}%`) : query)
     .returns<Fixture[]>();

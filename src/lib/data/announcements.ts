@@ -35,7 +35,7 @@ async function fetchLatestAnnouncementQuery(activeOnly: boolean) {
   }
 }
 
-export async function getActiveAnnouncement(ctx: UserContext) {
+export async function getActiveAnnouncement(ctx: UserContext | null) {
   void ctx;
   return fetchLatestAnnouncementQuery(true);
 }

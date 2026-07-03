@@ -20,11 +20,14 @@ export default async function DashboardLayout({
 }) {
   const requestHeaders = await headers();
   const pathname = requestHeaders.get("x-pathname");
-  const user = isSupabaseConfigured ? await getUserContext() : null;
-  const announcement =
-    isSupabaseConfigured && user?.userId
-      ? await getActiveAnnouncement(user)
-      : null;
+  // Fire the user + announcement reads concurrently. getActiveAnnouncement does
+  // not depend on the user (it voids its ctx); we still only surface it once we
+  // know the request is authenticated (gate below).
+  const [user, activeAnnouncement] = await Promise.all([
+    isSupabaseConfigured ? getUserContext() : Promise.resolve(null),
+    isSupabaseConfigured ? getActiveAnnouncement(null) : Promise.resolve(null),
+  ]);
+  const announcement = user?.userId ? activeAnnouncement : null;
   const allowsGuestMiJornada = appEnv.allowGuestMiJornadaAccess && !user?.userId;
 
   if (isSupabaseConfigured && !user?.userId && !allowsGuestMiJornada) {
