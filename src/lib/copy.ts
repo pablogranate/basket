@@ -45,7 +45,6 @@ export const SECTION_COPY = {
   people: {
     title: "Personal",
     tableTitle: `Personal de ${PRODUCT_COPY.appName}`,
-    directoryTitle: "Directorio de personal",
     description:
       "Gestión y coordinación de talento y equipos técnicos de producción.",
   },

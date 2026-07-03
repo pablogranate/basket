@@ -4,10 +4,7 @@ import Link from "next/link";
 import {
   Camera,
   Download,
-  LayoutGrid,
   Mic2,
-  PencilLine,
-  Rows3,
   ShieldCheck,
   UserRoundX,
   Users,
@@ -19,9 +16,7 @@ import { upsertPersonAction } from "@/app/actions/people";
 import { SectionAiAssistant } from "@/components/ai/section-ai-assistant";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 import { SetupPanel } from "@/components/layout/setup-panel";
-import { PeopleDirectoryView } from "@/components/people/people-directory-view";
 import { PeopleFilterBar } from "@/components/people/people-filter-bar";
-import { PeopleAdminWarningModal } from "@/components/people/people-admin-warning-modal";
 import { CreatePersonModal } from "@/components/people/create-person-modal-lazy";
 import { PersonFunctionsField } from "@/components/people/person-functions-field";
 import { PersonDeleteButton } from "@/components/people/person-delete-button";
@@ -32,7 +27,6 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { PageMessage } from "@/components/ui/page-message";
-import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Select } from "@/components/ui/select";
 import { SectionTableCard } from "@/components/ui/section-table-card";
 import { StatCard } from "@/components/ui/stat-card";
@@ -168,8 +162,6 @@ export default async function PeoplePage({ searchParams }: PageProps) {
     typeof resolvedSearchParams.q === "string"
       ? resolvedSearchParams.q.trim()
       : "";
-  const viewMode =
-    resolvedSearchParams.view === "directory" ? "directory" : "table";
   const editPersonId =
     typeof resolvedSearchParams.edit === "string"
       ? resolvedSearchParams.edit
@@ -196,11 +188,7 @@ export default async function PeoplePage({ searchParams }: PageProps) {
   return (
     <div className="space-y-10">
       <SectionPageHeader
-        title={
-          viewMode === "directory"
-            ? SECTION_COPY.people.directoryTitle
-            : SECTION_COPY.people.title
-        }
+        title={SECTION_COPY.people.title}
         description={SECTION_COPY.people.description}
         actions={
           <>
@@ -209,9 +197,6 @@ export default async function PeoplePage({ searchParams }: PageProps) {
               defaultValue={query}
               placeholder="Buscar nombre, rol, responsable o ciudad..."
             >
-              {viewMode === "directory" ? (
-                <input type="hidden" name="view" value="directory" />
-              ) : null}
               {filters.role ? (
                 <input type="hidden" name="role" value={filters.role} />
               ) : null}
@@ -256,7 +241,6 @@ export default async function PeoplePage({ searchParams }: PageProps) {
           resolvedSearchParams={resolvedSearchParams}
           filters={filters}
           query={query}
-          viewMode={viewMode}
           editPersonId={editPersonId}
           canManageAccess={canManageAccess}
           canSelectAccessTier={canSelectAccessTier}
@@ -341,7 +325,6 @@ async function PeopleDataRegion({
   resolvedSearchParams,
   filters,
   query,
-  viewMode,
   editPersonId,
   canManageAccess,
   canSelectAccessTier,
@@ -352,7 +335,6 @@ async function PeopleDataRegion({
   resolvedSearchParams: Record<string, string | string[] | undefined>;
   filters: ReturnType<typeof parsePeopleFilters>;
   query: string;
-  viewMode: "table" | "directory";
   editPersonId: string | undefined;
   canManageAccess: boolean;
   canSelectAccessTier: boolean;
@@ -393,7 +375,6 @@ async function PeopleDataRegion({
   const selectedPeopleHref = selectedPerson
     ? buildPeopleHref(resolvedSearchParams, {
         edit: selectedPerson.id,
-        view: viewMode === "directory" ? "directory" : undefined,
       })
     : null;
 
@@ -437,86 +418,29 @@ async function PeopleDataRegion({
           filters={filters}
           options={filterOptions}
           query={query}
-          view={viewMode}
         />
       ) : null}
 
       <SectionTableCard
-        title={
-          viewMode === "directory"
-            ? SECTION_COPY.people.directoryTitle
-            : SECTION_COPY.people.tableTitle
-        }
+        title={SECTION_COPY.people.tableTitle}
         badge={
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--n-200)] bg-[var(--n-100)] px-3 py-1 text-xs font-bold text-[var(--n-600)]">
               <span className="size-1.5 rounded-full bg-[var(--n-400)]" />
               {activeCount} Activos
             </span>
-            <SegmentedControl
-              size="sm"
-              items={[
-                {
-                  key: "table",
-                  href: buildPeopleHref(resolvedSearchParams, { view: undefined }),
-                  active: viewMode === "table",
-                  label: (
-                    <span className="inline-flex items-center gap-2">
-                      <Rows3 className="size-3.5" />
-                      Tabla
-                    </span>
-                  ),
-                },
-                {
-                  key: "directory",
-                  href: buildPeopleHref(resolvedSearchParams, { view: "directory" }),
-                  active: viewMode === "directory",
-                  label: (
-                    <span className="inline-flex items-center gap-2">
-                      <LayoutGrid className="size-3.5" />
-                      Directorio
-                    </span>
-                  ),
-                },
-              ]}
-            />
-            {user.canEdit ? (
-              <>
-                {selectedPerson ? (
-                  <Link
-                    href={selectedPeopleHref ?? currentPeopleHref}
-                    className="inline-flex size-9 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--n-500)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
-                    title={`Editar ${selectedPerson.full_name}`}
-                  >
-                    <PencilLine className="size-4" />
-                  </Link>
-                ) : (
-                  <PeopleAdminWarningModal />
-                )}
-                {selectedPerson ? (
-                  <PersonDeleteButton
-                    personId={selectedPerson.id}
-                    fullName={selectedPerson.full_name}
-                    redirectTo={currentPeopleHref}
-                  />
-                ) : null}
-              </>
+            {user.canEdit && selectedPerson ? (
+              <PersonDeleteButton
+                personId={selectedPerson.id}
+                fullName={selectedPerson.full_name}
+                redirectTo={currentPeopleHref}
+              />
             ) : null}
           </div>
         }
       >
         {people.length ? (
-          viewMode === "directory" ? (
-            <PeopleDirectoryView
-              people={people}
-              query={query}
-              filters={filters}
-              selectedPersonId={selectedPerson?.id ?? null}
-              canEdit={user.canEdit}
-            />
-          ) : (
-            <PeopleTable people={people} canEdit={user.canEdit} />
-          )
+          <PeopleTable people={people} canEdit={user.canEdit} />
         ) : (
           <div className="p-6">
             <EmptyState

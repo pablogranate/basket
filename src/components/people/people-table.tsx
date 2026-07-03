@@ -324,7 +324,6 @@ export function PeopleTable({
             <div className="flex justify-start">
               <div className="flex items-center">
                 <PersonActiveToggle
-                  variant="switch"
                   personId={person.id}
                   active={person.active}
                   fullName={person.full_name}

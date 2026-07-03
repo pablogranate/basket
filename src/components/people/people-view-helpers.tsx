@@ -1,9 +1,6 @@
 import {
   Camera,
   Cpu,
-  Mail,
-  MapPin,
-  MessageCircle,
   Mic,
   Palette,
   ShieldCheck,
@@ -136,14 +133,3 @@ export function getCityIndicator(city: string) {
 
   return { symbol: "CI", emoji: null, label: "Ciudad" };
 }
-
-export const PEOPLE_DIRECTORY_ACTION_STYLES = {
-  neutral:
-    "inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--n-50)] px-3 text-xs font-bold text-[var(--n-600)] transition hover:bg-[var(--n-100)]",
-  accent:
-    "inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[var(--accent-border)] bg-[var(--accent-soft)] px-3 text-xs font-bold text-[var(--accent)] transition hover:bg-[var(--accent-border)]",
-  disabled:
-    "inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--n-50)] px-3 text-xs font-bold text-[var(--n-400)]",
-};
-
-export { Mail, MapPin, MessageCircle };

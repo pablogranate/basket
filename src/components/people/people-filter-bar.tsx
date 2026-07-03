@@ -16,7 +16,6 @@ type PeopleFilterBarProps = {
   filters: PeopleFilters;
   options: PeopleFilterOptions;
   query: string;
-  view: "table" | "directory";
 };
 
 const FILTER_KEYS = ["role", "state", "city", "team"] as const;
@@ -25,7 +24,6 @@ export function PeopleFilterBar({
   filters,
   options,
   query,
-  view,
 }: PeopleFilterBarProps) {
   const router = useRouter();
   const hasActiveFilters = FILTER_KEYS.some((key) => filters[key]);
@@ -35,10 +33,6 @@ export function PeopleFilterBar({
 
     if (query) {
       params.set("q", query);
-    }
-
-    if (view === "directory") {
-      params.set("view", "directory");
     }
 
     const next = { ...filters, ...overrides };
