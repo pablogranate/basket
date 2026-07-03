@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { buildPersonNotesMeta } from "@/lib/people-notes";
 import {
   EMPTY_PEOPLE_FILTERS,
+  STATE_HIDE_INACTIVE,
   UNASSIGNED_OPTION,
   applyPeopleFilters,
   derivePeopleFilterOptions,
@@ -93,7 +94,6 @@ describe("parsePeopleFilters", () => {
       state: "En asignacion",
       city: "Bogotá",
       team: "Boca Juniors",
-      hideInactive: false,
     });
   });
 
@@ -139,10 +139,10 @@ describe("applyPeopleFilters", () => {
     expect(result.map((p) => p.full_name)).toEqual(["Samuel Venegas"]);
   });
 
-  it("hides Inactivo people when hideInactive is set, keeping the rest", () => {
+  it("excludes Inactivo people for the STATE_HIDE_INACTIVE option, keeping the rest", () => {
     const result = applyPeopleFilters({
       people: PEOPLE,
-      filters: { ...EMPTY_PEOPLE_FILTERS, hideInactive: true },
+      filters: { ...EMPTY_PEOPLE_FILTERS, state: STATE_HIDE_INACTIVE },
       query: "",
     });
     expect(result.every((p) => p.assignment_state !== "Inactivo")).toBe(true);

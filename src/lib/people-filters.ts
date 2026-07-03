@@ -9,7 +9,6 @@ export type PeopleFilters = {
   state: string;
   city: string;
   team: string;
-  hideInactive: boolean;
 };
 
 export const EMPTY_PEOPLE_FILTERS: PeopleFilters = {
@@ -17,7 +16,6 @@ export const EMPTY_PEOPLE_FILTERS: PeopleFilters = {
   state: "",
   city: "",
   team: "",
-  hideInactive: false,
 };
 
 // Raw `assignment_state` values (unaccented), not their display labels.
@@ -25,6 +23,15 @@ export const STATE_FILTER_VALUES = [
   "En asignacion",
   "Disponible",
   "Inactivo",
+] as const;
+
+// Sentinel Estado option: matches everyone except Inactivo (i.e. both
+// Disponible and En asignación). Not a real `assignment_state`.
+export const STATE_HIDE_INACTIVE = "sin-inactivos";
+
+const STATE_FILTER_ALLOWED = [
+  ...STATE_FILTER_VALUES,
+  STATE_HIDE_INACTIVE,
 ] as const;
 
 // Sentinel option matching people whose role/city/team field is blank.
@@ -57,21 +64,14 @@ function pickEnum(value: string, allowed: readonly string[]): string {
 export function parsePeopleFilters(params: RawSearchParams): PeopleFilters {
   return {
     role: getParam(params, "role"),
-    state: pickEnum(getParam(params, "state"), STATE_FILTER_VALUES),
+    state: pickEnum(getParam(params, "state"), STATE_FILTER_ALLOWED),
     city: getParam(params, "city"),
     team: getParam(params, "team"),
-    hideInactive: getParam(params, "hideInactive") === "1",
   };
 }
 
 export function hasActivePeopleFilters(filters: PeopleFilters): boolean {
-  return Boolean(
-    filters.role ||
-      filters.state ||
-      filters.city ||
-      filters.team ||
-      filters.hideInactive,
-  );
+  return Boolean(filters.role || filters.state || filters.city || filters.team);
 }
 
 function getPersonRoleValue(
@@ -125,12 +125,14 @@ export function applyPeopleFilters({
       }
     }
 
-    if (filters.state && person.assignment_state !== filters.state) {
-      return false;
-    }
-
-    if (filters.hideInactive && person.assignment_state === "Inactivo") {
-      return false;
+    if (filters.state) {
+      if (filters.state === STATE_HIDE_INACTIVE) {
+        if (person.assignment_state === "Inactivo") {
+          return false;
+        }
+      } else if (person.assignment_state !== filters.state) {
+        return false;
+      }
     }
 
     if (filters.city) {
