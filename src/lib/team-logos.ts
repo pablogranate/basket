@@ -262,18 +262,20 @@ function getCompetitionFolderHints(competition?: string | null) {
   )?.folders.map(normalizeText) ?? [];
 }
 
+type PreparedQuery = {
+  normalizedQuery: string;
+  queryTokens: string[];
+};
+
 function scoreEntry(
   entry: LogoEntry,
-  query: string,
+  { normalizedQuery, queryTokens }: PreparedQuery,
   competitionFolders: string[],
 ) {
-  const normalizedQuery = normalizeText(query);
-
   if (!normalizedQuery) {
     return Number.NEGATIVE_INFINITY;
   }
 
-  const queryTokens = tokenize(query);
   const sharedTokens = queryTokens.filter((token) => entry.tokens.includes(token));
   let score = 0;
 
@@ -347,20 +349,40 @@ export function resolveTeamLogoMap(
   return map;
 }
 
+// Result memo: the logo index and TEAM_DIRECTORY are static per process, and
+// each lookup is O(entries × queries) string scoring over ~754 files. Without
+// it, a logo-dense render (196 teams) burns ~1s of main-thread CPU and stalls
+// every concurrent request. The cap guards against unbounded growth from
+// free-typed team names on grid/match screens.
+const logoPathCache = new Map<string, string | null>();
+const LOGO_PATH_CACHE_MAX = 4000;
+
 export function getTeamLogoPath(params: {
   teamName: string;
   competition?: string | null;
 }) {
   const normalizedTeam = normalizeText(params.teamName);
-  const aliases = TEAM_QUERY_ALIASES[normalizedTeam] ?? [];
-  const searchQueries = [params.teamName, ...aliases];
   const competitionFolders = getCompetitionFolderHints(params.competition);
+  const cacheKey = `${normalizedTeam}::${competitionFolders.join("|")}`;
+  const cached = logoPathCache.get(cacheKey);
+
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  const aliases = TEAM_QUERY_ALIASES[normalizedTeam] ?? [];
+  const preparedQueries: PreparedQuery[] = [params.teamName, ...aliases].map(
+    (query) => ({
+      normalizedQuery: normalizeText(query),
+      queryTokens: tokenize(query),
+    }),
+  );
 
   let bestEntry: LogoEntry | null = null;
   let bestScore = Number.NEGATIVE_INFINITY;
 
   for (const entry of LOGO_ENTRIES) {
-    for (const query of searchQueries) {
+    for (const query of preparedQueries) {
       const score = scoreEntry(entry, query, competitionFolders);
 
       if (score > bestScore) {
@@ -370,9 +392,13 @@ export function getTeamLogoPath(params: {
     }
   }
 
-  if (!bestEntry || bestScore < 180) {
-    return null;
+  const result = !bestEntry || bestScore < 180 ? null : bestEntry.src;
+
+  if (logoPathCache.size >= LOGO_PATH_CACHE_MAX) {
+    logoPathCache.clear();
   }
 
-  return bestEntry.src;
+  logoPathCache.set(cacheKey, result);
+
+  return result;
 }
