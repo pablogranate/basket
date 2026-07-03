@@ -150,12 +150,13 @@ export async function saveGeminiSettingsAction(formData: FormData) {
       }
     }
 
+    // Scope revalidation to where the Gemini key is actually read. The AI
+    // gating on grid/mi-jornada/reports/incidents/people/teams reads the settings
+    // snapshot fresh on every real navigation (those routes are dynamic and
+    // prefetch only warms their shell, not the data loaders), so re-rendering
+    // them here just made an unrelated settings tweak slow. No layout/header
+    // surfaces the flag app-wide, so /settings is the only path that needs it.
     revalidatePath("/settings");
-    ANNOUNCEMENT_REVALIDATE_PATHS.forEach((path) => {
-      revalidatePath(path);
-    });
-    revalidatePath("/people");
-    revalidatePath("/teams");
     redirectWithNotice({
       redirectTo,
       intent: "success",

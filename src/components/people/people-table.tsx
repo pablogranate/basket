@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import { GripVertical, Mail, MapPin, MessageCircle } from "lucide-react";
 import Link from "next/link";
 
-import { togglePersonActiveAction } from "@/app/actions/people";
 import {
   getCityIndicator,
   getInitials,
   getPersonRoleDisplay,
   getWhatsAppHref,
 } from "@/components/people/people-view-helpers";
+import { PersonActiveToggle } from "@/components/people/person-active-toggle";
 import { parsePersonNotesMeta } from "@/lib/people-notes";
 import type { PersonListItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -323,35 +323,13 @@ export function PeopleTable({
           <td key={column} className={cellClassName}>
             <div className="flex justify-start">
               <div className="flex items-center">
-                <form action={togglePersonActiveAction}>
-                  <input type="hidden" name="personId" value={person.id} />
-                  <input
-                    type="hidden"
-                    name="active"
-                    value={person.active ? "off" : "on"}
-                  />
-                  <button
-                    type="submit"
-                    role="switch"
-                    aria-checked={person.active}
-                    aria-label={`${person.active ? "Desactivar" : "Activar"} a ${person.full_name}`}
-                    disabled={!canEdit}
-                    className={cn(
-                      "relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition",
-                      person.active
-                        ? "border-[#b8e7c7] bg-[#e9f9ee]"
-                        : "border-[var(--n-200)] bg-[var(--n-100)]",
-                      !canEdit && "cursor-not-allowed opacity-60",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "pointer-events-none absolute left-1 inline-flex size-5 rounded-full bg-white shadow-[0_2px_6px_rgba(28,13,16,0.16)] transition-transform",
-                        person.active && "translate-x-5",
-                      )}
-                    />
-                  </button>
-                </form>
+                <PersonActiveToggle
+                  variant="switch"
+                  personId={person.id}
+                  active={person.active}
+                  fullName={person.full_name}
+                  canEdit={canEdit}
+                />
               </div>
             </div>
           </td>
