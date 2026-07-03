@@ -1,4 +1,4 @@
-import { LogOut } from "lucide-react";
+import { ArrowLeft, LogOut } from "lucide-react";
 
 import { signOutAction } from "@/app/actions/auth";
 import { DashboardFooterMeta } from "@/components/layout/dashboard-footer-meta";
@@ -65,17 +65,10 @@ export function DashboardShell(props: {
                 {landingUrl ? (
                   <a
                     href={landingUrl}
-                    aria-label="Directorio"
+                    aria-label="Volver"
                     className="inline-flex items-center justify-center gap-2 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--background-soft)]"
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src="/root-directory.png"
-                      alt=""
-                      aria-hidden
-                      className="size-5"
-                    />
-                    <span className="hidden sm:inline">Directorio</span>
+                    <ArrowLeft className="size-5" aria-hidden />
                   </a>
                 ) : null}
                 <UserProfileChip

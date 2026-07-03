@@ -156,7 +156,6 @@ export function MatchCard({
                       value={match.home_team}
                       matchId={match.id}
                       redirectTo={redirectTo}
-                      title="Cambiar local"
                       listId="grid-club-catalog"
                       panelClassName="w-[19rem]"
                     >

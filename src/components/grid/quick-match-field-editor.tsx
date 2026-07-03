@@ -13,7 +13,7 @@ type QuickMatchFieldEditorProps = {
   value: string;
   matchId: string;
   redirectTo: string;
-  title: string;
+  title?: string;
   listId?: string;
   options?: string[];
   inputType?: "text" | "select";
@@ -79,9 +79,13 @@ export function QuickMatchFieldEditor({
           onClick={(event) => event.stopPropagation()}
         >
           <div className="mb-3 flex items-center justify-between gap-3">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--accent)]">
-              {title}
-            </p>
+            {title ? (
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--accent)]">
+                {title}
+              </p>
+            ) : (
+              <span aria-hidden />
+            )}
             <button
               type="button"
               onClick={() => setOpen(false)}
