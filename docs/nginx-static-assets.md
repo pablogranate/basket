@@ -1,5 +1,9 @@
 # nginx: serve portal static assets directly
 
+**Status: APPLIED on the VPS 2026-07-03** (`/etc/nginx/sites-enabled/portal.conf`,
+backup at `/etc/nginx/portal.conf.bak-20260703`). Keep this doc in sync with
+the live config.
+
 Node must never serve static bytes in prod (ADR 0005, rule 7). A prod trace
 (2026-07-03) caught a 12KB immutable JS chunk waiting **1228ms** because the
 single Node process was busy rendering an RSC response. These location blocks
@@ -20,8 +24,7 @@ Paths assume the deploy root `/opt/basket-app` (pm2 app id 3).
 location /_next/static/ {
     alias /opt/basket-app/.next/static/;
     access_log off;
-    expires 1y;
-    add_header Cache-Control "public, immutable";
+    add_header Cache-Control "public, max-age=31536000, immutable";
 }
 
 # Team crest images — large, stable directories under public/. NOT immutable
@@ -29,7 +32,6 @@ location /_next/static/ {
 location ~ ^/(Logos|LogosPNG)/ {
     root /opt/basket-app/public;
     access_log off;
-    expires 30d;
     add_header Cache-Control "public, max-age=2592000";
 }
 ```
