@@ -48,3 +48,5 @@ next-env.d.ts
 tools/import/contactos.raw.md
 tools/import/contactos.clean.json
 tools/import/periodistas.raw.csv
+
+.claude/*
