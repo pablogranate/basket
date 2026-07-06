@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -26,6 +26,7 @@ export function GridDisplayToggle({
 }: GridDisplayToggleProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
 
   function buildHref(nextDisplay: GridDisplay) {
     const params = new URLSearchParams(baseSearchParams);
@@ -39,7 +40,9 @@ export function GridDisplayToggle({
 
   function handleSelect(nextDisplay: GridDisplay) {
     window.localStorage.setItem(GRID_DISPLAY_STORAGE_KEY, nextDisplay);
-    router.push(buildHref(nextDisplay));
+    startTransition(() => {
+      router.push(buildHref(nextDisplay));
+    });
   }
 
   useEffect(() => {
@@ -55,6 +58,10 @@ export function GridDisplayToggle({
   }, []);
 
   return (
+    <div
+      className={isPending ? "opacity-60 transition-opacity" : "transition-opacity"}
+      aria-busy={isPending}
+    >
     <SegmentedControl
       items={[
         {
@@ -71,5 +78,6 @@ export function GridDisplayToggle({
         },
       ]}
     />
+    </div>
   );
 }

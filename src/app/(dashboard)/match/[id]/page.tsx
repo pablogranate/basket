@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import {
   CalendarDays,
   Camera,
@@ -503,11 +504,55 @@ export default async function MatchDetailPage({
     return <SetupPanel />;
   }
 
-  const user = await requireUserContext();
-  const redirectTo = `/match/${resolvedParams.id}`;
-  const data = await getMatchDetailData(user, resolvedParams.id).catch(
-    () => null,
+  return (
+    <div className="space-y-8">
+      <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-sm">
+        <Link
+          href="/grid"
+          className="inline-flex items-center gap-1.5 font-medium text-[var(--muted)] transition hover:text-[var(--accent)]"
+        >
+          <Home className="size-4" />
+          Inicio
+        </Link>
+        <ChevronRight className="size-4 text-[var(--n-300)]" />
+        <Link
+          href="/grid"
+          className="font-medium text-[var(--muted)] transition hover:text-[var(--accent)]"
+        >
+          Producción
+        </Link>
+        <ChevronRight className="size-4 text-[var(--n-300)]" />
+        <span className="font-semibold text-[var(--foreground)]">Detalle de Partido</span>
+      </nav>
+
+      <Suspense fallback={<MatchDetailSkeleton />}>
+        <MatchDetailContent
+          matchId={resolvedParams.id}
+          intent={intent}
+          notice={notice}
+          notify={notify}
+        />
+      </Suspense>
+    </div>
   );
+}
+
+// Streams behind Suspense so the breadcrumb shell paints before the multi-query
+// match detail render resolves.
+async function MatchDetailContent({
+  matchId,
+  intent,
+  notice,
+  notify,
+}: {
+  matchId: string;
+  intent: string | undefined;
+  notice: string | undefined;
+  notify: string[];
+}) {
+  const user = await requireUserContext();
+  const redirectTo = `/match/${matchId}`;
+  const data = await getMatchDetailData(user, matchId).catch(() => null);
 
   if (!data) {
     notFound();
@@ -578,25 +623,6 @@ export default async function MatchDetailPage({
 
   return (
     <div className="space-y-8">
-      <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-sm">
-        <Link
-          href="/grid"
-          className="inline-flex items-center gap-1.5 font-medium text-[var(--muted)] transition hover:text-[var(--accent)]"
-        >
-          <Home className="size-4" />
-          Inicio
-        </Link>
-        <ChevronRight className="size-4 text-[var(--n-300)]" />
-        <Link
-          href="/grid"
-          className="font-medium text-[var(--muted)] transition hover:text-[var(--accent)]"
-        >
-          Producción
-        </Link>
-        <ChevronRight className="size-4 text-[var(--n-300)]" />
-        <span className="font-semibold text-[var(--foreground)]">Detalle de Partido</span>
-      </nav>
-
       <section className="panel-surface relative overflow-hidden border border-[var(--border)] bg-[var(--surface)] p-6">
         <div className="absolute inset-y-0 right-0 w-72 bg-gradient-to-l from-[rgba(227,27,35,0.06)] to-transparent pointer-events-none" />
         <div className="relative z-10 flex flex-wrap justify-between gap-6">
@@ -1017,6 +1043,23 @@ export default async function MatchDetailPage({
         assignments={match.assignments}
         people={peopleMap}
       />
+    </div>
+  );
+}
+
+function MatchDetailSkeleton() {
+  return (
+    <div className="space-y-8" aria-busy="true" aria-live="polite">
+      <div className="h-48 animate-pulse rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)]" />
+      <div className="grid gap-4 lg:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div
+            key={index}
+            className="h-64 animate-pulse rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)]"
+          />
+        ))}
+      </div>
+      <div className="h-72 animate-pulse rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)]" />
     </div>
   );
 }

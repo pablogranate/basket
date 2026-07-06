@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parse, startOfMonth, startOfWeek, subMonths } from "date-fns";
 import { es } from "date-fns/locale";
 import { CalendarDays, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
@@ -100,6 +100,7 @@ export function GridCalendarPicker({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [isNavigating, startNavigation] = useTransition();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const requestIdRef = useRef(0);
   const baseParamsString = useMemo(
@@ -210,7 +211,9 @@ export function GridCalendarPicker({
 
     const query = params.toString();
     setOpen(false);
-    router.push(query ? `${pathname}?${query}` : pathname);
+    startNavigation(() => {
+      router.push(query ? `${pathname}?${query}` : pathname);
+    });
   }
 
   function handleToggle() {
@@ -247,8 +250,13 @@ export function GridCalendarPicker({
           "panel-surface inline-flex size-[52px] items-center justify-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] text-[var(--n-500)] transition hover:text-[var(--accent)]",
           open && "border-[var(--accent-border)] text-[var(--accent)]",
         )}
+        aria-busy={isNavigating}
       >
-        <CalendarDays className="size-5" />
+        {isNavigating ? (
+          <Loader2 className="size-5 animate-spin" />
+        ) : (
+          <CalendarDays className="size-5" />
+        )}
       </button>
 
       {open ? (
