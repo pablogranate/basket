@@ -14,6 +14,10 @@ const PLATFORM_ACCESS_ROLES: readonly AppRole[] = [
 // Returns the active platform-access tier for an email, or null if the person
 // has no login. Callers use the tier to decide whether the current manager is
 // allowed to revoke it (see canManageAccessTier).
+function escapeLikePattern(value: string) {
+  return value.replaceAll(/[\\%_]/g, (char) => `\\${char}`);
+}
+
 export async function getPlatformAccessRole(
   email: string | null | undefined,
 ): Promise<AppRole | null> {
@@ -25,7 +29,13 @@ export async function getPlatformAccessRole(
 
   try {
     const supabaseAdmin = createSupabaseAdminClient();
-    const result = await supabaseAdmin.from("profiles").select("email, role");
+    // Case-insensitive exact match resolved in SQL (wildcards escaped) so the
+    // DB returns at most one row instead of the whole table.
+    const result = await supabaseAdmin
+      .from("profiles")
+      .select("email, role")
+      .ilike("email", escapeLikePattern(normalizedEmail))
+      .limit(1);
 
     if (result.error) {
       console.error("[platform-access] failed to load profiles", result.error);
@@ -34,7 +44,7 @@ export async function getPlatformAccessRole(
 
     const profile = (
       (result.data as Pick<ProfileRow, "email" | "role">[] | null) ?? []
-    ).find((row) => row.email?.toLowerCase() === normalizedEmail);
+    )[0];
 
     if (
       profile?.role &&
