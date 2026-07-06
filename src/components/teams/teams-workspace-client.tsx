@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { TeamCard } from "@/components/teams/team-card";
@@ -10,12 +11,13 @@ import {
   type TeamResponsiblePerson,
 } from "@/lib/team-responsibles";
 import type { TeamDirectoryItem } from "@/lib/team-directory";
+import { splitTeamCompetitions, TEAM_DIRECTORY } from "@/lib/team-directory";
 import {
   CUSTOM_TEAMS_CHANGED_EVENT,
   readCustomTeams,
 } from "@/lib/teams-local-storage";
 
-function filterCustomTeams(
+function filterTeams(
   teams: TeamDirectoryItem[],
   params: { query?: string; league?: string },
 ) {
@@ -23,7 +25,7 @@ function filterCustomTeams(
   const league = params.league?.trim() ?? "";
 
   return teams.filter((team) => {
-    if (league && !team.competition.split("/").map((part) => part.trim()).includes(league)) {
+    if (league && !splitTeamCompetitions(team.competition).includes(league)) {
       return false;
     }
 
@@ -43,19 +45,19 @@ function filterCustomTeams(
   });
 }
 
+// The static catalog is imported directly (cacheable JS chunk) instead of
+// arriving through the RSC payload; league/query come from the URL so tab
+// switches and search filter entirely on the client.
 export function TeamsWorkspaceClient({
-  initialTeams,
   people,
-  activeLeague,
-  query,
   canManageTeams = false,
 }: {
-  initialTeams: TeamDirectoryItem[];
   people: TeamResponsiblePerson[];
-  activeLeague: string;
-  query: string;
   canManageTeams?: boolean;
 }) {
+  const searchParams = useSearchParams();
+  const activeLeague = searchParams.get("league")?.trim() ?? "";
+  const query = searchParams.get("q") ?? "";
   const [customTeams, setCustomTeams] = useState<TeamDirectoryItem[]>([]);
 
   useEffect(() => {
@@ -71,14 +73,21 @@ export function TeamsWorkspaceClient({
     };
   }, []);
 
+  const visibleDirectoryTeams = useMemo(
+    () => filterTeams(TEAM_DIRECTORY, { query, league: activeLeague }),
+    [activeLeague, query],
+  );
+
   const visibleCustomTeams = useMemo(
-    () => filterCustomTeams(customTeams, { query, league: activeLeague }),
+    () => filterTeams(customTeams, { query, league: activeLeague }),
     [activeLeague, customTeams, query],
   );
 
   const mergedTeams = useMemo(() => {
     const customById = new Map(visibleCustomTeams.map((team) => [team.id, team]));
-    const nextTeams = initialTeams.map((team) => customById.get(team.id) ?? team);
+    const nextTeams = visibleDirectoryTeams.map(
+      (team) => customById.get(team.id) ?? team,
+    );
     const seenIds = new Set(nextTeams.map((team) => team.id));
 
     visibleCustomTeams.forEach((team) => {
@@ -88,7 +97,7 @@ export function TeamsWorkspaceClient({
     });
 
     return nextTeams;
-  }, [initialTeams, visibleCustomTeams]);
+  }, [visibleDirectoryTeams, visibleCustomTeams]);
 
   const responsibleLookup = useMemo(
     () => buildTeamResponsibleLookup(people),
