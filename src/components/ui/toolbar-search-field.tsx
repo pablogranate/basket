@@ -49,7 +49,7 @@ export function ToolbarSearchField({
     <Comp
       {...(as === "form" ? { action } : {})}
       className={cn(
-        "flex min-w-[320px] flex-1 items-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] p-1.5 shadow-sm",
+        "flex min-w-[min(320px,100%)] flex-1 items-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] p-1.5 shadow-sm",
         className,
       )}
     >

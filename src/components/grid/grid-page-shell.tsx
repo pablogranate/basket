@@ -47,32 +47,33 @@ export function GridPageShell({ children, aside }: GridPageShellProps) {
       <div className="relative z-0 min-w-0 space-y-10">{children}</div>
 
       <aside className="relative z-20 min-w-0 self-start xl:sticky xl:top-24">
+        {/* The collapse affordance only makes sense on the xl two-column
+            layout; below xl the summary always renders full-width. */}
         {collapsed ? (
           <button
             type="button"
             onClick={toggleCollapsed}
             aria-label="Mostrar resumen"
             title="Mostrar resumen"
-            className={toggleButtonClassName}
+            className={cn(toggleButtonClassName, "hidden xl:inline-flex")}
           >
             <PanelRightOpen className="size-4" />
           </button>
-        ) : (
-          <div className="space-y-3">
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={toggleCollapsed}
-                aria-label="Compactar resumen"
-                title="Compactar resumen"
-                className={toggleButtonClassName}
-              >
-                <PanelRightClose className="size-4" />
-              </button>
-            </div>
-            {aside}
+        ) : null}
+        <div className={cn("space-y-3", collapsed && "xl:hidden")}>
+          <div className="hidden justify-end xl:flex">
+            <button
+              type="button"
+              onClick={toggleCollapsed}
+              aria-label="Compactar resumen"
+              title="Compactar resumen"
+              className={toggleButtonClassName}
+            >
+              <PanelRightClose className="size-4" />
+            </button>
           </div>
-        )}
+          {aside}
+        </div>
       </aside>
     </div>
   );

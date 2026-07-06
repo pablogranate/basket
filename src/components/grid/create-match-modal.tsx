@@ -941,14 +941,14 @@ export function CreateMatchModal({
 
       {isOpen && isMounted
         ? createPortal(
-        <div className="fixed inset-0 z-[300] flex items-start justify-center bg-[rgba(28,13,16,0.48)] px-4 py-8 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[300] flex items-start justify-center bg-[rgba(28,13,16,0.48)] px-3 py-4 backdrop-blur-sm sm:px-4 sm:py-8">
           <div
             className="absolute inset-0"
             aria-hidden="true"
             onClick={resetAndClose}
           />
-          <div className="relative z-[1] flex max-h-[calc(100vh-4rem)] w-full max-w-[1120px] flex-col overflow-hidden rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] shadow-[0_32px_80px_rgba(28,13,16,0.22)]">
-              <div className="flex items-start justify-between gap-6 border-b border-[var(--border)] px-7 py-6">
+          <div className="relative z-[1] flex max-h-[calc(100vh-2rem)] w-full max-w-[1120px] flex-col overflow-hidden rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] shadow-[0_32px_80px_rgba(28,13,16,0.22)] sm:max-h-[calc(100vh-4rem)]">
+              <div className="flex items-start justify-between gap-4 border-b border-[var(--border)] px-5 py-4 sm:gap-6 sm:px-7 sm:py-6">
                 <div className="space-y-2">
                   <div>
                     <h2 className="font-[family-name:var(--font-oswald)] text-3xl font-bold tracking-tight text-[var(--foreground)]">
@@ -1699,7 +1699,7 @@ export function CreateMatchModal({
                 </datalist>
               </div>
 
-              <div className="flex items-center justify-between gap-4 border-t border-[var(--border)] bg-[var(--background-soft)] px-7 py-5">
+              <div className="flex flex-col gap-3 border-t border-[var(--border)] bg-[var(--background-soft)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-7 sm:py-5">
                 <div className="text-sm text-[var(--muted)]">
                   {missingFieldLabels.length ? (
                     <>
@@ -1715,7 +1715,7 @@ export function CreateMatchModal({
                       : "Si luego llega la API por ID, este modal ya está listo para autocompletar y remarcar faltantes."
                   )}
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center justify-end gap-3">
                   {isEditing ? (
                     <Button
                       type="submit"

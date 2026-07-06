@@ -2,6 +2,7 @@ import { ArrowLeft, LogOut } from "lucide-react";
 
 import { signOutAction } from "@/app/actions/auth";
 import { DashboardFooterMeta } from "@/components/layout/dashboard-footer-meta";
+import { DashboardMobileNav } from "@/components/layout/dashboard-mobile-nav";
 import { DashboardNav } from "@/components/layout/dashboard-nav";
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
 import { UserProfileChip } from "@/components/layout/user-profile-chip";
@@ -25,25 +26,24 @@ export function DashboardShell(props: {
     user?.email?.split("@")[0] ||
     "Usuario";
   const roleLabel = getAppRoleDisplayName(user?.role).toUpperCase();
+  const brand = (
+    <div className="flex min-w-0 flex-col gap-2">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/Basket.tv horizontal rojo.png"
+        alt="Basquetpass"
+        className="h-9 w-auto"
+      />
+      <p className="text-[11px] font-black uppercase tracking-[0.28em] text-[#9eb0cc]">
+        {APP_PORTAL_LABEL}
+      </p>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-[var(--page-canvas)]">
       <div className="flex min-h-screen">
-        <DashboardSidebar
-          brand={
-            <div className="flex min-w-0 flex-col gap-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/Basket.tv horizontal rojo.png"
-                alt="Basquetpass"
-                className="h-9 w-auto"
-              />
-              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-[#9eb0cc]">
-                {APP_PORTAL_LABEL}
-              </p>
-            </div>
-          }
-        >
+        <DashboardSidebar brand={brand}>
           <DashboardNav role={user?.role ?? null} />
         </DashboardSidebar>
 
@@ -52,6 +52,7 @@ export function DashboardShell(props: {
             <div className="flex h-20 items-center gap-4 px-4 sm:px-6 lg:px-8">
               <div className="flex min-w-0 flex-1 items-center gap-4">
                 <div className="flex items-center gap-3 lg:hidden">
+                  <DashboardMobileNav brand={brand} role={user?.role ?? null} />
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src="/Basket.tv horizontal rojo.png"
