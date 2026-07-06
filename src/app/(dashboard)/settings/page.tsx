@@ -33,10 +33,12 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   }
 
   const user = await requireUserContext();
-  const settings = await getSettingsSnapshot();
-  const latestAnnouncement = user.role === "admin"
-    ? await getLatestAnnouncement(user)
-    : null;
+  // Settings and the latest announcement are independent — resolve both
+  // concurrently.
+  const [settings, latestAnnouncement] = await Promise.all([
+    getSettingsSnapshot(),
+    user.role === "admin" ? getLatestAnnouncement(user) : Promise.resolve(null),
+  ]);
   const displayName =
     user.profile?.full_name?.trim() || user.email?.split("@")[0] || "Usuario";
 
