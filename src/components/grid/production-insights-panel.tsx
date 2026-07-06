@@ -209,7 +209,7 @@ export function ProductionInsightsPanel({
   const startWindowLabel = formatOperationalHourLabel(summary.startWindow);
   const endWindowLabel = formatOperationalHourLabel(summary.endWindow);
   return (
-    <Card className="p-6">
+    <Card className="p-4 sm:p-6">
       <section className="space-y-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -239,36 +239,36 @@ export function ProductionInsightsPanel({
         </div>
 
         <div className="grid grid-cols-3 gap-3">
-          <div className="flex min-h-[10.5rem] flex-col items-center justify-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-3 py-5 text-center">
+          <div className="flex min-h-[8.5rem] flex-col items-center justify-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-2 py-4 text-center sm:min-h-[10.5rem] sm:px-3 sm:py-5">
             <div className="grid h-full w-full max-w-[8.5rem] place-content-center justify-items-center gap-4">
               <p className="text-[11px] font-bold uppercase leading-[1.45] tracking-[0.24em] text-[var(--muted)]">
                 Partidos de hoy
               </p>
-              <p className="text-[2.6rem] font-black leading-none text-[var(--foreground)]">
+              <p className="text-[2rem] font-black leading-none text-[var(--foreground)] sm:text-[2.6rem]">
                 {summary.totalMatches}
               </p>
             </div>
           </div>
-          <div className="flex min-h-[10.5rem] flex-col items-center justify-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-3 py-5 text-center">
+          <div className="flex min-h-[8.5rem] flex-col items-center justify-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-2 py-4 text-center sm:min-h-[10.5rem] sm:px-3 sm:py-5">
             <div className="grid h-full w-full max-w-[8.5rem] place-content-center justify-items-center gap-4">
               <p className="text-[11px] font-bold uppercase leading-[1.45] tracking-[0.24em] text-[var(--muted)]">
                 Ligas activas
               </p>
-              <p className="text-[2.6rem] font-black leading-none text-[var(--foreground)]">
+              <p className="text-[2rem] font-black leading-none text-[var(--foreground)] sm:text-[2.6rem]">
                 {summary.activeLeagues}
               </p>
             </div>
           </div>
-          <div className="flex min-h-[10.5rem] flex-col items-center justify-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-3 py-5 text-center">
+          <div className="flex min-h-[8.5rem] flex-col items-center justify-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-2 py-4 text-center sm:min-h-[10.5rem] sm:px-3 sm:py-5">
             <div className="flex w-full max-w-[8.5rem] flex-col items-center justify-center gap-3">
               <p className="text-[11px] font-bold uppercase leading-[1.45] tracking-[0.24em] text-[var(--muted)]">
                 Presión operativa
               </p>
               <div className="grid w-[5.75rem] justify-items-center gap-1.5 text-center">
-                <p className="text-[1.6rem] font-black leading-none tabular-nums tracking-tight text-[var(--foreground)]">
+                <p className="text-[1.3rem] font-black leading-none tabular-nums tracking-tight text-[var(--foreground)] sm:text-[1.6rem]">
                   {startWindowLabel}
                 </p>
-                <p className="text-[1.6rem] font-black leading-none tabular-nums tracking-tight text-[var(--foreground)]">
+                <p className="text-[1.3rem] font-black leading-none tabular-nums tracking-tight text-[var(--foreground)] sm:text-[1.6rem]">
                   {endWindowLabel}
                 </p>
               </div>
