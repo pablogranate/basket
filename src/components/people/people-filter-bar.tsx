@@ -2,6 +2,9 @@
 
 import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useTransition } from "react";
+
+import { cn } from "@/lib/utils";
 
 import { Select } from "@/components/ui/select";
 import { getAssignmentStateDisplayName } from "@/lib/display";
@@ -27,6 +30,7 @@ export function PeopleFilterBar({
   query,
 }: PeopleFilterBarProps) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const hasActiveFilters = FILTER_KEYS.some((key) => filters[key]);
 
   function buildHref(overrides: Partial<PeopleFilters>) {
@@ -48,11 +52,19 @@ export function PeopleFilterBar({
   }
 
   function handleChange(key: (typeof FILTER_KEYS)[number], value: string) {
-    router.push(buildHref({ [key]: value }));
+    startTransition(() => {
+      router.push(buildHref({ [key]: value }));
+    });
   }
 
   return (
-    <div className="flex flex-wrap items-end gap-3">
+    <div
+      className={cn(
+        "flex flex-wrap items-end gap-3 transition-opacity",
+        isPending && "opacity-60",
+      )}
+      aria-busy={isPending}
+    >
       <FilterSelect
         label="Rol"
         value={filters.role}
@@ -88,7 +100,11 @@ export function PeopleFilterBar({
       {hasActiveFilters ? (
         <button
           type="button"
-          onClick={() => router.push(buildHref({ role: "", state: "", city: "", team: "" }))}
+          onClick={() =>
+            startTransition(() => {
+              router.push(buildHref({ role: "", state: "", city: "", team: "" }));
+            })
+          }
           className="inline-flex h-11 items-center gap-1.5 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-semibold text-[var(--n-500)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
         >
           <X className="size-4" />
