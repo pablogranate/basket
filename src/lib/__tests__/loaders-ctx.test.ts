@@ -82,9 +82,22 @@ describe("personHasPlatformAccess", () => {
   function makeAdminStub(params: {
     profiles: Array<{ email: string; role: string }>;
   }) {
+    // Mirrors the Supabase query builder chain used by getPlatformAccessRole:
+    // .select(...).ilike("email", pattern).limit(n). The ilike filter is applied
+    // here (case-insensitive, wildcards unescaped) so the "no matching profile"
+    // case stays meaningful instead of returning the whole table.
+    let rows = params.profiles;
     const profileBuilder = {
-      select: vi.fn(async () => ({
-        data: params.profiles,
+      select: vi.fn(() => profileBuilder),
+      ilike: vi.fn((_column: string, pattern: string) => {
+        const needle = pattern.replaceAll(/\\([\\%_])/g, "$1").toLowerCase();
+        rows = params.profiles.filter(
+          (row) => row.email?.toLowerCase() === needle,
+        );
+        return profileBuilder;
+      }),
+      limit: vi.fn(async (count: number) => ({
+        data: rows.slice(0, count),
         error: null,
       })),
     };
