@@ -48,11 +48,41 @@ function isMissingAppSettingsError(error: unknown) {
   return maybeCode === "42P01" || maybeMessage.includes("app_settings");
 }
 
-// Request-scoped memo: the app_settings read fires once per request even when
-// getSettingsSnapshot/getGeminiRuntimeConfig are called from several places
-// (header AI gating, layout, page). React.cache is per-request — the Gemini key
-// stays fresh across edits (no cross-request promotion).
-const getPortalGeminiConfig = cache(async () => {
+type PortalGeminiConfig = {
+  apiKey: string;
+  model: GeminiModel;
+};
+
+// Cross-request memo layered under the per-request react cache: the portal
+// Gemini row only changes through saveGeminiSettingsAction (which calls
+// clearPortalGeminiConfigCache), so the TTL just bounds staleness from
+// out-of-band edits (direct SQL). Assumes a single Node process (pm2 fork
+// mode), same as the profile cache in auth.ts; revisit before clustering.
+const PORTAL_GEMINI_CACHE_TTL_MS = 60_000;
+let portalGeminiCache: {
+  value: PortalGeminiConfig;
+  expiresAt: number;
+} | null = null;
+
+export function clearPortalGeminiConfigCache() {
+  portalGeminiCache = null;
+}
+
+const getPortalGeminiConfig = cache(async (): Promise<PortalGeminiConfig> => {
+  if (portalGeminiCache && portalGeminiCache.expiresAt > Date.now()) {
+    return portalGeminiCache.value;
+  }
+
+  const value = await loadPortalGeminiConfig();
+  portalGeminiCache = {
+    value,
+    expiresAt: Date.now() + PORTAL_GEMINI_CACHE_TTL_MS,
+  };
+
+  return value;
+});
+
+async function loadPortalGeminiConfig(): Promise<PortalGeminiConfig> {
   try {
     const supabase = await createSupabaseServerClient();
     const result = await supabase
@@ -88,7 +118,7 @@ const getPortalGeminiConfig = cache(async () => {
       model: "gemini-2.5-flash" as GeminiModel,
     };
   }
-});
+}
 
 export async function getGeminiRuntimeConfig(): Promise<GeminiRuntimeConfig> {
   const store = await cookies();

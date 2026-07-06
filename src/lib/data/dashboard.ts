@@ -485,29 +485,18 @@ async function getAssignmentConflicts(params: {
 
   const supabase = await createSupabaseServerClient();
 
-  const matchesInWindow = await supabase
-    .from("matches")
-    .select("id")
-    .gte("kickoff_at", windowStart)
-    .lte("kickoff_at", windowEnd)
-    .neq("id", params.match.id);
-
-  if (matchesInWindow.error) {
-    throw matchesInWindow.error;
-  }
-
-  const nearbyMatchIds = (matchesInWindow.data ?? []).map((m) => m.id);
-  if (!nearbyMatchIds.length) {
-    return [];
-  }
-
+  // Single round-trip: the date-window filter runs on the embedded match via
+  // !inner, replacing the previous matches-in-window pre-query whose ids fed
+  // a second, serialized assignments query.
   const result = await supabase
     .from("assignments")
     .select(
-      "id, person_id, role_id, match_id, role:roles!assignments_role_id_fkey(id, name, category, sort_order, active), person:people!assignments_person_id_fkey(id, full_name, phone, email), match:matches!assignments_match_id_fkey(id, home_team, away_team, kickoff_at, duration_minutes, timezone)",
+      "id, person_id, role_id, match_id, role:roles!assignments_role_id_fkey(id, name, category, sort_order, active), person:people!assignments_person_id_fkey(id, full_name, phone, email), match:matches!assignments_match_id_fkey!inner(id, home_team, away_team, kickoff_at, duration_minutes, timezone)",
     )
     .in("person_id", personIds)
-    .in("match_id", nearbyMatchIds);
+    .neq("match_id", params.match.id)
+    .gte("match.kickoff_at", windowStart)
+    .lte("match.kickoff_at", windowEnd);
 
   if (result.error) {
     throw result.error;
