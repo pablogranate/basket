@@ -48,6 +48,9 @@ type AssignmentRow = {
       phone: string | null;
       email: string | null;
     } | null;
+    // Every assignment of the match (all people), embedded so the crew
+    // context arrives in the same round-trip as the person's assignments.
+    context?: MatchAssignmentContextRow[] | null;
   } | null;
 };
 
@@ -356,10 +359,13 @@ async function getMatchContextMap(matchIds: string[]) {
 
 async function getAssignmentsForPerson(personId: string) {
   const supabase = await createSupabaseServerClient();
+  // The full crew of each match rides along as `context` (matches ->
+  // assignments reverse embed), replacing the follow-up getMatchContextMap
+  // round-trip that used to serialize after this query.
   const assignmentsResult = await supabase
     .from("assignments")
     .select(
-      "id, confirmed, attendance_confirmed_at, attendance_response, attendance_note, notes, role:roles!assignments_role_id_fkey(id, name, category, sort_order), match:matches!assignments_match_id_fkey(id, competition, production_mode, production_code, status, home_team, away_team, venue, notes, transport, kickoff_at, duration_minutes, timezone, owner:people!matches_owner_id_fkey(id, full_name, phone, email))",
+      "id, confirmed, attendance_confirmed_at, attendance_response, attendance_note, notes, role:roles!assignments_role_id_fkey(id, name, category, sort_order), match:matches!assignments_match_id_fkey(id, competition, production_mode, production_code, status, home_team, away_team, venue, notes, transport, kickoff_at, duration_minutes, timezone, owner:people!matches_owner_id_fkey(id, full_name, phone, email), context:assignments!assignments_match_id_fkey(match_id, role:roles!assignments_role_id_fkey(name, category, sort_order), person:people!assignments_person_id_fkey(full_name, phone, email)))",
     )
     .eq("person_id", personId);
 
@@ -367,14 +373,19 @@ async function getAssignmentsForPerson(personId: string) {
     throw assignmentsResult.error;
   }
 
-  const assignments = ((assignmentsResult.data ?? []) as AssignmentRow[])
+  const rawRows = (assignmentsResult.data ?? []) as AssignmentRow[];
+  const matchContextMap = new Map<string, MatchAssignmentContextRow[]>();
+
+  for (const row of rawRows) {
+    if (row.match && !matchContextMap.has(row.match.id)) {
+      matchContextMap.set(row.match.id, row.match.context ?? []);
+    }
+  }
+
+  const assignments = rawRows
     .map(mapAssignmentRow)
     .filter((assignment): assignment is CollaboratorAssignmentItem => Boolean(assignment))
     .sort((left, right) => left.kickoffAt.localeCompare(right.kickoffAt));
-
-  const matchContextMap = await getMatchContextMap(
-    assignments.map((assignment) => assignment.matchId),
-  );
 
   return assignments.map((assignment) => {
     const contextRows = matchContextMap.get(assignment.matchId) ?? [];

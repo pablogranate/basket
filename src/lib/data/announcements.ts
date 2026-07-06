@@ -7,7 +7,39 @@ export type AnnouncementSummary = Pick<
   "id" | "title" | "body" | "active" | "updated_at" | "created_at"
 >;
 
+// Cross-request memo: the dashboard layout reads the active announcement on
+// every navigation, but announcements only change through
+// saveAnnouncementAction (which calls clearAnnouncementCache). The TTL bounds
+// staleness from out-of-band edits. Assumes a single Node process (pm2 fork
+// mode), same as the profile cache in auth.ts.
+const ANNOUNCEMENT_CACHE_TTL_MS = 60_000;
+const announcementCache = new Map<
+  string,
+  { value: AnnouncementSummary | null; expiresAt: number }
+>();
+
+export function clearAnnouncementCache() {
+  announcementCache.clear();
+}
+
 async function fetchLatestAnnouncementQuery(activeOnly: boolean) {
+  const cacheKey = activeOnly ? "active" : "latest";
+  const cached = announcementCache.get(cacheKey);
+
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+
+  const value = await loadLatestAnnouncement(activeOnly);
+  announcementCache.set(cacheKey, {
+    value,
+    expiresAt: Date.now() + ANNOUNCEMENT_CACHE_TTL_MS,
+  });
+
+  return value;
+}
+
+async function loadLatestAnnouncement(activeOnly: boolean) {
   try {
     const supabase = await createSupabaseServerClient();
     let query = supabase

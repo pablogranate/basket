@@ -10,6 +10,7 @@ import {
 } from "@/app/actions/helpers";
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth-access";
+import { clearAnnouncementCache } from "@/lib/data/announcements";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   GEMINI_API_KEY_COOKIE,
@@ -18,6 +19,7 @@ import {
   GEMINI_MODEL_OPTIONS,
   UI_DENSITY_COOKIE,
   UI_DENSITY_OPTIONS,
+  clearPortalGeminiConfigCache,
   isGeminiModel,
 } from "@/lib/settings";
 
@@ -150,6 +152,7 @@ export async function saveGeminiSettingsAction(formData: FormData) {
       }
     }
 
+    clearPortalGeminiConfigCache();
     // Scope revalidation to where the Gemini key is actually read. The AI
     // gating on grid/mi-jornada/reports/incidents/people/teams reads the settings
     // snapshot fresh on every real navigation (those routes are dynamic and
@@ -289,6 +292,7 @@ export async function saveAnnouncementAction(formData: FormData) {
       });
     }
 
+    clearAnnouncementCache();
     ANNOUNCEMENT_REVALIDATE_PATHS.forEach((path) => {
       revalidatePath(path);
     });

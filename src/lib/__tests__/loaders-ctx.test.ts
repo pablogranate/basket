@@ -10,7 +10,10 @@ vi.mock("@/lib/supabase/admin", () => ({
   createSupabaseAdminClient: vi.fn(),
 }));
 
-import { getActiveAnnouncement } from "@/lib/data/announcements";
+import {
+  clearAnnouncementCache,
+  getActiveAnnouncement,
+} from "@/lib/data/announcements";
 import { personHasPlatformAccess } from "@/lib/data/platform-access";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -37,6 +40,8 @@ function makeAnnouncementQueryStub(result: StubResult) {
 describe("data loaders accept a typed ctx (D-06)", () => {
   afterEach(() => {
     vi.clearAllMocks();
+    // The loader memoizes across requests; each test needs a cold cache.
+    clearAnnouncementCache();
   });
 
   it("getActiveAnnouncement runs with a fake ctx and returns the query shape", async () => {
