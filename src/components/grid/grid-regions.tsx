@@ -1,4 +1,4 @@
-import { cache } from "react";
+import { cache, type ReactNode } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -6,7 +6,10 @@ import { SectionAiAssistant } from "@/components/ai/section-ai-assistant";
 import { GridExportButton } from "@/components/grid/grid-export-button";
 import { GridSyncButton } from "@/components/grid/grid-sync-button";
 import { GridTable } from "@/components/grid/grid-table";
-import { GridPastDaysToggle } from "@/components/grid/grid-past-days-toggle";
+import {
+  GridPastDaysButton,
+  GridPastDaysPanel,
+} from "@/components/grid/grid-past-days-toggle";
 import { MatchCard } from "@/components/grid/match-card";
 import { PeopleProvider } from "@/components/grid/people-context";
 import { ProductionInsightsPanel } from "@/components/grid/production-insights-panel";
@@ -60,6 +63,26 @@ function sortGridDayGroups(
 }
 
 type GridDayGroup = ReturnType<typeof sortGridDayGroups>[number];
+
+// In the month view, cards are split into past days (tucked behind the "Ver días
+// anteriores" toggle) and today-onward days rendered eagerly. Both `GridContent`
+// and the toolbar's toggle button need this split, so it lives here.
+function splitPastDayGroups(
+  sortedDayGroups: GridDayGroup[],
+  filters: GridPageFilters,
+) {
+  const todayKey = toDateKey(new Date().toISOString(), filters.timezone);
+  const pastGroups = sortedDayGroups.filter((group) => group.key < todayKey);
+  const upcomingGroups = sortedDayGroups.filter(
+    (group) => group.key >= todayKey,
+  );
+  const shouldSplitPastDays =
+    filters.view === "month" &&
+    pastGroups.length > 0 &&
+    upcomingGroups.length > 0;
+
+  return { todayKey, pastGroups, upcomingGroups, shouldSplitPastDays };
+}
 
 function GridDayGroupCards({
   group,
@@ -123,16 +146,38 @@ export async function GridInsightsAside({
   );
 }
 
-export async function GridHeaderDataActions({
+export async function GridExportAction({
   user,
   filters,
-  redirectTo,
   summaryDateLabel,
 }: {
   user: UserContext;
   filters: GridPageFilters;
-  redirectTo: string;
   summaryDateLabel: string;
+}) {
+  const { dayGroups } = await loadGrid(user, filters);
+  const visibleMatches = dayGroups.flatMap((group) => group.items);
+
+  if (!visibleMatches.length) {
+    return null;
+  }
+
+  return (
+    <GridExportButton
+      rows={toExportRows(visibleMatches)}
+      periodLabel={summaryDateLabel}
+    />
+  );
+}
+
+export async function GridHeaderDataActions({
+  user,
+  filters,
+  redirectTo,
+}: {
+  user: UserContext;
+  filters: GridPageFilters;
+  redirectTo: string;
 }) {
   const [{ dayGroups }, settings, lastSync] = await Promise.all([
     loadGrid(user, filters),
@@ -141,7 +186,6 @@ export async function GridHeaderDataActions({
   ]);
 
   const visibleMatches = dayGroups.flatMap((group) => group.items);
-  const exportRows = toExportRows(visibleMatches);
   const aiContext = visibleMatches.map((match) => ({
     partido: `${match.home_team} vs ${match.away_team}`,
     liga: match.competition,
@@ -164,31 +208,34 @@ export async function GridHeaderDataActions({
 
   return (
     <>
+      {/* Sync and the AI assistant are power tools that don't belong on a phone
+          toolbar — hide them below `sm`. Export stays available everywhere. */}
       {user.canEdit ? (
-        <GridSyncButton
-          redirectTo={redirectTo}
-          lastSyncedLabel={lastSyncedLabel}
+        <div className="hidden sm:block">
+          <GridSyncButton
+            redirectTo={redirectTo}
+            lastSyncedLabel={lastSyncedLabel}
+          />
+        </div>
+      ) : null}
+      <div className="hidden sm:block">
+        <SectionAiAssistant
+          section="Producción"
+          title="Consulta la producción visible"
+          description="Pregunta por partidos, responsables, modos de producción o cargas visibles en esta jornada."
+          placeholder="Ej. ¿Qué partidos de Liga Nacional están hoy y quién es el responsable?"
+          contextLabel="Partidos visibles en Producción"
+          context={aiContext}
+          guidance="Prioriza partido, liga, modo, estado, responsable, fecha, hora, sede y cantidad de asignaciones confirmadas."
+          examples={[
+            "¿Qué partidos hay hoy?",
+            "¿Quién lleva Bochas Sport Club vs River Plate?",
+            "¿Qué producciones están en modo Encoder?",
+          ]}
+          hasGeminiKey={settings.hasGeminiKey}
+          buttonVariant="icon"
         />
-      ) : null}
-      {visibleMatches.length ? (
-        <GridExportButton rows={exportRows} periodLabel={summaryDateLabel} />
-      ) : null}
-      <SectionAiAssistant
-        section="Producción"
-        title="Consulta la producción visible"
-        description="Pregunta por partidos, responsables, modos de producción o cargas visibles en esta jornada."
-        placeholder="Ej. ¿Qué partidos de Liga Nacional están hoy y quién es el responsable?"
-        contextLabel="Partidos visibles en Producción"
-        context={aiContext}
-        guidance="Prioriza partido, liga, modo, estado, responsable, fecha, hora, sede y cantidad de asignaciones confirmadas."
-        examples={[
-          "¿Qué partidos hay hoy?",
-          "¿Quién lleva Bochas Sport Club vs River Plate?",
-          "¿Qué producciones están en modo Encoder?",
-        ]}
-        hasGeminiKey={settings.hasGeminiKey}
-        buttonVariant="icon"
-      />
+      </div>
     </>
   );
 }
@@ -210,14 +257,43 @@ export async function GridMatchCount({
   );
 }
 
+// Left-column row-2 button for the desktop toolbar. Shares the request-cached
+// grid load with `GridContent`, so it costs no extra round-trip. Returns null
+// unless the month view actually has past days to reveal.
+export async function GridPastDaysToolbarButton({
+  user,
+  filters,
+  className,
+}: {
+  user: UserContext;
+  filters: GridPageFilters;
+  className?: string;
+}) {
+  const { dayGroups } = await loadGrid(user, filters);
+  const sortedDayGroups = sortGridDayGroups(dayGroups, filters.dateOrder);
+  const { pastGroups, shouldSplitPastDays } = splitPastDayGroups(
+    sortedDayGroups,
+    filters,
+  );
+
+  if (!shouldSplitPastDays) {
+    return null;
+  }
+
+  return <GridPastDaysButton count={pastGroups.length} className={className} />;
+}
+
 export async function GridContent({
   user,
   filters,
   redirectTo,
+  // Control parked beside "Ver días anteriores" (the mobile date-order sort).
+  pastDaysAccessory,
 }: {
   user: UserContext;
   filters: GridPageFilters;
   redirectTo: string;
+  pastDaysAccessory?: ReactNode;
 }) {
   const { dayGroups, owners } = await loadGrid(user, filters);
   const sortedDayGroups = sortGridDayGroups(dayGroups, filters.dateOrder);
@@ -231,64 +307,35 @@ export async function GridContent({
     );
   }
 
-  if (filters.display === "table") {
-    const tableRows = sortedDayGroups.flatMap((group) =>
-      group.items.map((match: MatchListItem) => ({
-        dayLabel: formatDayHeading(match.kickoff_at, match.timezone),
-        match,
-      })),
-    );
-
-    return (
-      <GridTable
-        rows={tableRows}
-        canEdit={user.canEdit}
-        redirectTo={redirectTo}
-        people={owners}
-        todayKey={toDateKey(new Date().toISOString(), filters.timezone)}
-      />
-    );
-  }
-
   // Cards are expensive to paint. In the month view, render today onward
   // eagerly and tuck the earlier days behind a toggle so the browser only
   // builds the past-day cards if the user explicitly asks for them.
-  const todayKey = toDateKey(new Date().toISOString(), filters.timezone);
-  const pastGroups = sortedDayGroups.filter((group) => group.key < todayKey);
-  const upcomingGroups = sortedDayGroups.filter(
-    (group) => group.key >= todayKey,
-  );
-  const shouldSplitPastDays =
-    filters.view === "month" && pastGroups.length > 0 && upcomingGroups.length > 0;
+  const { todayKey, pastGroups, upcomingGroups, shouldSplitPastDays } =
+    splitPastDayGroups(sortedDayGroups, filters);
 
-  if (!shouldSplitPastDays) {
-    return (
-      <PeopleProvider people={owners}>
-        <div className="space-y-10">
-          {sortedDayGroups.map((group) => (
-            <GridDayGroupCards
-              key={group.key}
-              group={group}
-              redirectTo={redirectTo}
-              canEdit={user.canEdit}
-            />
-          ))}
-        </div>
-      </PeopleProvider>
-    );
-  }
-
+  // The toggle button lives in the desktop toolbar's left column, so here we
+  // only render a mobile-only button (paired with the date-order sort) plus the
+  // deferred cards panel. All three instances share `GridPastDaysProvider`. No
+  // wrapper div: on desktop the `sm:hidden` button is `display:none` and the
+  // panel is null when closed, so nothing collects a stray `space-y-10` margin.
   const pastToggle = (
-    <GridPastDaysToggle count={pastGroups.length}>
-      {pastGroups.map((group) => (
-        <GridDayGroupCards
-          key={group.key}
-          group={group}
-          redirectTo={redirectTo}
-          canEdit={user.canEdit}
-        />
-      ))}
-    </GridPastDaysToggle>
+    <>
+      <GridPastDaysButton
+        className="sm:hidden"
+        count={pastGroups.length}
+        accessory={pastDaysAccessory}
+      />
+      <GridPastDaysPanel>
+        {pastGroups.map((group) => (
+          <GridDayGroupCards
+            key={group.key}
+            group={group}
+            redirectTo={redirectTo}
+            canEdit={user.canEdit}
+          />
+        ))}
+      </GridPastDaysPanel>
+    </>
   );
 
   const upcomingCards = upcomingGroups.map((group) => (
@@ -300,10 +347,19 @@ export async function GridContent({
     />
   ));
 
-  return (
+  const cardsContent = (
     <PeopleProvider people={owners}>
       <div className="space-y-10">
-        {filters.dateOrder === "asc" ? (
+        {!shouldSplitPastDays ? (
+          sortedDayGroups.map((group) => (
+            <GridDayGroupCards
+              key={group.key}
+              group={group}
+              redirectTo={redirectTo}
+              canEdit={user.canEdit}
+            />
+          ))
+        ) : filters.dateOrder === "asc" ? (
           <>
             {pastToggle}
             {upcomingCards}
@@ -317,6 +373,35 @@ export async function GridContent({
       </div>
     </PeopleProvider>
   );
+
+  // The table is a wide multi-column grid that never fits a phone, and the
+  // Tarjetas/Grilla toggle is hidden below `sm`. So even when the table view is
+  // selected, phones fall back to cards — the table only renders from `sm` up.
+  if (filters.display === "table") {
+    const tableRows = sortedDayGroups.flatMap((group) =>
+      group.items.map((match: MatchListItem) => ({
+        dayLabel: formatDayHeading(match.kickoff_at, match.timezone),
+        match,
+      })),
+    );
+
+    return (
+      <>
+        <div className="hidden sm:block">
+          <GridTable
+            rows={tableRows}
+            canEdit={user.canEdit}
+            redirectTo={redirectTo}
+            people={owners}
+            todayKey={todayKey}
+          />
+        </div>
+        <div className="sm:hidden">{cardsContent}</div>
+      </>
+    );
+  }
+
+  return cardsContent;
 }
 
 export function GridContentSkeleton() {
