@@ -134,3 +134,14 @@ export function normalizeRoleCategoryInput(value: string) {
 
   return reverseMap.get(normalized.toLowerCase()) ?? normalized;
 }
+
+// Up-to-two-letter initials for avatar badges. Callers needing a fallback for
+// empty results wrap this (e.g. `getInitials(name) || "?"`).
+export function getInitials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
