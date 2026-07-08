@@ -9,6 +9,7 @@ import {
   GridContent,
   GridContentSkeleton,
   GridCountSkeleton,
+  GridExportAction,
   GridHeaderActionsSkeleton,
   GridHeaderDataActions,
   GridInsightsAside,
@@ -225,6 +226,7 @@ export default async function GridPage({ searchParams }: PageProps) {
         <SectionPageHeader
           title={SECTION_COPY.grid.title}
           description={SECTION_COPY.grid.description}
+          descriptionClassName="hidden sm:block"
           actions={
             <>
               <ToolbarSearchField
@@ -259,7 +261,6 @@ export default async function GridPage({ searchParams }: PageProps) {
                   user={user}
                   filters={filters}
                   redirectTo={redirectTo}
-                  summaryDateLabel={summaryDateLabel}
                 />
               </Suspense>
             </>
@@ -291,23 +292,37 @@ export default async function GridPage({ searchParams }: PageProps) {
               </Suspense>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-3">
-              <GridDisplayToggle
-                display={filters.display}
-                hasExplicitParam={hasExplicitDisplay}
-                baseSearchParams={baseSearchParams}
-              />
-              <SegmentedControl
-                items={[
-                  { key: "day", label: "Hoy", href: todayHref, active: filters.view === "day" },
-                  { key: "month", label: "Mes", href: monthHref, active: filters.view === "month" },
-                ]}
-              />
+              {/* Cards/table and day/month toggles are hidden on phones: mobile
+                  is cards-only, and the calendar picker below covers day/month
+                  navigation. They return from `sm` up. */}
+              <div className="hidden sm:block">
+                <GridDisplayToggle
+                  display={filters.display}
+                  hasExplicitParam={hasExplicitDisplay}
+                  baseSearchParams={baseSearchParams}
+                />
+              </div>
+              <div className="hidden sm:block">
+                <SegmentedControl
+                  items={[
+                    { key: "day", label: "Hoy", href: todayHref, active: filters.view === "day" },
+                    { key: "month", label: "Mes", href: monthHref, active: filters.view === "month" },
+                  ]}
+                />
+              </div>
               <GridCalendarPicker
                 key={calendarPickerKey}
                 selectedDate={filters.view === "day" ? filters.date : null}
                 initialMonth={initialCalendarMonth}
                 baseSearchParams={baseSearchParams}
               />
+              <Suspense fallback={null}>
+                <GridExportAction
+                  user={user}
+                  filters={filters}
+                  summaryDateLabel={summaryDateLabel}
+                />
+              </Suspense>
             </div>
           </div>
           <Suspense fallback={<GridContentSkeleton />}>

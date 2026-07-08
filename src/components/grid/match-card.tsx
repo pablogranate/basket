@@ -1,5 +1,6 @@
 import {
   CalendarDays,
+  ChevronDown,
   Clock3,
   Hash,
   MapPin,
@@ -22,7 +23,7 @@ import {
   RESPONSIBLE_DISPLAY_LABEL,
 } from "@/lib/constants";
 import { formatMatchTimeLabel, isPendingKickoffTime } from "@/lib/date";
-import { getCompactPersonName } from "@/lib/display";
+import { getCompactPersonName, getInitials } from "@/lib/display";
 import { getAttendanceTextClass } from "@/lib/grid/attendance";
 import { getGridLeagueColor } from "@/lib/league-grid-colors";
 import { toMatchEditPrefill } from "@/lib/grid/match-prefill";
@@ -52,13 +53,26 @@ function formatGridDate(kickoffAt: string, timezone: string) {
     .toUpperCase();
 }
 
-function getInitials(name: string) {
-  return name
-    .split(/\s+/)
+// Year-less date for the compact mobile band, where the meta line shares space
+// with the venue. The xl grid keeps the full `formatGridDate` (with year).
+function formatGridDateShort(kickoffAt: string, timezone: string) {
+  const parts = new Intl.DateTimeFormat("es-AR", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    timeZone: timezone,
+  }).formatToParts(new Date(kickoffAt));
+
+  const weekday = parts.find((part) => part.type === "weekday")?.value ?? "";
+  const day = parts.find((part) => part.type === "day")?.value ?? "";
+  const month = parts.find((part) => part.type === "month")?.value ?? "";
+
+  return [weekday, day, month]
     .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
+    .join(" ")
+    .replaceAll(".", "")
+    .replaceAll(",", "")
+    .toUpperCase();
 }
 
 function formatProductionModeLabel(mode: string | null | undefined) {
@@ -110,14 +124,128 @@ export function MatchCard({
       )}
     >
       <summary className="relative cursor-pointer list-none">
+        {/* Mobile / tablet band card (< xl) — league-color band, teams hero,
+            date+venue meta, and a responsable/mode footer. The xl grid below is
+            unchanged; everything else stays behind the expand. */}
+        <div className="overflow-hidden rounded-[10px] xl:hidden">
+          <div
+            className="flex items-center gap-2.5 px-4 py-3"
+            style={
+              leagueColor
+                ? { backgroundColor: leagueColor.background }
+                : { backgroundColor: "var(--n-100)" }
+            }
+          >
+            <LeagueLogoMarkClient
+              league={leagueLabel}
+              className={cn(
+                "h-8 w-8 shrink-0",
+                isUnassignedLeague && "rounded-lg bg-white/40",
+              )}
+            />
+            <p
+              className="min-w-0 flex-1 truncate text-[11px] font-extrabold uppercase tracking-[0.14em]"
+              style={{ color: leagueColor?.text ?? "var(--n-600)" }}
+            >
+              {leagueLabel}
+            </p>
+            <span
+              className={cn(
+                "font-[family-name:var(--font-oswald)] shrink-0 font-bold tracking-[-0.04em]",
+                isPendingKickoffTime(match.kickoff_at, match.timezone)
+                  ? "text-sm"
+                  : "text-2xl leading-none",
+              )}
+              style={{ color: leagueColor?.text ?? "var(--accent)" }}
+            >
+              {formatMatchTimeLabel(match.kickoff_at, match.timezone)}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-center gap-4 px-4 py-5">
+            <div className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
+              <TeamLogoMark
+                teamName={match.home_team}
+                competition={match.competition}
+                className="size-14 rounded-full"
+              />
+              <p className="line-clamp-2 text-[0.86rem] font-black leading-tight tracking-[-0.02em] text-[var(--foreground)]">
+                {match.home_team}
+              </p>
+            </div>
+            <span className="shrink-0 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--n-400)]">
+              vs
+            </span>
+            <div className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
+              <TeamLogoMark
+                teamName={match.away_team}
+                competition={match.competition}
+                className="size-14 rounded-full"
+              />
+              <p className="line-clamp-2 text-[0.86rem] font-black leading-tight tracking-[-0.02em] text-[var(--foreground)]">
+                {match.away_team}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-center gap-4 px-4 pb-4 text-[11px] font-semibold text-[var(--n-500)]">
+            <span className="inline-flex items-center gap-1.5">
+              <CalendarDays className="size-3.5" />
+              {formatGridDateShort(match.kickoff_at, match.timezone)}
+            </span>
+            <span className="inline-flex min-w-0 items-center gap-1.5">
+              <MapPin className="size-3.5 shrink-0" />
+              <span className="truncate">{venueLabel}</span>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2.5 border-t border-[var(--border)] bg-[var(--n-50)] px-4 py-3">
+            <HoverAvatarBadge
+              initials={getInitials(responsible.value)}
+              roleLabel={RESPONSIBLE_DISPLAY_LABEL}
+              showTooltip={false}
+              tone="neutral"
+              size="sm"
+            />
+            <p
+              className={cn(
+                "min-w-0 flex-1 truncate text-sm font-bold text-[var(--foreground)]",
+                responsible.muted && "italic font-semibold text-[var(--muted)]",
+                getAttendanceTextClass(responsible.attendanceState),
+              )}
+            >
+              {getCompactPersonName(responsible.value)}
+            </p>
+            <span
+              className={cn(
+                badgeBaseClassName,
+                "shrink-0 border border-[var(--n-200)] bg-[var(--surface)] text-[var(--n-600)]",
+              )}
+            >
+              {formatProductionModeLabel(match.production_mode)}
+            </span>
+            <ChevronDown className="size-5 shrink-0 text-[var(--n-400)] transition group-open:rotate-180" />
+          </div>
+
+          <div className="flex justify-end gap-2 border-t border-[var(--border)] px-4 py-2">
+            <MatchCardActions
+              canEdit={canEdit}
+              detailsId={detailsId}
+              match={toMatchEditPrefill(match)}
+              redirectTo={redirectTo}
+              className="flex-row"
+            />
+          </div>
+        </div>
+
         <span
           aria-hidden="true"
           className={cn(
-            "pointer-events-none absolute left-[-12px] top-1/2 z-0 h-[118px] w-[30px] -translate-y-1/2 rounded-l-[10px] rounded-r-[6px] shadow-[inset_-1px_0_0_rgba(255,255,255,0.16),0_8px_18px_rgba(28,13,16,0.06)]",
+            "pointer-events-none absolute left-[-12px] top-1/2 z-0 hidden h-[118px] w-[30px] -translate-y-1/2 rounded-l-[10px] rounded-r-[6px] shadow-[inset_-1px_0_0_rgba(255,255,255,0.16),0_8px_18px_rgba(28,13,16,0.06)] xl:block",
             statusAccentClass,
           )}
         />
-        <div className="relative z-10 overflow-visible rounded-t-[10px] rounded-b-[10px]">
+        <div className="relative z-10 hidden overflow-visible rounded-t-[10px] rounded-b-[10px] xl:block">
           <div className="overflow-hidden rounded-t-[10px] rounded-b-[10px] flex flex-col xl:grid xl:grid-cols-[6.5rem_minmax(12.5rem,17rem)_repeat(4,minmax(10rem,1fr))_4.75rem] xl:items-stretch 2xl:grid-cols-[7rem_minmax(17.5rem,25rem)_repeat(4,minmax(10.25rem,1fr))_4.75rem]">
           <div
             className={cn(
