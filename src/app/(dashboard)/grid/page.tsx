@@ -2,9 +2,10 @@ import { Suspense } from "react";
 import { addDays, addMonths } from "date-fns";
 import { ArrowUpDown } from "lucide-react";
 
-import { GridCalendarPicker } from "@/components/grid/grid-calendar-picker";
+import { GridDateStepper } from "@/components/grid/grid-date-stepper";
 import { GridDisplayToggle } from "@/components/grid/grid-display-toggle";
 import { GridPageShell } from "@/components/grid/grid-page-shell";
+import { GridPastDaysProvider } from "@/components/grid/grid-past-days-context";
 import {
   GridContent,
   GridContentSkeleton,
@@ -15,6 +16,7 @@ import {
   GridInsightsAside,
   GridInsightsSkeleton,
   GridMatchCount,
+  GridPastDaysToolbarButton,
 } from "@/components/grid/grid-regions";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 import { SetupPanel } from "@/components/layout/setup-panel";
@@ -62,22 +64,6 @@ function toStringSearchParams(
   }
 
   return result;
-}
-
-function getInitialCalendarMonth(
-  params: Record<string, string | string[] | undefined>,
-  filters: {
-    view: "day" | "month";
-    date: string;
-  },
-) {
-  const rawMonth = typeof params.calendarMonth === "string" ? params.calendarMonth : "";
-
-  if (/^\d{4}-\d{2}$/.test(rawMonth)) {
-    return rawMonth;
-  }
-
-  return filters.view === "month" ? filters.date : filters.date.slice(0, 7);
 }
 
 function buildGridHref(
@@ -158,22 +144,8 @@ export default async function GridPage({ searchParams }: PageProps) {
 
   const user = await requireUserContext();
   const filters = parseGridSearchParams(resolvedSearchParams);
-  const initialCalendarMonth = getInitialCalendarMonth(
-    resolvedSearchParams,
-    filters,
-  );
   const redirectTo = serializeSearchParams(resolvedSearchParams);
   const baseSearchParams = toStringSearchParams(resolvedSearchParams);
-  const calendarPickerKey = [
-    initialCalendarMonth,
-    filters.view,
-    filters.date,
-    filters.q ?? "",
-    filters.league ?? "",
-    filters.mode ?? "",
-    filters.status ?? "",
-    filters.owner ?? "",
-  ].join("|");
   const todayHref = buildGridHref(resolvedSearchParams, {
     view: "day",
     date: getDateInputValue(),
@@ -208,6 +180,53 @@ export default async function GridPage({ searchParams }: PageProps) {
     typeof resolvedSearchParams.display === "string" &&
     resolvedSearchParams.display.length > 0;
 
+  const searchHiddenInputs = (
+    <>
+      <input type="hidden" name="view" value={filters.view} />
+      <input type="hidden" name="date" value={filters.date} />
+      <input type="hidden" name="dateOrder" value={filters.dateOrder} />
+      {hasExplicitDisplay ? (
+        <input type="hidden" name="display" value={filters.display} />
+      ) : null}
+      {filters.league ? (
+        <input type="hidden" name="league" value={filters.league} />
+      ) : null}
+      {filters.mode ? (
+        <input type="hidden" name="mode" value={filters.mode} />
+      ) : null}
+      {filters.status ? (
+        <input type="hidden" name="status" value={filters.status} />
+      ) : null}
+      {filters.owner ? (
+        <input type="hidden" name="owner" value={filters.owner} />
+      ) : null}
+      {filters.timezone ? (
+        <input type="hidden" name="timezone" value={filters.timezone} />
+      ) : null}
+    </>
+  );
+
+  const sortToggleLabel =
+    filters.dateOrder === "asc"
+      ? "Ordenar desde la fecha más reciente"
+      : "Ordenar desde la fecha más antigua";
+  const sortToggleClassName = cn(
+    "inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-[#7f8ca0] shadow-[0_8px_18px_rgba(15,23,42,0.06)] transition hover:border-[rgba(230,18,56,0.24)] hover:text-[var(--accent)]",
+    filters.dateOrder === "desc" &&
+      "border-[rgba(230,18,56,0.18)] bg-[#fff4f6] text-[var(--accent)]",
+  );
+
+  const searchField = (
+    <ToolbarSearchField
+      action="/grid"
+      className="w-full"
+      defaultValue={filters.q}
+      placeholder="Buscar partido, ID, liga o responsable..."
+    >
+      {searchHiddenInputs}
+    </ToolbarSearchField>
+  );
+
   return (
     <GridPageShell
       aside={
@@ -227,94 +246,84 @@ export default async function GridPage({ searchParams }: PageProps) {
           title={SECTION_COPY.grid.title}
           description={SECTION_COPY.grid.description}
           descriptionClassName="hidden sm:block"
+          className="gap-4"
           actions={
-            <>
-              <ToolbarSearchField
-                action="/grid"
-                defaultValue={filters.q}
-                placeholder="Buscar partido, ID, liga o responsable..."
-              >
-                <input type="hidden" name="view" value={filters.view} />
-                <input type="hidden" name="date" value={filters.date} />
-                <input type="hidden" name="dateOrder" value={filters.dateOrder} />
-                {hasExplicitDisplay ? (
-                  <input type="hidden" name="display" value={filters.display} />
-                ) : null}
-                {filters.league ? (
-                  <input type="hidden" name="league" value={filters.league} />
-                ) : null}
-                {filters.mode ? (
-                  <input type="hidden" name="mode" value={filters.mode} />
-                ) : null}
-                {filters.status ? (
-                  <input type="hidden" name="status" value={filters.status} />
-                ) : null}
-                {filters.owner ? (
-                  <input type="hidden" name="owner" value={filters.owner} />
-                ) : null}
-                {filters.timezone ? (
-                  <input type="hidden" name="timezone" value={filters.timezone} />
-                ) : null}
-              </ToolbarSearchField>
-              <Suspense fallback={<GridHeaderActionsSkeleton />}>
-                <GridHeaderDataActions
-                  user={user}
-                  filters={filters}
-                  redirectTo={redirectTo}
-                />
-              </Suspense>
-            </>
+            <Suspense fallback={<GridHeaderActionsSkeleton />}>
+              <GridHeaderDataActions
+                user={user}
+                filters={filters}
+                redirectTo={redirectTo}
+              />
+            </Suspense>
           }
         />
 
         <PageMessage intent={intent} message={notice} />
 
-        <section className="min-w-0 space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <a
-                href={dateOrderToggleHref}
-                aria-label={
-                  filters.dateOrder === "asc"
-                    ? "Ordenar desde la fecha más reciente"
-                    : "Ordenar desde la fecha más antigua"
-                }
-                className={cn(
-                  "inline-flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-[#7f8ca0] shadow-[0_8px_18px_rgba(15,23,42,0.06)] transition hover:border-[rgba(230,18,56,0.24)] hover:text-[var(--accent)]",
-                  filters.dateOrder === "desc" &&
-                    "border-[rgba(230,18,56,0.18)] bg-[#fff4f6] text-[var(--accent)]",
-                )}
-              >
-                <ArrowUpDown className="size-4" />
-              </a>
-              <Suspense fallback={<GridCountSkeleton />}>
-                <GridMatchCount user={user} filters={filters} />
+        <GridPastDaysProvider>
+          <section className="min-w-0 space-y-6">
+          {/* Desktop/tablet toolbar — two columns. Left: date-order + match
+              count (the "Ver días anteriores" toggle sits below it in the
+              list). Right: the search bar stacked over the controls, sized to
+              match that control cluster. */}
+          <div className="hidden items-start justify-between gap-4 sm:flex">
+            <div className="flex shrink-0 flex-col gap-3">
+              <div className="flex items-center gap-3">
+                <a
+                  href={dateOrderToggleHref}
+                  aria-label={sortToggleLabel}
+                  className={sortToggleClassName}
+                >
+                  <ArrowUpDown className="size-4" />
+                </a>
+                <Suspense fallback={<GridCountSkeleton />}>
+                  <GridMatchCount user={user} filters={filters} />
+                </Suspense>
+              </div>
+              <Suspense fallback={null}>
+                <GridPastDaysToolbarButton user={user} filters={filters} />
               </Suspense>
             </div>
-            <div className="flex flex-wrap items-center justify-end gap-3">
-              {/* Cards/table and day/month toggles are hidden on phones: mobile
-                  is cards-only, and the calendar picker below covers day/month
-                  navigation. They return from `sm` up. */}
-              <div className="hidden sm:block">
+            <div className="flex min-w-0 flex-col items-stretch gap-3">
+              {searchField}
+              <div className="flex flex-wrap items-center justify-end gap-3">
                 <GridDisplayToggle
                   display={filters.display}
                   hasExplicitParam={hasExplicitDisplay}
                   baseSearchParams={baseSearchParams}
                 />
-              </div>
-              <div className="hidden sm:block">
                 <SegmentedControl
                   items={[
                     { key: "day", label: "Hoy", href: todayHref, active: filters.view === "day" },
                     { key: "month", label: "Mes", href: monthHref, active: filters.view === "month" },
                   ]}
                 />
+                <GridDateStepper
+                  prevHref={previousDateHref}
+                  nextHref={nextDateHref}
+                  dateLabel={summaryDateLabel}
+                />
+                <Suspense fallback={null}>
+                  <GridExportAction
+                    user={user}
+                    filters={filters}
+                    summaryDateLabel={summaryDateLabel}
+                  />
+                </Suspense>
               </div>
-              <GridCalendarPicker
-                key={calendarPickerKey}
-                selectedDate={filters.view === "day" ? filters.date : null}
-                initialMonth={initialCalendarMonth}
-                baseSearchParams={baseSearchParams}
+            </div>
+          </div>
+
+          {/* Phone nav bar: full-width search, then day stepper + export. The
+              sort toggle rides with "Ver días anteriores" inside the list. */}
+          <div className="space-y-3 sm:hidden">
+            {searchField}
+            <div className="flex items-center gap-2">
+              <GridDateStepper
+                className="flex-1"
+                prevHref={previousDateHref}
+                nextHref={nextDateHref}
+                dateLabel={summaryDateLabel}
               />
               <Suspense fallback={null}>
                 <GridExportAction
@@ -325,14 +334,25 @@ export default async function GridPage({ searchParams }: PageProps) {
               </Suspense>
             </div>
           </div>
+
           <Suspense fallback={<GridContentSkeleton />}>
             <GridContent
               user={user}
               filters={filters}
               redirectTo={redirectTo}
+              pastDaysAccessory={
+                <a
+                  href={dateOrderToggleHref}
+                  aria-label={sortToggleLabel}
+                  className={cn(sortToggleClassName, "sm:hidden")}
+                >
+                  <ArrowUpDown className="size-4" />
+                </a>
+              }
             />
           </Suspense>
-        </section>
+          </section>
+        </GridPastDaysProvider>
       </div>
     </GridPageShell>
   );
