@@ -19,8 +19,9 @@ export function DashboardShell(props: {
   user: UserContext | null;
   announcement: AnnouncementSummary | null;
   landingUrl?: string | null;
+  generatorUrl?: string | null;
 }) {
-  const { children, user, landingUrl } = props;
+  const { children, user, landingUrl, generatorUrl } = props;
   const displayName =
     user?.profile?.full_name?.trim() ||
     user?.email?.split("@")[0] ||
@@ -44,7 +45,7 @@ export function DashboardShell(props: {
     <div className="min-h-screen bg-[var(--page-canvas)]">
       <div className="flex min-h-screen">
         <DashboardSidebar brand={brand}>
-          <DashboardNav role={user?.role ?? null} />
+          <DashboardNav role={user?.role ?? null} generatorUrl={generatorUrl} />
         </DashboardSidebar>
 
         <div className="flex min-w-0 flex-1 flex-col">
@@ -52,7 +53,11 @@ export function DashboardShell(props: {
             <div className="flex h-20 items-center gap-4 px-4 sm:px-6 lg:px-8">
               <div className="flex min-w-0 flex-1 items-center gap-4">
                 <div className="flex items-center gap-3 lg:hidden">
-                  <DashboardMobileNav brand={brand} role={user?.role ?? null} />
+                  <DashboardMobileNav
+                    brand={brand}
+                    role={user?.role ?? null}
+                    generatorUrl={generatorUrl}
+                  />
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src="/Basket.tv horizontal rojo.png"
