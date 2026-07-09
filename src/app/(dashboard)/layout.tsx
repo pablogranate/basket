@@ -5,6 +5,7 @@ import { CollaboratorShell } from "@/components/layout/collaborator-shell";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import {
   buildApexUrl,
+  buildSiblingAppUrl,
   isAdminDashboardRole,
   isCollaboratorLimitedRole,
   isDashboardPathAllowedForRole,
@@ -58,8 +59,14 @@ export default async function DashboardLayout({
     );
   }
 
+  const host = requestHeaders.get("host") ?? "";
   const landingUrl = isAdminDashboardRole(user?.role)
-    ? buildApexUrl(requestHeaders.get("host") ?? "")
+    ? buildApexUrl(host)
+    : null;
+  // Only full-access roles reach DashboardShell, which matches the generator's
+  // app gate — no extra role check needed. Null on unrecognized hosts.
+  const generatorUrl = buildApexUrl(host)
+    ? buildSiblingAppUrl(host, "generator")
     : null;
 
   return (
@@ -67,6 +74,7 @@ export default async function DashboardLayout({
       user={user}
       announcement={announcement}
       landingUrl={landingUrl}
+      generatorUrl={generatorUrl}
     >
       {children}
     </DashboardShell>

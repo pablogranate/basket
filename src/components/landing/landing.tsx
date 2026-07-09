@@ -1,4 +1,9 @@
-import { AlertTriangle, BarChart3, Clapperboard } from "lucide-react";
+import {
+  AlertTriangle,
+  BarChart3,
+  Clapperboard,
+  Image as ImageIcon,
+} from "lucide-react";
 
 import { LandingLogoutClient } from "@/components/landing/landing-logout-client";
 import { Card } from "@/components/ui/card";
@@ -25,6 +30,11 @@ const LANDING_APPS: LandingApp[] = [
     subdomain: "incidencias",
     name: "Incidencias",
     Icon: AlertTriangle,
+  },
+  {
+    subdomain: "generator",
+    name: "Generador",
+    Icon: ImageIcon,
   },
 ];
 

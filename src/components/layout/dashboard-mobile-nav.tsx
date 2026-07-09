@@ -9,9 +9,11 @@ import type { AppRole } from "@/lib/database.types";
 export function DashboardMobileNav({
   brand,
   role,
+  generatorUrl,
 }: {
   brand: React.ReactNode;
   role: AppRole | null;
+  generatorUrl?: string | null;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -77,7 +79,7 @@ export function DashboardMobileNav({
               </button>
             </div>
             <div className="px-5 py-6">
-              <DashboardNav role={role} />
+              <DashboardNav role={role} generatorUrl={generatorUrl} />
             </div>
           </aside>
         </div>
