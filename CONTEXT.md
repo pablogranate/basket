@@ -4,6 +4,24 @@ Glossary for the portal's domain language. Implementation lives in code; this fi
 
 ## Language
 
+### Unified auth
+
+**Sibling app**:
+Any app living on a `basket-app.com` subdomain (portal, analytics, incidencias, generator) plus the apex directory. Siblings share one identity — a user logs in once and is recognized everywhere — but each app decides on its own who may enter.
+_Avoid_: sub-app, satellite app
+
+**App gate**:
+The per-app authorization decision, answering "may this identity use this app?". Identity being valid says nothing about access; every sibling app applies its own gate. The generator's gate admits full-access roles only.
+_Avoid_: access check, permission check (too generic)
+
+**Full-access role**:
+The portal roles admin, editor and coordinator — people who see the whole dashboard. Collaborators and viewers are not full-access. The generator gate reuses this exact set.
+_Avoid_: staff role, elevated role
+
+**Generator**:
+The promotional-image generator at `generator.basket-app.com` — a static browser tool with no backend of its own. It carries no auth code; its gate is enforced in front of it, not inside it.
+_Avoid_: image generator app (when the sibling is meant)
+
 ### Notifications
 
 **Send time**:

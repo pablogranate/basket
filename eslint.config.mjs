@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Harness worktree copies — not project code.
+    ".claude/**",
   ]),
 ]);
 
