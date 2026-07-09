@@ -104,8 +104,14 @@ function matchesPrefix(pathname: string, prefix: string) {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
 }
 
+export const FULL_DASHBOARD_ACCESS_ROLES: ReadonlyArray<AppRole> = [
+  "admin",
+  "editor",
+  "coordinator",
+];
+
 export function hasFullDashboardAccessRole(role?: AppRole | null) {
-  return role === "admin" || role === "editor" || role === "coordinator";
+  return role != null && FULL_DASHBOARD_ACCESS_ROLES.includes(role);
 }
 
 export function isAdminDashboardRole(role?: AppRole | null) {
