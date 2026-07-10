@@ -214,3 +214,62 @@ describe("buildGridReportSummary · personas", () => {
     expect(summary.personas).toEqual([]);
   });
 });
+
+describe("buildGridReportSummary · equipos", () => {
+  it("splits local and visitante counts per team and sorts by total", () => {
+    const summary = buildGridReportSummary([
+      match("m1", [], { homeTeam: "Boca Juniors", awayTeam: "River Plate" }),
+      match("m2", [], { homeTeam: "River Plate", awayTeam: "Boca Juniors" }),
+      match("m3", [], { homeTeam: "Boca Juniors", awayTeam: "Atenas" }),
+    ]);
+
+    expect(summary.equipos).toEqual([
+      { team: "Boca Juniors", local: 2, visitante: 1, total: 3 },
+      { team: "River Plate", local: 1, visitante: 1, total: 2 },
+      { team: "Atenas", local: 0, visitante: 1, total: 1 },
+    ]);
+  });
+
+  it("gives a row to a team appearing only as visitante", () => {
+    const summary = buildGridReportSummary([
+      match("m1", [], { homeTeam: "Boca Juniors", awayTeam: "Quimsa" }),
+    ]);
+
+    expect(summary.equipos).toContainEqual({
+      team: "Quimsa",
+      local: 0,
+      visitante: 1,
+      total: 1,
+    });
+  });
+});
+
+describe("buildGridReportSummary · produccion", () => {
+  it("counts matches per production mode and buckets null as Sin especificar", () => {
+    const summary = buildGridReportSummary([
+      match("m1", [], { productionMode: "DeporTV" }),
+      match("m2", [], { productionMode: "DeporTV" }),
+      match("m3", [], { productionMode: null }),
+      match("m4", [], { productionMode: "  " }),
+    ]);
+
+    expect(summary.produccion).toEqual([
+      { mode: "DeporTV", count: 2 },
+      { mode: "Sin especificar", count: 2 },
+    ]);
+  });
+
+  it("production counts sum to the match count", () => {
+    const summary = buildGridReportSummary([
+      match("m1", [], { productionMode: "DeporTV" }),
+      match("m2", [], { productionMode: "Encoder" }),
+      match("m3", [], { productionMode: null }),
+    ]);
+
+    const total = summary.produccion.reduce(
+      (sum, entry) => sum + entry.count,
+      0,
+    );
+    expect(total).toBe(summary.matchCount);
+  });
+});

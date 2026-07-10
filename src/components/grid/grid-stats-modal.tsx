@@ -10,6 +10,8 @@ import { cn, ensureErrorMessage } from "@/lib/utils";
 
 const TABS = [
   { key: "personas", label: "Personas" },
+  { key: "equipos", label: "Equipos" },
+  { key: "produccion", label: "Producción" },
   { key: "funciones", label: "Funciones" },
 ] as const;
 
@@ -91,6 +93,74 @@ function PersonasTab({ summary }: { summary: GridReportSummary }) {
       ) : (
         <EmptyRangeNotice message="Ninguna persona coincide con la búsqueda." />
       )}
+    </div>
+  );
+}
+
+function EquiposTab({ summary }: { summary: GridReportSummary }) {
+  if (!summary.equipos.length) {
+    return (
+      <EmptyRangeNotice message="Sin equipos en el rango seleccionado." />
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full border-separate border-spacing-0 text-sm">
+        <thead>
+          <tr>
+            <th className={tableHeaderCellClass}>Equipo</th>
+            <th className={cn(tableHeaderCellClass, "text-right")}>De local</th>
+            <th className={cn(tableHeaderCellClass, "text-right")}>
+              De visitante
+            </th>
+            <th className={cn(tableHeaderCellClass, "text-right")}>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {summary.equipos.map((team) => (
+            <tr key={team.team}>
+              <td className={tableCellClass}>{team.team}</td>
+              <td className={tableMutedCellClass}>{team.local}</td>
+              <td className={tableMutedCellClass}>{team.visitante}</td>
+              <td className={cn(tableCellClass, "text-right font-extrabold")}>
+                {team.total}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ProduccionTab({ summary }: { summary: GridReportSummary }) {
+  if (!summary.produccion.length) {
+    return (
+      <EmptyRangeNotice message="Sin producciones en el rango seleccionado." />
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full border-separate border-spacing-0 text-sm">
+        <thead>
+          <tr>
+            <th className={tableHeaderCellClass}>Producción</th>
+            <th className={cn(tableHeaderCellClass, "text-right")}>Partidos</th>
+          </tr>
+        </thead>
+        <tbody>
+          {summary.produccion.map((entry) => (
+            <tr key={entry.mode}>
+              <td className={tableCellClass}>{entry.mode}</td>
+              <td className={cn(tableCellClass, "text-right font-extrabold")}>
+                {entry.count}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -330,6 +400,10 @@ export function GridStatsModal({
           ) : summary ? (
             activeTab === "personas" ? (
               <PersonasTab summary={summary} />
+            ) : activeTab === "equipos" ? (
+              <EquiposTab summary={summary} />
+            ) : activeTab === "produccion" ? (
+              <ProduccionTab summary={summary} />
             ) : (
               <FuncionesTab summary={summary} />
             )

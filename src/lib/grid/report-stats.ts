@@ -39,6 +39,20 @@ export type ReportPersonCount = {
   roles: string[];
 };
 
+export type ReportTeamCount = {
+  team: string;
+  local: number;
+  visitante: number;
+  total: number;
+};
+
+export type ReportProductionCount = {
+  mode: string;
+  count: number;
+};
+
+export const UNSPECIFIED_PRODUCTION_MODE = "Sin especificar";
+
 export type GridReportSummary = {
   matchCount: number;
   funciones: {
@@ -46,6 +60,8 @@ export type GridReportSummary = {
     categories: ReportCategoryCount[];
   };
   personas: ReportPersonCount[];
+  equipos: ReportTeamCount[];
+  produccion: ReportProductionCount[];
 };
 
 // A slot only counts when a person fills it; `confirmed` and match status are
@@ -170,6 +186,66 @@ function buildPersonas(matches: ReportMatchRow[]): ReportPersonCount[] {
     });
 }
 
+// Teams are grouped by the free-text name exactly as stored (sheet Local /
+// Visitante columns are the source of truth); identity normalization is out of
+// scope here.
+function buildEquipos(matches: ReportMatchRow[]): ReportTeamCount[] {
+  const teamMap = new Map<string, ReportTeamCount>();
+
+  function bucket(team: string) {
+    const name = team.trim();
+    const current = teamMap.get(name) ?? {
+      team: name,
+      local: 0,
+      visitante: 0,
+      total: 0,
+    };
+    teamMap.set(name, current);
+    return current;
+  }
+
+  matches.forEach((match) => {
+    if (match.homeTeam.trim()) {
+      const home = bucket(match.homeTeam);
+      home.local += 1;
+      home.total += 1;
+    }
+
+    if (match.awayTeam.trim()) {
+      const away = bucket(match.awayTeam);
+      away.visitante += 1;
+      away.total += 1;
+    }
+  });
+
+  return [...teamMap.values()].sort((left, right) => {
+    if (right.total !== left.total) {
+      return right.total - left.total;
+    }
+
+    return left.team.localeCompare(right.team, "es");
+  });
+}
+
+function buildProduccion(matches: ReportMatchRow[]): ReportProductionCount[] {
+  const modeMap = new Map<string, number>();
+
+  matches.forEach((match) => {
+    const mode = match.productionMode?.trim() || UNSPECIFIED_PRODUCTION_MODE;
+    modeMap.set(mode, (modeMap.get(mode) ?? 0) + 1);
+  });
+
+  return [...modeMap.entries()]
+    .map(([mode, count]) => ({ mode, count }))
+    .sort((left, right) => {
+      if (right.count !== left.count) {
+        return right.count - left.count;
+      }
+
+      return left.mode.localeCompare(right.mode, "es");
+    });
+}
+
 export function buildGridReportSummary(
   matches: ReportMatchRow[],
 ): GridReportSummary {
@@ -177,5 +253,7 @@ export function buildGridReportSummary(
     matchCount: matches.length,
     funciones: buildFunciones(matches),
     personas: buildPersonas(matches),
+    equipos: buildEquipos(matches),
+    produccion: buildProduccion(matches),
   };
 }
