@@ -3,8 +3,15 @@
 import { Fragment, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { endOfMonth, format, startOfMonth } from "date-fns";
-import { X } from "lucide-react";
+import { FileDown, FileText, X } from "lucide-react";
 
+import {
+  buildStatsCsv,
+  buildStatsExportTable,
+  buildStatsFileBaseName,
+  downloadStatsBlob,
+  exportStatsPdf,
+} from "@/components/grid/grid-stats-export";
 import type { GridReportSummary } from "@/lib/grid/report-stats";
 import { cn, ensureErrorMessage } from "@/lib/utils";
 
@@ -282,6 +289,47 @@ export function GridStatsModal({
   const summary = result?.key === requestKey ? result.summary : null;
   const error = result?.key === requestKey ? result.error : null;
 
+  const canExport = Boolean(summary && summary.matchCount > 0);
+  const rangeLabel = `${from} – ${to}`;
+
+  function handleCsvExport() {
+    if (!summary) {
+      return;
+    }
+
+    const table = buildStatsExportTable(summary, activeTab);
+    const fileBaseName = buildStatsFileBaseName({
+      tabLabel: table.tabLabel,
+      from,
+      to,
+    });
+
+    downloadStatsBlob(
+      new Blob([buildStatsCsv(table)], { type: "text/csv;charset=utf-8" }),
+      `${fileBaseName}.csv`,
+    );
+  }
+
+  async function handlePdfExport() {
+    if (!summary) {
+      return;
+    }
+
+    const table = buildStatsExportTable(summary, activeTab);
+    await exportStatsPdf({
+      table,
+      rangeLabel,
+      fileBaseName: buildStatsFileBaseName({
+        tabLabel: table.tabLabel,
+        from,
+        to,
+      }),
+    });
+  }
+
+  const exportButtonClass =
+    "inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--background-soft)] px-3.5 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--n-600)] transition hover:border-[var(--accent-border)] hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50";
+
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -354,7 +402,7 @@ export function GridStatsModal({
           ) : null}
         </div>
 
-        <div className="flex items-center gap-2 border-b border-[var(--border)] px-7 py-3">
+        <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border)] px-7 py-3">
           {TABS.map((tab) => (
             <button
               key={tab.key}
@@ -370,6 +418,30 @@ export function GridStatsModal({
               {tab.label}
             </button>
           ))}
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleCsvExport}
+              disabled={!canExport}
+              aria-label="Exportar CSV"
+              title="Exportar CSV"
+              className={exportButtonClass}
+            >
+              <FileDown className="size-3.5" />
+              CSV
+            </button>
+            <button
+              type="button"
+              onClick={() => void handlePdfExport()}
+              disabled={!canExport}
+              aria-label="Exportar PDF"
+              title="Exportar PDF"
+              className={exportButtonClass}
+            >
+              <FileText className="size-3.5" />
+              PDF
+            </button>
+          </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">
