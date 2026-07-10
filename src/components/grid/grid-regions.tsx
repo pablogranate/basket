@@ -4,6 +4,7 @@ import { es } from "date-fns/locale";
 
 import { SectionAiAssistant } from "@/components/ai/section-ai-assistant";
 import { GridExportButton } from "@/components/grid/grid-export-button";
+import { GridStatsButton } from "@/components/grid/grid-stats-button";
 import { GridSyncButton } from "@/components/grid/grid-sync-button";
 import { GridTable } from "@/components/grid/grid-table";
 import {
@@ -210,6 +211,9 @@ export async function GridHeaderDataActions({
     <>
       {/* Sync and the AI assistant are power tools that don't belong on a phone
           toolbar — hide them below `sm`. Export stays available everywhere. */}
+      <div className="hidden sm:block">
+        <GridStatsButton timezone={filters.timezone} />
+      </div>
       {user.canEdit ? (
         <div className="hidden sm:block">
           <GridSyncButton

@@ -31,6 +31,15 @@ _Avoid_: notification time, blast time
 **Enviar notificación a todos**:
 The manual per-match action (match detail header) that immediately sends WhatsApp + email to every current assignee, behind a confirmation dialog. It always sends regardless of whether the automatic send already fired, and (re)stamps `day_notified_at`.
 
+### Reports (grid statistics)
+
+**Asignación contada**:
+For statistics, an assignment counts only when a person fills the slot — a slot row with no person is not an assignment. All statuses of match count equally (Pendiente, Confirmado, Realizado) and the `confirmed` flag is ignored: confirmation is attendance workflow, not assignment fact.
+_Avoid_: slot (when the filled sense is meant)
+
+**Veces asignada**:
+How many distinct matches a person appears in within a period — not how many slot rows. A person holding two roles in one match was assigned once.
+
 ### Grid sync
 
 **Local**:
