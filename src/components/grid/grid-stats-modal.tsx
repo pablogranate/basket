@@ -8,16 +8,97 @@ import { X } from "lucide-react";
 import type { GridReportSummary } from "@/lib/grid/report-stats";
 import { cn, ensureErrorMessage } from "@/lib/utils";
 
-const TABS = [{ key: "funciones", label: "Funciones" }] as const;
+const TABS = [
+  { key: "personas", label: "Personas" },
+  { key: "funciones", label: "Funciones" },
+] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
+
+const tableHeaderCellClass =
+  "border-b border-[var(--border)] px-3 py-2 text-left text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--n-400)]";
+const tableCellClass =
+  "border-b border-[var(--border)] px-3 py-2 font-semibold text-[var(--foreground)]";
+const tableMutedCellClass =
+  "border-b border-[var(--border)] px-3 py-2 text-right font-semibold text-[var(--muted)]";
+
+function EmptyRangeNotice({ message }: { message: string }) {
+  return (
+    <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-5 text-sm font-semibold text-[var(--n-500)]">
+      {message}
+    </div>
+  );
+}
+
+function PersonasTab({ summary }: { summary: GridReportSummary }) {
+  const [search, setSearch] = useState("");
+
+  if (!summary.personas.length) {
+    return (
+      <EmptyRangeNotice message="Sin personas asignadas en el rango seleccionado." />
+    );
+  }
+
+  const term = search.trim().toLocaleLowerCase("es");
+  const rows = term
+    ? summary.personas.filter((person) =>
+        person.fullName.toLocaleLowerCase("es").includes(term),
+      )
+    : summary.personas;
+
+  return (
+    <div className="space-y-4">
+      <input
+        type="search"
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        placeholder="Buscar persona..."
+        className="w-full rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--foreground)] outline-none transition placeholder:text-[var(--n-400)] focus:border-[var(--accent-border)]"
+      />
+      {rows.length ? (
+        <div className="overflow-x-auto">
+          <table className="w-full border-separate border-spacing-0 text-sm">
+            <thead>
+              <tr>
+                <th className={tableHeaderCellClass}>Persona</th>
+                <th className={cn(tableHeaderCellClass, "text-right")}>
+                  Partidos
+                </th>
+                <th className={cn(tableHeaderCellClass, "text-right")}>
+                  Asignaciones
+                </th>
+                <th className={tableHeaderCellClass}>Funciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((person) => (
+                <tr key={person.id}>
+                  <td className={tableCellClass}>{person.fullName}</td>
+                  <td className={cn(tableCellClass, "text-right font-extrabold")}>
+                    {person.matchCount}
+                  </td>
+                  <td className={tableMutedCellClass}>
+                    {person.assignmentCount}
+                  </td>
+                  <td className={cn(tableCellClass, "text-xs text-[var(--n-500)]")}>
+                    {person.roles.join(" · ")}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <EmptyRangeNotice message="Ninguna persona coincide con la búsqueda." />
+      )}
+    </div>
+  );
+}
 
 function FuncionesTab({ summary }: { summary: GridReportSummary }) {
   if (!summary.funciones.categories.length) {
     return (
-      <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-5 text-sm font-semibold text-[var(--n-500)]">
-        Sin asignaciones en el rango seleccionado.
-      </div>
+      <EmptyRangeNotice message="Sin asignaciones en el rango seleccionado." />
     );
   }
 
@@ -73,7 +154,7 @@ export function GridStatsModal({
   const today = new Date();
   const [from, setFrom] = useState(format(startOfMonth(today), "yyyy-MM-dd"));
   const [to, setTo] = useState(format(endOfMonth(today), "yyyy-MM-dd"));
-  const [activeTab, setActiveTab] = useState<TabKey>("funciones");
+  const [activeTab, setActiveTab] = useState<TabKey>("personas");
   const [retryCount, setRetryCount] = useState(0);
   // Result is keyed by the request that produced it; a key mismatch with the
   // current range means a fetch is in flight (no sync setState in effects).
@@ -247,7 +328,11 @@ export function GridStatsModal({
               No hay partidos en el rango seleccionado.
             </div>
           ) : summary ? (
-            <FuncionesTab summary={summary} />
+            activeTab === "personas" ? (
+              <PersonasTab summary={summary} />
+            ) : (
+              <FuncionesTab summary={summary} />
+            )
           ) : null}
         </div>
       </div>

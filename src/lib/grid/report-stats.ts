@@ -31,12 +31,21 @@ export type ReportCategoryCount = {
   roles: ReportRoleCount[];
 };
 
+export type ReportPersonCount = {
+  id: string;
+  fullName: string;
+  matchCount: number;
+  assignmentCount: number;
+  roles: string[];
+};
+
 export type GridReportSummary = {
   matchCount: number;
   funciones: {
     total: number;
     categories: ReportCategoryCount[];
   };
+  personas: ReportPersonCount[];
 };
 
 // A slot only counts when a person fills it; `confirmed` and match status are
@@ -107,11 +116,66 @@ function buildFunciones(matches: ReportMatchRow[]) {
   };
 }
 
+// "Veces asignada" = distinct matches; the raw slot count rides alongside so a
+// person covering two roles in one match is distinguishable from two matches.
+function buildPersonas(matches: ReportMatchRow[]): ReportPersonCount[] {
+  const personMap = new Map<
+    string,
+    {
+      id: string;
+      fullName: string;
+      matchIds: Set<string>;
+      assignmentCount: number;
+      roleSortOrders: Map<string, number>;
+    }
+  >();
+
+  matches.forEach((match) => {
+    countedAssignments(match).forEach((slot) => {
+      if (!slot.personId) {
+        return;
+      }
+
+      const current = personMap.get(slot.personId) ?? {
+        id: slot.personId,
+        fullName: slot.personName ?? "Sin nombre",
+        matchIds: new Set<string>(),
+        assignmentCount: 0,
+        roleSortOrders: new Map<string, number>(),
+      };
+
+      current.matchIds.add(match.id);
+      current.assignmentCount += 1;
+      current.roleSortOrders.set(slot.roleName, slot.roleSortOrder);
+      personMap.set(slot.personId, current);
+    });
+  });
+
+  return [...personMap.values()]
+    .map((person) => ({
+      id: person.id,
+      fullName: person.fullName,
+      matchCount: person.matchIds.size,
+      assignmentCount: person.assignmentCount,
+      roles: [...person.roleSortOrders.entries()]
+        .sort((left, right) => left[1] - right[1])
+        .map(([name]) => name),
+    }))
+    .sort((left, right) => {
+      if (right.matchCount !== left.matchCount) {
+        return right.matchCount - left.matchCount;
+      }
+
+      return left.fullName.localeCompare(right.fullName, "es");
+    });
+}
+
 export function buildGridReportSummary(
   matches: ReportMatchRow[],
 ): GridReportSummary {
   return {
     matchCount: matches.length,
     funciones: buildFunciones(matches),
+    personas: buildPersonas(matches),
   };
 }

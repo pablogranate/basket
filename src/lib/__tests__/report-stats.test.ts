@@ -129,5 +129,88 @@ describe("buildGridReportSummary · funciones", () => {
 
     expect(summary.matchCount).toBe(0);
     expect(summary.funciones).toEqual({ total: 0, categories: [] });
+    expect(summary.personas).toEqual([]);
+  });
+});
+
+describe("buildGridReportSummary · personas", () => {
+  it("counts distinct matches, raw slots, and lists functions held", () => {
+    const summary = buildGridReportSummary([
+      match("m1", [
+        assignment({ roleName: "Camara 1", roleSortOrder: 120 }),
+        assignment({ roleName: "Camara 2", roleSortOrder: 130 }),
+      ]),
+      match("m2", [
+        assignment({
+          roleName: "Encoder",
+          roleCategory: "Transmision",
+          roleSortOrder: 100,
+        }),
+        assignment({
+          personId: "p2",
+          personName: "Bruno Díaz",
+          roleName: "Camara 1",
+          roleSortOrder: 120,
+        }),
+      ]),
+    ]);
+
+    expect(summary.personas).toEqual([
+      {
+        id: "p1",
+        fullName: "Ana García",
+        matchCount: 2,
+        assignmentCount: 3,
+        roles: ["Encoder", "Camara 1", "Camara 2"],
+      },
+      {
+        id: "p2",
+        fullName: "Bruno Díaz",
+        matchCount: 1,
+        assignmentCount: 1,
+        roles: ["Camara 1"],
+      },
+    ]);
+  });
+
+  it("counts one match once for a person holding two roles in it", () => {
+    const summary = buildGridReportSummary([
+      match("m1", [
+        assignment({ roleName: "Camara 1", roleSortOrder: 120 }),
+        assignment({ roleName: "Camara 2", roleSortOrder: 130 }),
+      ]),
+    ]);
+
+    expect(summary.personas).toEqual([
+      {
+        id: "p1",
+        fullName: "Ana García",
+        matchCount: 1,
+        assignmentCount: 2,
+        roles: ["Camara 1", "Camara 2"],
+      },
+    ]);
+  });
+
+  it("sorts by matches desc, then name", () => {
+    const summary = buildGridReportSummary([
+      match("m1", [
+        assignment({ personId: "p2", personName: "Zulema Prado" }),
+        assignment({ personId: "p3", personName: "Ana García", roleName: "Camara 2", roleSortOrder: 130 }),
+      ]),
+    ]);
+
+    expect(summary.personas.map((person) => person.fullName)).toEqual([
+      "Ana García",
+      "Zulema Prado",
+    ]);
+  });
+
+  it("ignores unfilled slots for personas", () => {
+    const summary = buildGridReportSummary([
+      match("m1", [assignment({ personId: null, personName: null })]),
+    ]);
+
+    expect(summary.personas).toEqual([]);
   });
 });
