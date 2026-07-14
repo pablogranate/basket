@@ -60,7 +60,7 @@ const CORE_REQUIRED_FIELDS = [
 ] as const;
 
 const CORE_FIELD_LABELS: Record<(typeof CORE_REQUIRED_FIELDS)[number], string> = {
-  productionCode: "Producción",
+  productionCode: "ID Plataforma",
   competition: "Liga",
   homeTeam: "Local",
   awayTeam: "Visitante",
@@ -981,7 +981,7 @@ export function CreateMatchModal({
                     >
                       <div className="grid gap-4 lg:grid-cols-2">
                         <LabeledField
-                          label="ID de Produ"
+                          label="ID Plataforma"
                           required
                           alert={highlightedMissingFields.includes("productionCode")}
                         >
