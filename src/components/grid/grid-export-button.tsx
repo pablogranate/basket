@@ -56,7 +56,7 @@ function buildGridExcelDocument(rows: GridExportRow[], periodLabel: string) {
       const cells = GRID_EXPORT_COLUMNS.map((column) => {
         const value = escapeHtml(row[column.key]);
         const forceText =
-          column.label === "ID" ? "mso-number-format:'\\@';" : "";
+          column.key === "ID" ? "mso-number-format:'\\@';" : "";
 
         return `<td style="border:1px solid #dbe4f0;background:${background};padding:9px 12px;font-size:11px;color:#1f2937;vertical-align:top;${forceText}">${value || "&nbsp;"}</td>`;
       }).join("");

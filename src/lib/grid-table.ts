@@ -37,7 +37,7 @@ export const GRID_EXPORT_COLUMNS: Array<{
 }> = [
   { key: "Dia", label: "Dia" },
   { key: "Produccion", label: "Produccion" },
-  { key: "ID", label: "ID" },
+  { key: "ID", label: "ID Plataforma" },
   { key: "Liga", label: "Liga" },
   { key: "Partido", label: "Partido" },
   { key: "Hora", label: "Hora" },

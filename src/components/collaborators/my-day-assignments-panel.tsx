@@ -775,7 +775,7 @@ function AssignmentTable({
                     <div>
                       <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--n-400)]">
                         <Hash className="size-3.5 text-[var(--n-400)]" />
-                        ID evento
+                        ID Plataforma
                       </p>
                       <div className="mt-2">
                         <span

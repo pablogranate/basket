@@ -121,7 +121,7 @@ function buildMissingHighlights(
       emphasis: "critical" as const,
     },
     {
-      label: "Sin código producción",
+      label: "Sin ID Plataforma",
       value: missing.productionCode,
       icon: Hash,
       emphasis: "warning" as const,
@@ -382,7 +382,7 @@ export function ProductionInsightsPanel({
         <div className="grid gap-3">
           <div className="rounded-[16px] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3">
             <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-[var(--muted)]">
-              Códigos completos
+              IDs Plataforma listos
             </p>
             <p className="mt-2 text-lg font-black text-[var(--foreground)]">
               {summary.ready.productionCode}

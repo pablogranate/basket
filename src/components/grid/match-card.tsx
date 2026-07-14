@@ -468,7 +468,7 @@ export function MatchCard({
               <div>
                 <p className="mc-col-label">
                   <Hash className="mc-icon" />
-                  ID evento
+                  ID Plataforma
                 </p>
                 <div className="mt-2">
                   <span
