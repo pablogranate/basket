@@ -87,7 +87,6 @@ type CreateMatchModalProps = {
 };
 
 type MatchIntakeFields = {
-  externalMatchId: string;
   productionCode: string;
   competition: string;
   homeTeam: string;
@@ -305,7 +304,6 @@ function getInitials(value: string) {
 
 function buildInitialFields(initialDate: string): MatchIntakeFields {
   return {
-    externalMatchId: "",
     productionCode: "",
     competition: "",
     homeTeam: "",
@@ -362,7 +360,6 @@ function normalizeTransportFieldValue(value?: string | null) {
 
 function buildFieldsFromMatch(match: MatchEditPrefill): MatchIntakeFields {
   return {
-    externalMatchId: match.external_match_id ?? "",
     productionCode: match.production_code ?? "",
     competition: match.competition ?? "",
     homeTeam: match.home_team,

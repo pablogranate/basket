@@ -3,7 +3,6 @@
 import { useState } from "react";
 
 import {
-  CalendarClock,
   ChevronLeft,
   ChevronRight,
   Hash,
@@ -125,12 +124,6 @@ function buildMissingHighlights(
       label: "Sin código producción",
       value: missing.productionCode,
       icon: Hash,
-      emphasis: "warning" as const,
-    },
-    {
-      label: "Sin ID externo",
-      value: missing.externalId,
-      icon: CalendarClock,
       emphasis: "warning" as const,
     },
   ];
@@ -393,14 +386,6 @@ export function ProductionInsightsPanel({
             </p>
             <p className="mt-2 text-lg font-black text-[var(--foreground)]">
               {summary.ready.productionCode}
-            </p>
-          </div>
-          <div className="rounded-[16px] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3">
-            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-[var(--muted)]">
-              IDs externos listos
-            </p>
-            <p className="mt-2 text-lg font-black text-[var(--foreground)]">
-              {summary.ready.externalId}
             </p>
           </div>
           <div className="rounded-[16px] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3">

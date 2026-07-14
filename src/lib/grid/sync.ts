@@ -98,7 +98,7 @@ type SheetMatch = {
   kickoff_at: string;
   duration_minutes: number;
   timezone: string;
-  external_match_id: string | null;
+  production_code: string | null;
   commentary_plan: string | null;
   transport: string | null;
   notes: string | null;
@@ -234,7 +234,7 @@ function parseTab(tabName: string, csvSource: string): SheetEntry[] {
         kickoff_at: kickoffAt,
         duration_minutes: DEFAULT_DURATION_MINUTES,
         timezone: TIMEZONE,
-        external_match_id: readCell(row, "id") || null,
+        production_code: readCell(row, "id") || null,
         commentary_plan: readCell(row, "relatos/comentarios") || null,
         transport: readCell(row, "transporte") || null,
         notes: buildNotes(readCell(row, "observacion"), readCell(row, "transporte")),
@@ -434,31 +434,31 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
 
       const windowMatches = (matchesQuery.data ?? []) as MatchRow[];
 
-      // The dedup key (external_match_id) is global, not window-bound: a match
+      // The dedup key (production_code) is global, not window-bound: a match
       // can be rescheduled out of the window or already live from a prior sync.
-      // Load every match that carries an id so a re-sync always UPDATES the same
-      // row instead of inserting a duplicate.
-      const externalMatchesQuery = await supabase
+      // Load every match that carries a code so a re-sync always UPDATES the
+      // same row instead of inserting a duplicate.
+      const codedMatchesQuery = await supabase
         .from("matches")
         .select("*")
-        .not("external_match_id", "is", null);
+        .not("production_code", "is", null);
 
-      if (externalMatchesQuery.error) {
-        throw externalMatchesQuery.error;
+      if (codedMatchesQuery.error) {
+        throw codedMatchesQuery.error;
       }
 
-      const externalMatches = (externalMatchesQuery.data ?? []) as MatchRow[];
+      const codedMatches = (codedMatchesQuery.data ?? []) as MatchRow[];
 
-      const matchByExternalId = new Map<string, MatchRow>();
-      for (const match of externalMatches) {
-        if (match.external_match_id) {
-          matchByExternalId.set(match.external_match_id, match);
+      const matchByProductionCode = new Map<string, MatchRow>();
+      for (const match of codedMatches) {
+        if (match.production_code) {
+          matchByProductionCode.set(match.production_code, match);
         }
       }
 
-      // Every external id already in the DB. New inserts check this set so a
-      // colliding id is rejected per-entry (others in the run still save).
-      const seenExternalIds = new Set<string>(matchByExternalId.keys());
+      // Every production code already in the DB. New inserts check this set so
+      // a colliding code is rejected per-entry (others in the run still save).
+      const seenProductionCodes = new Set<string>(matchByProductionCode.keys());
 
       const matchByTriple = new Map<string, MatchRow>();
       for (const match of windowMatches) {
@@ -468,7 +468,7 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
       // 3. Preload assignments for those matches (managed roles filtered later).
       const assignmentsByMatch = new Map<string, AssignmentRow[]>();
       const matchIds = Array.from(
-        new Set([...windowMatches, ...externalMatches].map((match) => match.id)),
+        new Set([...windowMatches, ...codedMatches].map((match) => match.id)),
       );
       for (const idChunk of chunk(matchIds, 300)) {
         const assignmentsQuery = await supabase
@@ -553,22 +553,22 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
           const isPast = new Date(sheet.kickoff_at).getTime() < now.getTime();
 
           const existing =
-            (sheet.external_match_id
-              ? matchByExternalId.get(sheet.external_match_id)
+            (sheet.production_code
+              ? matchByProductionCode.get(sheet.production_code)
               : undefined) ??
             matchByTriple.get(tripleKey(sheet.home_team, sheet.away_team, sheet.kickoff_at));
 
           let matchId: string;
 
           if (!existing) {
-            const externalId = sheet.external_match_id;
+            const productionCode = sheet.production_code;
 
-            // Reject an id that already lives in the DB or was used earlier in
+            // Reject a code that already lives in the DB or was used earlier in
             // this same run. The throw is caught per-entry below, so the rest of
             // the sync keeps saving.
-            if (externalId && seenExternalIds.has(externalId)) {
+            if (productionCode && seenProductionCodes.has(productionCode)) {
               throw new Error(
-                `El ID "${externalId}" ya existe en la base de datos. Probá con otro.`,
+                `El ID "${productionCode}" ya existe en la base de datos. Probá con otro.`,
               );
             }
 
@@ -582,7 +582,7 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
                 kickoff_at: sheet.kickoff_at,
                 duration_minutes: sheet.duration_minutes,
                 timezone: sheet.timezone,
-                external_match_id: sheet.external_match_id,
+                production_code: sheet.production_code,
                 commentary_plan: sheet.commentary_plan,
                 transport: sheet.transport,
                 notes: sheet.notes,
@@ -594,17 +594,17 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
 
             if (insert.error) {
               // DB unique-index backstop (race or pre-existing duplicate).
-              if (isUniqueViolation(insert.error) && externalId) {
+              if (isUniqueViolation(insert.error) && productionCode) {
                 throw new Error(
-                  `El ID "${externalId}" ya existe en la base de datos. Probá con otro.`,
+                  `El ID "${productionCode}" ya existe en la base de datos. Probá con otro.`,
                 );
               }
               throw insert.error;
             }
 
             matchId = insert.data.id;
-            if (externalId) {
-              seenExternalIds.add(externalId);
+            if (productionCode) {
+              seenProductionCodes.add(productionCode);
             }
             result.created += 1;
           } else {
@@ -627,8 +627,8 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
             if (new Date(existing.kickoff_at).getTime() !== new Date(sheet.kickoff_at).getTime()) {
               changed.kickoff_at = sheet.kickoff_at;
             }
-            if (nullableText(existing.external_match_id) !== nullableText(sheet.external_match_id)) {
-              changed.external_match_id = sheet.external_match_id;
+            if (nullableText(existing.production_code) !== nullableText(sheet.production_code)) {
+              changed.production_code = sheet.production_code;
             }
             if (nullableText(existing.commentary_plan) !== nullableText(sheet.commentary_plan)) {
               changed.commentary_plan = sheet.commentary_plan;

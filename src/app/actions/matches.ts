@@ -54,7 +54,6 @@ const STAFF_ROLE_FIELD_MAP = [
 ] as const;
 
 const OPTIONAL_MATCH_COLUMNS = new Set([
-  "external_match_id",
   "production_code",
   "commentary_plan",
   "transport",
@@ -190,16 +189,16 @@ function isUniqueViolation(error: unknown): boolean {
   return Boolean(error) && (error as { code?: string }).code === "23505";
 }
 
-function duplicateExternalIdMessage(externalId: string) {
-  return `El ID "${externalId}" ya existe en la base de datos. Probá con otro.`;
+function duplicateProductionCodeMessage(productionCode: string) {
+  return `El ID "${productionCode}" ya existe en la base de datos. Probá con otro.`;
 }
 
-async function externalMatchIdExists(
+async function productionCodeExists(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  externalId: string,
+  productionCode: string,
   excludeMatchId?: string,
 ) {
-  let query = supabase.from("matches").select("id").eq("external_match_id", externalId);
+  let query = supabase.from("matches").select("id").eq("production_code", productionCode);
 
   if (excludeMatchId) {
     query = query.neq("id", excludeMatchId);
@@ -295,13 +294,13 @@ export async function createMatchAction(formData: FormData) {
       timezone: String(formData.get("timezone") ?? ""),
     });
 
-    const externalMatchId = maybeNull(String(formData.get("externalMatchId") ?? ""));
+    const productionCode = maybeNull(String(formData.get("productionCode") ?? ""));
 
-    if (externalMatchId && (await externalMatchIdExists(supabase, externalMatchId))) {
+    if (productionCode && (await productionCodeExists(supabase, productionCode))) {
       redirectWithNotice({
         redirectTo,
         intent: "error",
-        notice: duplicateExternalIdMessage(externalMatchId),
+        notice: duplicateProductionCodeMessage(productionCode),
       });
     }
 
@@ -320,8 +319,7 @@ export async function createMatchAction(formData: FormData) {
 
     const result = await insertMatchWithOptionalColumnFallback(supabase, stampInsert(ctx, {
       competition: maybeNull(String(formData.get("competition") ?? "")),
-      external_match_id: externalMatchId,
-      production_code: maybeNull(String(formData.get("productionCode") ?? "")),
+      production_code: productionCode,
       production_mode: assertProductionMode(
         String(formData.get("productionMode") ?? ""),
       ),
@@ -339,11 +337,11 @@ export async function createMatchAction(formData: FormData) {
     }));
 
     if (result.error) {
-      if (isUniqueViolation(result.error) && externalMatchId) {
+      if (isUniqueViolation(result.error) && productionCode) {
         redirectWithNotice({
           redirectTo,
           intent: "error",
-          notice: duplicateExternalIdMessage(externalMatchId),
+          notice: duplicateProductionCodeMessage(productionCode),
         });
       }
       throw result.error;
@@ -472,25 +470,21 @@ export async function updateMatchAction(formData: FormData) {
       notes: maybeNull(String(formData.get("notes") ?? "")),
     };
 
-    if (formData.has("externalMatchId")) {
-      const externalMatchId = maybeNull(String(formData.get("externalMatchId") ?? ""));
+    if (formData.has("productionCode")) {
+      const productionCode = maybeNull(String(formData.get("productionCode") ?? ""));
 
       if (
-        externalMatchId &&
-        (await externalMatchIdExists(supabase, externalMatchId, matchId))
+        productionCode &&
+        (await productionCodeExists(supabase, productionCode, matchId))
       ) {
         redirectWithNotice({
           redirectTo,
           intent: "error",
-          notice: duplicateExternalIdMessage(externalMatchId),
+          notice: duplicateProductionCodeMessage(productionCode),
         });
       }
 
-      payload.external_match_id = externalMatchId;
-    }
-
-    if (formData.has("productionCode")) {
-      payload.production_code = maybeNull(String(formData.get("productionCode") ?? ""));
+      payload.production_code = productionCode;
     }
 
     if (formData.has("commentaryPlan")) {
@@ -508,11 +502,11 @@ export async function updateMatchAction(formData: FormData) {
     );
 
     if (result.error) {
-      if (isUniqueViolation(result.error) && payload.external_match_id) {
+      if (isUniqueViolation(result.error) && payload.production_code) {
         redirectWithNotice({
           redirectTo,
           intent: "error",
-          notice: duplicateExternalIdMessage(payload.external_match_id),
+          notice: duplicateProductionCodeMessage(payload.production_code),
         });
       }
       throw result.error;

@@ -20,11 +20,9 @@ export type ProductionInsightsSummary = {
     venue: number;
     responsible: number;
     productionCode: number;
-    externalId: number;
   };
   ready: {
     productionCode: number;
-    externalId: number;
     venue: number;
   };
 };
@@ -142,13 +140,9 @@ export function buildProductionInsightsSummary(
       ).length,
       productionCode: matches.filter((match) => !match.production_code?.trim())
         .length,
-      externalId: matches.filter((match) => !match.external_match_id?.trim())
-        .length,
     },
     ready: {
       productionCode: matches.filter((match) => match.production_code?.trim())
-        .length,
-      externalId: matches.filter((match) => match.external_match_id?.trim())
         .length,
       venue: matches.filter((match) => match.venue?.trim()).length,
     },

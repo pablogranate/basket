@@ -215,7 +215,6 @@ export interface Database {
         Row: {
           id: string;
           competition: string | null;
-          external_match_id: string | null;
           production_code: string | null;
           production_mode: string | null;
           status: Database["public"]["Enums"]["match_status"];
@@ -238,7 +237,6 @@ export interface Database {
         Insert: {
           id?: string;
           competition?: string | null;
-          external_match_id?: string | null;
           production_code?: string | null;
           production_mode?: string | null;
           status?: Database["public"]["Enums"]["match_status"];
@@ -260,7 +258,6 @@ export interface Database {
         };
         Update: {
           competition?: string | null;
-          external_match_id?: string | null;
           production_code?: string | null;
           production_mode?: string | null;
           status?: Database["public"]["Enums"]["match_status"];

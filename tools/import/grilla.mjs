@@ -191,7 +191,7 @@ function parseTab(tabName, csvSource) {
         kickoff_at: kickoffAt,
         duration_minutes: DEFAULT_DURATION_MINUTES,
         timezone: TIMEZONE,
-        external_match_id: readCell(row, "id") || null,
+        production_code: readCell(row, "id") || null,
         commentary_plan: readCell(row, "relatos/comentarios") || null,
         transport: readCell(row, "transporte") || null,
         notes: buildNotes(readCell(row, "observacion"), readCell(row, "transporte")),
@@ -339,7 +339,7 @@ async function main() {
         [
           match.kickoff_at,
           match.status,
-          match.external_match_id ?? "-",
+          match.production_code ?? "-",
           match.competition ?? "-",
           `${match.home_team} vs ${match.away_team}`,
           `${entry.assignments.length} asignaciones`,
