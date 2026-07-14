@@ -5,6 +5,7 @@ import Link from "next/link";
 import { addMinutes, format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import {
+  Bell,
   CalendarDays,
   Camera,
   CheckCircle2,
@@ -414,16 +415,29 @@ function AssignmentCard({
   assignment,
   onOpenGroup,
   onOpenReport,
+  onOpenDetail,
 }: {
   assignment: CollaboratorAssignmentItem;
   onOpenGroup: (assignmentId: string) => void;
   onOpenReport: (assignmentId: string) => void;
+  onOpenDetail: (assignmentId: string) => void;
 }) {
   const leagueLabel = assignment.competition ?? "Sin liga";
   const leagueAccent = getAssignmentLeagueAccentColor(leagueLabel);
 
   return (
-    <Card className="relative z-0 w-full max-w-full overflow-hidden rounded-[var(--panel-radius)] border border-[#eee7e1] bg-[#fffdfa] p-0 shadow-[0_10px_24px_rgba(28,13,16,0.05)] transition duration-200 will-change-transform hover:z-10 hover:-translate-y-0.5 hover:scale-[1.015] hover:shadow-[0_16px_32px_rgba(28,13,16,0.08)] sm:w-[330px] sm:max-w-[330px]">
+    <Card
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpenDetail(assignment.assignmentId)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpenDetail(assignment.assignmentId);
+        }
+      }}
+      className="relative z-0 w-full max-w-full cursor-pointer overflow-hidden rounded-[var(--panel-radius)] border border-[#eee7e1] bg-[#fffdfa] p-0 shadow-[0_10px_24px_rgba(28,13,16,0.05)] transition duration-200 will-change-transform hover:z-10 hover:-translate-y-0.5 hover:scale-[1.015] hover:shadow-[0_16px_32px_rgba(28,13,16,0.08)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] sm:w-[330px] sm:max-w-[330px]"
+    >
       <div className="relative px-4 pb-0">
         <div
           className="-mx-4 -mt-px px-4 py-2.5"
@@ -513,7 +527,10 @@ function AssignmentCard({
           <AssignmentOperationalSummary assignment={assignment} />
         </div>
 
-        <div className="-mx-4 border-t border-[#efe7e1] bg-white px-4 py-4">
+        <div
+          className="-mx-4 border-t border-[#efe7e1] bg-white px-4 py-4"
+          onClick={(event) => event.stopPropagation()}
+        >
           <AttendanceInlineControl assignment={assignment} />
         </div>
       </div>
@@ -521,7 +538,10 @@ function AssignmentCard({
       <div className="grid grid-cols-2 gap-3 border-t border-[#efe7e1] bg-[#fbfaf7] p-4">
         <button
           type="button"
-          onClick={() => onOpenGroup(assignment.assignmentId)}
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpenGroup(assignment.assignmentId);
+          }}
           className="inline-flex h-10 items-center justify-center gap-2 rounded-[var(--panel-radius)] bg-[#1faa52] px-3 text-xs font-black text-white shadow-[0_14px_28px_rgba(31,170,82,0.18)] transition hover:brightness-105"
         >
           <span className="inline-flex size-6 items-center justify-center rounded-full bg-[var(--n-100)] shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
@@ -532,7 +552,10 @@ function AssignmentCard({
 
         <button
           type="button"
-          onClick={() => onOpenReport(assignment.assignmentId)}
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpenReport(assignment.assignmentId);
+          }}
           className="inline-flex h-10 items-center justify-center gap-2 rounded-[var(--panel-radius)] bg-[var(--accent)] px-3 text-xs font-black text-white shadow-[0_14px_28px_rgba(227,27,35,0.22)] transition hover:brightness-105"
         >
           <span className="inline-flex size-6 items-center justify-center rounded-full bg-[var(--n-100)] shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
@@ -1019,74 +1042,41 @@ function DrawerStatusCard({
 const ATTENDANCE_UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function AttendanceSubmitButton({ disabled }: { disabled: boolean }) {
+function AttendanceSubmitButton() {
   const { pending } = useFormStatus();
 
   return (
     <button
       type="submit"
-      disabled={disabled || pending}
+      disabled={pending}
       className={cn(
-        "inline-flex h-9 items-center justify-center rounded-full px-5 text-xs font-black transition",
-        disabled
-          ? "cursor-not-allowed bg-[var(--n-100)] text-[var(--n-300)]"
-          : "bg-[#178a56] text-white hover:bg-[#13744a]",
+        "inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-[var(--panel-radius)] bg-[#178a56] px-5 text-sm font-black text-white transition hover:bg-[#13744a]",
         pending && "opacity-70",
       )}
     >
+      <CheckCircle2 className="size-4" />
       {pending ? "Guardando…" : "Confirmar"}
     </button>
   );
 }
 
-function AttendanceChoiceButton({
-  active,
-  tone,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  tone: "attend" | "decline";
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        "inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-black transition",
-        active
-          ? tone === "attend"
-            ? "border-[#178a56] bg-[#178a56] text-white"
-            : "border-[var(--accent)] bg-[var(--accent)] text-white"
-          : "border-[var(--border)] bg-white text-[var(--n-600)] hover:border-[var(--n-200)]",
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-// Inline attendance response by the assigned person (PRD #7). Every assignment in
-// this panel already belongs to the logged-in person (data is scoped by their
-// linked person), so the control is inherently "only the assigned person".
-// Server-side recordAttendanceConfirmation re-checks ownership + the window.
+// Inline "accept assignment" by the assigned person (PRD #7). Accepting persists
+// the same attendance confirmation (response "attending") the server already
+// records — no new state. Every assignment in this panel belongs to the
+// logged-in person (data is scoped by their linked person), and server-side
+// recordAttendanceConfirmation re-checks ownership + the window.
 function AttendanceInlineControl({
   assignment,
 }: {
   assignment: CollaboratorAssignmentItem;
 }) {
-  const [choice, setChoice] = useState<"attending" | null>(
-    assignment.attendanceResponse === "attending" ? "attending" : null,
-  );
+  const [expanding, setExpanding] = useState(false);
+  const [previewAccepted, setPreviewAccepted] = useState(false);
   const [note, setNote] = useState(assignment.attendanceNote ?? "");
 
-  // Demo/guest rows carry a non-uuid id and have no real assignment to update.
-  if (!ATTENDANCE_UUID_RE.test(assignment.assignmentId)) {
-    return null;
-  }
+  // Demo/guest rows carry a non-uuid id: there is no real assignment to update,
+  // so the accept flow runs client-side (preview) to mirror the real experience.
+  const isPreview = !ATTENDANCE_UUID_RE.test(assignment.assignmentId);
 
   const response = assignment.attendanceResponse;
   const ended =
@@ -1097,7 +1087,7 @@ function AttendanceInlineControl({
   if (ended) {
     const label =
       response === "attending"
-        ? "Confirmaste tu asistencia"
+        ? "Aceptaste este partido"
         : response === "declined"
           ? "Avisaste que no asistirías"
           : "Sin respuesta";
@@ -1128,46 +1118,102 @@ function AttendanceInlineControl({
     );
   }
 
-  return (
-    <form
-      action={setAttendanceConfirmationAction}
-      className={cn(
-        "panel-radius border px-4 py-3",
-        response === "attending"
-          ? "border-[#d7eadf] bg-[#f3fcf6]"
-          : "border-[var(--n-200)] bg-[var(--n-50)]",
-      )}
-    >
-      <input type="hidden" name="assignmentId" value={assignment.assignmentId} />
-      <input type="hidden" name="redirectTo" value="/mi-jornada" />
-      <input type="hidden" name="response" value={choice ?? ""} />
-
-      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--n-600)]">
-        ¿Vas a asistir?
-      </p>
-
-      <div className="mt-2 flex items-stretch gap-2">
-        <AttendanceChoiceButton
-          active={choice === "attending"}
-          tone="attend"
-          onClick={() => setChoice("attending")}
-        >
-          <CheckCircle2 className="size-3.5" />
-          Asistiré
-        </AttendanceChoiceButton>
+  // Already accepted: green confirmation, echoing any note left.
+  const accepted = isPreview ? previewAccepted : response === "attending";
+  const acceptedNote = isPreview ? note.trim() : assignment.attendanceNote?.trim();
+  if (accepted) {
+    return (
+      <div className="panel-radius flex items-start gap-3 border border-[#d7eadf] bg-[#f3fcf6] px-4 py-3">
+        <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[#dcfce7] text-[#12b76a]">
+          <CheckCircle2 className="size-5" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm font-black text-[#178a56]">Aceptado — quedás confirmado</p>
+          <p className="text-xs font-semibold text-[var(--n-500)]">
+            Avisamos al responsable del grupo.
+          </p>
+          {acceptedNote ? (
+            <p className="mt-1 text-xs font-semibold italic leading-5 text-[var(--n-600)]">
+              “{acceptedNote}”
+            </p>
+          ) : null}
+        </div>
       </div>
+    );
+  }
 
+  // Pending: single "Aceptar partido" CTA that expands an optional note field.
+  if (!expanding) {
+    return (
+      <button
+        type="button"
+        onClick={() => setExpanding(true)}
+        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[var(--panel-radius)] bg-[#178a56] px-4 text-sm font-black text-white shadow-[0_12px_24px_-8px_rgba(31,170,82,0.45)] transition hover:bg-[#13744a]"
+      >
+        <CheckCircle2 className="size-4" />
+        Aceptar partido
+      </button>
+    );
+  }
+
+  const noteField = (
+    <>
+      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--n-600)]">
+        ¿Alguna nota? (opcional)
+      </p>
       <textarea
         name="note"
         value={note}
         onChange={(event) => setNote(event.currentTarget.value)}
         rows={2}
-        placeholder="Notas (opcional)"
-        className="mt-2 w-full resize-none rounded-[var(--panel-radius)] border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--n-400)] focus:border-[var(--accent)]"
+        placeholder="Nota o aclaración (opcional)"
+        className="mt-2 w-full resize-none rounded-[var(--panel-radius)] border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--n-400)] focus:border-[#178a56]"
       />
+    </>
+  );
 
-      <div className="mt-2.5 flex items-center justify-end">
-        <AttendanceSubmitButton disabled={!choice} />
+  const cancelButton = (
+    <button
+      type="button"
+      onClick={() => setExpanding(false)}
+      className="inline-flex h-11 items-center justify-center rounded-[var(--panel-radius)] px-4 text-sm font-bold text-[var(--n-500)] transition hover:text-[var(--n-700)]"
+    >
+      Cancelar
+    </button>
+  );
+
+  // Preview (demo/guest): confirm client-side, no server round-trip.
+  if (isPreview) {
+    return (
+      <div className="panel-radius border border-[var(--n-200)] bg-[var(--n-50)] px-4 py-3">
+        {noteField}
+        <div className="mt-2.5 flex items-center gap-2">
+          {cancelButton}
+          <button
+            type="button"
+            onClick={() => setPreviewAccepted(true)}
+            className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-[var(--panel-radius)] bg-[#178a56] px-5 text-sm font-black text-white transition hover:bg-[#13744a]"
+          >
+            <CheckCircle2 className="size-4" />
+            Confirmar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      action={setAttendanceConfirmationAction}
+      className="panel-radius border border-[var(--n-200)] bg-[var(--n-50)] px-4 py-3"
+    >
+      <input type="hidden" name="assignmentId" value={assignment.assignmentId} />
+      <input type="hidden" name="redirectTo" value="/mi-jornada" />
+      <input type="hidden" name="response" value="attending" />
+      {noteField}
+      <div className="mt-2.5 flex items-center gap-2">
+        {cancelButton}
+        <AttendanceSubmitButton />
       </div>
     </form>
   );
@@ -1635,6 +1681,23 @@ export function MyDayAssignmentsPanel({
     setSelectedReportAssignmentId(assignmentId);
   }
 
+  // Tapping a card opens the full match detail (the drawer's "Planilla" tab).
+  function handleOpenDetail(assignmentId: string) {
+    setSelectedReportAssignmentId(null);
+    setSelectedGroupAssignmentId(assignmentId);
+    setDrawerTab("context");
+  }
+
+  // Upcoming assignments still awaiting the person's acceptance. Demo/guest rows
+  // (non-uuid ids) and already-finished matches never count.
+  const pendingAcceptCount = assignments.filter(
+    (assignment) =>
+      ATTENDANCE_UUID_RE.test(assignment.assignmentId) &&
+      !assignment.attendanceResponse &&
+      addMinutes(parseISO(assignment.kickoffAt), assignment.durationMinutes) >=
+        new Date(),
+  ).length;
+
   const cardGridClassName = "flex flex-wrap items-start gap-3";
 
   function renderList(items: CollaboratorAssignmentItem[]) {
@@ -1646,6 +1709,7 @@ export function MyDayAssignmentsPanel({
             assignment={assignment}
             onOpenGroup={handleOpenGroup}
             onOpenReport={handleOpenReport}
+            onOpenDetail={handleOpenDetail}
           />
         ))}
       </div>
@@ -1668,6 +1732,27 @@ export function MyDayAssignmentsPanel({
     >
       <div className="space-y-8">
         {topContent}
+
+        {pendingAcceptCount > 0 ? (
+          <div className="flex items-center gap-3 rounded-[var(--panel-radius)] border border-[var(--accent-border)] bg-[var(--accent-soft)] px-4 py-3.5 xl:hidden">
+            <span className="relative inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-[var(--accent)] text-white shadow-[0_10px_20px_-6px_rgba(227,27,35,0.5)]">
+              <Bell className="size-5" />
+              <span className="absolute -right-1.5 -top-1.5 inline-flex min-w-5 items-center justify-center rounded-full border-2 border-[var(--accent)] bg-white px-1 text-[10px] font-black text-[var(--accent)]">
+                {pendingAcceptCount}
+              </span>
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-black leading-tight text-[var(--foreground)]">
+                {pendingAcceptCount === 1
+                  ? "1 partido nuevo por aceptar"
+                  : `${pendingAcceptCount} partidos nuevos por aceptar`}
+              </p>
+              <p className="mt-0.5 text-xs font-semibold text-[var(--n-600)]">
+                Revisá y aceptá antes de que arranque tu jornada.
+              </p>
+            </div>
+          </div>
+        ) : null}
 
         {showDemoToday ? (
           <div className="rounded-[var(--panel-radius)] border border-[var(--n-200)] bg-[var(--n-50)] px-4 py-3 text-sm font-semibold text-[var(--n-600)]">
