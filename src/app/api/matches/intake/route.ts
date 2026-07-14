@@ -64,7 +64,7 @@ function normalizeTime(value: string) {
   return parsed.toISOString().slice(11, 16);
 }
 
-function normalizeLookupPayload(payload: unknown, externalId: string) {
+function normalizeLookupPayload(payload: unknown) {
   const source =
     (payload &&
       typeof payload === "object" &&
@@ -127,7 +127,6 @@ function normalizeLookupPayload(payload: unknown, externalId: string) {
   );
 
   return {
-    externalMatchId: externalId,
     productionCode,
     competition,
     homeTeam,
@@ -187,7 +186,7 @@ export const POST = withApiKey(async (request) => {
 
     return NextResponse.json({
       configured: true,
-      match: normalizeLookupPayload(payload, normalizedExternalId),
+      match: normalizeLookupPayload(payload),
     });
   } catch (error) {
     return NextResponse.json(
