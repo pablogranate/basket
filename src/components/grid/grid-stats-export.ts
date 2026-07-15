@@ -1,4 +1,9 @@
-import type { GridReportSummary } from "@/lib/grid/report-stats";
+import { formatMatchDateTime } from "@/lib/date";
+import type {
+  GridReportSummary,
+  ReportPersonDetail,
+} from "@/lib/grid/report-stats";
+import { UNSPECIFIED_PRODUCTION_MODE } from "@/lib/grid/report-stats";
 
 export type StatsExportTab = "personas" | "equipos" | "produccion" | "funciones";
 
@@ -65,6 +70,38 @@ export function buildStatsExportTable(
   };
 }
 
+// Per-person detail: one row per match the person was assigned to, in range.
+export function buildPersonDetailExportTable(
+  detail: ReportPersonDetail,
+  timezone: string,
+): StatsExportTable {
+  return {
+    tabLabel: `Detalle · ${detail.fullName}`,
+    headers: ["Fecha", "Local", "Visitante", "Producción", "Función"],
+    rows: detail.matches.map((match) => [
+      formatMatchDateTime(match.kickoffAt, timezone),
+      match.homeTeam,
+      match.awayTeam,
+      match.productionMode?.trim() || UNSPECIFIED_PRODUCTION_MODE,
+      match.roles.join(" · "),
+    ]),
+  };
+}
+
+export function buildPersonDetailFileBaseName(params: {
+  fullName: string;
+  from: string;
+  to: string;
+}) {
+  return [
+    "estadisticas",
+    "persona",
+    sanitizeStatsFileSegment(params.fullName),
+    params.from,
+    params.to,
+  ].join("-");
+}
+
 function escapeCsvCell(value: string) {
   if (/[",\n]/.test(value)) {
     return `"${value.replaceAll('"', '""')}"`;
@@ -104,6 +141,20 @@ export function buildStatsFileBaseName(params: {
   ].join("-");
 }
 
+export function buildAllStatsFileBaseName(params: {
+  from: string;
+  to: string;
+}) {
+  return ["estadisticas", "todas", params.from, params.to].join("-");
+}
+
+export const ALL_STATS_TABS: StatsExportTab[] = [
+  "personas",
+  "equipos",
+  "produccion",
+  "funciones",
+];
+
 export function downloadStatsBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -115,36 +166,26 @@ export function downloadStatsBlob(blob: Blob, filename: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-export async function exportStatsPdf(params: {
-  table: StatsExportTable;
-  rangeLabel: string;
-  fileBaseName: string;
-}) {
-  const [{ jsPDF }, { default: autoTable }] = await Promise.all([
-    import("jspdf"),
-    import("jspdf-autotable"),
-  ]);
+type JsPdfDocument = import("jspdf").jsPDF;
+type AutoTable = typeof import("jspdf-autotable").default;
 
-  const pdfDocument = new jsPDF({ unit: "pt", format: "a4" });
+function drawStatsTable(
+  pdfDocument: JsPdfDocument,
+  autoTable: AutoTable,
+  table: StatsExportTable,
+  startY: number,
+) {
   const marginX = 40;
-  let currentY = 48;
 
   pdfDocument.setFont("helvetica", "bold");
-  pdfDocument.setFontSize(16);
+  pdfDocument.setFontSize(12);
   pdfDocument.setTextColor(15, 23, 42);
-  pdfDocument.text(`Estadísticas — ${params.table.tabLabel}`, marginX, currentY);
-  currentY += 18;
-
-  pdfDocument.setFont("helvetica", "normal");
-  pdfDocument.setFontSize(10);
-  pdfDocument.setTextColor(100, 116, 139);
-  pdfDocument.text(`Periodo: ${params.rangeLabel}`, marginX, currentY);
-  currentY += 18;
+  pdfDocument.text(table.tabLabel, marginX, startY);
 
   autoTable(pdfDocument, {
-    startY: currentY,
-    head: [params.table.headers],
-    body: params.table.rows,
+    startY: startY + 10,
+    head: [table.headers],
+    body: table.rows,
     margin: { left: marginX, right: marginX },
     styles: {
       fontSize: 9,
@@ -165,6 +206,90 @@ export async function exportStatsPdf(params: {
       fillColor: [248, 250, 252],
     },
     theme: "grid",
+  });
+
+  const finalY = (
+    pdfDocument as JsPdfDocument & { lastAutoTable?: { finalY: number } }
+  ).lastAutoTable?.finalY;
+  return typeof finalY === "number" ? finalY : startY + 10;
+}
+
+function drawStatsHeader(
+  pdfDocument: JsPdfDocument,
+  title: string,
+  rangeLabel: string,
+) {
+  const marginX = 40;
+  let currentY = 48;
+
+  pdfDocument.setFont("helvetica", "bold");
+  pdfDocument.setFontSize(16);
+  pdfDocument.setTextColor(15, 23, 42);
+  pdfDocument.text(title, marginX, currentY);
+  currentY += 18;
+
+  pdfDocument.setFont("helvetica", "normal");
+  pdfDocument.setFontSize(10);
+  pdfDocument.setTextColor(100, 116, 139);
+  pdfDocument.text(`Periodo: ${rangeLabel}`, marginX, currentY);
+  currentY += 22;
+
+  return currentY;
+}
+
+export async function exportStatsPdf(params: {
+  table: StatsExportTable;
+  rangeLabel: string;
+  fileBaseName: string;
+}) {
+  const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable"),
+  ]);
+
+  const pdfDocument = new jsPDF({ unit: "pt", format: "a4" });
+  const startY = drawStatsHeader(
+    pdfDocument,
+    `Estadísticas — ${params.table.tabLabel}`,
+    params.rangeLabel,
+  );
+  drawStatsTable(pdfDocument, autoTable, params.table, startY);
+
+  pdfDocument.save(`${params.fileBaseName}.pdf`);
+}
+
+// "Todas las pestañas": one document, a section per tab table. CSV stays
+// single-tab (see grid-stats-modal), so this multi-table path is PDF only.
+export async function exportAllStatsPdf(params: {
+  tables: StatsExportTable[];
+  rangeLabel: string;
+  fileBaseName: string;
+}) {
+  const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable"),
+  ]);
+
+  const pdfDocument = new jsPDF({ unit: "pt", format: "a4" });
+  const pageHeight = pdfDocument.internal.pageSize.getHeight();
+  let currentY = drawStatsHeader(
+    pdfDocument,
+    "Estadísticas — Todas las pestañas",
+    params.rangeLabel,
+  );
+
+  params.tables.forEach((table, index) => {
+    if (index > 0) {
+      // Start a fresh page if the section title has no room to breathe.
+      if (currentY > pageHeight - 120) {
+        pdfDocument.addPage();
+        currentY = 48;
+      } else {
+        currentY += 12;
+      }
+    }
+
+    currentY = drawStatsTable(pdfDocument, autoTable, table, currentY);
   });
 
   pdfDocument.save(`${params.fileBaseName}.pdf`);

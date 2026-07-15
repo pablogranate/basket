@@ -4,10 +4,7 @@ import { z } from "zod";
 import { withAuth } from "@/lib/api/with-auth";
 import { FULL_DASHBOARD_ACCESS_ROLES } from "@/lib/constants";
 import { getDayRange } from "@/lib/date";
-import {
-  buildGridReportSummary,
-  type ReportMatchRow,
-} from "@/lib/grid/report-stats";
+import type { ReportMatchRow } from "@/lib/grid/report-stats";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ensureErrorMessage } from "@/lib/utils";
 
@@ -25,6 +22,8 @@ const paramsSchema = z
 
 type MatchQueryRow = {
   id: string;
+  kickoff_at: string;
+  competition: string | null;
   home_team: string;
   away_team: string;
   production_mode: string | null;
@@ -61,7 +60,7 @@ export const GET = withAuth(
       const { data, error } = await supabase
         .from("matches")
         .select(
-          "id, home_team, away_team, production_mode, assignments(person_id, role:roles!assignments_role_id_fkey(name, category, sort_order), person:people!assignments_person_id_fkey(id, full_name))",
+          "id, kickoff_at, competition, home_team, away_team, production_mode, assignments(person_id, role:roles!assignments_role_id_fkey(name, category, sort_order), person:people!assignments_person_id_fkey(id, full_name))",
         )
         .gte("kickoff_at", startUtc)
         .lte("kickoff_at", endUtc);
@@ -70,9 +69,11 @@ export const GET = withAuth(
         throw error;
       }
 
-      const rows: ReportMatchRow[] = ((data ?? []) as MatchQueryRow[]).map(
+      const matches: ReportMatchRow[] = ((data ?? []) as MatchQueryRow[]).map(
         (row) => ({
           id: row.id,
+          kickoffAt: row.kickoff_at,
+          competition: row.competition,
           homeTeam: row.home_team,
           awayTeam: row.away_team,
           productionMode: row.production_mode,
@@ -88,9 +89,9 @@ export const GET = withAuth(
         }),
       );
 
-      return NextResponse.json({ summary: buildGridReportSummary(rows) });
+      return NextResponse.json({ matches });
     } catch (caught) {
-      console.error("[grid-reports] failed to build summary", caught);
+      console.error("[grid-reports] failed to load matches", caught);
       return NextResponse.json(
         { error: ensureErrorMessage(caught) },
         { status: 500 },

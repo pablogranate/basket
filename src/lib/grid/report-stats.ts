@@ -14,6 +14,8 @@ export type ReportAssignmentRow = {
 
 export type ReportMatchRow = {
   id: string;
+  kickoffAt: string;
+  competition: string | null;
   homeTeam: string;
   awayTeam: string;
   productionMode: string | null;
@@ -51,7 +53,55 @@ export type ReportProductionCount = {
   count: number;
 };
 
+export type ReportPersonMatch = {
+  id: string;
+  kickoffAt: string;
+  homeTeam: string;
+  awayTeam: string;
+  productionMode: string | null;
+  roles: string[];
+};
+
+export type ReportPersonDetail = {
+  id: string;
+  fullName: string;
+  matchCount: number;
+  assignmentCount: number;
+  matches: ReportPersonMatch[];
+};
+
 export const UNSPECIFIED_PRODUCTION_MODE = "Sin especificar";
+export const UNSPECIFIED_COMPETITION = "Sin especificar";
+
+// The four filter dimensions. OR within a dimension, AND across dimensions,
+// empty dimension = no filter. See the handoff §4 for the locked semantics.
+export type ReportFilters = {
+  ligas: string[];
+  teams: string[];
+  modes: string[];
+  categories: string[];
+};
+
+export type FacetOption = {
+  value: string;
+  count: number;
+};
+
+export type ReportFacetCounts = {
+  ligas: FacetOption[];
+  teams: FacetOption[];
+  modes: FacetOption[];
+  categories: FacetOption[];
+};
+
+export const EMPTY_REPORT_FILTERS: ReportFilters = {
+  ligas: [],
+  teams: [],
+  modes: [],
+  categories: [],
+};
+
+type FilterDimension = keyof ReportFilters;
 
 export type GridReportSummary = {
   matchCount: number;
@@ -246,6 +296,65 @@ function buildProduccion(matches: ReportMatchRow[]): ReportProductionCount[] {
     });
 }
 
+// Per-person detail: every match the person filled a slot in, with the roles
+// they covered in that match. Roles ordered by their slot sort order to match
+// the aggregate Personas view. Returns null when the person has no counted
+// assignments in range.
+export function buildPersonDetail(
+  matches: ReportMatchRow[],
+  personId: string,
+): ReportPersonDetail | null {
+  let fullName: string | null = null;
+  let assignmentCount = 0;
+  const personMatches: ReportPersonMatch[] = [];
+
+  matches.forEach((match) => {
+    const slots = countedAssignments(match).filter(
+      (slot) => slot.personId === personId,
+    );
+
+    if (!slots.length) {
+      return;
+    }
+
+    if (!fullName) {
+      fullName = slots[0].personName ?? "Sin nombre";
+    }
+
+    assignmentCount += slots.length;
+
+    const roles = slots
+      .slice()
+      .sort((left, right) => left.roleSortOrder - right.roleSortOrder)
+      .map((slot) => slot.roleName);
+
+    personMatches.push({
+      id: match.id,
+      kickoffAt: match.kickoffAt,
+      homeTeam: match.homeTeam,
+      awayTeam: match.awayTeam,
+      productionMode: match.productionMode,
+      roles,
+    });
+  });
+
+  if (!personMatches.length) {
+    return null;
+  }
+
+  personMatches.sort((left, right) =>
+    left.kickoffAt.localeCompare(right.kickoffAt),
+  );
+
+  return {
+    id: personId,
+    fullName: fullName ?? "Sin nombre",
+    matchCount: personMatches.length,
+    assignmentCount,
+    matches: personMatches,
+  };
+}
+
 export function buildGridReportSummary(
   matches: ReportMatchRow[],
 ): GridReportSummary {
@@ -255,5 +364,186 @@ export function buildGridReportSummary(
     personas: buildPersonas(matches),
     equipos: buildEquipos(matches),
     produccion: buildProduccion(matches),
+  };
+}
+
+function matchCompetition(match: ReportMatchRow) {
+  return match.competition?.trim() || UNSPECIFIED_COMPETITION;
+}
+
+function matchMode(match: ReportMatchRow) {
+  return match.productionMode?.trim() || UNSPECIFIED_PRODUCTION_MODE;
+}
+
+function matchTeams(match: ReportMatchRow) {
+  const teams = new Set<string>();
+  const home = match.homeTeam.trim();
+  const away = match.awayTeam.trim();
+  if (home) {
+    teams.add(home);
+  }
+  if (away) {
+    teams.add(away);
+  }
+  return teams;
+}
+
+// Categories a match actually *used* — only slots a person filled count, so a
+// función filter reflects who was on camera, not which slots were drawn up.
+function matchCategories(match: ReportMatchRow) {
+  return new Set(countedAssignments(match).map((slot) => slot.roleCategory));
+}
+
+function dimensionValues(match: ReportMatchRow, dim: FilterDimension): string[] {
+  if (dim === "ligas") {
+    return [matchCompetition(match)];
+  }
+  if (dim === "modes") {
+    return [matchMode(match)];
+  }
+  if (dim === "teams") {
+    return [...matchTeams(match)];
+  }
+  return [...matchCategories(match)];
+}
+
+// Applies the locked filter semantics (handoff §4): OR within a dimension, AND
+// across dimensions, empty dimension = no filter, team by involvement (home OR
+// away). When categories are selected the match survives only if it used one of
+// them, and its assignments are narrowed to those categories so every
+// downstream count (Personas, Funciones) reflects the coherent-world model.
+export function filterMatches(
+  rows: ReportMatchRow[],
+  filters: ReportFilters,
+): ReportMatchRow[] {
+  const ligaSet = new Set(filters.ligas);
+  const teamSet = new Set(filters.teams);
+  const modeSet = new Set(filters.modes);
+  const categorySet = new Set(filters.categories);
+
+  const result: ReportMatchRow[] = [];
+
+  for (const match of rows) {
+    if (ligaSet.size && !ligaSet.has(matchCompetition(match))) {
+      continue;
+    }
+
+    if (teamSet.size && ![...matchTeams(match)].some((team) => teamSet.has(team))) {
+      continue;
+    }
+
+    if (modeSet.size && !modeSet.has(matchMode(match))) {
+      continue;
+    }
+
+    if (categorySet.size) {
+      const inCategory = countedAssignments(match).some((slot) =>
+        categorySet.has(slot.roleCategory),
+      );
+      if (!inCategory) {
+        continue;
+      }
+
+      result.push({
+        ...match,
+        assignments: match.assignments.filter((slot) =>
+          categorySet.has(slot.roleCategory),
+        ),
+      });
+      continue;
+    }
+
+    result.push(match);
+  }
+
+  return result;
+}
+
+function tallyDimension(matches: ReportMatchRow[], dim: FilterDimension) {
+  const counts = new Map<string, number>();
+  matches.forEach((match) => {
+    new Set(dimensionValues(match, dim)).forEach((value) => {
+      counts.set(value, (counts.get(value) ?? 0) + 1);
+    });
+  });
+  return counts;
+}
+
+function sortFacetOptions(
+  options: FacetOption[],
+  dim: FilterDimension,
+  weights: Map<string, number>,
+): FacetOption[] {
+  const byWeight = (left: FacetOption, right: FacetOption) => {
+    const leftWeight = weights.get(left.value) ?? 0;
+    const rightWeight = weights.get(right.value) ?? 0;
+    if (leftWeight !== rightWeight) {
+      return rightWeight - leftWeight;
+    }
+    return left.value.localeCompare(right.value, "es");
+  };
+
+  if (dim === "categories") {
+    return options.sort((left, right) => {
+      const rankDiff = categoryRank(left.value) - categoryRank(right.value);
+      if (rankDiff !== 0) {
+        return rankDiff;
+      }
+      return left.value.localeCompare(right.value, "es");
+    });
+  }
+
+  const unspecified =
+    dim === "ligas"
+      ? UNSPECIFIED_COMPETITION
+      : dim === "modes"
+        ? UNSPECIFIED_PRODUCTION_MODE
+        : null;
+
+  if (unspecified) {
+    return options.sort((left, right) => {
+      const leftUnspecified = left.value === unspecified ? 1 : 0;
+      const rightUnspecified = right.value === unspecified ? 1 : 0;
+      if (leftUnspecified !== rightUnspecified) {
+        return leftUnspecified - rightUnspecified;
+      }
+      return byWeight(left, right);
+    });
+  }
+
+  return options.sort(byWeight);
+}
+
+function facetForDimension(
+  rows: ReportMatchRow[],
+  filters: ReportFilters,
+  dim: FilterDimension,
+): FacetOption[] {
+  // Standard faceted count: this dimension cleared, the others still applied.
+  const base = filterMatches(rows, { ...filters, [dim]: [] });
+  const facetCounts = tallyDimension(base, dim);
+  // The option universe and stable order come from the full dataset, so options
+  // never appear or reorder as filters change — zero-count ones just dim out.
+  const weights = tallyDimension(rows, dim);
+
+  const options = [...weights.keys()].map((value) => ({
+    value,
+    count: facetCounts.get(value) ?? 0,
+  }));
+
+  return sortFacetOptions(options, dim, weights);
+}
+
+// Faceted option counts for every dimension (handoff §4): each option's count
+// is computed with its own dimension cleared but the others applied.
+export function buildFacetCounts(
+  rows: ReportMatchRow[],
+  filters: ReportFilters,
+): ReportFacetCounts {
+  return {
+    ligas: facetForDimension(rows, filters, "ligas"),
+    teams: facetForDimension(rows, filters, "teams"),
+    modes: facetForDimension(rows, filters, "modes"),
+    categories: facetForDimension(rows, filters, "categories"),
   };
 }
