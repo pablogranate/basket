@@ -1,6 +1,6 @@
-// Route-specific Suspense fallback for /notifications/logs: header + tabs +
+// Route-specific Suspense fallback for /notifications/syncs: header + tabs +
 // filters + log rows.
-export default function NotificationLogsLoading() {
+export default function SyncLogsLoading() {
   return (
     <div className="space-y-8" aria-busy="true" aria-live="polite">
       <div className="space-y-3">

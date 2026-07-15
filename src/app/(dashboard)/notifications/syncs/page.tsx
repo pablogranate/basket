@@ -3,15 +3,12 @@ import { Suspense } from "react";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 import { SetupPanel } from "@/components/layout/setup-panel";
 import { LogsSectionTabs } from "@/components/notifications/logs-section-tabs";
-import { NotificationLogsFilters } from "@/components/notifications/notification-logs-filters";
-import { NotificationLogsWorkspace } from "@/components/notifications/notification-logs-workspace";
+import { SyncLogsFilters } from "@/components/notifications/sync-logs-filters";
+import { SyncLogsWorkspace } from "@/components/notifications/sync-logs-workspace";
 import { requireAdmin } from "@/lib/auth-access";
-import { getNotificationLogs } from "@/lib/data/notification-logs";
+import { getSyncLogs } from "@/lib/data/sync-logs";
 import { isSupabaseConfigured } from "@/lib/env";
-import {
-  parseNotificationLogFilters,
-  type NotificationLogFilters,
-} from "@/lib/notifications/log-filters";
+import { parseSyncLogFilters, type SyncLogFilters } from "@/lib/sync/log-filters";
 import type { UserContext } from "@/lib/auth";
 
 type PageProps = {
@@ -24,7 +21,7 @@ function parsePage(value: string | string[] | undefined) {
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 1;
 }
 
-export default async function NotificationLogsPage({ searchParams }: PageProps) {
+export default async function SyncLogsPage({ searchParams }: PageProps) {
   if (!isSupabaseConfigured) {
     return <SetupPanel />;
   }
@@ -33,38 +30,38 @@ export default async function NotificationLogsPage({ searchParams }: PageProps) 
 
   const resolvedSearchParams = await searchParams;
   const page = parsePage(resolvedSearchParams.page);
-  const filters = parseNotificationLogFilters(resolvedSearchParams);
+  const filters = parseSyncLogFilters(resolvedSearchParams);
 
   return (
     <div className="space-y-8">
       <SectionPageHeader
         title="Registros"
-        description="Registro de convocatorias enviadas por WhatsApp y email — automáticas y manuales — con el resultado por destinatario."
+        description="Historial de sincronizaciones de la grilla — manuales y programadas — con los partidos creados, actualizados y eliminados en cada ejecución."
       />
-      <LogsSectionTabs active="notifications" />
-      <NotificationLogsFilters filters={filters} />
-      <Suspense fallback={<NotificationLogsSkeleton />}>
-        <NotificationLogsRegion ctx={ctx} page={page} filters={filters} />
+      <LogsSectionTabs active="syncs" />
+      <SyncLogsFilters filters={filters} />
+      <Suspense fallback={<SyncLogsSkeleton />}>
+        <SyncLogsRegion ctx={ctx} page={page} filters={filters} />
       </Suspense>
     </div>
   );
 }
 
-async function NotificationLogsRegion({
+async function SyncLogsRegion({
   ctx,
   page,
   filters,
 }: {
   ctx: UserContext;
   page: number;
-  filters: NotificationLogFilters;
+  filters: SyncLogFilters;
 }) {
-  const data = await getNotificationLogs(ctx, { page, filters });
+  const data = await getSyncLogs(ctx, { page, filters });
 
-  return <NotificationLogsWorkspace data={data} filters={filters} />;
+  return <SyncLogsWorkspace data={data} filters={filters} />;
 }
 
-function NotificationLogsSkeleton() {
+function SyncLogsSkeleton() {
   return (
     <div className="space-y-3" aria-busy="true" aria-live="polite">
       {Array.from({ length: 8 }).map((_, index) => (
