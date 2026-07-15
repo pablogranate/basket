@@ -327,6 +327,16 @@ function nullableText(value: string | null | undefined) {
   return trimmed ? trimmed : null;
 }
 
+// Supabase/Postgrest errors are plain objects, not Error instances; String()
+// on them yields "[object Object]", so read `.message` explicitly.
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  const message = (error as { message?: unknown } | null)?.message;
+  return typeof message === "string" && message ? message : String(error);
+}
+
 function chunk<T>(items: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < items.length; i += size) {
@@ -411,6 +421,43 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
     });
     entries.length = 0;
     entries.push(...windowEntries);
+
+    // A production code repeated across sheet rows is a data-entry error. It
+    // must hard-stop those entries: processing the second one would find the
+    // first one's match via the code lookup and silently overwrite its teams
+    // and kickoff. Report every duplicate and skip all entries involved.
+    const entriesByCode = new Map<string, SheetEntry[]>();
+    for (const entry of entries) {
+      const code = nullableText(entry.match.production_code);
+      if (!code) {
+        continue;
+      }
+      const list = entriesByCode.get(code) ?? [];
+      list.push(entry);
+      entriesByCode.set(code, list);
+    }
+
+    const duplicateCodes = new Set<string>();
+    for (const [code, list] of entriesByCode) {
+      if (list.length > 1) {
+        duplicateCodes.add(code);
+        const labels = list
+          .map((entry) => `${entry.match.home_team} vs ${entry.match.away_team}`)
+          .join(" / ");
+        result.errors.push(
+          `El ID "${code}" está repetido en la planilla (${labels}). Esas filas no se sincronizaron: corregí el ID en el sheet.`,
+        );
+      }
+    }
+
+    if (duplicateCodes.size) {
+      const validEntries = entries.filter((entry) => {
+        const code = nullableText(entry.match.production_code);
+        return !code || !duplicateCodes.has(code);
+      });
+      entries.length = 0;
+      entries.push(...validEntries);
+    }
 
     // Ids of every match created or matched while processing in-window entries.
     // The delete pass treats any in-window match NOT in this set as removed.
@@ -719,9 +766,7 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
           }
         } catch (entryError) {
           result.errors.push(
-            `${entry.match.home_team} vs ${entry.match.away_team}: ${
-              entryError instanceof Error ? entryError.message : String(entryError)
-            }`,
+            `${entry.match.home_team} vs ${entry.match.away_team}: ${toErrorMessage(entryError)}`,
           );
         }
       }
@@ -819,7 +864,7 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
 
     return result;
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = toErrorMessage(error);
     result.errors.push(message);
 
     await supabase.from("grid_sync_runs").insert({

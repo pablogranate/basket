@@ -55,7 +55,9 @@ export async function syncGridAction(formData: FormData) {
       redirectTo,
       intent: result.errors.length ? "error" : "success",
       notice: result.errors.length
-        ? `${buildSyncNotice(result)} Con avisos: ${result.errors[0]}`
+        ? `${buildSyncNotice(result)} Con avisos: ${result.errors[0]}${
+            result.errors.length > 1 ? ` (+${result.errors.length - 1} más)` : ""
+          }`
         : buildSyncNotice(result),
     });
   } catch (error) {
