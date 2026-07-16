@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import { TeamCard } from "@/components/teams/team-card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -11,11 +11,7 @@ import {
   type TeamResponsiblePerson,
 } from "@/lib/team-responsibles";
 import type { TeamDirectoryItem } from "@/lib/team-directory";
-import { splitTeamCompetitions, TEAM_DIRECTORY } from "@/lib/team-directory";
-import {
-  CUSTOM_TEAMS_CHANGED_EVENT,
-  readCustomTeams,
-} from "@/lib/teams-local-storage";
+import { splitTeamCompetitions } from "@/lib/team-directory";
 
 function filterTeams(
   teams: TeamDirectoryItem[],
@@ -45,72 +41,39 @@ function filterTeams(
   });
 }
 
-// The static catalog is imported directly (cacheable JS chunk) instead of
-// arriving through the RSC payload; league/query come from the URL so tab
-// switches and search filter entirely on the client.
+// The directory arrives once from the server (clubs/teams/leagues tables);
+// league/query come from the URL so tab switches and search filter entirely on
+// the client without another server round-trip.
 export function TeamsWorkspaceClient({
+  teams,
   people,
   canManageTeams = false,
 }: {
+  teams: TeamDirectoryItem[];
   people: TeamResponsiblePerson[];
   canManageTeams?: boolean;
 }) {
   const searchParams = useSearchParams();
   const activeLeague = searchParams.get("league")?.trim() ?? "";
   const query = searchParams.get("q") ?? "";
-  const [customTeams, setCustomTeams] = useState<TeamDirectoryItem[]>([]);
 
-  useEffect(() => {
-    const syncTeams = () => setCustomTeams(readCustomTeams());
-
-    syncTeams();
-    window.addEventListener("storage", syncTeams);
-    window.addEventListener(CUSTOM_TEAMS_CHANGED_EVENT, syncTeams);
-
-    return () => {
-      window.removeEventListener("storage", syncTeams);
-      window.removeEventListener(CUSTOM_TEAMS_CHANGED_EVENT, syncTeams);
-    };
-  }, []);
-
-  const visibleDirectoryTeams = useMemo(
-    () => filterTeams(TEAM_DIRECTORY, { query, league: activeLeague }),
-    [activeLeague, query],
+  const visibleTeams = useMemo(
+    () => filterTeams(teams, { query, league: activeLeague }),
+    [activeLeague, query, teams],
   );
-
-  const visibleCustomTeams = useMemo(
-    () => filterTeams(customTeams, { query, league: activeLeague }),
-    [activeLeague, customTeams, query],
-  );
-
-  const mergedTeams = useMemo(() => {
-    const customById = new Map(visibleCustomTeams.map((team) => [team.id, team]));
-    const nextTeams = visibleDirectoryTeams.map(
-      (team) => customById.get(team.id) ?? team,
-    );
-    const seenIds = new Set(nextTeams.map((team) => team.id));
-
-    visibleCustomTeams.forEach((team) => {
-      if (!seenIds.has(team.id)) {
-        nextTeams.push(team);
-      }
-    });
-
-    return nextTeams;
-  }, [visibleDirectoryTeams, visibleCustomTeams]);
 
   const responsibleLookup = useMemo(
     () => buildTeamResponsibleLookup(people),
     [people],
   );
 
-  const registeredCount = mergedTeams.filter((team) => Boolean(team.manager)).length;
-  const incidentCount = mergedTeams.reduce(
+  const registeredCount = visibleTeams.filter((team) => Boolean(team.manager)).length;
+  const incidentCount = visibleTeams.reduce(
     (sum, team) => sum + team.incident_count,
     0,
   );
 
-  if (!mergedTeams.length) {
+  if (!visibleTeams.length) {
     return (
       <EmptyState
         title="No encontramos equipos para este filtro"
@@ -122,7 +85,7 @@ export function TeamsWorkspaceClient({
   return (
     <>
       <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
-        {mergedTeams.map((team) => (
+        {visibleTeams.map((team) => (
           <TeamCard
             key={team.id}
             team={team}
@@ -143,7 +106,7 @@ export function TeamsWorkspaceClient({
             Equipos visibles
           </p>
           <p className="font-[family-name:var(--font-oswald)] mt-2 text-3xl font-bold text-[var(--foreground)]">
-            {mergedTeams.length}
+            {visibleTeams.length}
           </p>
         </div>
         <div className="text-center">
@@ -151,7 +114,7 @@ export function TeamsWorkspaceClient({
             Ligas activas
           </p>
           <p className="font-[family-name:var(--font-oswald)] mt-2 text-3xl font-bold text-[var(--foreground)]">
-            {new Set(mergedTeams.map((team) => team.competition)).size}
+            {new Set(visibleTeams.map((team) => team.competition)).size}
           </p>
         </div>
         <div className="text-center">

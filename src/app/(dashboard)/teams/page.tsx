@@ -12,22 +12,24 @@ import { SECTION_COPY } from "@/lib/copy";
 import { isCollaboratorLimitedRole } from "@/lib/constants";
 import type { UserContext } from "@/lib/auth";
 import { getPeopleContactList } from "@/lib/data/dashboard";
+import { buildTeamDirectoryTabs, getTeamDirectory } from "@/lib/data/teams";
 import { getSettingsSnapshot } from "@/lib/settings";
-import { TEAM_DIRECTORY } from "@/lib/team-directory";
+import type { TeamDirectoryItem } from "@/lib/team-directory";
 import { resolveTeamLogoMap } from "@/lib/team-logos";
 
-// League tabs and search filter the static in-code catalog entirely on the
-// client (history.pushState soft updates) — no searchParams read here, so tab
-// switches and keystrokes never trigger a server render. The only server data
-// is the people contact list, streamed behind Suspense.
+// The directory is read once from the DB (clubs/teams/leagues); league tabs and
+// search still filter entirely on the client (history.pushState soft updates) —
+// no searchParams read here, so tab switches and keystrokes never trigger a
+// server render. The people contact list streams behind Suspense.
 export default async function TeamsPage() {
-  // Settings is independent of the user — resolve both concurrently.
   const [user, settings] = await Promise.all([
     getUserContext(),
     getSettingsSnapshot(),
   ]);
+  const teams = await getTeamDirectory(user);
   const canManageTeams = user.canEdit && !isCollaboratorLimitedRole(user.role);
-  const aiContext = TEAM_DIRECTORY.map((team) => ({
+  const tabs = buildTeamDirectoryTabs(teams);
+  const aiContext = teams.map((team) => ({
     equipo: team.official_name,
     liga: team.competition,
     estadio: team.stadium ?? "Sin estadio cargado",
@@ -69,10 +71,14 @@ export default async function TeamsPage() {
         }
       />
 
-      <TeamsLeagueTabs />
+      <TeamsLeagueTabs tabs={tabs} totalCount={teams.length} />
 
       <Suspense fallback={<TeamsDirectorySkeleton />}>
-        <TeamsDirectoryRegion user={user} canManageTeams={canManageTeams} />
+        <TeamsDirectoryRegion
+          user={user}
+          teams={teams}
+          canManageTeams={canManageTeams}
+        />
       </Suspense>
     </div>
   );
@@ -80,17 +86,19 @@ export default async function TeamsPage() {
 
 async function TeamsDirectoryRegion({
   user,
+  teams,
   canManageTeams,
 }: {
   user: UserContext;
+  teams: TeamDirectoryItem[];
   canManageTeams: boolean;
 }) {
   const people = user.userId ? await getPeopleContactList(user) : [];
-  // Pre-resolve crests for the whole catalog so cards paint logos on first
-  // paint regardless of the client-side league filter; client-only extras
-  // (locally created teams) still fall back to fetch.
+  // Pre-resolve crests for the whole directory so cards paint logos on first
+  // paint regardless of the client-side league filter; teams without a bundled
+  // crest still fall back to fetch.
   const teamLogoMap = resolveTeamLogoMap(
-    TEAM_DIRECTORY.map((team) => ({
+    teams.map((team) => ({
       teamName: team.official_name,
       competition: team.competition,
     })),
@@ -98,7 +106,11 @@ async function TeamsDirectoryRegion({
 
   return (
     <TeamLogoResolutionProvider value={teamLogoMap}>
-      <TeamsWorkspaceClient people={people} canManageTeams={canManageTeams} />
+      <TeamsWorkspaceClient
+        teams={teams}
+        people={people}
+        canManageTeams={canManageTeams}
+      />
     </TeamLogoResolutionProvider>
   );
 }

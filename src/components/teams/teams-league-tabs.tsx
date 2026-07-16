@@ -4,20 +4,25 @@ import { useSearchParams } from "next/navigation";
 
 import { PageCanvasTone } from "@/components/layout/page-canvas-tone";
 import {
-  getTeamDirectoryTabs,
   getTeamLeagueAccentColor,
   getTeamLeagueCanvasTone,
-  TEAM_DIRECTORY,
+  type TeamDirectoryTab,
 } from "@/lib/team-directory";
 import { cn } from "@/lib/utils";
 
-// The team directory is a static in-code catalog, so switching league is pure
-// client-side filtering: tabs update the URL via history.pushState (shallow —
-// no server round-trip) and the workspace re-filters from useSearchParams.
-export function TeamsLeagueTabs() {
+// Tabs and counts come from the server (leagues/memberships tables); switching
+// league stays pure client-side filtering: tabs update the URL via
+// history.pushState (shallow — no server round-trip) and the workspace
+// re-filters from useSearchParams.
+export function TeamsLeagueTabs({
+  tabs,
+  totalCount,
+}: {
+  tabs: TeamDirectoryTab[];
+  totalCount: number;
+}) {
   const searchParams = useSearchParams();
   const activeLeague = searchParams.get("league")?.trim() ?? "";
-  const tabs = getTeamDirectoryTabs();
   const leagueAccent = activeLeague
     ? getTeamLeagueAccentColor(activeLeague)
     : null;
@@ -64,7 +69,7 @@ export function TeamsLeagueTabs() {
           aria-current={!activeLeague ? "page" : undefined}
           className={tabClassName(!activeLeague)}
         >
-          Todos ({TEAM_DIRECTORY.length})
+          Todos ({totalCount})
         </a>
         {tabs.map((tab) => (
           <a
