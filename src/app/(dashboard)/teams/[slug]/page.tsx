@@ -11,13 +11,15 @@ import {
   buildTeamResponsibleLookup,
   getTeamResponsibleContact,
 } from "@/lib/team-responsibles";
+import { getTeamFromDbBySlug } from "@/lib/data/teams";
 import type { TeamDirectoryItem } from "@/lib/team-directory";
-import { getTeamBySlug, splitTeamCompetitions } from "@/lib/team-directory";
+import { splitTeamCompetitions } from "@/lib/team-directory";
 import { buildWhatsAppUrl } from "@/lib/utils";
 
-// The club sheet is static catalog data; only the responsible contact needs the
-// people table. Both contact spots stream behind Suspense (deduped by cache) so
-// the page paints without waiting on the DB round-trip.
+// The club sheet reads from the clubs/teams/leagues tables; the responsible
+// contact additionally needs the people table. Both contact spots stream behind
+// Suspense (deduped by cache) so the page paints without waiting on that extra
+// DB round-trip.
 const loadResponsibleContact = cache(
   async (teamName: string, manager: string | null) => {
     const user = await getUserContext();
@@ -129,7 +131,8 @@ function ExternalLinkItem({
 
 export default async function TeamDetailPage({ params }: PageProps) {
   const { slug } = await params;
-  const team = getTeamBySlug(slug);
+  const user = await getUserContext();
+  const team = await getTeamFromDbBySlug(user, slug);
 
   if (!team) {
     notFound();

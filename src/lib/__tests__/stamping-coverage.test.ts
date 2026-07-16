@@ -35,7 +35,20 @@ const DOMAIN_TABLES = [
 //   created_by column (no updated_by, so stampInsert does not apply); created_by
 //   is set explicitly and the selected functions are recorded in the parent
 //   people writeAudit payload.
-const ALLOWLISTED_TABLES = ["profiles", "audit_log", "person_functions"];
+// - "leagues" / "clubs" / "teams" / "team_league_memberships": the normalized
+//   team-catalog tables (0025). They carry no created_by/updated_by columns —
+//   stampInsert/stampUpdate would be rejected by the generated types — and are
+//   reference data mutated only through the requireEditor-gated
+//   upsertTeamAction. Revisit if per-actor attribution is added to the catalog.
+const ALLOWLISTED_TABLES = [
+  "profiles",
+  "audit_log",
+  "person_functions",
+  "leagues",
+  "clubs",
+  "teams",
+  "team_league_memberships",
+];
 
 const MUTATION_RE =
   /\.from\(\s*["'`]([a-z_]+)["'`]\s*\)\s*(?:\r?\n\s*)*\.(insert|update|upsert)\s*\(/g;

@@ -1,5 +1,11 @@
 import { CLUB_CATALOG } from "@/lib/club-catalog";
 
+export type TeamDirectoryTab = {
+  value: string;
+  label: string;
+  count: number;
+};
+
 export type TeamDirectoryItem = {
   id: string;
   slug: string;
@@ -141,10 +147,6 @@ function buildTeamDirectory() {
 
 export const TEAM_DIRECTORY = buildTeamDirectory();
 
-export const TEAM_DIRECTORY_LEAGUES = TEAM_DIRECTORY_TAB_ORDER.filter((league) =>
-  TEAM_DIRECTORY.some((team) => splitTeamCompetitions(team.competition).includes(league)),
-);
-
 function normalizeLeagueName(value: string) {
   return value
     .normalize("NFD")
@@ -266,53 +268,6 @@ const LEAGUE_SHORT_LABELS: Record<string, string> = {
   "Liga Femenina": "Liga Femenina",
   "Liga Metropolitana": "Metropolitana",
 };
-
-export function getTeamDirectoryData(params?: {
-  query?: string;
-  league?: string;
-}) {
-  const query = params?.query?.trim().toLowerCase() ?? "";
-  const league = params?.league?.trim() ?? "";
-
-  return TEAM_DIRECTORY.filter((team) => {
-    if (league && !splitTeamCompetitions(team.competition).includes(league)) {
-      return false;
-    }
-
-    if (!query) {
-      return true;
-    }
-
-    return [
-      team.official_name,
-      team.competition,
-      team.stadium ?? "",
-      team.manager ?? "",
-    ]
-      .join(" ")
-      .toLowerCase()
-      .includes(query);
-  });
-}
-
-export function getTeamDirectoryTabs() {
-  const counts = TEAM_DIRECTORY.reduce<Map<string, number>>((map, team) => {
-    splitTeamCompetitions(team.competition).forEach((league) => {
-      map.set(league, (map.get(league) ?? 0) + 1);
-    });
-    return map;
-  }, new Map());
-
-  return TEAM_DIRECTORY_LEAGUES.map((league) => ({
-    value: league,
-    label: LEAGUE_SHORT_LABELS[league] ?? league,
-    count: counts.get(league) ?? 0,
-  }));
-}
-
-export function getTeamBySlug(slug: string) {
-  return TEAM_DIRECTORY.find((team) => team.slug === slug) ?? null;
-}
 
 export function getTeamLeagueLabel(league: string) {
   return LEAGUE_SHORT_LABELS[league] ?? league;

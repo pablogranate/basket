@@ -1,19 +1,15 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { ImagePlus, Pencil, Plus, Save, Shield, Trash2, X } from "lucide-react";
 
+import { upsertTeamAction } from "@/app/actions/teams";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import {
-  buildCustomTeamId,
-  readCustomTeams,
-  slugifyTeamValue,
-  writeCustomTeams,
-} from "@/lib/teams-local-storage";
 import { CLUB_COMPETITIONS } from "@/lib/club-catalog";
 import type { TeamDirectoryItem } from "@/lib/team-directory";
 import { cn } from "@/lib/utils";
@@ -49,8 +45,21 @@ export function CreateTeamModal({
   const [officialUrl, setOfficialUrl] = useState("");
   const [logoPreview, setLogoPreview] = useState<string | null>(initialTeam?.logo_data_url ?? null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [isSaving, startSaving] = useTransition();
   const isEditMode = Boolean(initialTeam);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const router = useRouter();
+
+  const competitionOptions = useMemo(() => {
+    const options = new Set<string>(CLUB_COMPETITIONS);
+    const current = (initialTeam?.competition ?? "").trim();
+
+    if (current) {
+      options.add(current);
+    }
+
+    return [...options];
+  }, [initialTeam?.competition]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -118,7 +127,7 @@ export function CreateTeamModal({
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!canEdit) {
+    if (!canEdit || isSaving) {
       return;
     }
 
@@ -130,30 +139,33 @@ export function CreateTeamModal({
       return;
     }
 
-    const nextTeam: TeamDirectoryItem = {
-      id: initialTeam?.id ?? buildCustomTeamId(trimmedName, trimmedCompetition),
-      slug: slugifyTeamValue(`${trimmedName}-${trimmedCompetition}`),
-      official_name: trimmedName,
-      competition: trimmedCompetition,
-      stadium: stadium.trim() || null,
-      manager: manager.trim() || null,
-      website: website.trim() || null,
-      instagram: instagram.trim() || null,
-      official_url: officialUrl.trim() || defaultLeagueUrl(trimmedCompetition) || null,
-      incident_count: 0,
-      logo_data_url: logoPreview,
-    };
-
-    const currentTeams = readCustomTeams();
-    const dedupedTeams = currentTeams.filter((team) => team.id !== nextTeam.id);
-
-    writeCustomTeams(
-      [...dedupedTeams, nextTeam].sort((left, right) =>
-        left.official_name.localeCompare(right.official_name, "es"),
-      ),
+    const payload = new FormData();
+    if (initialTeam?.id) {
+      payload.set("teamId", initialTeam.id);
+    }
+    payload.set("officialName", trimmedName);
+    payload.set("competition", trimmedCompetition);
+    payload.set("stadium", stadium.trim());
+    payload.set("manager", manager.trim());
+    payload.set("website", website.trim());
+    payload.set("instagram", instagram.trim());
+    payload.set(
+      "officialUrl",
+      officialUrl.trim() || defaultLeagueUrl(trimmedCompetition),
     );
+    payload.set("logoDataUrl", logoPreview ?? "");
 
-    closeModal();
+    startSaving(async () => {
+      const result = await upsertTeamAction(payload);
+
+      if (!result.ok) {
+        setErrorMessage(result.error ?? "No se pudo guardar el equipo.");
+        return;
+      }
+
+      closeModal();
+      router.refresh();
+    });
   }
 
   return (
@@ -215,8 +227,8 @@ export function CreateTeamModal({
                     </h3>
                     <p className="mt-1 text-sm text-[var(--muted)]">
                       {isEditMode
-                        ? "Los cambios se guardarán en este navegador y se verán de inmediato en el directorio."
-                        : "Se guardará en este navegador y aparecerá de inmediato en el directorio."}
+                        ? "Los cambios se guardan para todo el equipo y se ven de inmediato en el directorio."
+                        : "Se guarda para todo el equipo y aparece de inmediato en el directorio."}
                     </p>
                   </div>
                 </div>
@@ -315,7 +327,7 @@ export function CreateTeamModal({
                     className="h-11 rounded-xl bg-[var(--background-soft)]"
                   >
                     <option value="">Seleccionar liga...</option>
-                    {CLUB_COMPETITIONS.map((competitionOption) => (
+                    {competitionOptions.map((competitionOption) => (
                       <option key={competitionOption} value={competitionOption}>
                         {competitionOption}
                       </option>
@@ -397,10 +409,15 @@ export function CreateTeamModal({
                 </Button>
                 <button
                   type="submit"
-                  className="inline-flex h-11 items-center gap-2 rounded-xl bg-[var(--accent)] px-5 text-sm font-bold text-white shadow-[0_14px_28px_rgba(227,27,35,0.18)] transition hover:bg-[var(--accent-strong)]"
+                  disabled={isSaving}
+                  className="inline-flex h-11 items-center gap-2 rounded-xl bg-[var(--accent)] px-5 text-sm font-bold text-white shadow-[0_14px_28px_rgba(227,27,35,0.18)] transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Save className="size-4" />
-                  {isEditMode ? "Guardar cambios" : "Guardar equipo"}
+                  {isSaving
+                    ? "Guardando..."
+                    : isEditMode
+                      ? "Guardar cambios"
+                      : "Guardar equipo"}
                 </button>
               </div>
             </form>
