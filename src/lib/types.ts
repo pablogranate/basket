@@ -13,6 +13,9 @@ import type { PersonFunctionKey } from "@/lib/functions";
 export type NotificationLogEntry =
   Database["public"]["Tables"]["notification_logs"]["Row"];
 
+export type SyncLogEntry =
+  Database["public"]["Tables"]["grid_sync_runs"]["Row"];
+
 export type UserContext = {
   userId: string | null;
   email: string | null;
