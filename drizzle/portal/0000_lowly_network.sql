@@ -1,3 +1,4 @@
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";--> statement-breakpoint
 CREATE TYPE "public"."app_role" AS ENUM('admin', 'editor', 'viewer', 'coordinator', 'collaborator');--> statement-breakpoint
 CREATE TYPE "public"."match_status" AS ENUM('Pendiente', 'Confirmado', 'Realizado');--> statement-breakpoint
 CREATE TABLE "announcements" (

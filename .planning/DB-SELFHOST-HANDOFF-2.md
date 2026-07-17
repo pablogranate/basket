@@ -1,7 +1,7 @@
 # Handoff 2 — Domain DB migration: Supabase → self-hosted Postgres
 
 **Audience:** the agent continuing this migration
-**Status (2026-07-17):** Phases 2, 3, 4 and 5 DONE and committed. Phase 1 (infra) not started (needs the user for root steps). Phases 6–7 not started.
+**Status (2026-07-17):** Phases 2, 3, 4 and 5 DONE and committed. Phase 1 (infra) code artifacts DONE and committed — only the user's root/VPS steps remain (run `docs/runbooks/db-selfhost-infra.md`). Phases 6–7 not started.
 **Branch:** `feat/domain-db-selfhost` (Phases 2–5 live here, one commit per phase, single PR at the end).
 
 **Read in this order:**
@@ -80,10 +80,15 @@ It imports OLD supabase-js loaders from `scripts/parity/baseline/*.ts` and NEW D
 - Smoke-tested: `contactos` dry-run (pure parse, exit 0), `periodistas` dry-run (real postgres read of 66 people + clean `sql.end()` exit 0). Full write paths need Phase 1's local container to test end-to-end.
 - Gate green: 0 lint errors (7 pre-existing warnings, incl. `grilla.mjs`'s long-unused `FIELD_COLUMNS` — left alone), 763 tests, build OK.
 
-## 5. What REMAINS
+**Phase 1 — infra** (code artifacts committed; **user runs the root/VPS steps**)
+- `docker-compose.yml` — added `basket-portal-db` service (`postgres:17`, `basket_portal` DB, published `127.0.0.1:${PORTAL_DB_PORT:-5434}` loopback-only, `restart=unless-stopped`, `basket-portal-data` volume). Local dev: `docker compose up -d basket-portal-db` (only that service). Prod uses `docker run` instead — the shared compose interpolates auth-db's required `AUTH_DB_PASSWORD` even when targeting one service.
+- `scripts/db/refresh.sh` (+ `db:refresh` npm script) — `ssh prod pg_dump | psql local`, wipes+rebuilds local domain data; needs `SERVER`/`SERVER_PASS` + `sshpass`. Only fully useful post-cutover (prod container empty until then).
+- `scripts/db/backup.sh` — nightly root cron: `pg_dump` `basket_portal` + `basket_auth` → `/var/backups/basket/*.sql.gz`, 14-day retention. Socket-trust inside container (no password).
+- `scripts/db/restore-test.sh` — weekly root cron: restore newest `basket_portal` dump into ephemeral scratch `postgres:17`, row-count sanity, teardown.
+- `docs/runbooks/db-selfhost-infra.md` — the user's step-by-step (new env vars, local+prod container, backup/restore cron, verify checklist).
+- **Baseline fix (validated live):** added `CREATE EXTENSION IF NOT EXISTS "pg_trgm";` to `drizzle/portal/0000_lowly_network.sql`. Fresh `postgres:17` lacks pg_trgm; the 3 `matches` `gin_trgm_ops` indexes failed `db:portal:migrate` without it (Supabase had it pre-installed). Verified: clean container → `db:portal:migrate` → 19 tables / 2 enums / 3 trgm indexes / pg_trgm present; backup→gzip→scratch-restore→row-count roundtrip also verified. Cutover path is unaffected (it restores the Supabase dump, which carries its own CREATE EXTENSION, and marks the baseline applied rather than running it).
 
-**Phase 1 — infra (needs the user for root/VPS steps; independent of code).**
-Prod container `basket-portal-db` (`postgres:17`, published `127.0.0.1:5434` only, `restart=unless-stopped`), each dev's local container, `db:refresh` script (`ssh prod pg_dump | psql local`), nightly `pg_dump` backup cron for `basket_portal` + `basket_auth` (14-day retention, weekly restore-test). PRD §7.1.
+**Still needs the user (root, no sudo for `wences`):** run the runbook — create the prod `basket-portal-db` container, `/var/backups/basket`, install the two cron lines, smoke `backup.sh` + `restore-test.sh`. Nothing else in Phase 1 is code.
 
 **Phase 6 — verification hardening.** Permanent vitest data-layer integration suite against the local container (seed from parity fixtures; priority on write paths + stamp columns — `stamping-coverage.test.ts` is the seed). Write the manual smoke checklist doc (all sections, all 4 roles).
 
