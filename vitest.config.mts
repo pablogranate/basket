@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url";
 
 import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 export default defineConfig({
   plugins: [tsconfigPaths(), react()],
@@ -15,6 +15,10 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // Integration tests need a live Postgres and run under
+    // vitest.integration.config.mts (`npm run test:integration`). Keep the
+    // default unit run DB-free so `npm run check` passes anywhere.
+    exclude: [...configDefaults.exclude, "**/*.integration.test.ts"],
     // Route-handler tests dynamically import heavy module graphs (`await
     // import("../route")`); under parallel worker contention that transform can
     // exceed the 5s default and flake. Give them headroom.

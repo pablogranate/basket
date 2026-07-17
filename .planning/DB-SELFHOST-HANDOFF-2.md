@@ -1,7 +1,7 @@
 # Handoff 2 — Domain DB migration: Supabase → self-hosted Postgres
 
 **Audience:** the agent continuing this migration
-**Status (2026-07-17):** Phases 2, 3, 4 and 5 DONE and committed. Phase 1 (infra) code artifacts DONE and committed — only the user's root/VPS steps remain (run `docs/runbooks/db-selfhost-infra.md`). Phases 6–7 not started.
+**Status (2026-07-17):** Phases 2, 3, 4, 5 and 6 DONE and committed. Phase 1 (infra) code artifacts DONE and committed — only the user's root/VPS steps remain (run `docs/runbooks/db-selfhost-infra.md`). Only Phase 7 (cutover, user-gated) remains.
 **Branch:** `feat/domain-db-selfhost` (Phases 2–5 live here, one commit per phase, single PR at the end).
 
 **Read in this order:**
@@ -90,7 +90,14 @@ It imports OLD supabase-js loaders from `scripts/parity/baseline/*.ts` and NEW D
 
 **Still needs the user (root, no sudo for `wences`):** run the runbook — create the prod `basket-portal-db` container, `/var/backups/basket`, install the two cron lines, smoke `backup.sh` + `restore-test.sh`. Nothing else in Phase 1 is code.
 
-**Phase 6 — verification hardening.** Permanent vitest data-layer integration suite against the local container (seed from parity fixtures; priority on write paths + stamp columns — `stamping-coverage.test.ts` is the seed). Write the manual smoke checklist doc (all sections, all 4 roles).
+**Phase 6 — verification hardening** (this branch, one commit)
+- **Integration suite:** `src/lib/db/__tests__/write-paths.integration.test.ts` (8 tests) exercises the REAL Drizzle client against a live Postgres — covers what the read-parity harness can't (writes): writeAudit rows (match_id derivation, changed_by), app_settings secret redaction, stampInsert/stampUpdate actor + timestamp ownership, the timestamptz ISO codec round-trip, and the grid-sync assignment upsert conflict path.
+- **Isolation:** `vitest.integration.config.mts` (separate config, `**/*.integration.test.ts`, serial) + `src/test/integration/{global-setup,db}.ts`. `global-setup` applies the baseline migration and **refuses any DATABASE_URL whose db name lacks `basket-portal-test`** (prod guard). `db.ts` = independent raw `postgres` conn for seeding/asserting + `truncateAll` + `seedActor`.
+- **Runner:** `scripts/db/with-test-db.sh` spins an ephemeral `basket-portal-test-db` (`postgres:17`, `127.0.0.1:5439`), exports DATABASE_URL, runs vitest, tears down. `npm run test:integration`. **Readiness must probe TCP (`pg_isready -h 127.0.0.1`)** — the postgres image's socket-only initdb temp server gives a false-positive on the socket → ECONNRESET.
+- **Default run untouched:** added `exclude: [...configDefaults.exclude, "**/*.integration.test.ts"]` to `vitest.config.mts` so `npm run check` stays unit-only + DB-free (still 763 tests).
+- **Smoke checklist doc:** `docs/runbooks/db-selfhost-smoke-checklist.md` — all sections × 4 roles, points to the automated coverage for what's already proven.
+- **Finding (kept realistic in fixtures):** `audit_log.match_id`'s FK to `matches` survives the trigger drop, so audit rows for matches/assignments require a real match row first — matches the real write order.
+- Gate green: 0 lint errors, 763 unit tests (`check`) + 8 integration tests (`test:integration`), build OK.
 
 **Phase 7 — cutover + retirement.** User-scheduled (no-match weekday morning, AR time). Runbook in PRD §6. Then 30-day Supabase freeze → final dump → delete project → strip `SUPABASE*` env + `@supabase/*` deps + `scripts/parity/` + supabase client modules. Never run cutover unprompted.
 
@@ -100,6 +107,7 @@ It imports OLD supabase-js loaders from `scripts/parity/baseline/*.ts` and NEW D
 git log --oneline -4                    # import CLIs, a0b9f3f actions+API, 026e7c9 loaders, 8956e71 schema
 npm run check                           # full gate
 npx tsx --tsconfig scripts/parity/tsconfig.json scripts/parity/run.ts   # parity 19/19
+npm run test:integration                # 8 write-path tests vs ephemeral container (needs docker)
 grep -rn "supabase" src/lib/data/       # confirm loaders are clean (only 1 comment)
 ```
 

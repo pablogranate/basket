@@ -16,7 +16,8 @@
     "db:portal:generate": "drizzle-kit generate --config drizzle.portal.config.ts",
     "db:portal:migrate": "drizzle-kit migrate --config drizzle.portal.config.ts",
     "db:portal:pull": "drizzle-kit pull --config drizzle.portal.config.ts",
-    "db:refresh": "bash scripts/db/refresh.sh"
+    "db:refresh": "bash scripts/db/refresh.sh",
+    "test:integration": "bash scripts/db/with-test-db.sh vitest run --config vitest.integration.config.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.9.0",
