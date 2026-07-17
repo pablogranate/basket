@@ -2,19 +2,42 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { recordAttendanceConfirmation } from "@/lib/data/attendance";
 import { findLinkedPerson } from "@/lib/data/linked-person";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { makeUserContext } from "@/test/fixtures/user-context";
 
 vi.mock("@/lib/data/linked-person", () => ({
   findLinkedPerson: vi.fn(),
 }));
 
-vi.mock("@/lib/supabase/server", () => ({
-  createSupabaseServerClient: vi.fn(),
+// The loader now talks to the domain DB through Drizzle. Mock the client so the
+// authorization/stamp logic is exercised without a real connection.
+const h = vi.hoisted(() => ({
+  state: {
+    assignment: null as unknown,
+    setSpy: vi.fn(),
+  },
+}));
+
+vi.mock("@/lib/db/client", () => ({
+  db: {
+    select: () => ({
+      from: () => ({
+        leftJoin: () => ({
+          where: () => ({
+            limit: async () => (h.state.assignment ? [h.state.assignment] : []),
+          }),
+        }),
+      }),
+    }),
+    update: () => ({
+      set: (payload: unknown) => {
+        h.state.setSpy(payload);
+        return { where: async () => undefined };
+      },
+    }),
+  },
 }));
 
 const mockedFindLinkedPerson = vi.mocked(findLinkedPerson);
-const mockedCreateClient = vi.mocked(createSupabaseServerClient);
 
 const ASSIGNMENT_ID = "11111111-1111-4111-8111-111111111111";
 const PERSON_ME = "22222222-2222-4222-8222-222222222222";
@@ -22,30 +45,9 @@ const PERSON_OTHER = "33333333-3333-4333-8333-333333333333";
 const FUTURE_KICKOFF = "2099-01-01T19:30:00-05:00";
 const PAST_KICKOFF = "2020-01-01T19:30:00-05:00";
 
-function stubClient(assignment: unknown) {
-  const updateSpy = vi.fn(
-    (_payload: {
-      attendance_confirmed_at: string | null;
-      attendance_response: string | null;
-      attendance_note: string | null;
-    }) => ({
-      eq: () => Promise.resolve({ error: null }),
-    }),
-  );
-
-  const client = {
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          maybeSingle: () => Promise.resolve({ data: assignment, error: null }),
-        }),
-      }),
-      update: updateSpy,
-    }),
-  };
-
-  mockedCreateClient.mockResolvedValue(client as never);
-  return { updateSpy };
+function stubAssignment(assignment: unknown) {
+  h.state.assignment = assignment;
+  return { setSpy: h.state.setSpy };
 }
 
 function collaboratorCtx() {
@@ -55,11 +57,12 @@ function collaboratorCtx() {
 describe("recordAttendanceConfirmation", () => {
   afterEach(() => {
     vi.clearAllMocks();
+    h.state.assignment = null;
   });
 
   it("rejects a caller with no linked person and writes nothing", async () => {
     mockedFindLinkedPerson.mockResolvedValue({ person: null, linkedBy: null });
-    const { updateSpy } = stubClient({
+    const { setSpy } = stubAssignment({
       id: ASSIGNMENT_ID,
       match_id: "match-1",
       person_id: PERSON_ME,
@@ -72,7 +75,7 @@ describe("recordAttendanceConfirmation", () => {
     });
 
     expect(result.ok).toBe(false);
-    expect(updateSpy).not.toHaveBeenCalled();
+    expect(setSpy).not.toHaveBeenCalled();
   });
 
   it("rejects when the caller is not the assigned person and writes nothing", async () => {
@@ -80,7 +83,7 @@ describe("recordAttendanceConfirmation", () => {
       person: { id: PERSON_ME, full_name: "Yo", email: null, phone: null, active: true },
       linkedBy: "email",
     });
-    const { updateSpy } = stubClient({
+    const { setSpy } = stubAssignment({
       id: ASSIGNMENT_ID,
       match_id: "match-1",
       person_id: PERSON_OTHER,
@@ -93,7 +96,7 @@ describe("recordAttendanceConfirmation", () => {
     });
 
     expect(result.ok).toBe(false);
-    expect(updateSpy).not.toHaveBeenCalled();
+    expect(setSpy).not.toHaveBeenCalled();
   });
 
   it("lets a collaborator owner confirm an upcoming match", async () => {
@@ -101,7 +104,7 @@ describe("recordAttendanceConfirmation", () => {
       person: { id: PERSON_ME, full_name: "Yo", email: null, phone: null, active: true },
       linkedBy: "email",
     });
-    const { updateSpy } = stubClient({
+    const { setSpy } = stubAssignment({
       id: ASSIGNMENT_ID,
       match_id: "match-1",
       person_id: PERSON_ME,
@@ -114,9 +117,9 @@ describe("recordAttendanceConfirmation", () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(updateSpy).toHaveBeenCalledTimes(1);
-    const payload = updateSpy.mock.calls[0][0];
-    expect(payload.attendance_confirmed_at).not.toBeNull();
+    expect(setSpy).toHaveBeenCalledTimes(1);
+    const payload = setSpy.mock.calls[0][0];
+    expect(payload.attendanceConfirmedAt).not.toBeNull();
   });
 
   it("records a decline with its note and leaves attendance_confirmed_at null", async () => {
@@ -124,7 +127,7 @@ describe("recordAttendanceConfirmation", () => {
       person: { id: PERSON_ME, full_name: "Yo", email: null, phone: null, active: true },
       linkedBy: "email",
     });
-    const { updateSpy } = stubClient({
+    const { setSpy } = stubAssignment({
       id: ASSIGNMENT_ID,
       match_id: "match-1",
       person_id: PERSON_ME,
@@ -138,10 +141,10 @@ describe("recordAttendanceConfirmation", () => {
     });
 
     expect(result.ok).toBe(true);
-    const payload = updateSpy.mock.calls[0][0];
-    expect(payload.attendance_response).toBe("declined");
-    expect(payload.attendance_note).toBe("Estoy enfermo");
-    expect(payload.attendance_confirmed_at).toBeNull();
+    const payload = setSpy.mock.calls[0][0];
+    expect(payload.attendanceResponse).toBe("declined");
+    expect(payload.attendanceNote).toBe("Estoy enfermo");
+    expect(payload.attendanceConfirmedAt).toBeNull();
   });
 
   it("rejects confirming a match that has already ended and writes nothing", async () => {
@@ -149,7 +152,7 @@ describe("recordAttendanceConfirmation", () => {
       person: { id: PERSON_ME, full_name: "Yo", email: null, phone: null, active: true },
       linkedBy: "email",
     });
-    const { updateSpy } = stubClient({
+    const { setSpy } = stubAssignment({
       id: ASSIGNMENT_ID,
       match_id: "match-1",
       person_id: PERSON_ME,
@@ -162,6 +165,6 @@ describe("recordAttendanceConfirmation", () => {
     });
 
     expect(result.ok).toBe(false);
-    expect(updateSpy).not.toHaveBeenCalled();
+    expect(setSpy).not.toHaveBeenCalled();
   });
 });

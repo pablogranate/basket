@@ -1,8 +1,5 @@
-import { desc, eq } from "drizzle-orm";
-
 import type { UserContext } from "@/lib/auth";
-import { db } from "@/lib/db/client";
-import { announcements } from "@/lib/db/schema";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AnnouncementRow } from "@/lib/database.types";
 
 export type AnnouncementSummary = Pick<
@@ -44,24 +41,27 @@ async function fetchLatestAnnouncementQuery(activeOnly: boolean) {
 
 async function loadLatestAnnouncement(activeOnly: boolean) {
   try {
-    const rows = await db
-      .select({
-        id: announcements.id,
-        title: announcements.title,
-        body: announcements.body,
-        active: announcements.active,
-        updated_at: announcements.updatedAt,
-        created_at: announcements.createdAt,
-      })
-      .from(announcements)
-      .where(activeOnly ? eq(announcements.active, true) : undefined)
-      .orderBy(desc(announcements.updatedAt))
+    const supabase = await createSupabaseServerClient();
+    let query = supabase
+      .from("announcements")
+      .select("id, title, body, active, updated_at, created_at")
+      .order("updated_at", { ascending: false })
       .limit(1);
+
+    if (activeOnly) {
+      query = query.eq("active", true);
+    }
+
+    const result = await query.maybeSingle();
 
     // Announcements are optional for the dashboard shell. If the table,
     // policies, or feature wiring are not available yet, fail closed and
     // keep the rest of the app interactive without noisy overlays.
-    return (rows[0] as AnnouncementSummary | undefined) ?? null;
+    if (result.error) {
+      return null;
+    }
+
+    return (result.data as AnnouncementSummary | null) ?? null;
   } catch {
     return null;
   }

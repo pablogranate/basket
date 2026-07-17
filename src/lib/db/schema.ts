@@ -1,5 +1,6 @@
-import { pgTable, uniqueIndex, uuid, text, timestamp, index, foreignKey, boolean, check, bigint, jsonb, integer, unique, date, primaryKey, pgEnum } from "drizzle-orm/pg-core"
+import { pgTable, uniqueIndex, uuid, text, index, foreignKey, boolean, check, bigint, jsonb, integer, unique, date, primaryKey, pgEnum } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
+import { timestamptz } from "@/lib/db/columns"
 
 export const appRole = pgEnum("app_role", ['admin', 'editor', 'viewer', 'coordinator', 'collaborator'])
 export const matchStatus = pgEnum("match_status", ['Pendiente', 'Confirmado', 'Realizado'])
@@ -9,8 +10,8 @@ export const profiles = pgTable("profiles", {
 	id: uuid().primaryKey().notNull(),
 	fullName: text("full_name"),
 	role: appRole().default('viewer').notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
+	createdAt: timestamptz("created_at").default(sql`timezone('utc'::text, now())`).notNull(),
+	updatedAt: timestamptz("updated_at").default(sql`timezone('utc'::text, now())`).notNull(),
 	email: text().notNull(),
 	authUserId: text("auth_user_id"),
 }, (table) => [
@@ -25,8 +26,8 @@ export const people = pgTable("people", {
 	email: text(),
 	active: boolean().default(true).notNull(),
 	notes: text(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
+	createdAt: timestamptz("created_at").default(sql`timezone('utc'::text, now())`).notNull(),
+	updatedAt: timestamptz("updated_at").default(sql`timezone('utc'::text, now())`).notNull(),
 	createdBy: uuid("created_by"),
 	updatedBy: uuid("updated_by"),
 	category: text(),
@@ -61,7 +62,7 @@ export const auditLog = pgTable("audit_log", {
 	changedBy: uuid("changed_by"),
 	before: jsonb(),
 	after: jsonb(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
+	createdAt: timestamptz("created_at").default(sql`timezone('utc'::text, now())`).notNull(),
 }, (table) => [
 	index("audit_log_match_idx").using("btree", table.matchId.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
 	index("idx_audit_log_match_id").using("btree", table.matchId.asc().nullsLast()).where(sql`(match_id IS NOT NULL)`),
@@ -89,8 +90,8 @@ export const gridSyncRuns = pgTable("grid_sync_runs", {
 	assignmentsDeleted: integer("assignments_deleted").default(0).notNull(),
 	peopleCreated: integer("people_created").default(0).notNull(),
 	error: text(),
-	startedAt: timestamp("started_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
-	finishedAt: timestamp("finished_at", { withTimezone: true, mode: 'string' }),
+	startedAt: timestamptz("started_at").default(sql`timezone('utc'::text, now())`).notNull(),
+	finishedAt: timestamptz("finished_at"),
 	deletedCount: integer("deleted_count").default(0).notNull(),
 }, (table) => [
 	index("grid_sync_runs_started_idx").using("btree", table.startedAt.desc().nullsFirst()),
@@ -104,8 +105,8 @@ export const clubContacts = pgTable("club_contacts", {
 	phone: text(),
 	sourceBlock: text("source_block"),
 	notes: text(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
+	createdAt: timestamptz("created_at").default(sql`timezone('utc'::text, now())`).notNull(),
+	updatedAt: timestamptz("updated_at").default(sql`timezone('utc'::text, now())`).notNull(),
 	createdBy: uuid("created_by"),
 	updatedBy: uuid("updated_by"),
 }, (table) => [
@@ -125,7 +126,7 @@ export const clubContacts = pgTable("club_contacts", {
 
 export const notificationLogs = pgTable("notification_logs", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	createdAt: timestamptz("created_at").default(sql`now()`).notNull(),
 	matchId: uuid("match_id"),
 	personId: uuid("person_id"),
 	matchLabel: text("match_label").default("").notNull(),
@@ -173,8 +174,8 @@ export const fixtures = pgTable("fixtures", {
 	court: text(),
 	city: text(),
 	province: text(),
-	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
+	syncedAt: timestamptz("synced_at").default(sql`timezone('utc'::text, now())`).notNull(),
+	createdAt: timestamptz("created_at").default(sql`timezone('utc'::text, now())`).notNull(),
 }, (table) => [
 	index("fixtures_category_idx").using("btree", table.category.asc().nullsLast()),
 	index("fixtures_match_date_idx").using("btree", table.matchDate.asc().nullsLast()),
@@ -187,11 +188,11 @@ export const assignments = pgTable("assignments", {
 	personId: uuid("person_id"),
 	confirmed: boolean().default(false).notNull(),
 	notes: text(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
+	createdAt: timestamptz("created_at").default(sql`timezone('utc'::text, now())`).notNull(),
+	updatedAt: timestamptz("updated_at").default(sql`timezone('utc'::text, now())`).notNull(),
 	createdBy: uuid("created_by"),
 	updatedBy: uuid("updated_by"),
-	attendanceConfirmedAt: timestamp("attendance_confirmed_at", { withTimezone: true, mode: 'string' }),
+	attendanceConfirmedAt: timestamptz("attendance_confirmed_at"),
 	attendanceResponse: text("attendance_response"),
 	attendanceNote: text("attendance_note"),
 }, (table) => [
@@ -236,19 +237,19 @@ export const matches = pgTable("matches", {
 	homeTeam: text("home_team").notNull(),
 	awayTeam: text("away_team").notNull(),
 	venue: text(),
-	kickoffAt: timestamp("kickoff_at", { withTimezone: true, mode: 'string' }).notNull(),
+	kickoffAt: timestamptz("kickoff_at").notNull(),
 	durationMinutes: integer("duration_minutes").default(150).notNull(),
 	timezone: text().default('America/Bogota').notNull(),
 	ownerId: uuid("owner_id"),
 	notes: text(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
+	createdAt: timestamptz("created_at").default(sql`timezone('utc'::text, now())`).notNull(),
+	updatedAt: timestamptz("updated_at").default(sql`timezone('utc'::text, now())`).notNull(),
 	createdBy: uuid("created_by"),
 	updatedBy: uuid("updated_by"),
 	productionCode: text("production_code"),
 	commentaryPlan: text("commentary_plan"),
 	transport: text(),
-	dayNotifiedAt: timestamp("day_notified_at", { withTimezone: true, mode: 'string' }),
+	dayNotifiedAt: timestamptz("day_notified_at"),
 	leagueId: uuid("league_id"),
 }, (table) => [
 	index("idx_matches_away_team_trgm").using("gin", table.awayTeam.asc().nullsLast().op("gin_trgm_ops")),
@@ -289,8 +290,8 @@ export const announcements = pgTable("announcements", {
 	title: text().notNull(),
 	body: text().notNull(),
 	active: boolean().default(true).notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
+	createdAt: timestamptz("created_at").default(sql`timezone('utc'::text, now())`).notNull(),
+	updatedAt: timestamptz("updated_at").default(sql`timezone('utc'::text, now())`).notNull(),
 	createdBy: uuid("created_by"),
 	updatedBy: uuid("updated_by"),
 }, (table) => [
@@ -335,9 +336,9 @@ export const collaboratorReports = pgTable("collaborator_reports", {
 	clubObservation: text("club_observation"),
 	problems: jsonb().default({}).notNull(),
 	attachments: jsonb().default({}).notNull(),
-	submittedAt: timestamp("submitted_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
+	submittedAt: timestamptz("submitted_at").default(sql`timezone('utc'::text, now())`).notNull(),
+	createdAt: timestamptz("created_at").default(sql`timezone('utc'::text, now())`).notNull(),
+	updatedAt: timestamptz("updated_at").default(sql`timezone('utc'::text, now())`).notNull(),
 	createdBy: uuid("created_by"),
 	updatedBy: uuid("updated_by"),
 }, (table) => [
@@ -377,8 +378,8 @@ export const appSettings = pgTable("app_settings", {
 	settingKey: text("setting_key").notNull(),
 	secretValue: text("secret_value"),
 	publicValue: text("public_value"),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
+	createdAt: timestamptz("created_at").default(sql`timezone('utc'::text, now())`).notNull(),
+	updatedAt: timestamptz("updated_at").default(sql`timezone('utc'::text, now())`).notNull(),
 	createdBy: uuid("created_by"),
 	updatedBy: uuid("updated_by"),
 }, (table) => [
@@ -402,8 +403,8 @@ export const roles = pgTable("roles", {
 	category: text().default('Produccion').notNull(),
 	sortOrder: integer("sort_order").default(0).notNull(),
 	active: boolean().default(true).notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
+	createdAt: timestamptz("created_at").default(sql`timezone('utc'::text, now())`).notNull(),
+	updatedAt: timestamptz("updated_at").default(sql`timezone('utc'::text, now())`).notNull(),
 	createdBy: uuid("created_by"),
 	updatedBy: uuid("updated_by"),
 }, (table) => [
@@ -424,7 +425,7 @@ export const personFunctions = pgTable("person_functions", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	personId: uuid("person_id").notNull(),
 	functionKey: text("function_key").notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
+	createdAt: timestamptz("created_at").default(sql`timezone('utc'::text, now())`).notNull(),
 	createdBy: uuid("created_by"),
 }, (table) => [
 	index("person_functions_key_idx").using("btree", table.functionKey.asc().nullsLast()),
@@ -450,8 +451,8 @@ export const leagues = pgTable("leagues", {
 	color: text(),
 	sortOrder: integer("sort_order"),
 	isExternal: boolean("is_external").default(false).notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
+	createdAt: timestamptz("created_at").default(sql`timezone('utc'::text, now())`).notNull(),
+	updatedAt: timestamptz("updated_at").default(sql`timezone('utc'::text, now())`).notNull(),
 }, (table) => [
 	unique("leagues_slug_key").on(table.slug),
 ]);
@@ -462,8 +463,8 @@ export const teams = pgTable("teams", {
 	name: text().notNull(),
 	slug: text().notNull(),
 	category: text().default('mayores').notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
+	createdAt: timestamptz("created_at").default(sql`timezone('utc'::text, now())`).notNull(),
+	updatedAt: timestamptz("updated_at").default(sql`timezone('utc'::text, now())`).notNull(),
 }, (table) => [
 	index("teams_club_id_idx").using("btree", table.clubId.asc().nullsLast()),
 	foreignKey({
@@ -480,7 +481,7 @@ export const clubAliases = pgTable("club_aliases", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	clubId: uuid("club_id").notNull(),
 	alias: text().notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
+	createdAt: timestamptz("created_at").default(sql`timezone('utc'::text, now())`).notNull(),
 }, (table) => [
 	index("club_aliases_club_id_idx").using("btree", table.clubId.asc().nullsLast()),
 	foreignKey({
@@ -499,8 +500,8 @@ export const clubs = pgTable("clubs", {
 	website: text(),
 	instagram: text(),
 	logoUrl: text("logo_url"),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
+	createdAt: timestamptz("created_at").default(sql`timezone('utc'::text, now())`).notNull(),
+	updatedAt: timestamptz("updated_at").default(sql`timezone('utc'::text, now())`).notNull(),
 	manager: text(),
 	officialUrl: text("official_url"),
 }, (table) => [
@@ -512,7 +513,7 @@ export const teamLeagueMemberships = pgTable("team_league_memberships", {
 	teamId: uuid("team_id").notNull(),
 	leagueId: uuid("league_id").notNull(),
 	season: text().notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).default(sql`timezone('utc'::text, now())`).notNull(),
+	createdAt: timestamptz("created_at").default(sql`timezone('utc'::text, now())`).notNull(),
 }, (table) => [
 	index("team_league_memberships_league_season_idx").using("btree", table.leagueId.asc().nullsLast(), table.season.asc().nullsLast()),
 	foreignKey({

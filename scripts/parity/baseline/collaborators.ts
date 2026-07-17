@@ -1,6 +1,3 @@
-import { eq, inArray } from "drizzle-orm";
-import { alias } from "drizzle-orm/pg-core";
-
 import {
   formatMatchDate,
   formatMatchTime,
@@ -10,17 +7,11 @@ import {
 } from "@/lib/date";
 import type { UserContext } from "@/lib/auth";
 import type { MatchStatus } from "@/lib/database.types";
-import { db } from "@/lib/db/client";
-import {
-  assignments as assignmentsTable,
-  matches as matchesTable,
-  people as peopleTable,
-  roles as rolesTable,
-} from "@/lib/db/schema";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   findLinkedPerson,
   type LinkedPerson,
-} from "@/lib/data/linked-person";
+} from "./linked-person";
 
 export { findLinkedPerson };
 
@@ -342,30 +333,19 @@ async function getMatchContextMap(matchIds: string[]) {
     return new Map<string, MatchAssignmentContextRow[]>();
   }
 
-  const rawRows = await db
-    .select({
-      match_id: assignmentsTable.matchId,
-      role: {
-        name: rolesTable.name,
-        category: rolesTable.category,
-        sort_order: rolesTable.sortOrder,
-      },
-      person: {
-        full_name: peopleTable.fullName,
-        phone: peopleTable.phone,
-        email: peopleTable.email,
-      },
-    })
-    .from(assignmentsTable)
-    .innerJoin(rolesTable, eq(assignmentsTable.roleId, rolesTable.id))
-    .leftJoin(peopleTable, eq(assignmentsTable.personId, peopleTable.id))
-    .where(inArray(assignmentsTable.matchId, matchIds));
+  const supabase = await createSupabaseServerClient();
+  const result = await supabase
+    .from("assignments")
+    .select(
+      "match_id, role:roles!assignments_role_id_fkey(name, category, sort_order), person:people!assignments_person_id_fkey(full_name, phone, email)",
+    )
+    .in("match_id", matchIds);
 
-  const rows: MatchAssignmentContextRow[] = rawRows.map((row) => ({
-    match_id: row.match_id,
-    role: row.role,
-    person: row.person?.full_name != null ? row.person : null,
-  }));
+  if (result.error) {
+    throw result.error;
+  }
+
+  const rows = (result.data ?? []) as MatchAssignmentContextRow[];
   const contextMap = new Map<string, MatchAssignmentContextRow[]>();
 
   rows.forEach((row) => {
@@ -378,68 +358,22 @@ async function getMatchContextMap(matchIds: string[]) {
 }
 
 async function getAssignmentsForPerson(personId: string) {
-  const ownerPeople = alias(peopleTable, "owner_people");
-  const rows = await db
-    .select({
-      id: assignmentsTable.id,
-      confirmed: assignmentsTable.confirmed,
-      attendance_confirmed_at: assignmentsTable.attendanceConfirmedAt,
-      attendance_response: assignmentsTable.attendanceResponse,
-      attendance_note: assignmentsTable.attendanceNote,
-      notes: assignmentsTable.notes,
-      role: {
-        id: rolesTable.id,
-        name: rolesTable.name,
-        category: rolesTable.category,
-        sort_order: rolesTable.sortOrder,
-      },
-      match: {
-        id: matchesTable.id,
-        competition: matchesTable.competition,
-        production_mode: matchesTable.productionMode,
-        production_code: matchesTable.productionCode,
-        status: matchesTable.status,
-        home_team: matchesTable.homeTeam,
-        away_team: matchesTable.awayTeam,
-        venue: matchesTable.venue,
-        notes: matchesTable.notes,
-        transport: matchesTable.transport,
-        kickoff_at: matchesTable.kickoffAt,
-        duration_minutes: matchesTable.durationMinutes,
-        timezone: matchesTable.timezone,
-      },
-      owner: {
-        id: ownerPeople.id,
-        full_name: ownerPeople.fullName,
-        phone: ownerPeople.phone,
-        email: ownerPeople.email,
-      },
-    })
-    .from(assignmentsTable)
-    .innerJoin(rolesTable, eq(assignmentsTable.roleId, rolesTable.id))
-    .innerJoin(matchesTable, eq(assignmentsTable.matchId, matchesTable.id))
-    .leftJoin(ownerPeople, eq(matchesTable.ownerId, ownerPeople.id))
-    .where(eq(assignmentsTable.personId, personId));
+  const supabase = await createSupabaseServerClient();
+  // The full crew of each match rides along as `context` (matches ->
+  // assignments reverse embed), replacing the follow-up getMatchContextMap
+  // round-trip that used to serialize after this query.
+  const assignmentsResult = await supabase
+    .from("assignments")
+    .select(
+      "id, confirmed, attendance_confirmed_at, attendance_response, attendance_note, notes, role:roles!assignments_role_id_fkey(id, name, category, sort_order), match:matches!assignments_match_id_fkey(id, competition, production_mode, production_code, status, home_team, away_team, venue, notes, transport, kickoff_at, duration_minutes, timezone, owner:people!matches_owner_id_fkey(id, full_name, phone, email), context:assignments!assignments_match_id_fkey(match_id, role:roles!assignments_role_id_fkey(name, category, sort_order), person:people!assignments_person_id_fkey(full_name, phone, email)))",
+    )
+    .eq("person_id", personId);
 
-  // The full crew of each match (the `context` reverse embed) is fetched in one
-  // follow-up read and stitched onto each row.
-  const matchIds = [...new Set(rows.map((row) => row.match.id))];
-  const contextByMatch = await getMatchContextMap(matchIds);
+  if (assignmentsResult.error) {
+    throw assignmentsResult.error;
+  }
 
-  const rawRows: AssignmentRow[] = rows.map((row) => ({
-    id: row.id,
-    confirmed: row.confirmed,
-    attendance_confirmed_at: row.attendance_confirmed_at,
-    attendance_response: row.attendance_response,
-    attendance_note: row.attendance_note,
-    notes: row.notes,
-    role: row.role,
-    match: {
-      ...row.match,
-      owner: row.owner?.id ? row.owner : null,
-      context: contextByMatch.get(row.match.id) ?? [],
-    },
-  }));
+  const rawRows = (assignmentsResult.data ?? []) as AssignmentRow[];
   const matchContextMap = new Map<string, MatchAssignmentContextRow[]>();
 
   for (const row of rawRows) {
@@ -566,40 +500,24 @@ async function getFallbackAssignmentForMatch(params: {
     });
   }
 
-  const ownerPeople = alias(peopleTable, "owner_people");
-  const matchRows = await db
-    .select({
-      id: matchesTable.id,
-      competition: matchesTable.competition,
-      production_mode: matchesTable.productionMode,
-      status: matchesTable.status,
-      home_team: matchesTable.homeTeam,
-      away_team: matchesTable.awayTeam,
-      venue: matchesTable.venue,
-      notes: matchesTable.notes,
-      kickoff_at: matchesTable.kickoffAt,
-      duration_minutes: matchesTable.durationMinutes,
-      timezone: matchesTable.timezone,
-      owner: {
-        id: ownerPeople.id,
-        full_name: ownerPeople.fullName,
-        phone: ownerPeople.phone,
-        email: ownerPeople.email,
-      },
-    })
-    .from(matchesTable)
-    .leftJoin(ownerPeople, eq(matchesTable.ownerId, ownerPeople.id))
-    .where(eq(matchesTable.id, params.matchId))
-    .limit(1);
+  const supabase = await createSupabaseServerClient();
+  const matchResult = await supabase
+    .from("matches")
+    .select(
+      "id, competition, production_mode, status, home_team, away_team, venue, notes, kickoff_at, duration_minutes, timezone, owner:people!matches_owner_id_fkey(id, full_name, phone, email)",
+    )
+    .eq("id", params.matchId)
+    .maybeSingle();
 
-  if (!matchRows[0]) {
+  if (matchResult.error) {
+    throw matchResult.error;
+  }
+
+  if (!matchResult.data) {
     return null;
   }
 
-  const match = {
-    ...matchRows[0],
-    owner: matchRows[0].owner?.id ? matchRows[0].owner : null,
-  } as MatchContextMatchRow;
+  const match = matchResult.data as MatchContextMatchRow;
   const contextRows = (await getMatchContextMap([params.matchId])).get(params.matchId) ?? [];
   const responsibleContact =
     pickContextContact(contextRows, "Responsable") ??

@@ -1,4 +1,18 @@
 import { parseISO, addDays, subDays } from "date-fns";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  ilike,
+  inArray,
+  isNotNull,
+  lte,
+  ne,
+  or,
+  type SQL,
+} from "drizzle-orm";
 
 import { ROLE_CATEGORY_ORDER } from "@/lib/constants";
 import {
@@ -11,7 +25,23 @@ import {
   toDateKey,
 } from "@/lib/date";
 import type { UserContext } from "@/lib/auth";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { db } from "@/lib/db/client";
+import {
+  assignmentColumns,
+  auditLogColumns,
+  matchColumns,
+  peopleColumns,
+  roleColumns,
+} from "@/lib/db/rows";
+import {
+  assignments as assignmentsTable,
+  auditLog as auditLogTable,
+  matches as matchesTable,
+  people as peopleTable,
+  personFunctions as personFunctionsTable,
+  profiles as profilesTable,
+  roles as rolesTable,
+} from "@/lib/db/schema";
 import type { TeamResponsiblePerson } from "@/lib/team-responsibles";
 import type { MatchRow, PersonRow, RoleRow } from "@/lib/database.types";
 import type {
@@ -78,85 +108,147 @@ function normalizeGridAssignments(params: {
 
 export async function getGridData(ctx: UserContext, filters: GridFilters) {
   void ctx;
-  const supabase = await createSupabaseServerClient();
   const window = resolveDateWindow({
     view: filters.view,
     date: filters.date,
     timezone: filters.timezone,
   });
 
-  let query = supabase
-    .from("matches")
-    .select(
-      "*, owner:people!matches_owner_id_fkey(id, full_name, phone), assignments(id, match_id, role_id, person_id, confirmed, attendance_response, attendance_note, notes, role:roles!assignments_role_id_fkey(id, name, category, sort_order, active), person:people!assignments_person_id_fkey(id, full_name, phone, email))",
-    )
-    .gte("kickoff_at", window.startUtc)
-    .lte("kickoff_at", window.endUtc)
-    .order("kickoff_at", { ascending: true });
+  const conditions: SQL[] = [
+    gte(matchesTable.kickoffAt, window.startUtc),
+    lte(matchesTable.kickoffAt, window.endUtc),
+  ];
 
   if (filters.league) {
-    query = query.eq("competition", filters.league);
+    conditions.push(eq(matchesTable.competition, filters.league));
   }
 
   if (filters.mode) {
-    query = query.eq("production_mode", filters.mode);
+    conditions.push(eq(matchesTable.productionMode, filters.mode));
   }
 
   if (filters.status) {
-    query = query.eq("status", filters.status as MatchRow["status"]);
+    conditions.push(eq(matchesTable.status, filters.status as MatchRow["status"]));
   }
 
   if (filters.owner) {
-    query = query.eq("owner_id", filters.owner);
+    conditions.push(eq(matchesTable.ownerId, filters.owner));
   }
 
   if (filters.q) {
     const term = filters.q.replaceAll(",", " ").trim();
-    query = query.or(
-      `home_team.ilike.%${term}%,away_team.ilike.%${term}%,competition.ilike.%${term}%`,
+    conditions.push(
+      or(
+        ilike(matchesTable.homeTeam, `%${term}%`),
+        ilike(matchesTable.awayTeam, `%${term}%`),
+        ilike(matchesTable.competition, `%${term}%`),
+      )!,
     );
   }
 
-  const [
-    { data: matchesData, error: matchesError },
-    ownersResult,
-    rolesResult,
-    functionsResult,
-  ] =
-    await Promise.all([
-      query,
-      supabase
-        .from("people")
-        .select("id, full_name, phone, email")
-        .eq("active", true)
-        .order("full_name"),
-      supabase
-        .from("roles")
-        .select("id, name, category, sort_order, active")
-        .eq("active", true)
-        .order("sort_order", { ascending: true }),
-      supabase.from("person_functions").select("person_id, function_key"),
-    ]);
+  const [matchRows, ownersData, rolesData, functionsData] = await Promise.all([
+    db
+      .select(matchColumns)
+      .from(matchesTable)
+      .where(and(...conditions))
+      // Secondary sort on id makes same-kickoff ordering deterministic (the
+      // retired PostgREST query left ties to the query plan).
+      .orderBy(asc(matchesTable.kickoffAt), asc(matchesTable.id)),
+    db
+      .select({
+        id: peopleTable.id,
+        full_name: peopleTable.fullName,
+        phone: peopleTable.phone,
+        email: peopleTable.email,
+      })
+      .from(peopleTable)
+      .where(eq(peopleTable.active, true))
+      .orderBy(asc(peopleTable.fullName)),
+    db
+      .select({
+        id: rolesTable.id,
+        name: rolesTable.name,
+        category: rolesTable.category,
+        sort_order: rolesTable.sortOrder,
+        active: rolesTable.active,
+      })
+      .from(rolesTable)
+      .where(eq(rolesTable.active, true))
+      .orderBy(asc(rolesTable.sortOrder)),
+    db
+      .select({
+        person_id: personFunctionsTable.personId,
+        function_key: personFunctionsTable.functionKey,
+      })
+      .from(personFunctionsTable),
+  ]);
 
-  if (matchesError) {
-    throw matchesError;
-  }
+  const matchIds = matchRows.map((match) => match.id);
 
-  if (ownersResult.error) {
-    throw ownersResult.error;
-  }
+  // Owner (people row behind matches.owner_id) and assignment crew are embedded
+  // in the retired PostgREST query; here they are joined-in as separate reads
+  // and stitched back onto each match by id.
+  const ownerIds = [
+    ...new Set(
+      matchRows
+        .map((match) => match.owner_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const ownerRows = ownerIds.length
+    ? await db
+        .select({
+          id: peopleTable.id,
+          full_name: peopleTable.fullName,
+          phone: peopleTable.phone,
+        })
+        .from(peopleTable)
+        .where(inArray(peopleTable.id, ownerIds))
+    : [];
+  const ownerById = new Map(ownerRows.map((owner) => [owner.id, owner]));
 
-  if (rolesResult.error) {
-    throw rolesResult.error;
-  }
+  const assignmentRows = matchIds.length
+    ? await db
+        .select({
+          id: assignmentsTable.id,
+          match_id: assignmentsTable.matchId,
+          role_id: assignmentsTable.roleId,
+          person_id: assignmentsTable.personId,
+          confirmed: assignmentsTable.confirmed,
+          attendance_response: assignmentsTable.attendanceResponse,
+          attendance_note: assignmentsTable.attendanceNote,
+          notes: assignmentsTable.notes,
+          role: {
+            id: rolesTable.id,
+            name: rolesTable.name,
+            category: rolesTable.category,
+            sort_order: rolesTable.sortOrder,
+            active: rolesTable.active,
+          },
+          person: {
+            id: peopleTable.id,
+            full_name: peopleTable.fullName,
+            phone: peopleTable.phone,
+            email: peopleTable.email,
+          },
+        })
+        .from(assignmentsTable)
+        .innerJoin(rolesTable, eq(assignmentsTable.roleId, rolesTable.id))
+        .leftJoin(peopleTable, eq(assignmentsTable.personId, peopleTable.id))
+        .where(inArray(assignmentsTable.matchId, matchIds))
+    : [];
 
-  if (functionsResult.error) {
-    throw functionsResult.error;
+  const assignmentsByMatch = new Map<string, GridAssignment[]>();
+  for (const row of assignmentRows) {
+    const person = row.person?.id ? row.person : null;
+    const bucket = assignmentsByMatch.get(row.match_id) ?? [];
+    bucket.push({ ...row, person } as GridAssignment);
+    assignmentsByMatch.set(row.match_id, bucket);
   }
 
   const functionsByPerson = new Map<string, PersonFunctionKey[]>();
 
-  for (const row of functionsResult.data ?? []) {
+  for (const row of functionsData) {
     if (!isPersonFunctionKey(row.function_key)) {
       continue;
     }
@@ -166,20 +258,15 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
     functionsByPerson.set(row.person_id, bucket);
   }
 
-  const activeRoles = (rolesResult.data ?? []) as ActiveRole[];
-  // Assignments are embedded in the matches query (one round-trip) instead of a
-  // follow-up `.in("match_id", [...])`, which built a multi-KB URL on wide date
-  // windows and stalled/failed. `assignments` is split off each row here.
-  const baseMatches = (matchesData ?? []) as Array<
-    Omit<MatchListItem, "assignments"> & { assignments: GridAssignment[] | null }
-  >;
+  const activeRoles = rolesData as ActiveRole[];
 
-  const matches = baseMatches.map(({ assignments, ...match }) => ({
+  const matches = matchRows.map((match) => ({
     ...match,
+    owner: ownerById.get(match.owner_id ?? "") ?? null,
     assignments: normalizeGridAssignments({
       matchId: match.id,
       roles: activeRoles,
-      assignments: assignments ?? [],
+      assignments: assignmentsByMatch.get(match.id) ?? [],
     }),
   })) as MatchListItem[];
 
@@ -203,10 +290,7 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
   }, []);
 
   const owners: GridOwner[] = (
-    (ownersResult.data ?? []) as Pick<
-      PersonRow,
-      "id" | "full_name" | "phone" | "email"
-    >[]
+    ownersData as Pick<PersonRow, "id" | "full_name" | "phone" | "email">[]
   ).map((owner) => ({
     ...owner,
     functions: functionsByPerson.get(owner.id) ?? [],
@@ -220,78 +304,101 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
 
 export async function getMatchDetailData(ctx: UserContext, matchId: string) {
   void ctx;
-  const supabase = await createSupabaseServerClient();
 
-  const [
-    matchResult,
-    assignmentsResult,
-    peopleResult,
-    rolesResult,
-    historyResult,
-    functionsResult,
-  ] = await Promise.all([
-      supabase
-        .from("matches")
-        .select(
-          "*, owner:people!matches_owner_id_fkey(id, full_name, phone, email)",
-        )
-        .eq("id", matchId)
-        .single(),
-      supabase
-        .from("assignments")
-        .select(
-          "*, role:roles!assignments_role_id_fkey(id, name, category, sort_order, active), person:people!assignments_person_id_fkey(id, full_name, phone, email)",
-        )
-        .eq("match_id", matchId)
-        .order("created_at", { ascending: true }),
-      supabase
-        .from("people")
-        .select("id, full_name, phone, email, active")
-        .eq("active", true)
-        .order("full_name"),
-      supabase
-        .from("roles")
-        .select("id, name, category, sort_order, active")
-        .eq("active", true)
-        .order("sort_order", { ascending: true }),
-      supabase
-        .from("audit_log")
-        .select(
-          "*, actor:profiles!audit_log_changed_by_fkey(id, full_name, role)",
-        )
-        .eq("match_id", matchId)
-        .order("created_at", { ascending: false })
+  const [matchRows, assignmentsData, peopleRows, rolesData, historyData, functionsData] =
+    await Promise.all([
+      db
+        .select({
+          ...matchColumns,
+          owner: {
+            id: peopleTable.id,
+            full_name: peopleTable.fullName,
+            phone: peopleTable.phone,
+            email: peopleTable.email,
+          },
+        })
+        .from(matchesTable)
+        .leftJoin(peopleTable, eq(matchesTable.ownerId, peopleTable.id))
+        .where(eq(matchesTable.id, matchId))
+        .limit(1),
+      db
+        .select({
+          ...assignmentColumns,
+          role: {
+            id: rolesTable.id,
+            name: rolesTable.name,
+            category: rolesTable.category,
+            sort_order: rolesTable.sortOrder,
+            active: rolesTable.active,
+          },
+          person: {
+            id: peopleTable.id,
+            full_name: peopleTable.fullName,
+            phone: peopleTable.phone,
+            email: peopleTable.email,
+          },
+        })
+        .from(assignmentsTable)
+        .innerJoin(rolesTable, eq(assignmentsTable.roleId, rolesTable.id))
+        .leftJoin(peopleTable, eq(assignmentsTable.personId, peopleTable.id))
+        .where(eq(assignmentsTable.matchId, matchId))
+        .orderBy(asc(assignmentsTable.createdAt)),
+      db
+        .select({
+          id: peopleTable.id,
+          full_name: peopleTable.fullName,
+          phone: peopleTable.phone,
+          email: peopleTable.email,
+          active: peopleTable.active,
+        })
+        .from(peopleTable)
+        .where(eq(peopleTable.active, true))
+        .orderBy(asc(peopleTable.fullName)),
+      db
+        .select({
+          id: rolesTable.id,
+          name: rolesTable.name,
+          category: rolesTable.category,
+          sort_order: rolesTable.sortOrder,
+          active: rolesTable.active,
+        })
+        .from(rolesTable)
+        .where(eq(rolesTable.active, true))
+        .orderBy(asc(rolesTable.sortOrder)),
+      db
+        .select({
+          ...auditLogColumns,
+          actor: {
+            id: profilesTable.id,
+            full_name: profilesTable.fullName,
+            role: profilesTable.role,
+          },
+        })
+        .from(auditLogTable)
+        .leftJoin(profilesTable, eq(auditLogTable.changedBy, profilesTable.id))
+        .where(eq(auditLogTable.matchId, matchId))
+        .orderBy(desc(auditLogTable.createdAt))
         .limit(30),
-      supabase.from("person_functions").select("person_id, function_key"),
+      db
+        .select({
+          person_id: personFunctionsTable.personId,
+          function_key: personFunctionsTable.functionKey,
+        })
+        .from(personFunctionsTable),
     ]);
 
-  if (matchResult.error) {
-    throw matchResult.error;
+  // supabase-js `.single()` errored on a missing match; preserve the throw.
+  if (!matchRows[0]) {
+    throw new Error(`Match ${matchId} not found`);
   }
-
-  if (assignmentsResult.error) {
-    throw assignmentsResult.error;
-  }
-
-  if (peopleResult.error) {
-    throw peopleResult.error;
-  }
-
-  if (functionsResult.error) {
-    throw functionsResult.error;
-  }
-
-  if (rolesResult.error) {
-    throw rolesResult.error;
-  }
-
-  if (historyResult.error) {
-    throw historyResult.error;
-  }
+  const matchRow = {
+    ...matchRows[0],
+    owner: matchRows[0].owner?.id ? matchRows[0].owner : null,
+  };
 
   const functionsByPerson = new Map<string, PersonFunctionKey[]>();
 
-  for (const row of functionsResult.data ?? []) {
+  for (const row of functionsData) {
     if (!isPersonFunctionKey(row.function_key)) {
       continue;
     }
@@ -301,11 +408,14 @@ export async function getMatchDetailData(ctx: UserContext, matchId: string) {
     functionsByPerson.set(row.person_id, bucket);
   }
 
-  const roles = (rolesResult.data ?? []) as Pick<
+  const roles = rolesData as Pick<
     RoleRow,
     "id" | "name" | "category" | "sort_order" | "active"
   >[];
-  const rawAssignments = (assignmentsResult.data ?? []) as MatchDetail["assignments"];
+  const rawAssignments = assignmentsData.map((assignment) => ({
+    ...assignment,
+    person: assignment.person?.id ? assignment.person : null,
+  })) as MatchDetail["assignments"];
   const assignmentMap = new Map(
     rawAssignments.map((assignment) => [assignment.role_id, assignment]),
   );
@@ -337,7 +447,7 @@ export async function getMatchDetailData(ctx: UserContext, matchId: string) {
   });
 
   const match = {
-    ...(matchResult.data as MatchDetail),
+    ...(matchRow as unknown as MatchDetail),
     assignments: normalizedAssignments,
   };
 
@@ -349,7 +459,7 @@ export async function getMatchDetailData(ctx: UserContext, matchId: string) {
   return {
     match,
     people: (
-      (peopleResult.data ?? []) as Pick<
+      peopleRows as Pick<
         PersonRow,
         "id" | "full_name" | "phone" | "email" | "active"
       >[]
@@ -358,7 +468,10 @@ export async function getMatchDetailData(ctx: UserContext, matchId: string) {
       functions: functionsByPerson.get(person.id) ?? [],
     })),
     roles,
-    history: (historyResult.data ?? []) as AuditEntry[],
+    history: historyData.map((entry) => ({
+      ...entry,
+      actor: entry.actor?.id ? entry.actor : null,
+    })) as unknown as AuditEntry[],
     conflicts,
   };
 }
@@ -382,38 +495,34 @@ async function getAssignmentConflicts(params: {
   const windowStart = subDays(currentStart, 1).toISOString();
   const windowEnd = addDays(currentEnd, 1).toISOString();
 
-  const supabase = await createSupabaseServerClient();
-
-  // Single round-trip: the date-window filter runs on the embedded match via
-  // !inner, replacing the previous matches-in-window pre-query whose ids fed
-  // a second, serialized assignments query.
-  const result = await supabase
-    .from("assignments")
-    .select(
-      "id, person_id, role_id, match_id, role:roles!assignments_role_id_fkey(id, name, category, sort_order, active), person:people!assignments_person_id_fkey(id, full_name, phone, email), match:matches!assignments_match_id_fkey!inner(id, home_team, away_team, kickoff_at, duration_minutes, timezone)",
-    )
-    .in("person_id", personIds)
-    .neq("match_id", params.match.id)
-    .gte("match.kickoff_at", windowStart)
-    .lte("match.kickoff_at", windowEnd);
-
-  if (result.error) {
-    throw result.error;
-  }
-
-  const overlappingAssignments = (result.data ?? []) as Array<{
-    person_id: string | null;
-    role: { name: string } | null;
-    person: { full_name: string | null } | null;
-    match: {
-      id: string;
-      home_team: string;
-      away_team: string;
-      kickoff_at: string;
-      duration_minutes: number;
-      timezone: string;
-    };
-  }>;
+  // The date-window filter runs on the joined match (inner), so only
+  // assignments whose match falls in the ±1 day window come back.
+  const overlappingAssignments = await db
+    .select({
+      person_id: assignmentsTable.personId,
+      role: { name: rolesTable.name },
+      person: { full_name: peopleTable.fullName },
+      match: {
+        id: matchesTable.id,
+        home_team: matchesTable.homeTeam,
+        away_team: matchesTable.awayTeam,
+        kickoff_at: matchesTable.kickoffAt,
+        duration_minutes: matchesTable.durationMinutes,
+        timezone: matchesTable.timezone,
+      },
+    })
+    .from(assignmentsTable)
+    .innerJoin(matchesTable, eq(assignmentsTable.matchId, matchesTable.id))
+    .innerJoin(rolesTable, eq(assignmentsTable.roleId, rolesTable.id))
+    .leftJoin(peopleTable, eq(assignmentsTable.personId, peopleTable.id))
+    .where(
+      and(
+        inArray(assignmentsTable.personId, personIds),
+        ne(assignmentsTable.matchId, params.match.id),
+        gte(matchesTable.kickoffAt, windowStart),
+        lte(matchesTable.kickoffAt, windowEnd),
+      ),
+    );
 
   return overlappingAssignments
     .filter((assignment) => assignment.person_id)
@@ -440,45 +549,44 @@ async function getAssignmentConflicts(params: {
 
 export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]> {
   void ctx;
-  const supabase = await createSupabaseServerClient();
   const now = new Date();
   // Bound the assignments read to matches that could still be current. The
   // count only cares about matches whose end is >= now; a 1-day lower bound on
   // kickoff safely covers any in-progress match without scanning all history.
   const windowStartIso = subDays(now, 1).toISOString();
-  const [peopleResult, assignmentsResult, functionsResult, rolesResult] =
+  const [peopleData, assignmentsData, functionsData, rolesData] =
     await Promise.all([
-      supabase.from("people").select("*").order("full_name"),
-      supabase
-        .from("assignments")
-        .select(
-          "person_id, match:matches!assignments_match_id_fkey!inner(kickoff_at, duration_minutes)",
-        )
-        .not("person_id", "is", null)
-        .gte("match.kickoff_at", windowStartIso),
-      supabase.from("person_functions").select("person_id, function_key"),
-      supabase.from("roles").select("id, name"),
+      db.select(peopleColumns).from(peopleTable).orderBy(asc(peopleTable.fullName)),
+      db
+        .select({
+          person_id: assignmentsTable.personId,
+          match: {
+            kickoff_at: matchesTable.kickoffAt,
+            duration_minutes: matchesTable.durationMinutes,
+          },
+        })
+        .from(assignmentsTable)
+        .innerJoin(matchesTable, eq(assignmentsTable.matchId, matchesTable.id))
+        .where(
+          and(
+            isNotNull(assignmentsTable.personId),
+            gte(matchesTable.kickoffAt, windowStartIso),
+          ),
+        ),
+      db
+        .select({
+          person_id: personFunctionsTable.personId,
+          function_key: personFunctionsTable.functionKey,
+        })
+        .from(personFunctionsTable),
+      db
+        .select({ id: rolesTable.id, name: rolesTable.name })
+        .from(rolesTable),
     ]);
-
-  if (peopleResult.error) {
-    throw peopleResult.error;
-  }
-
-  if (assignmentsResult.error) {
-    throw assignmentsResult.error;
-  }
-
-  if (functionsResult.error) {
-    throw functionsResult.error;
-  }
-
-  if (rolesResult.error) {
-    throw rolesResult.error;
-  }
 
   const functionsByPerson = new Map<string, PersonFunctionKey[]>();
 
-  for (const row of functionsResult.data ?? []) {
+  for (const row of functionsData) {
     if (!isPersonFunctionKey(row.function_key)) {
       continue;
     }
@@ -490,13 +598,13 @@ export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]>
 
   const roleNameById = new Map<string, string>();
 
-  for (const role of rolesResult.data ?? []) {
+  for (const role of rolesData) {
     roleNameById.set(role.id, role.name);
   }
 
   const currentCountByPerson = new Map<string, number>();
 
-  for (const assignment of (assignmentsResult.data ?? []) as PersonAssignmentSummary[]) {
+  for (const assignment of assignmentsData as PersonAssignmentSummary[]) {
     const personId = assignment.person_id;
 
     if (!personId || !assignment.match) {
@@ -515,7 +623,7 @@ export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]>
     }
   }
 
-  return ((peopleResult.data ?? []) as PersonRow[]).map((person) => {
+  return (peopleData as PersonRow[]).map((person) => {
     const currentAssignmentCount = currentCountByPerson.get(person.id) ?? 0;
     const primaryRole = person.role_id
       ? roleNameById.get(person.role_id) ?? null
@@ -541,17 +649,18 @@ export async function getPeopleContactList(
   ctx: UserContext,
 ): Promise<TeamResponsiblePerson[]> {
   void ctx;
-  const supabase = await createSupabaseServerClient();
-  const result = await supabase
-    .from("people")
-    .select("full_name, phone, email, active, notes")
-    .order("full_name");
+  const rows = await db
+    .select({
+      full_name: peopleTable.fullName,
+      phone: peopleTable.phone,
+      email: peopleTable.email,
+      active: peopleTable.active,
+      notes: peopleTable.notes,
+    })
+    .from(peopleTable)
+    .orderBy(asc(peopleTable.fullName));
 
-  if (result.error) {
-    throw result.error;
-  }
-
-  return (result.data ?? []) as TeamResponsiblePerson[];
+  return rows as TeamResponsiblePerson[];
 }
 
 export async function getRolesData(ctx: UserContext): Promise<{
@@ -559,17 +668,12 @@ export async function getRolesData(ctx: UserContext): Promise<{
   grouped: Array<{ category: string; roles: RoleRow[] }>;
 }> {
   void ctx;
-  const supabase = await createSupabaseServerClient();
-  const result = await supabase
-    .from("roles")
-    .select("*")
-    .order("sort_order");
+  const rows = await db
+    .select(roleColumns)
+    .from(rolesTable)
+    .orderBy(asc(rolesTable.sortOrder));
 
-  if (result.error) {
-    throw result.error;
-  }
-
-  const roles = (result.data ?? []) as RoleRow[];
+  const roles = rows as RoleRow[];
   const grouped = ROLE_CATEGORY_ORDER.map((category) => ({
     category,
     roles: roles.filter((role) => role.category === category),

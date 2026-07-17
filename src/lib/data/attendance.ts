@@ -1,8 +1,11 @@
+import { eq } from "drizzle-orm";
+
 import type { UserContext } from "@/lib/auth";
 import { canConfirmAttendance } from "@/lib/attendance";
 import { stampUpdate } from "@/lib/audit";
 import { findLinkedPerson } from "@/lib/data/linked-person";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { db } from "@/lib/db/client";
+import { assignments as assignmentsTable, matches as matchesTable } from "@/lib/db/schema";
 
 export type AttendanceResponse = "attending" | "declined";
 
@@ -36,17 +39,25 @@ export async function recordAttendanceConfirmation(
     return { ok: false, reason: "not-linked" };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const assignmentRows = await db
+    .select({
+      id: assignmentsTable.id,
+      match_id: assignmentsTable.matchId,
+      person_id: assignmentsTable.personId,
+      match: {
+        kickoff_at: matchesTable.kickoffAt,
+        duration_minutes: matchesTable.durationMinutes,
+      },
+    })
+    .from(assignmentsTable)
+    .leftJoin(matchesTable, eq(assignmentsTable.matchId, matchesTable.id))
+    .where(eq(assignmentsTable.id, params.assignmentId))
+    .limit(1);
 
-  const assignmentResult = await supabase
-    .from("assignments")
-    .select(
-      "id, match_id, person_id, match:matches!assignments_match_id_fkey(kickoff_at, duration_minutes)",
-    )
-    .eq("id", params.assignmentId)
-    .maybeSingle();
-
-  const assignment = assignmentResult.data as AssignmentForAttendance | null;
+  const row = assignmentRows[0];
+  const assignment: AssignmentForAttendance | null = row
+    ? { ...row, match: row.match?.kickoff_at ? row.match : null }
+    : null;
 
   if (!assignment || !assignment.match) {
     return { ok: false, reason: "not-found" };
@@ -67,21 +78,23 @@ export async function recordAttendanceConfirmation(
   // attendance_confirmed_at stays the "will attend" signal (set only when
   // attending); pending leaves it NULL. attendance_note is the optional note the
   // person leaves alongside their confirmation; cleared when there is no response.
-  const updateResult = await supabase
-    .from("assignments")
-    .update(
-      stampUpdate(ctx, {
-        attendance_response: params.response,
-        attendance_confirmed_at:
-          params.response === "attending" ? new Date().toISOString() : null,
-        attendance_note: params.response ? params.note?.trim() || null : null,
-      }),
-    )
-    .eq("id", params.assignmentId);
+  const stamped = stampUpdate(ctx, {
+    attendance_response: params.response,
+    attendance_confirmed_at:
+      params.response === "attending" ? new Date().toISOString() : null,
+    attendance_note: params.response ? params.note?.trim() || null : null,
+  });
 
-  if (updateResult.error) {
-    throw updateResult.error;
-  }
+  await db
+    .update(assignmentsTable)
+    .set({
+      attendanceResponse: stamped.attendance_response,
+      attendanceConfirmedAt: stamped.attendance_confirmed_at,
+      attendanceNote: stamped.attendance_note,
+      updatedBy: stamped.updated_by,
+      updatedAt: stamped.updated_at,
+    })
+    .where(eq(assignmentsTable.id, params.assignmentId));
 
   return { ok: true, matchId: assignment.match_id };
 }

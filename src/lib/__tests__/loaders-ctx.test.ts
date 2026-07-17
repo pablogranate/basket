@@ -2,12 +2,33 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { makeUserContext } from "@/test/fixtures/user-context";
 
-vi.mock("@/lib/supabase/server", () => ({
-  createSupabaseServerClient: vi.fn(),
+// The loaders read the domain DB through Drizzle now. Mock the client with a
+// chainable stub whose terminal `.limit()` resolves the rows the SQL would
+// return (email filtering lives in SQL, so each case sets the expected result).
+const h = vi.hoisted(() => ({
+  state: {
+    rows: [] as unknown[],
+    throwOnQuery: false,
+    selectSpy: vi.fn(),
+  },
 }));
 
-vi.mock("@/lib/supabase/admin", () => ({
-  createSupabaseAdminClient: vi.fn(),
+vi.mock("@/lib/db/client", () => ({
+  db: {
+    select: (...args: unknown[]) => {
+      h.state.selectSpy(...args);
+      const chain = {
+        from: () => chain,
+        where: () => chain,
+        orderBy: () => chain,
+        limit: async () => {
+          if (h.state.throwOnQuery) throw new Error("boom");
+          return h.state.rows;
+        },
+      };
+      return chain;
+    },
+  },
 }));
 
 import {
@@ -15,32 +36,12 @@ import {
   getActiveAnnouncement,
 } from "@/lib/data/announcements";
 import { personHasPlatformAccess } from "@/lib/data/platform-access";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-
-const mockedServerClient = vi.mocked(createSupabaseServerClient);
-const mockedAdminClient = vi.mocked(createSupabaseAdminClient);
-
-type StubResult = { data: unknown; error: unknown };
-
-function makeAnnouncementQueryStub(result: StubResult) {
-  const builder = {
-    select: vi.fn(() => builder),
-    order: vi.fn(() => builder),
-    limit: vi.fn(() => builder),
-    eq: vi.fn(() => builder),
-    maybeSingle: vi.fn(async () => result),
-  };
-
-  return {
-    from: vi.fn(() => builder),
-  };
-}
 
 describe("data loaders accept a typed ctx (D-06)", () => {
   afterEach(() => {
     vi.clearAllMocks();
-    // The loader memoizes across requests; each test needs a cold cache.
+    h.state.rows = [];
+    h.state.throwOnQuery = false;
     clearAnnouncementCache();
   });
 
@@ -53,25 +54,16 @@ describe("data loaders accept a typed ctx (D-06)", () => {
       updated_at: new Date().toISOString(),
       created_at: new Date().toISOString(),
     };
-    const stub = makeAnnouncementQueryStub({ data: announcement, error: null });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    mockedServerClient.mockResolvedValue(stub as any);
+    h.state.rows = [announcement];
 
-    const ctx = makeUserContext();
-    const result = await getActiveAnnouncement(ctx);
+    const result = await getActiveAnnouncement(makeUserContext());
 
-    expect(mockedServerClient).toHaveBeenCalledTimes(1);
-    expect(stub.from).toHaveBeenCalledWith("announcements");
+    expect(h.state.selectSpy).toHaveBeenCalledTimes(1);
     expect(result).toEqual(announcement);
   });
 
   it("getActiveAnnouncement is unit-testable without cookies and returns null on error", async () => {
-    const stub = makeAnnouncementQueryStub({
-      data: null,
-      error: { message: "boom" },
-    });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    mockedServerClient.mockResolvedValue(stub as any);
+    h.state.throwOnQuery = true;
 
     const result = await getActiveAnnouncement(makeUserContext());
 
@@ -82,64 +74,31 @@ describe("data loaders accept a typed ctx (D-06)", () => {
 describe("personHasPlatformAccess", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    h.state.rows = [];
+    h.state.throwOnQuery = false;
   });
-
-  function makeAdminStub(params: {
-    profiles: Array<{ email: string; role: string }>;
-  }) {
-    // Mirrors the Supabase query builder chain used by getPlatformAccessRole:
-    // .select(...).ilike("email", pattern).limit(n). The ilike filter is applied
-    // here (case-insensitive, wildcards unescaped) so the "no matching profile"
-    // case stays meaningful instead of returning the whole table.
-    let rows = params.profiles;
-    const profileBuilder = {
-      select: vi.fn(() => profileBuilder),
-      ilike: vi.fn((_column: string, pattern: string) => {
-        const needle = pattern.replaceAll(/\\([\\%_])/g, "$1").toLowerCase();
-        rows = params.profiles.filter(
-          (row) => row.email?.toLowerCase() === needle,
-        );
-        return profileBuilder;
-      }),
-      limit: vi.fn(async (count: number) => ({
-        data: rows.slice(0, count),
-        error: null,
-      })),
-    };
-
-    return {
-      from: vi.fn(() => profileBuilder),
-    };
-  }
 
   it("returns false when email is empty", async () => {
     const result = await personHasPlatformAccess(null);
     expect(result).toBe(false);
-    expect(mockedAdminClient).not.toHaveBeenCalled();
+    expect(h.state.selectSpy).not.toHaveBeenCalled();
   });
 
   it.each(["admin", "editor", "collaborator"])(
     "returns true for an access-granting role: %s",
     async (role) => {
-      const stub = makeAdminStub({
-        profiles: [{ email: "grant@basket-app.test", role }],
-      });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      mockedAdminClient.mockReturnValue(stub as any);
+      // The ilike + limit(1) filter runs in SQL; the DB would return the match.
+      h.state.rows = [{ email: "grant@basket-app.test", role }];
 
       const result = await personHasPlatformAccess("Grant@Basket-App.test");
 
       expect(result).toBe(true);
-      expect(stub.from).toHaveBeenCalledWith("profiles");
+      expect(h.state.selectSpy).toHaveBeenCalledTimes(1);
     },
   );
 
   it("returns false when there is no matching profile", async () => {
-    const stub = makeAdminStub({
-      profiles: [{ email: "other@basket-app.test", role: "collaborator" }],
-    });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    mockedAdminClient.mockReturnValue(stub as any);
+    h.state.rows = [];
 
     const result = await personHasPlatformAccess("missing@basket-app.test");
 
@@ -147,11 +106,7 @@ describe("personHasPlatformAccess", () => {
   });
 
   it("returns false for a non-access-granting role (viewer)", async () => {
-    const stub = makeAdminStub({
-      profiles: [{ email: "viewer@basket-app.test", role: "viewer" }],
-    });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    mockedAdminClient.mockReturnValue(stub as any);
+    h.state.rows = [{ email: "viewer@basket-app.test", role: "viewer" }];
 
     const result = await personHasPlatformAccess("viewer@basket-app.test");
 

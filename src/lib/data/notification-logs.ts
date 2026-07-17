@@ -1,6 +1,11 @@
 import "server-only";
 
+import { and, count, desc, eq, gte, ilike, inArray, lte, type SQL } from "drizzle-orm";
+
 import type { UserContext } from "@/lib/auth";
+import { db } from "@/lib/db/client";
+import { notificationLogColumns } from "@/lib/db/rows";
+import { notificationLogs } from "@/lib/db/schema";
 import { getDayRange } from "@/lib/date";
 import {
   EMPTY_NOTIFICATION_LOG_FILTERS,
@@ -8,7 +13,6 @@ import {
   type NotificationLogFilters,
 } from "@/lib/notifications/log-filters";
 import type { NotificationLogEntry } from "@/lib/types";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const ARG_TZ = "America/Argentina/Buenos_Aires";
 
@@ -40,58 +44,73 @@ export async function getNotificationLogs(
 
   const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
   const from = (safePage - 1) * NOTIFICATION_LOGS_PAGE_SIZE;
-  const to = from + NOTIFICATION_LOGS_PAGE_SIZE - 1;
 
-  const supabase = createSupabaseAdminClient();
-  let query = supabase
-    .from("notification_logs")
-    .select("*", { count: "exact" });
+  const conditions: SQL[] = [];
 
   if (filters.status) {
-    query = query.eq("status", filters.status);
+    conditions.push(eq(notificationLogs.status, filters.status));
   }
 
   if (filters.channel) {
-    query = query.eq("channel", filters.channel);
+    conditions.push(eq(notificationLogs.channel, filters.channel));
   }
 
   const triggerValues = resolveTriggerValues(filters.trigger);
   if (triggerValues) {
-    query = query.in("trigger", triggerValues);
+    conditions.push(inArray(notificationLogs.trigger, triggerValues));
   }
 
   if (filters.dateFrom) {
-    query = query.gte("created_at", getDayRange(filters.dateFrom, ARG_TZ).startUtc);
+    conditions.push(
+      gte(notificationLogs.createdAt, getDayRange(filters.dateFrom, ARG_TZ).startUtc),
+    );
   }
 
   if (filters.dateTo) {
-    query = query.lte("created_at", getDayRange(filters.dateTo, ARG_TZ).endUtc);
+    conditions.push(
+      lte(notificationLogs.createdAt, getDayRange(filters.dateTo, ARG_TZ).endUtc),
+    );
   }
 
   if (filters.recipient) {
-    query = query.ilike("recipient_name", `%${escapeIlike(filters.recipient)}%`);
+    conditions.push(
+      ilike(notificationLogs.recipientName, `%${escapeIlike(filters.recipient)}%`),
+    );
   }
 
   if (filters.match) {
-    query = query.ilike("match_label", `%${escapeIlike(filters.match)}%`);
+    conditions.push(
+      ilike(notificationLogs.matchLabel, `%${escapeIlike(filters.match)}%`),
+    );
   }
 
-  const result = await query
-    .order("created_at", { ascending: false })
-    .range(from, to);
+  const where = conditions.length ? and(...conditions) : undefined;
 
-  if (result.error) {
-    console.error("[notifications] failed to load delivery log", result.error);
+  try {
+    const [totalRow] = await db
+      .select({ value: count() })
+      .from(notificationLogs)
+      .where(where);
+    const total = totalRow?.value ?? 0;
+
+    const rows = await db
+      .select(notificationLogColumns)
+      .from(notificationLogs)
+      .where(where)
+      .orderBy(desc(notificationLogs.createdAt))
+      .limit(NOTIFICATION_LOGS_PAGE_SIZE)
+      .offset(from);
+
+    const pageCount = Math.max(1, Math.ceil(total / NOTIFICATION_LOGS_PAGE_SIZE));
+
+    return {
+      rows: rows as NotificationLogEntry[],
+      total,
+      page: safePage,
+      pageCount,
+    };
+  } catch (error) {
+    console.error("[notifications] failed to load delivery log", error);
     return { rows: [], total: 0, page: safePage, pageCount: 0 };
   }
-
-  const total = result.count ?? 0;
-  const pageCount = Math.max(1, Math.ceil(total / NOTIFICATION_LOGS_PAGE_SIZE));
-
-  return {
-    rows: (result.data ?? []) as NotificationLogEntry[],
-    total,
-    page: safePage,
-    pageCount,
-  };
 }
