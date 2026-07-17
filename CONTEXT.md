@@ -22,6 +22,16 @@ _Avoid_: staff role, elevated role
 The promotional-image generator at `generator.basket-app.com` — a static browser tool with no backend of its own. It carries no auth code; its gate is enforced in front of it, not inside it.
 _Avoid_: image generator app (when the sibling is meant)
 
+### Data ownership
+
+**Domain DB**:
+The database holding portal's own data — matches, people, teams, grid, reports. Portal is its only reader and writer; no sibling app, bot, or workflow touches it. Distinct from the Auth DB.
+_Avoid_: "the database" (ambiguous), portal DB (when the Auth DB might be meant)
+
+**Auth DB**:
+The shared identity store consulted by every sibling app's gate — sessions and users live here, domain data never does. Its availability gates login for all siblings, so it changes rarely and deliberately, unlike the weekly-churning Domain DB.
+_Avoid_: user DB, sessions DB
+
 ### Notifications
 
 **Send time**:
