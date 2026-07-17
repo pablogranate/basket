@@ -1,7 +1,7 @@
 # Handoff 2 — Domain DB migration: Supabase → self-hosted Postgres
 
 **Audience:** the agent continuing this migration
-**Status (2026-07-17):** Phases 2, 3 and 4 DONE and committed. Phase 1 (infra) not started (needs the user for root steps). Phases 5–7 not started.
+**Status (2026-07-17):** Phases 2, 3, 4 and 5 DONE and committed. Phase 1 (infra) not started (needs the user for root steps). Phases 6–7 not started.
 **Branch:** `feat/domain-db-selfhost` (Phases 2–5 live here, one commit per phase, single PR at the end).
 
 **Read in this order:**
@@ -71,15 +71,19 @@ It imports OLD supabase-js loaders from `scripts/parity/baseline/*.ts` and NEW D
 - Parity harness was **not** extended with action/API read cases: those reads are gated behind `requireUserContext`/`withAuth` (not runnable standalone), and their query shapes reuse the Drizzle patterns already proven 19/19 in the loaders.
 - Gate green: 0 lint errors (7 pre-existing warnings in untouched files), 763 tests, build OK.
 
+**Phase 5 — import CLIs** (this branch, one commit)
+- All 4 `tools/import/{index,contactos,periodistas,grilla}.mjs` ported supabase-js → the `postgres` client (raw SQL; `.mjs` can't import the TS Drizzle schema without a build step).
+- `tools/import/db.mjs` — shared `connectDb()`: checks `DATABASE_URL`, returns a `postgres` instance (`{ max: 5 }`). Every script `await sql.end()`s before returning (postgres holds the socket open; without it Node hangs — supabase-js over HTTP never needed this).
+- Query translation: `.select()` → `await sql\`SELECT ...\`` (returns row array, throws on error — no `{data,error}`); `.insert().select().single()` → `INSERT ... ${sql(obj)} RETURNING id` + destructure `[row]`; `.upsert({onConflict, ignoreDuplicates:true})` → `ON CONFLICT (...) DO NOTHING`; `.upsert({onConflict})` (assignments) → `ON CONFLICT (...) DO UPDATE SET col = excluded.col, ...`; batch inserts → `sql(arrayOfObjects)`. ON-CONFLICT targets verified against schema: `person_functions_unique`, `assignments_match_role_unique`, `club_contacts_unique`.
+- **App owns `updated_at`.** The baseline migration ships zero triggers (same as Phase 4), so every UPDATE / conflict-update path sets `updated_at = new Date().toISOString()` explicitly (matches grid sync). INSERTs omit `id`/`created_at`/`updated_at` — column defaults cover them.
+- Env: all scripts now require `DATABASE_URL` (was `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`). `grilla` still fails-fast on missing env at top even though its dry-run doesn't hit the DB (parity with old behavior).
+- Smoke-tested: `contactos` dry-run (pure parse, exit 0), `periodistas` dry-run (real postgres read of 66 people + clean `sql.end()` exit 0). Full write paths need Phase 1's local container to test end-to-end.
+- Gate green: 0 lint errors (7 pre-existing warnings, incl. `grilla.mjs`'s long-unused `FIELD_COLUMNS` — left alone), 763 tests, build OK.
+
 ## 5. What REMAINS
 
 **Phase 1 — infra (needs the user for root/VPS steps; independent of code).**
 Prod container `basket-portal-db` (`postgres:17`, published `127.0.0.1:5434` only, `restart=unless-stopped`), each dev's local container, `db:refresh` script (`ssh prod pg_dump | psql local`), nightly `pg_dump` backup cron for `basket_portal` + `basket_auth` (14-day retention, weekly restore-test). PRD §7.1.
-
-**Phase 4 — actions + API routes (pure code, this branch).**
-~55 supabase-js sites in `src/app/actions/*.ts`, ~5 in `src/app/api/**/route.ts`. Reuse `rows.ts`/`columns.ts` and the §2 principle. WRITES: preserve audit/stamp columns exactly (`stampInsert`/`stampUpdate` from `@/lib/audit` return **snake_case**; Drizzle `.set()`/`.values()` take **camelCase** — map explicitly, as done in `attendance.ts`). Delete dead `src/lib/supabase/browser.ts`. Extend the parity harness with read-path cases from actions/API where feasible. Do NOT delete `admin.ts`/`server.ts` (see §4).
-
-**Phase 5 — import CLIs.** Port all 4 `tools/import/{index,contactos,periodistas,grilla}.mjs` from supabase-js to the `postgres` client (or a small Drizzle setup). These are `.mjs`, service-role today.
 
 **Phase 6 — verification hardening.** Permanent vitest data-layer integration suite against the local container (seed from parity fixtures; priority on write paths + stamp columns — `stamping-coverage.test.ts` is the seed). Write the manual smoke checklist doc (all sections, all 4 roles).
 
@@ -88,7 +92,7 @@ Prod container `basket-portal-db` (`postgres:17`, published `127.0.0.1:5434` onl
 ## 6. Fast orientation commands
 
 ```
-git log --oneline -3                    # 026e7c9 loaders, 8956e71 schema, 7a8b76c planning
+git log --oneline -4                    # import CLIs, a0b9f3f actions+API, 026e7c9 loaders, 8956e71 schema
 npm run check                           # full gate
 npx tsx --tsconfig scripts/parity/tsconfig.json scripts/parity/run.ts   # parity 19/19
 grep -rn "supabase" src/lib/data/       # confirm loaders are clean (only 1 comment)

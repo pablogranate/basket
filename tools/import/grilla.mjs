@@ -7,7 +7,8 @@ import { fileURLToPath } from "node:url";
 import { parse } from "csv-parse/sync";
 import { fromZonedTime } from "date-fns-tz";
 import dotenv from "dotenv";
-import { createClient } from "@supabase/supabase-js";
+
+import { connectDb } from "./db.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, "../..");
@@ -204,7 +205,7 @@ function parseTab(tabName, csvSource) {
   return entries;
 }
 
-async function getOrCreatePerson(supabase, peopleCache, fullName) {
+async function getOrCreatePerson(sql, peopleCache, fullName) {
   const name = String(fullName ?? "").trim();
   if (!name) {
     return null;
@@ -214,107 +215,75 @@ async function getOrCreatePerson(supabase, peopleCache, fullName) {
     return peopleCache.get(name);
   }
 
-  const existing = await supabase
-    .from("people")
-    .select("id")
-    .eq("full_name", name)
-    .limit(1)
-    .maybeSingle();
+  const [existing] = await sql`
+    SELECT id FROM people WHERE full_name = ${name} LIMIT 1
+  `;
 
-  if (existing.error) {
-    throw existing.error;
+  if (existing?.id) {
+    peopleCache.set(name, existing.id);
+    return existing.id;
   }
 
-  if (existing.data?.id) {
-    peopleCache.set(name, existing.data.id);
-    return existing.data.id;
-  }
+  const [created] = await sql`
+    INSERT INTO people ${sql({ full_name: name, active: true })}
+    RETURNING id
+  `;
 
-  const created = await supabase
-    .from("people")
-    .insert({ full_name: name, active: true })
-    .select("id")
-    .single();
-
-  if (created.error) {
-    throw created.error;
-  }
-
-  peopleCache.set(name, created.data.id);
-  return created.data.id;
+  peopleCache.set(name, created.id);
+  return created.id;
 }
 
-async function getRoleId(supabase, rolesCache, roleName) {
+async function getRoleId(sql, rolesCache, roleName) {
   if (rolesCache.has(roleName)) {
     return rolesCache.get(roleName);
   }
 
-  const existing = await supabase
-    .from("roles")
-    .select("id")
-    .eq("name", roleName)
-    .limit(1)
-    .maybeSingle();
+  const [existing] = await sql`
+    SELECT id FROM roles WHERE name = ${roleName} LIMIT 1
+  `;
 
-  if (existing.error) {
-    throw existing.error;
-  }
-
-  if (!existing.data?.id) {
+  if (!existing?.id) {
     throw new Error(`Rol "${roleName}" no existe en la base. Crealo antes de importar.`);
   }
 
-  rolesCache.set(roleName, existing.data.id);
-  return existing.data.id;
+  rolesCache.set(roleName, existing.id);
+  return existing.id;
 }
 
-async function upsertMatch(supabase, payload) {
-  const existing = await supabase
-    .from("matches")
-    .select("id")
-    .eq("home_team", payload.home_team)
-    .eq("away_team", payload.away_team)
-    .eq("kickoff_at", payload.kickoff_at)
-    .limit(1)
-    .maybeSingle();
+async function upsertMatch(sql, payload) {
+  const [existing] = await sql`
+    SELECT id FROM matches
+    WHERE home_team = ${payload.home_team}
+      AND away_team = ${payload.away_team}
+      AND kickoff_at = ${payload.kickoff_at}
+    LIMIT 1
+  `;
 
-  if (existing.error) {
-    throw existing.error;
+  if (existing?.id) {
+    // App owns updated_at now that the metadata trigger is gone.
+    const [updated] = await sql`
+      UPDATE matches
+      SET ${sql({ ...payload, updated_at: new Date().toISOString() })}
+      WHERE id = ${existing.id}
+      RETURNING id
+    `;
+
+    return { id: updated.id, created: false };
   }
 
-  if (existing.data?.id) {
-    const updated = await supabase
-      .from("matches")
-      .update(payload)
-      .eq("id", existing.data.id)
-      .select("id")
-      .single();
+  const [created] = await sql`
+    INSERT INTO matches ${sql(payload)}
+    RETURNING id
+  `;
 
-    if (updated.error) {
-      throw updated.error;
-    }
-
-    return { id: updated.data.id, created: false };
-  }
-
-  const created = await supabase
-    .from("matches")
-    .insert(payload)
-    .select("id")
-    .single();
-
-  if (created.error) {
-    throw created.error;
-  }
-
-  return { id: created.data.id, created: true };
+  return { id: created.id, created: true };
 }
 
 async function main() {
   const dryRun = process.argv.includes("--dry-run");
 
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    console.error("Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en el entorno.");
+  if (!process.env.DATABASE_URL) {
+    console.error("Falta DATABASE_URL en el entorno.");
     process.exit(1);
   }
 
@@ -350,16 +319,7 @@ async function main() {
     return;
   }
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      },
-    },
-  );
+  const sql = connectDb();
 
   const peopleCache = new Map();
   const rolesCache = new Map();
@@ -368,8 +328,8 @@ async function main() {
   let upsertedAssignments = 0;
 
   for (const entry of entries) {
-    const ownerId = await getOrCreatePerson(supabase, peopleCache, entry.responsable);
-    const match = await upsertMatch(supabase, { ...entry.match, owner_id: ownerId });
+    const ownerId = await getOrCreatePerson(sql, peopleCache, entry.responsable);
+    const match = await upsertMatch(sql, { ...entry.match, owner_id: ownerId });
 
     if (match.created) {
       createdMatches += 1;
@@ -378,31 +338,34 @@ async function main() {
     }
 
     for (const assignment of entry.assignments) {
-      const roleId = await getRoleId(supabase, rolesCache, assignment.roleName);
-      const personId = await getOrCreatePerson(supabase, peopleCache, assignment.personName);
+      const roleId = await getRoleId(sql, rolesCache, assignment.roleName);
+      const personId = await getOrCreatePerson(sql, peopleCache, assignment.personName);
 
       if (!roleId || !personId) {
         continue;
       }
 
-      const result = await supabase.from("assignments").upsert(
-        {
+      // App owns updated_at on the conflict-update path (trigger dropped).
+      await sql`
+        INSERT INTO assignments ${sql({
           match_id: match.id,
           role_id: roleId,
           person_id: personId,
           confirmed: false,
           notes: null,
-        },
-        { onConflict: "match_id,role_id" },
-      );
-
-      if (result.error) {
-        throw result.error;
-      }
+        })}
+        ON CONFLICT (match_id, role_id) DO UPDATE SET
+          person_id = excluded.person_id,
+          confirmed = excluded.confirmed,
+          notes = excluded.notes,
+          updated_at = ${new Date().toISOString()}
+      `;
 
       upsertedAssignments += 1;
     }
   }
+
+  await sql.end();
 
   console.log(`Importacion de grilla terminada:
 - partidos creados: ${createdMatches}
