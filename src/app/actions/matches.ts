@@ -7,6 +7,8 @@ import {
   redirectWithNotice,
   rethrowNavigationError,
 } from "@/app/actions/helpers";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
+
 import type { Database } from "@/lib/database.types";
 import {
   MATCH_STATUS_OPTIONS,
@@ -14,13 +16,82 @@ import {
   normalizeProductionMode,
 } from "@/lib/constants";
 import { buildKickoffAt, formatMatchDate } from "@/lib/date";
+import { db } from "@/lib/db/client";
+import {
+  assignments as assignmentsTable,
+  matches as matchesTable,
+  personFunctions as personFunctionsTable,
+  roles as rolesTable,
+} from "@/lib/db/schema";
 import { type PersonFunctionKey, roleNameToFunctionKey } from "@/lib/functions";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireEditor, requireUserContext } from "@/lib/auth";
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
 import { recordAttendanceConfirmation } from "@/lib/data/attendance";
 import { shouldResetAttendance } from "@/lib/attendance";
 import { ensureErrorMessage, maybeNull, pickFirstString } from "@/lib/utils";
+
+// stampInsert/stampUpdate return snake_case payloads; Drizzle .values()/.set()
+// take camelCase. These mappers translate, copying only keys actually present
+// so an UPDATE never touches an omitted column (upsert-retains-on-conflict).
+type MatchColumns = Partial<typeof matchesTable.$inferInsert>;
+
+const MATCH_COLUMN_MAP = {
+  competition: "competition",
+  production_code: "productionCode",
+  production_mode: "productionMode",
+  status: "status",
+  home_team: "homeTeam",
+  away_team: "awayTeam",
+  venue: "venue",
+  commentary_plan: "commentaryPlan",
+  transport: "transport",
+  kickoff_at: "kickoffAt",
+  duration_minutes: "durationMinutes",
+  timezone: "timezone",
+  owner_id: "ownerId",
+  notes: "notes",
+  created_by: "createdBy",
+  updated_by: "updatedBy",
+  created_at: "createdAt",
+  updated_at: "updatedAt",
+} as const;
+
+function toMatchColumns(payload: Record<string, unknown>): MatchColumns {
+  const out: Record<string, unknown> = {};
+  for (const [snake, camel] of Object.entries(MATCH_COLUMN_MAP)) {
+    if (snake in payload) {
+      out[camel] = payload[snake];
+    }
+  }
+  return out as MatchColumns;
+}
+
+type AssignmentColumns = Partial<typeof assignmentsTable.$inferInsert>;
+
+const ASSIGNMENT_COLUMN_MAP = {
+  match_id: "matchId",
+  role_id: "roleId",
+  person_id: "personId",
+  confirmed: "confirmed",
+  notes: "notes",
+  attendance_confirmed_at: "attendanceConfirmedAt",
+  attendance_response: "attendanceResponse",
+  attendance_note: "attendanceNote",
+  created_by: "createdBy",
+  updated_by: "updatedBy",
+  created_at: "createdAt",
+  updated_at: "updatedAt",
+} as const;
+
+function toAssignmentColumns(payload: Record<string, unknown>): AssignmentColumns {
+  const out: Record<string, unknown> = {};
+  for (const [snake, camel] of Object.entries(ASSIGNMENT_COLUMN_MAP)) {
+    if (snake in payload) {
+      out[camel] = payload[snake];
+    }
+  }
+  return out as AssignmentColumns;
+}
 
 const STAFF_ROLE_FIELD_MAP = [
   {
@@ -53,13 +124,6 @@ const STAFF_ROLE_FIELD_MAP = [
   },
 ] as const;
 
-const OPTIONAL_MATCH_COLUMNS = new Set([
-  "production_code",
-  "commentary_plan",
-  "transport",
-]);
-
-type MatchInsert = Database["public"]["Tables"]["matches"]["Insert"];
 type MatchUpdate = Database["public"]["Tables"]["matches"]["Update"];
 
 function assertMatchStatus(value: string) {
@@ -140,7 +204,6 @@ function unqualifiedAssignmentNotice(roleName: string, functionKey: PersonFuncti
 }
 
 async function findUnqualifiedAssignment(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   rows: Array<{ personId: string | null; roleName: string }>,
 ): Promise<{ roleName: string; functionKey: PersonFunctionKey } | null> {
   const checks = rows.flatMap((row) => {
@@ -161,16 +224,15 @@ async function findUnqualifiedAssignment(
   }
 
   const personIds = [...new Set(checks.map((check) => check.personId))];
-  const { data, error } = await supabase
-    .from("person_functions")
-    .select("person_id, function_key")
-    .in("person_id", personIds);
+  const data = await db
+    .select({
+      person_id: personFunctionsTable.personId,
+      function_key: personFunctionsTable.functionKey,
+    })
+    .from(personFunctionsTable)
+    .where(inArray(personFunctionsTable.personId, personIds));
 
-  if (error) {
-    throw error;
-  }
-
-  const held = new Set((data ?? []).map((row) => `${row.person_id}:${row.function_key}`));
+  const held = new Set(data.map((row) => `${row.person_id}:${row.function_key}`));
 
   return (
     checks.find((check) => !held.has(`${check.personId}:${check.functionKey}`)) ?? null
@@ -184,7 +246,7 @@ function collectStaffAssignmentChecks(formData: FormData) {
   }));
 }
 
-// Postgres unique_violation; surfaced by supabase-js on the error `code`.
+// Postgres unique_violation; surfaced by the postgres driver on the error `code`.
 function isUniqueViolation(error: unknown): boolean {
   return Boolean(error) && (error as { code?: string }).code === "23505";
 }
@@ -194,91 +256,21 @@ function duplicateProductionCodeMessage(productionCode: string) {
 }
 
 async function productionCodeExists(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   productionCode: string,
   excludeMatchId?: string,
 ) {
-  let query = supabase.from("matches").select("id").eq("production_code", productionCode);
-
+  const conditions = [eq(matchesTable.productionCode, productionCode)];
   if (excludeMatchId) {
-    query = query.neq("id", excludeMatchId);
+    conditions.push(ne(matchesTable.id, excludeMatchId));
   }
 
-  const { data, error } = await query.limit(1).maybeSingle();
+  const rows = await db
+    .select({ id: matchesTable.id })
+    .from(matchesTable)
+    .where(and(...conditions))
+    .limit(1);
 
-  if (error) {
-    throw error;
-  }
-
-  return Boolean(data);
-}
-
-function getMissingOptionalMatchColumn(error: unknown) {
-  const message = ensureErrorMessage(error);
-  const columnMatch = message.match(/Could not find the '([^']+)' column of 'matches'/i);
-  const columnName = columnMatch?.[1] ?? null;
-
-  if (!columnName || !OPTIONAL_MATCH_COLUMNS.has(columnName)) {
-    return null;
-  }
-
-  return columnName;
-}
-
-async function insertMatchWithOptionalColumnFallback(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  payload: MatchInsert,
-) {
-  // stampInsert applied by caller (createMatchAction) before this helper runs.
-  const currentPayload = { ...payload };
-
-  while (true) {
-    const result = await supabase
-      .from("matches")
-      .insert(currentPayload)
-      .select("id")
-      .single();
-
-    if (!result.error) {
-      return result;
-    }
-
-    const missingColumn = getMissingOptionalMatchColumn(result.error);
-
-    if (!missingColumn || !(missingColumn in currentPayload)) {
-      return result;
-    }
-
-    delete currentPayload[missingColumn as keyof MatchInsert];
-  }
-}
-
-async function updateMatchWithOptionalColumnFallback(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  matchId: string,
-  payload: MatchUpdate,
-) {
-  // stampUpdate applied by caller (updateMatchAction) before this helper runs.
-  const currentPayload = { ...payload };
-
-  while (true) {
-    const result = await supabase
-      .from("matches")
-      .update(currentPayload)
-      .eq("id", matchId);
-
-    if (!result.error) {
-      return result;
-    }
-
-    const missingColumn = getMissingOptionalMatchColumn(result.error);
-
-    if (!missingColumn || !(missingColumn in currentPayload)) {
-      return result;
-    }
-
-    delete currentPayload[missingColumn as keyof MatchUpdate];
-  }
+  return rows.length > 0;
 }
 
 export async function createMatchAction(formData: FormData) {
@@ -287,7 +279,6 @@ export async function createMatchAction(formData: FormData) {
   const ctx = await requireEditor();
 
   try {
-    const supabase = await createSupabaseServerClient();
     const kickoffAt = buildKickoffAt({
       date: String(formData.get("date") ?? ""),
       time: String(formData.get("time") ?? ""),
@@ -296,7 +287,7 @@ export async function createMatchAction(formData: FormData) {
 
     const productionCode = maybeNull(String(formData.get("productionCode") ?? ""));
 
-    if (productionCode && (await productionCodeExists(supabase, productionCode))) {
+    if (productionCode && (await productionCodeExists(productionCode))) {
       redirectWithNotice({
         redirectTo,
         intent: "error",
@@ -305,7 +296,6 @@ export async function createMatchAction(formData: FormData) {
     }
 
     const unqualified = await findUnqualifiedAssignment(
-      supabase,
       collectStaffAssignmentChecks(formData),
     );
 
@@ -317,7 +307,7 @@ export async function createMatchAction(formData: FormData) {
       });
     }
 
-    const result = await insertMatchWithOptionalColumnFallback(supabase, stampInsert(ctx, {
+    const stampedMatch = stampInsert(ctx, {
       competition: maybeNull(String(formData.get("competition") ?? "")),
       production_code: productionCode,
       production_mode: assertProductionMode(
@@ -334,43 +324,48 @@ export async function createMatchAction(formData: FormData) {
       timezone: String(formData.get("timezone") ?? ""),
       owner_id: getCreateOwnerId(formData),
       notes: maybeNull(String(formData.get("notes") ?? "")),
-    }));
+    });
 
-    if (result.error) {
-      if (isUniqueViolation(result.error) && productionCode) {
+    let createdMatchId: string | undefined;
+    try {
+      const rows = await db
+        .insert(matchesTable)
+        .values(toMatchColumns(stampedMatch) as typeof matchesTable.$inferInsert)
+        .returning({ id: matchesTable.id });
+      createdMatchId = rows[0]?.id;
+    } catch (error) {
+      if (isUniqueViolation(error) && productionCode) {
         redirectWithNotice({
           redirectTo,
           intent: "error",
           notice: duplicateProductionCodeMessage(productionCode),
         });
       }
-      throw result.error;
+      throw error;
     }
 
-    await writeAudit(supabase, ctx, {
+    if (!createdMatchId) {
+      throw new Error("No pudimos crear el partido.");
+    }
+
+    await writeAudit(ctx, {
       table: "matches",
-      recordId: result.data.id,
+      recordId: createdMatchId,
       action: "INSERT",
       before: null,
-      after: { id: result.data.id },
+      after: { id: createdMatchId },
     });
 
     const roleNames = STAFF_ROLE_FIELD_MAP.map((item) => item.roleName);
-    const rolesResult = await supabase
-      .from("roles")
-      .select("id, name")
-      .in("name", roleNames);
+    const roleRows = await db
+      .select({ id: rolesTable.id, name: rolesTable.name })
+      .from(rolesTable)
+      .where(inArray(rolesTable.name, roleNames));
 
-    if (rolesResult.error) {
-      throw rolesResult.error;
-    }
-
-    const roleIdsByName = new Map(
-      (rolesResult.data ?? []).map((role) => [role.name, role.id]),
-    );
+    const roleIdsByName = new Map(roleRows.map((role) => [role.name, role.id]));
 
     const assignments = buildStaffAssignments({
-      matchId: result.data.id,
+      matchId: createdMatchId,
       formData,
       roleIdsByName,
     });
@@ -378,40 +373,53 @@ export async function createMatchAction(formData: FormData) {
     const notify: string[] = [];
 
     if (assignments.length) {
-      const assignmentsResult = await supabase
-        .from("assignments")
-        .upsert(
-          assignments.map((assignment) => stampInsert(ctx, assignment)),
-          { onConflict: "match_id,role_id" },
+      const assignmentRows = await db
+        .insert(assignmentsTable)
+        .values(
+          assignments.map(
+            (a) =>
+              toAssignmentColumns(stampInsert(ctx, a)) as typeof assignmentsTable.$inferInsert,
+          ),
         )
-        .select("id, person_id");
+        .onConflictDoUpdate({
+          target: [assignmentsTable.matchId, assignmentsTable.roleId],
+          set: {
+            personId: sql`excluded.person_id`,
+            confirmed: sql`excluded.confirmed`,
+            notes: sql`excluded.notes`,
+            createdBy: sql`excluded.created_by`,
+            updatedBy: sql`excluded.updated_by`,
+            createdAt: sql`excluded.created_at`,
+            updatedAt: sql`excluded.updated_at`,
+          },
+        })
+        .returning({
+          id: assignmentsTable.id,
+          person_id: assignmentsTable.personId,
+        });
 
-      if (assignmentsResult.error) {
-        throw assignmentsResult.error;
-      }
-
-      for (const row of assignmentsResult.data ?? []) {
+      for (const row of assignmentRows) {
         if (row.person_id) {
           notify.push(row.id);
         }
       }
 
-      await writeAudit(supabase, ctx, {
+      await writeAudit(ctx, {
         table: "assignments",
-        recordId: result.data.id,
-        matchId: result.data.id,
+        recordId: createdMatchId,
+        matchId: createdMatchId,
         action: "INSERT",
         before: null,
-        after: { match_id: result.data.id, count: assignments.length },
+        after: { match_id: createdMatchId, count: assignments.length },
       });
     }
 
     revalidatePath("/grid");
-    revalidatePath(`/match/${result.data.id}`);
-    revalidatePath(`/match/${result.data.id}/notificar`);
+    revalidatePath(`/match/${createdMatchId}`);
+    revalidatePath(`/match/${createdMatchId}/notificar`);
     redirectWithNotice({
       redirectTo: notify.length
-        ? `/match/${result.data.id}`
+        ? `/match/${createdMatchId}`
         : createdMatchGridRedirect,
       intent: "success",
       notice: "Partido creado.",
@@ -434,10 +442,7 @@ export async function updateMatchAction(formData: FormData) {
   const matchId = String(formData.get("matchId") ?? "");
 
   try {
-    const supabase = await createSupabaseServerClient();
-
     const unqualified = await findUnqualifiedAssignment(
-      supabase,
       collectStaffAssignmentChecks(formData),
     );
 
@@ -475,7 +480,7 @@ export async function updateMatchAction(formData: FormData) {
 
       if (
         productionCode &&
-        (await productionCodeExists(supabase, productionCode, matchId))
+        (await productionCodeExists(productionCode, matchId))
       ) {
         redirectWithNotice({
           redirectTo,
@@ -495,24 +500,23 @@ export async function updateMatchAction(formData: FormData) {
       payload.transport = maybeNull(String(formData.get("transport") ?? ""));
     }
 
-    const result = await updateMatchWithOptionalColumnFallback(
-      supabase,
-      matchId,
-      stampUpdate(ctx, payload),
-    );
-
-    if (result.error) {
-      if (isUniqueViolation(result.error) && payload.production_code) {
+    try {
+      await db
+        .update(matchesTable)
+        .set(toMatchColumns(stampUpdate(ctx, payload)))
+        .where(eq(matchesTable.id, matchId));
+    } catch (error) {
+      if (isUniqueViolation(error) && payload.production_code) {
         redirectWithNotice({
           redirectTo,
           intent: "error",
           notice: duplicateProductionCodeMessage(payload.production_code),
         });
       }
-      throw result.error;
+      throw error;
     }
 
-    await writeAudit(supabase, ctx, {
+    await writeAudit(ctx, {
       table: "matches",
       recordId: matchId,
       action: "UPDATE",
@@ -521,43 +525,43 @@ export async function updateMatchAction(formData: FormData) {
     });
 
     const roleNames = STAFF_ROLE_FIELD_MAP.map((item) => item.roleName);
-    const rolesResult = await supabase
-      .from("roles")
-      .select("id, name")
-      .in("name", roleNames);
+    const roleRows = await db
+      .select({ id: rolesTable.id, name: rolesTable.name })
+      .from(rolesTable)
+      .where(inArray(rolesTable.name, roleNames));
 
-    if (rolesResult.error) {
-      throw rolesResult.error;
-    }
-
-    const roleIdsByName = new Map(
-      (rolesResult.data ?? []).map((role) => [role.name, role.id]),
-    );
+    const roleIdsByName = new Map(roleRows.map((role) => [role.name, role.id]));
     const roleIds = [...roleIdsByName.values()];
     const priorAssignmentKeys = new Set<string>();
 
     if (roleIds.length) {
-      const priorResult = await supabase
-        .from("assignments")
-        .select("role_id, person_id")
-        .eq("match_id", matchId)
-        .in("role_id", roleIds);
+      const priorRows = await db
+        .select({
+          role_id: assignmentsTable.roleId,
+          person_id: assignmentsTable.personId,
+        })
+        .from(assignmentsTable)
+        .where(
+          and(
+            eq(assignmentsTable.matchId, matchId),
+            inArray(assignmentsTable.roleId, roleIds),
+          ),
+        );
 
-      for (const row of priorResult.data ?? []) {
+      for (const row of priorRows) {
         if (row.person_id) {
           priorAssignmentKeys.add(`${row.role_id}:${row.person_id}`);
         }
       }
 
-      const deleteAssignmentsResult = await supabase
-        .from("assignments")
-        .delete()
-        .eq("match_id", matchId)
-        .in("role_id", roleIds);
-
-      if (deleteAssignmentsResult.error) {
-        throw deleteAssignmentsResult.error;
-      }
+      await db
+        .delete(assignmentsTable)
+        .where(
+          and(
+            eq(assignmentsTable.matchId, matchId),
+            inArray(assignmentsTable.roleId, roleIds),
+          ),
+        );
     }
 
     const assignments = buildStaffAssignments({
@@ -569,25 +573,39 @@ export async function updateMatchAction(formData: FormData) {
     const notify: string[] = [];
 
     if (assignments.length) {
-      const assignmentsResult = await supabase
-        .from("assignments")
-        .upsert(
-          assignments.map((assignment) => stampInsert(ctx, assignment)),
-          { onConflict: "match_id,role_id" },
+      const assignmentRows = await db
+        .insert(assignmentsTable)
+        .values(
+          assignments.map(
+            (a) =>
+              toAssignmentColumns(stampInsert(ctx, a)) as typeof assignmentsTable.$inferInsert,
+          ),
         )
-        .select("id, role_id, person_id");
+        .onConflictDoUpdate({
+          target: [assignmentsTable.matchId, assignmentsTable.roleId],
+          set: {
+            personId: sql`excluded.person_id`,
+            confirmed: sql`excluded.confirmed`,
+            notes: sql`excluded.notes`,
+            createdBy: sql`excluded.created_by`,
+            updatedBy: sql`excluded.updated_by`,
+            createdAt: sql`excluded.created_at`,
+            updatedAt: sql`excluded.updated_at`,
+          },
+        })
+        .returning({
+          id: assignmentsTable.id,
+          role_id: assignmentsTable.roleId,
+          person_id: assignmentsTable.personId,
+        });
 
-      if (assignmentsResult.error) {
-        throw assignmentsResult.error;
-      }
-
-      for (const row of assignmentsResult.data ?? []) {
+      for (const row of assignmentRows) {
         if (row.person_id && !priorAssignmentKeys.has(`${row.role_id}:${row.person_id}`)) {
           notify.push(row.id);
         }
       }
 
-      await writeAudit(supabase, ctx, {
+      await writeAudit(ctx, {
         table: "assignments",
         recordId: matchId,
         matchId,
@@ -624,7 +642,6 @@ export async function quickUpdateMatchFieldAction(formData: FormData) {
   const rawValue = String(formData.get("value") ?? "").trim();
 
   try {
-    const supabase = await createSupabaseServerClient();
     const payload: MatchUpdate = {};
 
     switch (field) {
@@ -660,24 +677,28 @@ export async function quickUpdateMatchFieldAction(formData: FormData) {
           throw new Error("Hora inválida.");
         }
 
-        const matchQuery = await supabase
-          .from("matches")
-          .select("kickoff_at, timezone")
-          .eq("id", matchId)
-          .single();
+        const matchRows = await db
+          .select({
+            kickoff_at: matchesTable.kickoffAt,
+            timezone: matchesTable.timezone,
+          })
+          .from(matchesTable)
+          .where(eq(matchesTable.id, matchId))
+          .limit(1);
 
-        if (matchQuery.error) {
-          throw matchQuery.error;
+        const matchRow = matchRows[0];
+        if (!matchRow) {
+          throw new Error("No se encontró el partido.");
         }
 
         payload.kickoff_at = buildKickoffAt({
           date: formatMatchDate(
-            matchQuery.data.kickoff_at,
-            matchQuery.data.timezone,
+            matchRow.kickoff_at,
+            matchRow.timezone,
             "yyyy-MM-dd",
           ),
           time: rawValue,
-          timezone: matchQuery.data.timezone,
+          timezone: matchRow.timezone,
         });
         break;
       }
@@ -685,16 +706,12 @@ export async function quickUpdateMatchFieldAction(formData: FormData) {
         throw new Error("Campo de edición rápida no soportado.");
     }
 
-    const result = await supabase
-      .from("matches")
-      .update(stampUpdate(ctx, payload))
-      .eq("id", matchId);
+    await db
+      .update(matchesTable)
+      .set(toMatchColumns(stampUpdate(ctx, payload)))
+      .where(eq(matchesTable.id, matchId));
 
-    if (result.error) {
-      throw result.error;
-    }
-
-    await writeAudit(supabase, ctx, {
+    await writeAudit(ctx, {
       table: "matches",
       recordId: matchId,
       action: "UPDATE",
@@ -725,14 +742,9 @@ export async function deleteMatchAction(formData: FormData) {
   const matchId = String(formData.get("matchId") ?? "");
 
   try {
-    const supabase = await createSupabaseServerClient();
-    const result = await supabase.from("matches").delete().eq("id", matchId);
+    await db.delete(matchesTable).where(eq(matchesTable.id, matchId));
 
-    if (result.error) {
-      throw result.error;
-    }
-
-    await writeAudit(supabase, ctx, {
+    await writeAudit(ctx, {
       table: "matches",
       recordId: matchId,
       action: "DELETE",
@@ -813,25 +825,20 @@ export async function upsertAssignmentAction(formData: FormData) {
   const ctx = await requireEditor();
 
   try {
-    const supabase = await createSupabaseServerClient();
     const assignmentMatchId = String(formData.get("matchId") ?? "");
     const assignmentRoleId = String(formData.get("roleId") ?? "");
     const incomingPersonId = maybeNull(String(formData.get("personId") ?? ""));
 
     if (incomingPersonId) {
-      const roleResult = await supabase
-        .from("roles")
-        .select("name")
-        .eq("id", assignmentRoleId)
-        .maybeSingle();
+      const roleRows = await db
+        .select({ name: rolesTable.name })
+        .from(rolesTable)
+        .where(eq(rolesTable.id, assignmentRoleId))
+        .limit(1);
 
-      if (roleResult.error) {
-        throw roleResult.error;
-      }
-
-      const roleName = roleResult.data?.name;
+      const roleName = roleRows[0]?.name;
       const unqualified = roleName
-        ? await findUnqualifiedAssignment(supabase, [
+        ? await findUnqualifiedAssignment([
             { personId: incomingPersonId, roleName },
           ])
         : null;
@@ -845,13 +852,17 @@ export async function upsertAssignmentAction(formData: FormData) {
       }
     }
 
-    const priorResult = await supabase
-      .from("assignments")
-      .select("person_id")
-      .eq("match_id", assignmentMatchId)
-      .eq("role_id", assignmentRoleId)
-      .maybeSingle();
-    const priorPersonId = priorResult.data?.person_id ?? null;
+    const priorRows = await db
+      .select({ person_id: assignmentsTable.personId })
+      .from(assignmentsTable)
+      .where(
+        and(
+          eq(assignmentsTable.matchId, assignmentMatchId),
+          eq(assignmentsTable.roleId, assignmentRoleId),
+        ),
+      )
+      .limit(1);
+    const priorPersonId = priorRows[0]?.person_id ?? null;
 
     // Reassigning a role to a different person invalidates the prior person's
     // attendance confirmation (PRD #7). Columns omitted from an upsert payload
@@ -870,31 +881,42 @@ export async function upsertAssignmentAction(formData: FormData) {
       assignmentPayload.attendance_confirmed_at = null;
     }
 
-    const result = await supabase
-      .from("assignments")
-      .upsert(stampInsert(ctx, assignmentPayload), {
-        onConflict: "match_id,role_id",
-      })
-      .select("id, match_id")
-      .single();
+    const cols = toAssignmentColumns(stampInsert(ctx, assignmentPayload));
+    // ON CONFLICT updates every provided non-target column (mirrors PostgREST
+    // upsert); the omitted attendance columns retain their value on conflict.
+    const { matchId: _conflictMatchId, roleId: _conflictRoleId, ...updateSet } =
+      cols;
+    void _conflictMatchId;
+    void _conflictRoleId;
 
-    if (result.error) {
-      throw result.error;
+    const rows = await db
+      .insert(assignmentsTable)
+      .values(cols as typeof assignmentsTable.$inferInsert)
+      .onConflictDoUpdate({
+        target: [assignmentsTable.matchId, assignmentsTable.roleId],
+        set: updateSet,
+      })
+      .returning({
+        id: assignmentsTable.id,
+        match_id: assignmentsTable.matchId,
+      });
+
+    const row = rows[0];
+    if (!row) {
+      throw new Error("No pudimos guardar la asignación.");
     }
 
-    await writeAudit(supabase, ctx, {
+    await writeAudit(ctx, {
       table: "assignments",
-      recordId: result.data.id,
-      matchId: result.data.match_id,
+      recordId: row.id,
+      matchId: row.match_id,
       action: "INSERT",
       before: null,
-      after: { id: result.data.id, match_id: result.data.match_id },
+      after: { id: row.id, match_id: row.match_id },
     });
 
     const notify =
-      incomingPersonId && incomingPersonId !== priorPersonId
-        ? [result.data.id]
-        : [];
+      incomingPersonId && incomingPersonId !== priorPersonId ? [row.id] : [];
 
     revalidatePath(redirectTo);
     redirectWithNotice({

@@ -7,6 +7,8 @@ import {
   redirectWithNotice,
   rethrowNavigationError,
 } from "@/app/actions/helpers";
+import { eq } from "drizzle-orm";
+
 import { clearProfileCache, requireEditor } from "@/lib/auth";
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
 import {
@@ -15,12 +17,17 @@ import {
   requireAdmin,
 } from "@/lib/auth-access";
 import type { AppRole, ProfileRow } from "@/lib/database.types";
+import { db } from "@/lib/db/client";
+import { profileColumns } from "@/lib/db/rows";
+import {
+  people as peopleTable,
+  personFunctions as personFunctionsTable,
+  profiles as profilesTable,
+} from "@/lib/db/schema";
 import { sendCollaboratorInviteEmail } from "@/lib/email/mailer";
 import { isPersonFunctionKey, resolveFunctionKey } from "@/lib/functions";
 import { appEnv } from "@/lib/env";
 import { buildPersonNotesMeta } from "@/lib/people-notes";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ensureErrorMessage, maybeNull } from "@/lib/utils";
 
 // Access-grant tiers map onto the profiles.role enum: Admin/Productor/Externo.
@@ -42,17 +49,10 @@ function normalizeAccessTier(value: string): AccessTierRole {
 // SQL LIKE-wildcard false positives on emails containing `_` (mirrors auth.ts).
 async function findProfileByEmail(email: string): Promise<ProfileRow | null> {
   const normalizedEmail = email.trim().toLowerCase();
-  const supabaseAdmin = createSupabaseAdminClient();
-  const result = await supabaseAdmin.from("profiles").select("*");
-
-  if (result.error) {
-    throw result.error;
-  }
+  const rows = (await db.select(profileColumns).from(profilesTable)) as ProfileRow[];
 
   return (
-    ((result.data as ProfileRow[] | null) ?? []).find(
-      (row) => row.email?.toLowerCase() === normalizedEmail,
-    ) ?? null
+    rows.find((row) => row.email?.toLowerCase() === normalizedEmail) ?? null
   );
 }
 
@@ -81,15 +81,7 @@ async function revokePlatformAccessByEmail(
 
   // Deleting the profiles row removes authorization: getUserContext now returns
   // hasAccess:false and any live Better Auth session lands on /no-access.
-  const supabaseAdmin = createSupabaseAdminClient();
-  const deleteProfile = await supabaseAdmin
-    .from("profiles")
-    .delete()
-    .eq("id", profile.id);
-
-  if (deleteProfile.error) {
-    throw deleteProfile.error;
-  }
+  await db.delete(profilesTable).where(eq(profilesTable.id, profile.id));
 
   clearProfileCache();
 
@@ -107,38 +99,29 @@ async function grantPlatformAccess({
   fullName: string;
   role: AccessTierRole;
 }): Promise<{ emailSent: boolean }> {
-  const supabaseAdmin = createSupabaseAdminClient();
   const existingProfile = await findProfileByEmail(email);
 
   if (existingProfile) {
     // Change-tier: granting access to an already-provisioned user moves them to
     // the selected tier. Keep id/auth_user_id so a later first login auto-links.
-    const updateProfile = await supabaseAdmin
-      .from("profiles")
-      .update({
+    await db
+      .update(profilesTable)
+      .set({
         role: role satisfies AppRole,
-        full_name: fullName,
+        fullName,
       })
-      .eq("id", existingProfile.id);
-
-    if (updateProfile.error) {
-      throw updateProfile.error;
-    }
+      .where(eq(profilesTable.id, existingProfile.id));
   } else {
     // No auth user created: a fresh profiles row keyed by a new uuid with
     // auth_user_id NULL. First login (Google/magic link) auto-links by email
     // and stamps auth_user_id (see getUserContext).
-    const profileInsert = await supabaseAdmin.from("profiles").insert({
+    await db.insert(profilesTable).values({
       id: globalThis.crypto.randomUUID(),
       email,
-      full_name: fullName,
+      fullName,
       role: role satisfies AppRole,
-      auth_user_id: null,
+      authUserId: null,
     });
-
-    if (profileInsert.error) {
-      throw profileInsert.error;
-    }
   }
 
   clearProfileCache();
@@ -213,55 +196,70 @@ export async function upsertPersonAction(formData: FormData) {
       }
     }
 
-    const supabase = await createSupabaseServerClient();
     const personId = String(formData.get("personId") ?? "");
-    const result = personId
-      ? await supabase
-          .from("people")
-          .update(stampUpdate(ctx, payload))
-          .eq("id", personId)
-          .select("id")
-          .single()
-      : await supabase
-          .from("people")
-          .insert(stampInsert(ctx, payload))
-          .select("id")
-          .single();
+    let rows: { id: string }[];
 
-    if (result.error) {
-      throw result.error;
+    if (personId) {
+      const stamped = stampUpdate(ctx, payload);
+      rows = await db
+        .update(peopleTable)
+        .set({
+          fullName: stamped.full_name,
+          phone: stamped.phone,
+          email: stamped.email,
+          notes: stamped.notes,
+          active: stamped.active,
+          updatedBy: stamped.updated_by,
+          updatedAt: stamped.updated_at,
+        })
+        .where(eq(peopleTable.id, personId))
+        .returning({ id: peopleTable.id });
+    } else {
+      const stamped = stampInsert(ctx, payload);
+      rows = await db
+        .insert(peopleTable)
+        .values({
+          fullName: stamped.full_name,
+          phone: stamped.phone,
+          email: stamped.email,
+          notes: stamped.notes,
+          active: stamped.active,
+          createdBy: stamped.created_by,
+          updatedBy: stamped.updated_by,
+          createdAt: stamped.created_at,
+          updatedAt: stamped.updated_at,
+        })
+        .returning({ id: peopleTable.id });
     }
+
+    const row = rows[0];
+    if (!row) {
+      throw new Error("No se encontró el registro de personal.");
+    }
+    const savedPersonId = row.id;
 
     // Replace-all the person's functions (matches the stateless form-submit pattern).
-    const deleteFunctions = await supabase
-      .from("person_functions")
-      .delete()
-      .eq("person_id", result.data.id);
-
-    if (deleteFunctions.error) {
-      throw deleteFunctions.error;
-    }
+    await db
+      .delete(personFunctionsTable)
+      .where(eq(personFunctionsTable.personId, savedPersonId));
 
     if (selectedFunctions.length) {
-      const insertFunctions = await supabase.from("person_functions").insert(
+      // person_functions carries only created_by (no updated_by); set explicitly.
+      await db.insert(personFunctionsTable).values(
         selectedFunctions.map((functionKey) => ({
-          person_id: result.data.id,
-          function_key: functionKey,
-          created_by: ctx.profileId,
+          personId: savedPersonId,
+          functionKey,
+          createdBy: ctx.profileId,
         })),
       );
-
-      if (insertFunctions.error) {
-        throw insertFunctions.error;
-      }
     }
 
-    await writeAudit(supabase, ctx, {
+    await writeAudit(ctx, {
       table: "people",
-      recordId: result.data.id,
+      recordId: savedPersonId,
       action: personId ? "UPDATE" : "INSERT",
       before: null,
-      after: { id: result.data.id, ...payload, functions: selectedFunctions },
+      after: { id: savedPersonId, ...payload, functions: selectedFunctions },
     });
 
     let accessNotice: string | null = null;
@@ -318,18 +316,17 @@ export async function deletePersonAction(formData: FormData) {
   const personId = String(formData.get("personId") ?? "").trim();
 
   try {
-    const supabase = await createSupabaseServerClient();
-    const personQuery = await supabase
-      .from("people")
-      .select("id, email, full_name")
-      .eq("id", personId)
-      .maybeSingle();
+    const personRows = await db
+      .select({
+        id: peopleTable.id,
+        email: peopleTable.email,
+        full_name: peopleTable.fullName,
+      })
+      .from(peopleTable)
+      .where(eq(peopleTable.id, personId))
+      .limit(1);
 
-    if (personQuery.error) {
-      throw personQuery.error;
-    }
-
-    const person = personQuery.data;
+    const person = personRows[0];
 
     if (!person) {
       throw new Error("No se encontró el usuario a eliminar.");
@@ -339,16 +336,9 @@ export async function deletePersonAction(formData: FormData) {
       await revokePlatformAccessByEmail(person.email, context.role);
     }
 
-    const result = await supabase
-      .from("people")
-      .delete()
-      .eq("id", personId);
+    await db.delete(peopleTable).where(eq(peopleTable.id, personId));
 
-    if (result.error) {
-      throw result.error;
-    }
-
-    await writeAudit(supabase, context, {
+    await writeAudit(context, {
       table: "people",
       recordId: personId,
       action: "DELETE",
@@ -379,18 +369,17 @@ export async function revokePersonAccessAction(formData: FormData) {
   try {
     const ctx = await requireAccessManager();
 
-    const supabase = await createSupabaseServerClient();
-    const personQuery = await supabase
-      .from("people")
-      .select("id, email, full_name")
-      .eq("id", personId)
-      .maybeSingle();
+    const personRows = await db
+      .select({
+        id: peopleTable.id,
+        email: peopleTable.email,
+        full_name: peopleTable.fullName,
+      })
+      .from(peopleTable)
+      .where(eq(peopleTable.id, personId))
+      .limit(1);
 
-    if (personQuery.error) {
-      throw personQuery.error;
-    }
-
-    const person = personQuery.data;
+    const person = personRows[0];
 
     if (!person) {
       throw new Error("No se encontró el usuario.");
@@ -439,18 +428,17 @@ export async function grantPersonAccessAction(formData: FormData) {
       ? requestedAccessRole
       : "collaborator";
 
-    const supabase = await createSupabaseServerClient();
-    const personQuery = await supabase
-      .from("people")
-      .select("id, email, full_name")
-      .eq("id", personId)
-      .maybeSingle();
+    const personRows = await db
+      .select({
+        id: peopleTable.id,
+        email: peopleTable.email,
+        full_name: peopleTable.fullName,
+      })
+      .from(peopleTable)
+      .where(eq(peopleTable.id, personId))
+      .limit(1);
 
-    if (personQuery.error) {
-      throw personQuery.error;
-    }
-
-    const person = personQuery.data;
+    const person = personRows[0];
 
     if (!person) {
       throw new Error("No se encontró el usuario.");
@@ -493,17 +481,17 @@ export async function togglePersonActiveAction(formData: FormData) {
   const nextActive = String(formData.get("active") ?? "") === "on";
 
   try {
-    const supabase = await createSupabaseServerClient();
-    const result = await supabase
-      .from("people")
-      .update(stampUpdate(ctx, { active: nextActive }))
-      .eq("id", personId);
+    const stamped = stampUpdate(ctx, { active: nextActive });
+    await db
+      .update(peopleTable)
+      .set({
+        active: stamped.active,
+        updatedBy: stamped.updated_by,
+        updatedAt: stamped.updated_at,
+      })
+      .where(eq(peopleTable.id, personId));
 
-    if (result.error) {
-      throw result.error;
-    }
-
-    await writeAudit(supabase, ctx, {
+    await writeAudit(ctx, {
       table: "people",
       recordId: personId,
       action: "UPDATE",

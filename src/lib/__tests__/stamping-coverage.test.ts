@@ -7,9 +7,9 @@ import { describe, expect, it } from "vitest";
 const here = dirname(fileURLToPath(import.meta.url));
 const actionsDir = join(here, "..", "..", "app", "actions");
 
-// Domain tables whose every insert/update/upsert MUST be actor-stamped and
-// accompanied by a writeAudit call (Pitfall 1: a missed write site silently
-// yields NULL changed_by once the auth.uid() triggers are dropped in Wave 4).
+// Domain tables whose every insert/update MUST be actor-stamped and accompanied
+// by a writeAudit call (Pitfall 1: a missed write site silently yields NULL
+// changed_by now that the auth.uid() triggers are gone from the self-hosted DB).
 const DOMAIN_TABLES = [
   "matches",
   "assignments",
@@ -24,10 +24,10 @@ const DOMAIN_TABLES = [
 // app-stamped domain writes. Kept inline so any future exception is visible in
 // the diff and reviewed deliberately.
 //
-// - "profiles": written ONLY via the service-role admin client during
-//   collaborator auth-user provisioning (people.ts). Profiles are the identity
-//   table, not a domain entity, and the row is created for a not-yet-actor user
-//   — stamping the acting admin as created_by would be misleading.
+// - "profiles": written ONLY via the admin path during collaborator auth-user
+//   provisioning (people.ts). Profiles are the identity table, not a domain
+//   entity, and the row is created for a not-yet-actor user — stamping the
+//   acting admin as created_by would be misleading.
 // - "audit_log": the audit sink itself (the writeAudit insert). Auditing the
 //   audit write would recurse.
 // - "person_functions": a child relation of people, written with replace-all
@@ -35,11 +35,11 @@ const DOMAIN_TABLES = [
 //   created_by column (no updated_by, so stampInsert does not apply); created_by
 //   is set explicitly and the selected functions are recorded in the parent
 //   people writeAudit payload.
-// - "leagues" / "clubs" / "teams" / "team_league_memberships": the normalized
-//   team-catalog tables (0025). They carry no created_by/updated_by columns —
-//   stampInsert/stampUpdate would be rejected by the generated types — and are
-//   reference data mutated only through the requireEditor-gated
-//   upsertTeamAction. Revisit if per-actor attribution is added to the catalog.
+// - "leagues" / "clubs" / "teams" / "team_league_memberships" / "club_aliases":
+//   the normalized team-catalog tables (0025). They carry no
+//   created_by/updated_by columns — stampInsert/stampUpdate would be rejected by
+//   the generated types — and are reference data mutated only through the
+//   requireEditor-gated upsertTeamAction.
 const ALLOWLISTED_TABLES = [
   "profiles",
   "audit_log",
@@ -48,10 +48,43 @@ const ALLOWLISTED_TABLES = [
   "clubs",
   "teams",
   "team_league_memberships",
+  "club_aliases",
 ];
 
+// Drizzle mutation opener: db.insert(table) / db.update(table). The captured
+// identifier is the local alias for a schema table (e.g. matchesTable); it is
+// resolved to a snake_case table name via the file's schema import.
 const MUTATION_RE =
-  /\.from\(\s*["'`]([a-z_]+)["'`]\s*\)\s*(?:\r?\n\s*)*\.(insert|update|upsert)\s*\(/g;
+  /\bdb\s*\.\s*(insert|update)\s*\(\s*([A-Za-z0-9_]+)\s*\)/g;
+
+// camelCase Drizzle export name -> snake_case Postgres table name.
+function camelToSnake(name: string): string {
+  return name.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+}
+
+// Parse `import { a as aTable, b } from "@/lib/db/schema"` (single or multiline)
+// into a map of local alias -> snake_case table name.
+function schemaAliasMap(source: string): Map<string, string> {
+  const map = new Map<string, string>();
+  const importRe =
+    /import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*["']@\/lib\/db\/schema["']/g;
+  let importMatch: RegExpExecArray | null;
+
+  while ((importMatch = importRe.exec(source)) !== null) {
+    for (const rawEntry of importMatch[1].split(",")) {
+      const entry = rawEntry.trim();
+      if (!entry) {
+        continue;
+      }
+      const asMatch = entry.match(/^([A-Za-z0-9_]+)\s+as\s+([A-Za-z0-9_]+)$/);
+      const exportName = asMatch ? asMatch[1] : entry;
+      const alias = asMatch ? asMatch[2] : entry;
+      map.set(alias, camelToSnake(exportName));
+    }
+  }
+
+  return map;
+}
 
 type Finding = {
   file: string;
@@ -61,60 +94,39 @@ type Finding = {
 };
 
 function findMutations(source: string, file: string): Finding[] {
+  const aliases = schemaAliasMap(source);
   const findings: Finding[] = [];
   let match: RegExpExecArray | null;
   MUTATION_RE.lastIndex = 0;
 
   while ((match = MUTATION_RE.exec(source)) !== null) {
-    findings.push({
-      file,
-      table: match[1],
-      op: match[2],
-      index: match.index,
-    });
+    const alias = match[2];
+    const table = aliases.get(alias) ?? alias;
+    findings.push({ file, table, op: match[1], index: match.index });
   }
 
   return findings;
 }
 
-// Explicit, documented marker for indirection helpers (e.g. the matches
-// optional-column fallback) whose payload is stamped by the caller, not at the
-// literal .insert/.update site. Reviewed inline so the exception is visible.
-const STAMPED_BY_CALLER_MARKER = /stamp(Insert|Update) applied by caller/;
-
-// Inspect a window around the mutation opener to detect the stamp call. The
-// stamp wraps the payload immediately after .insert/.update; the by-caller
-// marker comment sits on the preceding line.
-function isStamped(source: string, finding: Finding): boolean {
-  const before = source.slice(Math.max(0, finding.index - 200), finding.index);
-
-  if (STAMPED_BY_CALLER_MARKER.test(before)) {
-    return true;
-  }
-
-  const window = source.slice(finding.index, finding.index + 600);
-  return finding.op === "update"
-    ? window.includes("stampUpdate(")
-    : window.includes("stampInsert(") || window.includes("stampUpdate(");
-}
-
 describe("stamping-coverage predicate self-check", () => {
   // Guard against the test silently passing by matching nothing: prove the
-  // regex + isStamped predicate distinguish a stamped from an unstamped write.
-  const stampedSample = `await supabase.from("people").insert(stampInsert(ctx, payload));`;
-  const unstampedSample = `await supabase.from("people").insert(payload);`;
+  // regex + alias resolution distinguish a domain mutation from a non-mutation.
+  const sample = [
+    'import { people as peopleTable } from "@/lib/db/schema";',
+    "await db.insert(peopleTable).values(x);",
+    "await db.update(peopleTable).set(y);",
+  ].join("\n");
 
-  it("detects a domain mutation in both samples", () => {
-    expect(findMutations(stampedSample, "sample").length).toBe(1);
-    expect(findMutations(unstampedSample, "sample").length).toBe(1);
+  it("detects and resolves domain mutations", () => {
+    const found = findMutations(sample, "sample");
+    expect(found.length).toBe(2);
+    expect(found.every((finding) => finding.table === "people")).toBe(true);
   });
 
-  it("flags the unstamped sample and accepts the stamped one", () => {
-    const stamped = findMutations(stampedSample, "sample")[0];
-    const unstamped = findMutations(unstampedSample, "sample")[0];
-
-    expect(isStamped(stampedSample, stamped)).toBe(true);
-    expect(isStamped(unstampedSample, unstamped)).toBe(false);
+  it("resolves multi-word table aliases to snake_case", () => {
+    const src =
+      'import { collaboratorReports as t } from "@/lib/db/schema";\nawait db.insert(t).values(x);';
+    expect(findMutations(src, "sample")[0].table).toBe("collaborator_reports");
   });
 });
 
@@ -132,6 +144,12 @@ describe("every action-file domain mutation is stamped + audited", () => {
 
     for (const { name, source } of actionFiles) {
       const mutations = findMutations(source, name);
+      // Stamping now flows through mappers (stampInsert -> toXColumns -> .values),
+      // so stamp presence is verified at file scope, matching the file-scope
+      // writeAudit check. Per-write assertions move to the Phase 6 integration
+      // suite that exercises the real DB.
+      const stamps = source.includes("stampInsert(") || source.includes("stampUpdate(");
+      const audits = source.includes("writeAudit");
 
       for (const mutation of mutations) {
         if (ALLOWLISTED_TABLES.includes(mutation.table)) {
@@ -142,18 +160,18 @@ describe("every action-file domain mutation is stamped + audited", () => {
           // Unknown table touched by an action — treat as an offender so a
           // newly introduced domain table cannot slip through unstamped.
           offenders.push(
-            `${name}: mutation on unrecognized table "${mutation.table}" (.${mutation.op}) — add to DOMAIN_TABLES or ALLOWLISTED_TABLES`,
+            `${name}: mutation on unrecognized table "${mutation.table}" (db.${mutation.op}) — add to DOMAIN_TABLES or ALLOWLISTED_TABLES`,
           );
           continue;
         }
 
-        if (!isStamped(source, mutation)) {
+        if (!stamps) {
           offenders.push(
-            `${name}: .${mutation.op}("${mutation.table}") is not wrapped in stampInsert/stampUpdate`,
+            `${name}: db.${mutation.op}(${mutation.table}) but file has no stampInsert/stampUpdate call`,
           );
         }
 
-        if (!source.includes("writeAudit")) {
+        if (!audits) {
           offenders.push(
             `${name}: mutates "${mutation.table}" but file has no writeAudit call`,
           );

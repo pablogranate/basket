@@ -1,7 +1,15 @@
 import "server-only";
 
+import { and, eq, gte, inArray, isNull, lte } from "drizzle-orm";
 import { formatInTimeZone } from "date-fns-tz";
 
+import { db } from "@/lib/db/client";
+import {
+  assignments as assignmentsTable,
+  matches as matchesTable,
+  people as peopleTable,
+  roles as rolesTable,
+} from "@/lib/db/schema";
 import { getDayRange } from "@/lib/date";
 import { sendMatchNotificationEmail } from "@/lib/email/mailer";
 import { isOpenwaConfigured } from "@/lib/env";
@@ -22,7 +30,6 @@ import {
   type AssignmentRecipientRow,
 } from "@/lib/notifications/recipients";
 import { computeSendAt } from "@/lib/notifications/schedule";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ensureErrorMessage } from "@/lib/utils";
 
 // Per-match send time is keyed on kickoff clock time (see schedule.ts). The
@@ -73,24 +80,33 @@ export async function runMatchDayNotifications(trigger: Trigger) {
   const { startUtc } = getDayRange(today, ARG_TZ);
   const { endUtc } = getDayRange(tomorrow, ARG_TZ);
 
-  const supabase = createSupabaseAdminClient();
-
-  const matchesResult = await supabase
-    .from("matches")
-    .select(
-      "id, away_team, competition, home_team, kickoff_at, production_mode, timezone, venue",
-    )
-    .in("status", ["Pendiente", "Confirmado"])
-    .gte("kickoff_at", startUtc)
-    .lte("kickoff_at", endUtc)
-    .is("day_notified_at", null);
-
-  if (matchesResult.error) {
-    console.error("[notifications] failed to load matches", matchesResult.error);
+  let candidates: NotifyMatchRow[];
+  try {
+    candidates = (await db
+      .select({
+        id: matchesTable.id,
+        away_team: matchesTable.awayTeam,
+        competition: matchesTable.competition,
+        home_team: matchesTable.homeTeam,
+        kickoff_at: matchesTable.kickoffAt,
+        production_mode: matchesTable.productionMode,
+        timezone: matchesTable.timezone,
+        venue: matchesTable.venue,
+      })
+      .from(matchesTable)
+      .where(
+        and(
+          inArray(matchesTable.status, ["Pendiente", "Confirmado"]),
+          gte(matchesTable.kickoffAt, startUtc),
+          lte(matchesTable.kickoffAt, endUtc),
+          isNull(matchesTable.dayNotifiedAt),
+        ),
+      )) as NotifyMatchRow[];
+  } catch (error) {
+    console.error("[notifications] failed to load matches", error);
     return;
   }
 
-  const candidates = (matchesResult.data ?? []) as NotifyMatchRow[];
   // Due = the match's computed send time has passed.
   const matches = candidates.filter(
     (match) => computeSendAt(match.kickoff_at).getTime() <= now.getTime(),
@@ -107,7 +123,7 @@ export async function runMatchDayNotifications(trigger: Trigger) {
 
   for (const match of matches) {
     try {
-      await notifyMatch(supabase, match, trigger);
+      await notifyMatch(match, trigger);
     } catch (error) {
       console.error(
         `[notifications] match ${match.id} failed; skipping`,
@@ -118,24 +134,31 @@ export async function runMatchDayNotifications(trigger: Trigger) {
 }
 
 export async function notifyMatch(
-  supabase: ReturnType<typeof createSupabaseAdminClient>,
   match: NotifyMatchRow,
   trigger: NotificationTrigger,
 ): Promise<MatchNotifySummary> {
-  const assignmentsResult = await supabase
-    .from("assignments")
-    .select(
-      "id, role:roles!assignments_role_id_fkey(name), person:people!assignments_person_id_fkey(id, full_name, phone, email)",
-    )
-    .eq("match_id", match.id);
-
-  if (assignmentsResult.error) {
-    // Do not mark — let the next tick retry this match.
-    throw assignmentsResult.error;
-  }
+  // Drizzle throws on query failure; a throw here is caught by the caller, which
+  // does NOT mark the match — the next tick retries it.
+  const assignmentRows = await db
+    .select({
+      role: { name: rolesTable.name },
+      person: {
+        id: peopleTable.id,
+        full_name: peopleTable.fullName,
+        phone: peopleTable.phone,
+        email: peopleTable.email,
+      },
+    })
+    .from(assignmentsTable)
+    .leftJoin(rolesTable, eq(assignmentsTable.roleId, rolesTable.id))
+    .leftJoin(peopleTable, eq(assignmentsTable.personId, peopleTable.id))
+    .where(eq(assignmentsTable.matchId, match.id));
 
   const recipients = buildMatchRecipients(
-    (assignmentsResult.data ?? []) as AssignmentRecipientRow[],
+    assignmentRows.map((row) => ({
+      role: row.role?.name ? row.role : null,
+      person: row.person?.id ? row.person : null,
+    })) as AssignmentRecipientRow[],
   );
   const subject = buildMatchNotificationSubject(match);
   const matchLabel = `${match.home_team} vs ${match.away_team}`;
@@ -227,15 +250,15 @@ export async function notifyMatch(
 
   // Stamp the marker after one full attempt regardless of failures (A1),
   // including zero-recipient matches so catch-up stops re-querying them.
-  const markResult = await supabase
-    .from("matches")
-    .update({ day_notified_at: new Date().toISOString() })
-    .eq("id", match.id);
-
-  if (markResult.error) {
+  try {
+    await db
+      .update(matchesTable)
+      .set({ dayNotifiedAt: new Date().toISOString() })
+      .where(eq(matchesTable.id, match.id));
+  } catch (error) {
     console.error(
       `[notifications] failed to mark match ${match.id} as notified`,
-      markResult.error,
+      error,
     );
   }
 

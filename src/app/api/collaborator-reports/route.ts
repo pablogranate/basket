@@ -1,14 +1,19 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { withAuth } from "@/lib/api/with-auth";
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
+import { db } from "@/lib/db/client";
+import {
+  assignments as assignmentsTable,
+  collaboratorReports as collaboratorReportsTable,
+} from "@/lib/db/schema";
 import {
   getCollaboratorMatchData,
   isUuidLike,
 } from "@/lib/data/collaborators";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ensureErrorMessage } from "@/lib/utils";
 
 const reportDraftSchema = z.object({
@@ -106,54 +111,68 @@ export const POST = withAuth({}, async (request, ctx) => {
       );
     }
 
-    const supabase = await createSupabaseServerClient();
+    // stampInsert({}) yields only the actor/timestamp columns (snake_case);
+    // the domain columns are written directly in camelCase below.
+    const stamp = stampInsert(ctx, {});
+    const reportValues = {
+      assignmentId,
+      matchId,
+      reporterProfileId: ctx.profileId,
+      incidentLevel: draft.incidentLevel,
+      paid: draft.paid === "si",
+      feedDetected: draft.feedDetected === "si",
+      signalLabel: draft.signalLabel,
+      aptoLineal: draft.aptoLineal === "si",
+      testTime: draft.testTime.trim() || null,
+      testCheck: draft.testCheck === "si",
+      startCheck: draft.startCheck === "si",
+      graphicsCheck: draft.graphicsCheck === "si",
+      speedtestValue: draft.speedtestValue.trim() || null,
+      pingValue: draft.pingValue.trim() || null,
+      gpuValue: draft.gpuValue.trim() || null,
+      technicalObservations: draft.technicalObservations.trim() || null,
+      buildingObservations: draft.buildingObservations.trim() || null,
+      generalObservations: draft.generalObservations.trim() || null,
+      otherFlag: Boolean(draft.otherObservation.trim()),
+      stFlag: Boolean(draft.stObservation.trim()),
+      clubFlag: Boolean(draft.clubObservation.trim()),
+      otherObservation: draft.otherObservation.trim() || null,
+      stObservation: draft.stObservation.trim() || null,
+      clubObservation: draft.clubObservation.trim() || null,
+      problems: {
+        ...draft.problems,
+        hasAny: hasEnabledProblems(draft.problems),
+      },
+      attachments: {
+        speedtest: draft.speedtestAttachmentName,
+        ping: draft.pingAttachmentName,
+        gpu: draft.gpuAttachmentName,
+      },
+      submittedAt: new Date().toISOString(),
+      createdBy: stamp.created_by,
+      updatedBy: stamp.updated_by,
+      createdAt: stamp.created_at,
+      updatedAt: stamp.updated_at,
+    };
 
-    const reportResult = await supabase
-      .from("collaborator_reports")
-      .upsert(
-        stampInsert(ctx, {
-          assignment_id: assignmentId,
-          match_id: matchId,
-          reporter_profile_id: ctx.profileId,
-          incident_level: draft.incidentLevel,
-          paid: draft.paid === "si",
-          feed_detected: draft.feedDetected === "si",
-          signal_label: draft.signalLabel,
-          apto_lineal: draft.aptoLineal === "si",
-          test_time: draft.testTime.trim() || null,
-          test_check: draft.testCheck === "si",
-          start_check: draft.startCheck === "si",
-          graphics_check: draft.graphicsCheck === "si",
-          speedtest_value: draft.speedtestValue.trim() || null,
-          ping_value: draft.pingValue.trim() || null,
-          gpu_value: draft.gpuValue.trim() || null,
-          technical_observations: draft.technicalObservations.trim() || null,
-          building_observations: draft.buildingObservations.trim() || null,
-          general_observations: draft.generalObservations.trim() || null,
-          other_flag: Boolean(draft.otherObservation.trim()),
-          st_flag: Boolean(draft.stObservation.trim()),
-          club_flag: Boolean(draft.clubObservation.trim()),
-          other_observation: draft.otherObservation.trim() || null,
-          st_observation: draft.stObservation.trim() || null,
-          club_observation: draft.clubObservation.trim() || null,
-          problems: {
-            ...draft.problems,
-            hasAny: hasEnabledProblems(draft.problems),
-          },
-          attachments: {
-            speedtest: draft.speedtestAttachmentName,
-            ping: draft.pingAttachmentName,
-            gpu: draft.gpuAttachmentName,
-          },
-          submitted_at: new Date().toISOString(),
-        }),
-        { onConflict: "assignment_id" },
-      )
-      .select("id")
-      .single();
+    // ON CONFLICT (assignment_id) refreshes every non-target column, mirroring
+    // the retired PostgREST upsert.
+    const { assignmentId: _conflictKey, ...reportUpdate } = reportValues;
+    void _conflictKey;
 
-    if (reportResult.error) {
-      if (reportResult.error.code === "42P01") {
+    let reportId: string | undefined;
+    try {
+      const rows = await db
+        .insert(collaboratorReportsTable)
+        .values(reportValues)
+        .onConflictDoUpdate({
+          target: collaboratorReportsTable.assignmentId,
+          set: reportUpdate,
+        })
+        .returning({ id: collaboratorReportsTable.id });
+      reportId = rows[0]?.id;
+    } catch (error) {
+      if ((error as { code?: string }).code === "42P01") {
         return NextResponse.json(
           {
             error:
@@ -163,28 +182,33 @@ export const POST = withAuth({}, async (request, ctx) => {
         );
       }
 
-      throw reportResult.error;
+      throw error;
     }
 
-    await writeAudit(supabase, ctx, {
+    if (!reportId) {
+      throw new Error("No pudimos guardar el reporte.");
+    }
+
+    await writeAudit(ctx, {
       table: "collaborator_reports",
-      recordId: reportResult.data.id,
+      recordId: reportId,
       matchId,
       action: "INSERT",
       before: null,
-      after: { id: reportResult.data.id, assignment_id: assignmentId, match_id: matchId },
+      after: { id: reportId, assignment_id: assignmentId, match_id: matchId },
     });
 
-    const assignmentResult = await supabase
-      .from("assignments")
-      .update(stampUpdate(ctx, { confirmed: true }))
-      .eq("id", assignmentId);
+    const assignmentStamp = stampUpdate(ctx, { confirmed: true });
+    await db
+      .update(assignmentsTable)
+      .set({
+        confirmed: assignmentStamp.confirmed,
+        updatedBy: assignmentStamp.updated_by,
+        updatedAt: assignmentStamp.updated_at,
+      })
+      .where(eq(assignmentsTable.id, assignmentId));
 
-    if (assignmentResult.error) {
-      throw assignmentResult.error;
-    }
-
-    await writeAudit(supabase, ctx, {
+    await writeAudit(ctx, {
       table: "assignments",
       recordId: assignmentId,
       matchId,
@@ -202,7 +226,7 @@ export const POST = withAuth({}, async (request, ctx) => {
 
     return NextResponse.json({
       ok: true,
-      reportId: reportResult.data.id,
+      reportId,
       message: "Reporte enviado. Marcamos este partido como reportado.",
     });
   } catch (error) {

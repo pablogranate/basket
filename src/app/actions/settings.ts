@@ -8,10 +8,16 @@ import {
   redirectWithNotice,
   rethrowNavigationError,
 } from "@/app/actions/helpers";
+import { and, eq, ne } from "drizzle-orm";
+
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth-access";
 import { clearAnnouncementCache } from "@/lib/data/announcements";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { db } from "@/lib/db/client";
+import {
+  announcements as announcementsTable,
+  appSettings as appSettingsTable,
+} from "@/lib/db/schema";
 import {
   GEMINI_API_KEY_COOKIE,
   GEMINI_GLOBAL_SETTING_KEY,
@@ -84,70 +90,89 @@ export async function saveGeminiSettingsAction(formData: FormData) {
       : "Clave de Gemini eliminada.";
 
     if (user.role === "admin") {
-      const supabase = await createSupabaseServerClient();
-
       if (apiKey) {
-        const upsertResult = await supabase
-          .from("app_settings")
-          .upsert(
-            stampInsert(user, {
-              setting_key: GEMINI_GLOBAL_SETTING_KEY,
-              secret_value: apiKey,
-              public_value: resolvedModel,
-            }),
-            { onConflict: "setting_key" },
-          )
-          .select("id")
-          .single();
+        const stamped = stampInsert(user, {
+          setting_key: GEMINI_GLOBAL_SETTING_KEY,
+          secret_value: apiKey,
+          public_value: resolvedModel,
+        });
 
-        if (upsertResult.error) {
-          if (isMissingAppSettingsError(upsertResult.error)) {
+        try {
+          // Mirror PostgREST upsert: ON CONFLICT (setting_key) updates every
+          // provided column from EXCLUDED.
+          const rows = await db
+            .insert(appSettingsTable)
+            .values({
+              settingKey: stamped.setting_key,
+              secretValue: stamped.secret_value,
+              publicValue: stamped.public_value,
+              createdBy: stamped.created_by,
+              updatedBy: stamped.updated_by,
+              createdAt: stamped.created_at,
+              updatedAt: stamped.updated_at,
+            })
+            .onConflictDoUpdate({
+              target: appSettingsTable.settingKey,
+              set: {
+                secretValue: stamped.secret_value,
+                publicValue: stamped.public_value,
+                createdBy: stamped.created_by,
+                updatedBy: stamped.updated_by,
+                createdAt: stamped.created_at,
+                updatedAt: stamped.updated_at,
+              },
+            })
+            .returning({ id: appSettingsTable.id });
+
+          const upsertId = rows[0]?.id;
+          if (upsertId) {
+            // secret_value is redacted by writeAudit for the app_settings table.
+            await writeAudit(user, {
+              table: "app_settings",
+              recordId: upsertId,
+              action: "UPDATE",
+              before: null,
+              after: {
+                setting_key: GEMINI_GLOBAL_SETTING_KEY,
+                secret_value: apiKey,
+                public_value: resolvedModel,
+              },
+            });
+          }
+          notice = "Gemini actualizado para tu sesión y para todo el portal.";
+        } catch (error) {
+          if (isMissingAppSettingsError(error)) {
             notice =
               "Configuración personal guardada. Aplica la migración 0008 para compartir Gemini con todo el portal.";
           } else {
-            throw upsertResult.error;
+            throw error;
           }
-        } else {
-          // secret_value is redacted by writeAudit for the app_settings table.
-          await writeAudit(supabase, user, {
-            table: "app_settings",
-            recordId: upsertResult.data.id,
-            action: "UPDATE",
-            before: null,
-            after: {
-              setting_key: GEMINI_GLOBAL_SETTING_KEY,
-              secret_value: apiKey,
-              public_value: resolvedModel,
-            },
-          });
-          notice = "Gemini actualizado para tu sesión y para todo el portal.";
         }
       } else {
-        const deleteResult = await supabase
-          .from("app_settings")
-          .delete()
-          .eq("setting_key", GEMINI_GLOBAL_SETTING_KEY)
-          .select("id")
-          .maybeSingle();
+        try {
+          const rows = await db
+            .delete(appSettingsTable)
+            .where(eq(appSettingsTable.settingKey, GEMINI_GLOBAL_SETTING_KEY))
+            .returning({ id: appSettingsTable.id });
 
-        if (deleteResult.error) {
-          if (isMissingAppSettingsError(deleteResult.error)) {
-            notice =
-              "Clave personal eliminada. Aplica la migración 0008 para administrar la clave global del portal.";
-          } else {
-            throw deleteResult.error;
-          }
-        } else {
-          if (deleteResult.data) {
-            await writeAudit(supabase, user, {
+          const deletedId = rows[0]?.id;
+          if (deletedId) {
+            await writeAudit(user, {
               table: "app_settings",
-              recordId: deleteResult.data.id,
+              recordId: deletedId,
               action: "DELETE",
               before: { setting_key: GEMINI_GLOBAL_SETTING_KEY },
               after: null,
             });
           }
           notice = "Clave de Gemini eliminada de tu sesión y del portal.";
+        } catch (error) {
+          if (isMissingAppSettingsError(error)) {
+            notice =
+              "Clave personal eliminada. Aplica la migración 0008 para administrar la clave global del portal.";
+          } else {
+            throw error;
+          }
         }
       }
     }
@@ -213,7 +238,6 @@ export async function saveAnnouncementAction(formData: FormData) {
   const user = await requireAdmin();
 
   try {
-    const supabase = await createSupabaseServerClient();
     const announcementId = String(formData.get("announcementId") ?? "").trim();
     const title = String(formData.get("announcementTitle") ?? "").trim();
     const body = String(formData.get("announcementBody") ?? "").trim();
@@ -230,20 +254,26 @@ export async function saveAnnouncementAction(formData: FormData) {
     let persistedAnnouncementId = announcementId;
 
     if (announcementId) {
-      const updateResult = await supabase
-        .from("announcements")
-        .update(stampUpdate(user, { title, body, active }))
-        .eq("id", announcementId)
-        .select("id")
-        .single();
+      const stamped = stampUpdate(user, { title, body, active });
+      const rows = await db
+        .update(announcementsTable)
+        .set({
+          title: stamped.title,
+          body: stamped.body,
+          active: stamped.active,
+          updatedBy: stamped.updated_by,
+          updatedAt: stamped.updated_at,
+        })
+        .where(eq(announcementsTable.id, announcementId))
+        .returning({ id: announcementsTable.id });
 
-      if (updateResult.error) {
-        throw updateResult.error;
+      const row = rows[0];
+      if (!row) {
+        throw new Error("No se encontró el comunicado.");
       }
+      persistedAnnouncementId = row.id;
 
-      persistedAnnouncementId = updateResult.data.id;
-
-      await writeAudit(supabase, user, {
+      await writeAudit(user, {
         table: "announcements",
         recordId: persistedAnnouncementId,
         action: "UPDATE",
@@ -251,19 +281,27 @@ export async function saveAnnouncementAction(formData: FormData) {
         after: { id: persistedAnnouncementId, title, body, active },
       });
     } else {
-      const insertResult = await supabase
-        .from("announcements")
-        .insert(stampInsert(user, { title, body, active }))
-        .select("id")
-        .single();
+      const stamped = stampInsert(user, { title, body, active });
+      const rows = await db
+        .insert(announcementsTable)
+        .values({
+          title: stamped.title,
+          body: stamped.body,
+          active: stamped.active,
+          createdBy: stamped.created_by,
+          updatedBy: stamped.updated_by,
+          createdAt: stamped.created_at,
+          updatedAt: stamped.updated_at,
+        })
+        .returning({ id: announcementsTable.id });
 
-      if (insertResult.error) {
-        throw insertResult.error;
+      const row = rows[0];
+      if (!row) {
+        throw new Error("No pudimos crear el comunicado.");
       }
+      persistedAnnouncementId = row.id;
 
-      persistedAnnouncementId = insertResult.data.id;
-
-      await writeAudit(supabase, user, {
+      await writeAudit(user, {
         table: "announcements",
         recordId: persistedAnnouncementId,
         action: "INSERT",
@@ -273,17 +311,22 @@ export async function saveAnnouncementAction(formData: FormData) {
     }
 
     if (active) {
-      const deactivateOthers = await supabase
-        .from("announcements")
-        .update(stampUpdate(user, { active: false }))
-        .eq("active", true)
-        .neq("id", persistedAnnouncementId);
+      const stamped = stampUpdate(user, { active: false });
+      await db
+        .update(announcementsTable)
+        .set({
+          active: stamped.active,
+          updatedBy: stamped.updated_by,
+          updatedAt: stamped.updated_at,
+        })
+        .where(
+          and(
+            eq(announcementsTable.active, true),
+            ne(announcementsTable.id, persistedAnnouncementId),
+          ),
+        );
 
-      if (deactivateOthers.error) {
-        throw deactivateOthers.error;
-      }
-
-      await writeAudit(supabase, user, {
+      await writeAudit(user, {
         table: "announcements",
         recordId: persistedAnnouncementId,
         action: "UPDATE",

@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const PORTAL_SECRET = "AIzaSy-portal-secret-key-value-1234";
+// Hoisted so the (hoisted) vi.mock factories can reference them without TDZ.
+const { PORTAL_SECRET, appSettingsRow } = vi.hoisted(() => {
+  const secret = "AIzaSy-portal-secret-key-value-1234";
+  return {
+    PORTAL_SECRET: secret,
+    appSettingsRow: { secret_value: secret, public_value: "gemini-2.5-flash" },
+  };
+});
 
 const cookieStore = {
   get: vi.fn(() => undefined),
@@ -10,18 +17,18 @@ vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => cookieStore),
 }));
 
-const appSettingsRow = {
-  secret_value: PORTAL_SECRET,
-  public_value: "gemini-2.5-flash",
-};
-
-const maybeSingle = vi.fn(async () => ({ data: appSettingsRow, error: null }));
-const eq = vi.fn(() => ({ maybeSingle }));
-const select = vi.fn(() => ({ eq }));
-const from = vi.fn(() => ({ select }));
-
-vi.mock("@/lib/supabase/server", () => ({
-  createSupabaseServerClient: vi.fn(async () => ({ from })),
+// loadPortalGeminiConfig now reads through Drizzle:
+// db.select(cols).from(app_settings).where(eq(...)).limit(1) -> row[].
+vi.mock("@/lib/db/client", () => ({
+  db: {
+    select: () => ({
+      from: () => ({
+        where: () => ({
+          limit: async () => [appSettingsRow],
+        }),
+      }),
+    }),
+  },
 }));
 
 vi.mock("@/lib/env", () => ({

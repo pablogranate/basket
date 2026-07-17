@@ -9,8 +9,19 @@ import {
   matches,
   notificationLogs,
   people,
+  profiles,
   roles,
 } from "@/lib/db/schema";
+
+export const profileColumns = {
+  id: profiles.id,
+  full_name: profiles.fullName,
+  role: profiles.role,
+  created_at: profiles.createdAt,
+  updated_at: profiles.updatedAt,
+  email: profiles.email,
+  auth_user_id: profiles.authUserId,
+} as const;
 
 export const matchColumns = {
   id: matches.id,

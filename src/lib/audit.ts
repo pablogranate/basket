@@ -1,8 +1,9 @@
 import type { UserContext } from "@/lib/auth";
 import { PRODUCTION_SHORT_LABEL } from "@/lib/constants";
 import type { Database, Json } from "@/lib/database.types";
+import { db } from "@/lib/db/client";
+import { auditLog as auditLogTable } from "@/lib/db/schema";
 import { getRoleDisplayName } from "@/lib/display";
-import type { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AuditEntry, AssignmentDetail } from "@/lib/types";
 
 const FIELD_LABELS: Record<string, string> = {
@@ -146,10 +147,6 @@ export function formatAuditEntry(
 // write site silently yields NULL changed_by post-teardown (Pitfall 1).
 // ---------------------------------------------------------------------------
 
-type SupabaseServerClient = Awaited<
-  ReturnType<typeof createSupabaseServerClient>
->;
-
 type AuditAction = Database["public"]["Tables"]["audit_log"]["Row"]["action"];
 
 type WriteAuditArgs = {
@@ -238,7 +235,6 @@ function redactAuditSecrets(
 // audit_log row with changed_by = ctx.profileId (NEVER NULL when an actor exists).
 // On insert failure we log + rethrow — a silent audit failure is unacceptable.
 export async function writeAudit(
-  supabase: SupabaseServerClient,
   ctx: UserContext,
   args: WriteAuditArgs,
 ): Promise<void> {
@@ -246,17 +242,17 @@ export async function writeAudit(
   const before = isSettings ? redactAuditSecrets(args.before) : args.before;
   const after = isSettings ? redactAuditSecrets(args.after) : args.after;
 
-  const { error } = await supabase.from("audit_log").insert({
-    table_name: args.table,
-    record_id: args.recordId,
-    match_id: deriveAuditMatchId(args),
-    action: args.action,
-    changed_by: ctx.profileId,
-    before: (before ?? null) as Json,
-    after: (after ?? null) as Json,
-  });
-
-  if (error) {
+  try {
+    await db.insert(auditLogTable).values({
+      tableName: args.table,
+      recordId: args.recordId,
+      matchId: deriveAuditMatchId(args),
+      action: args.action,
+      changedBy: ctx.profileId,
+      before: (before ?? null) as Json,
+      after: (after ?? null) as Json,
+    });
+  } catch (error) {
     console.error("[audit] failed to write audit_log row", {
       table: args.table,
       recordId: args.recordId,
