@@ -23,10 +23,11 @@ function buildDb(): PostgresJsDatabase<Schema> {
   // Direct connection (no pgbouncer transaction mode) — plain defaults, modest pool.
   const conn = globalForDb.portalConn ?? postgres(appEnv.databaseUrl, { max: 10 });
   const instance = drizzle(conn, { schema: fullSchema });
-  if (process.env.NODE_ENV !== "production") {
-    globalForDb.portalConn = conn;
-    globalForDb.portalDb = instance;
-  }
+  // Memoize ALWAYS (not just in dev): the Proxy below calls buildDb() on every
+  // property access, so skipping this in production leaks a new 10-conn pool
+  // per query until Postgres hits max_connections (53300).
+  globalForDb.portalConn = conn;
+  globalForDb.portalDb = instance;
   return instance;
 }
 
