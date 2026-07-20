@@ -12,12 +12,22 @@ export function toMatchEditPrefill(match: MatchListItem): MatchEditPrefill {
     }
   }
 
-  const { assignments, owner, ...rest } = match;
-  void assignments;
-
   return {
-    ...rest,
-    ownerId: owner?.id ?? null,
+    id: match.id,
+    production_code: match.production_code,
+    competition: match.competition,
+    home_team: match.home_team,
+    away_team: match.away_team,
+    kickoff_at: match.kickoff_at,
+    timezone: match.timezone,
+    status: match.status,
+    production_mode: match.production_mode,
+    venue: match.venue,
+    duration_minutes: match.duration_minutes,
+    commentary_plan: match.commentary_plan,
+    transport: match.transport,
+    notes: match.notes,
+    ownerId: match.owner?.id ?? null,
     assignedPersonByRole,
   };
 }

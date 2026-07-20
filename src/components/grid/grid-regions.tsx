@@ -299,7 +299,7 @@ export async function GridContent({
   redirectTo: string;
   pastDaysAccessory?: ReactNode;
 }) {
-  const { dayGroups, owners } = await loadGrid(user, filters);
+  const { dayGroups, owners, roles } = await loadGrid(user, filters);
   const sortedDayGroups = sortGridDayGroups(dayGroups, filters.dateOrder);
 
   if (!sortedDayGroups.length) {
@@ -397,6 +397,7 @@ export async function GridContent({
             canEdit={user.canEdit}
             redirectTo={redirectTo}
             people={owners}
+            roles={roles}
             todayKey={todayKey}
           />
         </div>

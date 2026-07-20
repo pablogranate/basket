@@ -74,38 +74,6 @@ type PersonAssignmentSummary = {
   match: { kickoff_at: string; duration_minutes: number } | null;
 };
 
-function normalizeGridAssignments(params: {
-  matchId: string;
-  roles: ActiveRole[];
-  assignments: GridAssignment[];
-}) {
-  const assignmentMap = new Map(
-    params.assignments.map((assignment) => [assignment.role_id, assignment]),
-  );
-
-  return params.roles.map((role) => {
-    const existing = assignmentMap.get(role.id);
-
-    if (existing) {
-      return existing;
-    }
-
-    return {
-      id: `${params.matchId}:${role.id}`,
-      match_id: params.matchId,
-      role_id: role.id,
-      person_id: null,
-      confirmed: false,
-      attendance_confirmed_at: null,
-      attendance_response: null,
-      attendance_note: null,
-      notes: null,
-      role,
-      person: null,
-    };
-  });
-}
-
 export async function getGridData(ctx: UserContext, filters: GridFilters) {
   void ctx;
   const window = resolveDateWindow({
@@ -146,69 +114,59 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
     );
   }
 
-  const [matchRows, ownersData, rolesData, functionsData] = await Promise.all([
-    db
-      .select(matchColumns)
-      .from(matchesTable)
-      .where(and(...conditions))
-      // Secondary sort on id makes same-kickoff ordering deterministic (the
-      // retired PostgREST query left ties to the query plan).
-      .orderBy(asc(matchesTable.kickoffAt), asc(matchesTable.id)),
-    db
-      .select({
-        id: peopleTable.id,
-        full_name: peopleTable.fullName,
-        phone: peopleTable.phone,
-        email: peopleTable.email,
-      })
-      .from(peopleTable)
-      .where(eq(peopleTable.active, true))
-      .orderBy(asc(peopleTable.fullName)),
-    db
-      .select({
-        id: rolesTable.id,
-        name: rolesTable.name,
-        category: rolesTable.category,
-        sort_order: rolesTable.sortOrder,
-        active: rolesTable.active,
-      })
-      .from(rolesTable)
-      .where(eq(rolesTable.active, true))
-      .orderBy(asc(rolesTable.sortOrder)),
-    db
-      .select({
-        person_id: personFunctionsTable.personId,
-        function_key: personFunctionsTable.functionKey,
-      })
-      .from(personFunctionsTable),
-  ]);
+  // One parallel round: the owner rides the match query as a join, and the
+  // assignments query scopes itself with a subquery over the same window
+  // conditions instead of waiting for the match ids in JS.
+  const matchIdsInWindow = db
+    .select({ id: matchesTable.id })
+    .from(matchesTable)
+    .where(and(...conditions));
 
-  const matchIds = matchRows.map((match) => match.id);
-
-  // Owner (people row behind matches.owner_id) and assignment crew are embedded
-  // in the retired PostgREST query; here they are joined-in as separate reads
-  // and stitched back onto each match by id.
-  const ownerIds = [
-    ...new Set(
-      matchRows
-        .map((match) => match.owner_id)
-        .filter((id): id is string => Boolean(id)),
-    ),
-  ];
-  const ownerRows = ownerIds.length
-    ? await db
+  const [matchRows, ownersData, rolesData, functionsData, assignmentRows] =
+    await Promise.all([
+      db
+        .select({
+          ...matchColumns,
+          owner: {
+            id: peopleTable.id,
+            full_name: peopleTable.fullName,
+            phone: peopleTable.phone,
+          },
+        })
+        .from(matchesTable)
+        .leftJoin(peopleTable, eq(matchesTable.ownerId, peopleTable.id))
+        .where(and(...conditions))
+        // Secondary sort on id makes same-kickoff ordering deterministic (the
+        // retired PostgREST query left ties to the query plan).
+        .orderBy(asc(matchesTable.kickoffAt), asc(matchesTable.id)),
+      db
         .select({
           id: peopleTable.id,
           full_name: peopleTable.fullName,
           phone: peopleTable.phone,
+          email: peopleTable.email,
         })
         .from(peopleTable)
-        .where(inArray(peopleTable.id, ownerIds))
-    : [];
-  const ownerById = new Map(ownerRows.map((owner) => [owner.id, owner]));
-
-  const assignmentRows = matchIds.length
-    ? await db
+        .where(eq(peopleTable.active, true))
+        .orderBy(asc(peopleTable.fullName)),
+      db
+        .select({
+          id: rolesTable.id,
+          name: rolesTable.name,
+          category: rolesTable.category,
+          sort_order: rolesTable.sortOrder,
+          active: rolesTable.active,
+        })
+        .from(rolesTable)
+        .where(eq(rolesTable.active, true))
+        .orderBy(asc(rolesTable.sortOrder)),
+      db
+        .select({
+          person_id: personFunctionsTable.personId,
+          function_key: personFunctionsTable.functionKey,
+        })
+        .from(personFunctionsTable),
+      db
         .select({
           id: assignmentsTable.id,
           match_id: assignmentsTable.matchId,
@@ -235,8 +193,9 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
         .from(assignmentsTable)
         .innerJoin(rolesTable, eq(assignmentsTable.roleId, rolesTable.id))
         .leftJoin(peopleTable, eq(assignmentsTable.personId, peopleTable.id))
-        .where(inArray(assignmentsTable.matchId, matchIds))
-    : [];
+        .where(inArray(assignmentsTable.matchId, matchIdsInWindow))
+        .orderBy(asc(rolesTable.sortOrder)),
+    ]);
 
   const assignmentsByMatch = new Map<string, GridAssignment[]>();
   for (const row of assignmentRows) {
@@ -260,14 +219,13 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
 
   const activeRoles = rolesData as ActiveRole[];
 
-  const matches = matchRows.map((match) => ({
+  // Assignments stay sparse: only persisted rows travel with each match. The
+  // table view rebuilds empty slots client-side from the `roles` list, so the
+  // ~roles-per-match synthetic fillers never inflate the RSC payload.
+  const matches = matchRows.map(({ owner, ...match }) => ({
     ...match,
-    owner: ownerById.get(match.owner_id ?? "") ?? null,
-    assignments: normalizeGridAssignments({
-      matchId: match.id,
-      roles: activeRoles,
-      assignments: assignmentsByMatch.get(match.id) ?? [],
-    }),
+    owner: owner?.id ? owner : null,
+    assignments: assignmentsByMatch.get(match.id) ?? [],
   })) as MatchListItem[];
 
   const dayGroups = matches.reduce<
@@ -299,6 +257,7 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
   return {
     dayGroups,
     owners,
+    roles: activeRoles,
   };
 }
 

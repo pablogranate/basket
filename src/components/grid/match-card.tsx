@@ -115,6 +115,10 @@ export function MatchCard({
   const statusAccentClass =
     match.status === "Realizado" ? "bg-[#26b36a]" : "bg-[var(--n-200)]";
   const detailsId = `match-card-${match.id}`;
+  // One shared prefill object for both MatchCardActions instances (mobile +
+  // desktop): Flight dedupes by reference, so a second toMatchEditPrefill call
+  // would serialize the whole prefill twice per card.
+  const matchPrefill = toMatchEditPrefill(match);
 
   return (
     <details
@@ -231,7 +235,7 @@ export function MatchCard({
             <MatchCardActions
               canEdit={canEdit}
               detailsId={detailsId}
-              match={toMatchEditPrefill(match)}
+              match={matchPrefill}
               redirectTo={redirectTo}
               className="flex-row"
             />
@@ -532,7 +536,7 @@ export function MatchCard({
             <MatchCardActions
               canEdit={canEdit}
               detailsId={detailsId}
-              match={toMatchEditPrefill(match)}
+              match={matchPrefill}
               redirectTo={redirectTo}
             />
           </div>
