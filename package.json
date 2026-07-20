@@ -15,6 +15,7 @@
     "db:auth:generate": "drizzle-kit generate --config drizzle.auth.config.ts",
     "db:portal:generate": "drizzle-kit generate --config drizzle.portal.config.ts",
     "db:portal:migrate": "drizzle-kit migrate --config drizzle.portal.config.ts",
+    "db:portal:mark-baseline": "bash scripts/db/mark-baseline-applied.sh",
     "db:portal:pull": "drizzle-kit pull --config drizzle.portal.config.ts",
     "db:refresh": "bash scripts/db/refresh.sh",
     "test:integration": "bash scripts/db/with-test-db.sh vitest run --config vitest.integration.config.mts"

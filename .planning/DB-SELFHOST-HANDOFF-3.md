@@ -46,12 +46,17 @@ a0b9f3f Phase 4 — actions + API routes + remaining prod lib → Drizzle
 
 ## 3. What REMAINS (both user-owned — do NOT do unprompted)
 
-**Phase 1 — root/VPS steps (needs the user; no sudo for `wences`).**
-Run `docs/runbooks/db-selfhost-infra.md`: create the prod `basket-portal-db` container (loopback `127.0.0.1:5434`, via `docker run` not compose — see runbook §2), `/var/backups/basket`, install the two root cron lines, smoke `backup.sh` + `restore-test.sh`. Nothing here is code.
+**Phase 1 — root/VPS steps — DONE on prod 2026-07-20.**
+`basket-portal-db` running (loopback `127.0.0.1:5434`, empty, `--restart unless-stopped`); `PORTAL_DB_*` added to prod `.env.local` (NOT `DATABASE_URL` — that's Phase 7); `/var/backups/basket` + `/var/log/basket-backup.log` created; `scripts/db/*` placed via `git checkout origin/feat/domain-db-selfhost -- scripts/db` (staged on prod `main`, resolves at cutover); both cron lines in **root** crontab. `backup.sh` smoke OK (auth dump real, portal dump empty as expected). `restore-test.sh` fails pre-cutover (`relation "matches" does not exist` — empty DB); expected, passes once cutover loads data. `wences` had no passwordless sudo but IS in the `sudo` group and `SERVER_PASS` is its sudo password (see memory).
+Still open under Phase 1: **local dev container** (`docker compose up -d basket-portal-db` + `db:portal:migrate`) on each dev machine — runbook §1, unrelated to prod.
 
-**Phase 7 — cutover + retirement (user-scheduled; NEVER run unprompted).**
-Runbook: PRD §6 (~2–3 min downtime, no-match weekday morning AR time). Sequence: `pm2 stop` → `pg_dump` Supabase (`--no-owner --no-privileges`, public only) → restore into `basket-portal-db` → create extensions → drop RLS/policies → mark drizzle baseline applied → swap `DATABASE_URL` → `pm2 start` new build → run the smoke checklist → rollback path if any step fails.
-Then the 30-day retirement follow-up: freeze Supabase → final dump archived with backups → delete project → strip `SUPABASE*` env + `@supabase/*` deps + `scripts/parity/` + `src/lib/supabase/{admin,server}.ts` (now safe — parity harness dies with it).
+**Cutover prep DONE (2026-07-20):** PR #88 merged to `main` (merge commit, phase series preserved). Pre-cutover rehearsal green: read parity 19/19, write integration 8/8, and the full restore was rehearsed on a local container from a live Supabase dump → **19/19 tables row-count identical**, manual UI + role-matrix smoke all green (profiles relinked to local auth ids). The restore recipe + snags (clean `public` first, explicit `pg_trgm`, disable RLS, then `scripts/db/mark-baseline-applied.sh`) are in the smoke-checklist rehearsal log and PRD §6.2. Baseline hash `324155a3…d96fe5`, `created_at 1784303027915`. Remaining before the window: step 3 (pre-build on server).
+
+**Phase 7 — cutover EXECUTED 2026-07-20 (user-prompted).**
+Prod runs on `basket-portal-db` since 2026-07-20 ~21:47 UTC. 19/19 row-counts identical; dump archived at `/var/backups/basket/supabase-final-20260720-2147.sql.gz`; `DATABASE_URL` swapped in prod `.env.local`. Full execution log + the prod-only **pool-leak hotfix (PR #89)** in the smoke-checklist cutover log — read it before touching `src/lib/db/client.ts`.
+Still open under Phase 7:
+- **Manual smoke checklist × 4 roles against prod** (user-owned, UI work).
+- **30-day retirement (from 2026-07-20 → due ~2026-08-19):** freeze Supabase → final dump already archived → delete project → strip `SUPABASE*` env + `@supabase/*` deps + `scripts/parity/` + `src/lib/supabase/{admin,server}.ts` (now safe — parity harness dies with it). Note: read parity can no longer run (source swapped); that's expected.
 
 **Also pending (non-blocking):** open the single PR for Phases 2–6. User asked to decide whether to open now or after the Phase 1 root steps — confirm with them.
 

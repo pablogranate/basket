@@ -67,7 +67,7 @@ Portal is the **sole reader/writer** — verified: n8n, analytics, incidencias, 
 Precondition: branch green (check + tests + parity + checklist), no-match weekday morning (AR time, outside 11:00/22:00 notification slots), new build **pre-built** on server.
 
 1. `pm2 stop` portal → all writers frozen (crons/WhatsApp/intake live in-process).
-2. `pg_dump` Supabase (schema+data, `--no-owner --no-privileges`, public schema only) → restore into `basket-portal-db`; create extensions; drop RLS/policies; mark drizzle baseline applied; sanity row-counts vs source.
+2. `pg_dump` Supabase (schema+data, `--no-owner --no-privileges`, public schema only) → restore into `basket-portal-db`; create extensions; drop RLS/policies; mark drizzle baseline applied; sanity row-counts vs source. **Exact steps rehearsed 2026-07-20 — see the smoke-checklist rehearsal log for the ordered commands.** Order that matters: `DROP SCHEMA public CASCADE; CREATE SCHEMA public;` (the dump's `CREATE SCHEMA public` else aborts under `ON_ERROR_STOP`) → `CREATE EXTENSION IF NOT EXISTS pg_trgm;` (dump omits it) → restore → `ALTER TABLE … DISABLE ROW LEVEL SECURITY` on all 19 → `scripts/db/mark-baseline-applied.sh` (inserts the exact hash/created_at drizzle-kit writes, so `db:portal:migrate` skips 0000 whose plain `CREATE TABLE`s would otherwise fail) → row-count sanity.
 3. Swap env (`DATABASE_URL` → `127.0.0.1:5434`), `pm2 start` new build.
 4. Smoke checklist against prod.
 5. **Rollback** (any failure): restore old env + previous git ref build, `pm2 start`. Supabase received no writes during freeze → zero data loss.
