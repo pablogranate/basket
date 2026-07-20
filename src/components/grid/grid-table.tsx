@@ -39,11 +39,14 @@ export type GridTableRow = {
   match: MatchListItem;
 };
 
+type GridRole = MatchListItem["assignments"][number]["role"];
+
 type GridTableProps = {
   rows: GridTableRow[];
   canEdit: boolean;
   redirectTo: string;
   people: GridOwner[];
+  roles: GridRole[];
   todayKey?: string;
 };
 
@@ -199,6 +202,7 @@ function readStoredColumnWidths(): Record<string, number> {
 function getCellEditor(
   columnKey: keyof GridExportRow,
   match: MatchListItem,
+  roles: GridRole[],
 ): GridCellEditor | null {
   const roleName = ASSIGNMENT_ROLE_BY_KEY[columnKey];
 
@@ -207,16 +211,31 @@ function getCellEditor(
       (item) => item.role.name === roleName,
     );
 
-    if (!assignment) {
+    if (assignment) {
+      return {
+        kind: "assignment",
+        roleId: assignment.role_id,
+        personId: assignment.person?.id ?? "",
+        confirmed: assignment.confirmed,
+        notes: assignment.notes ?? "",
+        functionKey: roleNameToFunctionKey(roleName),
+      };
+    }
+
+    // Assignments arrive sparse (only persisted rows are serialized), so an
+    // empty slot resolves its role from the active roles list instead.
+    const role = roles.find((item) => item.name === roleName);
+
+    if (!role) {
       return null;
     }
 
     return {
       kind: "assignment",
-      roleId: assignment.role_id,
-      personId: assignment.person?.id ?? "",
-      confirmed: assignment.confirmed,
-      notes: assignment.notes ?? "",
+      roleId: role.id,
+      personId: "",
+      confirmed: false,
+      notes: "",
       functionKey: roleNameToFunctionKey(roleName),
     };
   }
@@ -380,6 +399,7 @@ export function GridTable({
   canEdit,
   redirectTo,
   people,
+  roles,
   todayKey,
 }: GridTableProps) {
   const [hiddenColumns, setHiddenColumns] = useState<string[]>(() =>
@@ -748,7 +768,7 @@ export function GridTable({
         ? "-"
         : rawValue;
     const isWide = WIDE_TEXT_KEYS.has(columnKey);
-    const editor = editingEnabled ? getCellEditor(columnKey, match) : null;
+    const editor = editingEnabled ? getCellEditor(columnKey, match, roles) : null;
 
     if (columnKey === "Partido" && editingEnabled) {
       return (

@@ -57,9 +57,26 @@ export type MatchListItem = MatchRow & {
 // Slim projection of a match for the edit modal. The full MatchListItem embeds
 // a role + person object on every assignment slot (~21 per match); serializing
 // hundreds of those into per-card client components inflated /grid to ~15MB.
-// The modal only needs scalar match fields plus a role-name -> person-id map,
-// so we ship that instead and never serialize the nested role/person graph.
-export type MatchEditPrefill = MatchRow & {
+// The modal only needs the scalar fields it edits plus a role-name ->
+// person-id map, so we ship exactly that and never serialize the rest of the
+// match row (audit columns, sync markers) nor the nested role/person graph.
+export type MatchEditPrefill = Pick<
+  MatchRow,
+  | "id"
+  | "production_code"
+  | "competition"
+  | "home_team"
+  | "away_team"
+  | "kickoff_at"
+  | "timezone"
+  | "status"
+  | "production_mode"
+  | "venue"
+  | "duration_minutes"
+  | "commentary_plan"
+  | "transport"
+  | "notes"
+> & {
   ownerId: string | null;
   assignedPersonByRole: Record<string, string>;
 };
