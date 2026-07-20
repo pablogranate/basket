@@ -1,9 +1,18 @@
 import "server-only";
 
 import { parse } from "csv-parse/sync";
+import { and, desc, eq, gte, inArray, isNotNull, lt, lte } from "drizzle-orm";
 import { fromZonedTime } from "date-fns-tz";
 
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { db } from "@/lib/db/client";
+import { assignmentColumns, gridSyncRunColumns, matchColumns } from "@/lib/db/rows";
+import {
+  assignments as assignmentsTable,
+  gridSyncRuns as gridSyncRunsTable,
+  matches as matchesTable,
+  people as peopleTable,
+  roles as rolesTable,
+} from "@/lib/db/schema";
 import type { Database } from "@/lib/database.types";
 import { normalizeText } from "@/lib/utils";
 
@@ -317,7 +326,7 @@ function tripleKey(home: string, away: string, kickoffIso: string) {
   return `${normalizeText(home)}|${normalizeText(away)}|${new Date(kickoffIso).getTime()}`;
 }
 
-// Postgres unique_violation; surfaced by supabase-js on the error `code`.
+// Postgres unique_violation; surfaced by the postgres driver on the error `code`.
 function isUniqueViolation(error: unknown): boolean {
   return Boolean(error) && (error as { code?: string }).code === "23505";
 }
@@ -327,8 +336,8 @@ function nullableText(value: string | null | undefined) {
   return trimmed ? trimmed : null;
 }
 
-// Supabase/Postgrest errors are plain objects, not Error instances; String()
-// on them yields "[object Object]", so read `.message` explicitly.
+// postgres driver errors are plain objects, not Error instances in every case;
+// String() on them can yield "[object Object]", so read `.message` explicitly.
 function toErrorMessage(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
@@ -349,23 +358,19 @@ function chunk<T>(items: T[], size: number): T[][] {
 let running = false;
 
 export async function getLastSuccessfulSync(): Promise<SyncRunRow | null> {
-  const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("grid_sync_runs")
-    .select("*")
-    .eq("status", "success")
-    .order("started_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  try {
+    const rows = await db
+      .select(gridSyncRunColumns)
+      .from(gridSyncRunsTable)
+      .where(eq(gridSyncRunsTable.status, "success"))
+      .orderBy(desc(gridSyncRunsTable.startedAt))
+      .limit(1);
 
-  if (error) {
+    return (rows[0] as SyncRunRow | undefined) ?? null;
+  } catch (error) {
     console.error("[grid-sync] failed to read last successful run", error);
     return null;
   }
-
-  // Admin client (supabase-js 2.98.0) does not expand `select("*")` row types;
-  // cast to the concrete Row, matching the codebase pattern (platform-access.ts).
-  return (data as SyncRunRow | null) ?? null;
 }
 
 export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncResult> {
@@ -394,7 +399,6 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
   running = true;
   const now = new Date();
   const startedAt = now.toISOString();
-  const supabase = createSupabaseAdminClient();
 
   try {
     // 1. Fetch + parse tabs (missing/future tabs are skipped, not fatal).
@@ -469,32 +473,24 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
       const minKickoff = new Date(Math.min(...kickoffs)).toISOString();
       const maxKickoff = new Date(Math.max(...kickoffs)).toISOString();
 
-      const matchesQuery = await supabase
-        .from("matches")
-        .select("*")
-        .gte("kickoff_at", minKickoff)
-        .lte("kickoff_at", maxKickoff);
-
-      if (matchesQuery.error) {
-        throw matchesQuery.error;
-      }
-
-      const windowMatches = (matchesQuery.data ?? []) as MatchRow[];
+      const windowMatches = (await db
+        .select(matchColumns)
+        .from(matchesTable)
+        .where(
+          and(
+            gte(matchesTable.kickoffAt, minKickoff),
+            lte(matchesTable.kickoffAt, maxKickoff),
+          ),
+        )) as MatchRow[];
 
       // The dedup key (production_code) is global, not window-bound: a match
       // can be rescheduled out of the window or already live from a prior sync.
       // Load every match that carries a code so a re-sync always UPDATES the
       // same row instead of inserting a duplicate.
-      const codedMatchesQuery = await supabase
-        .from("matches")
-        .select("*")
-        .not("production_code", "is", null);
-
-      if (codedMatchesQuery.error) {
-        throw codedMatchesQuery.error;
-      }
-
-      const codedMatches = (codedMatchesQuery.data ?? []) as MatchRow[];
+      const codedMatches = (await db
+        .select(matchColumns)
+        .from(matchesTable)
+        .where(isNotNull(matchesTable.productionCode))) as MatchRow[];
 
       const matchByProductionCode = new Map<string, MatchRow>();
       for (const match of codedMatches) {
@@ -518,16 +514,12 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
         new Set([...windowMatches, ...codedMatches].map((match) => match.id)),
       );
       for (const idChunk of chunk(matchIds, 300)) {
-        const assignmentsQuery = await supabase
-          .from("assignments")
-          .select("*")
-          .in("match_id", idChunk);
+        const assignmentRows = (await db
+          .select(assignmentColumns)
+          .from(assignmentsTable)
+          .where(inArray(assignmentsTable.matchId, idChunk))) as AssignmentRow[];
 
-        if (assignmentsQuery.error) {
-          throw assignmentsQuery.error;
-        }
-
-        for (const assignment of (assignmentsQuery.data ?? []) as AssignmentRow[]) {
+        for (const assignment of assignmentRows) {
           const list = assignmentsByMatch.get(assignment.match_id) ?? [];
           list.push(assignment);
           assignmentsByMatch.set(assignment.match_id, list);
@@ -535,30 +527,25 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
       }
 
       // 4. Preload sheet-managed roles (name -> id) and the managed id set.
-      const rolesQuery = await supabase
-        .from("roles")
-        .select("id, name")
-        .in("name", SHEET_MANAGED_ROLE_NAMES);
-
-      if (rolesQuery.error) {
-        throw rolesQuery.error;
-      }
+      const roleRows = await db
+        .select({ id: rolesTable.id, name: rolesTable.name })
+        .from(rolesTable)
+        .where(inArray(rolesTable.name, SHEET_MANAGED_ROLE_NAMES));
 
       const roleIdByName = new Map<string, string>();
       const managedRoleIds = new Set<string>();
-      for (const role of rolesQuery.data ?? []) {
+      for (const role of roleRows) {
         roleIdByName.set(role.name, role.id);
         managedRoleIds.add(role.id);
       }
 
       // 5. Preload people, keyed by normalized name (matches people-import dedupe).
-      const peopleQuery = await supabase.from("people").select("id, full_name");
-      if (peopleQuery.error) {
-        throw peopleQuery.error;
-      }
+      const peopleRows = await db
+        .select({ id: peopleTable.id, full_name: peopleTable.fullName })
+        .from(peopleTable);
 
       const personIdByName = new Map<string, string>();
-      for (const person of peopleQuery.data ?? []) {
+      for (const person of peopleRows) {
         const key = normalizeText(person.full_name);
         if (key && !personIdByName.has(key)) {
           personIdByName.set(key, person.id);
@@ -577,19 +564,15 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
           return cached;
         }
 
-        const created = await supabase
-          .from("people")
-          .insert({ full_name: name, active: true })
-          .select("id")
-          .single();
+        const created = await db
+          .insert(peopleTable)
+          .values({ fullName: name, active: true })
+          .returning({ id: peopleTable.id });
 
-        if (created.error) {
-          throw created.error;
-        }
-
-        personIdByName.set(key, created.data.id);
+        const createdId = created[0].id;
+        personIdByName.set(key, createdId);
         result.peopleCreated += 1;
-        return created.data.id;
+        return createdId;
       };
 
       // 6. Per-entry delta.
@@ -619,37 +602,38 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
               );
             }
 
-            const insert = await supabase
-              .from("matches")
-              .insert({
-                competition: sheet.competition,
-                production_mode: sheet.production_mode,
-                home_team: sheet.home_team,
-                away_team: sheet.away_team,
-                kickoff_at: sheet.kickoff_at,
-                duration_minutes: sheet.duration_minutes,
-                timezone: sheet.timezone,
-                production_code: sheet.production_code,
-                commentary_plan: sheet.commentary_plan,
-                transport: sheet.transport,
-                notes: sheet.notes,
-                owner_id: ownerId,
-                status: (isPast ? "Realizado" : "Pendiente") satisfies MatchStatus,
-              })
-              .select("id")
-              .single();
-
-            if (insert.error) {
+            let insertedId: string;
+            try {
+              const insert = await db
+                .insert(matchesTable)
+                .values({
+                  competition: sheet.competition,
+                  productionMode: sheet.production_mode,
+                  homeTeam: sheet.home_team,
+                  awayTeam: sheet.away_team,
+                  kickoffAt: sheet.kickoff_at,
+                  durationMinutes: sheet.duration_minutes,
+                  timezone: sheet.timezone,
+                  productionCode: sheet.production_code,
+                  commentaryPlan: sheet.commentary_plan,
+                  transport: sheet.transport,
+                  notes: sheet.notes,
+                  ownerId,
+                  status: (isPast ? "Realizado" : "Pendiente") satisfies MatchStatus,
+                })
+                .returning({ id: matchesTable.id });
+              insertedId = insert[0].id;
+            } catch (insertError) {
               // DB unique-index backstop (race or pre-existing duplicate).
-              if (isUniqueViolation(insert.error) && productionCode) {
+              if (isUniqueViolation(insertError) && productionCode) {
                 throw new Error(
                   `El ID "${productionCode}" ya existe en la base de datos. Probá con otro.`,
                 );
               }
-              throw insert.error;
+              throw insertError;
             }
 
-            matchId = insert.data.id;
+            matchId = insertedId;
             if (productionCode) {
               seenProductionCodes.add(productionCode);
             }
@@ -658,27 +642,28 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
             matchId = existing.id;
 
             // Sheet owns roster fields; compare instant-wise for kickoff.
-            const changed: Database["public"]["Tables"]["matches"]["Update"] = {};
+            // Keys are camelCase to feed Drizzle .set() directly.
+            const changed: Partial<typeof matchesTable.$inferInsert> = {};
             if (nullableText(existing.competition) !== nullableText(sheet.competition)) {
               changed.competition = sheet.competition;
             }
             if (nullableText(existing.production_mode) !== nullableText(sheet.production_mode)) {
-              changed.production_mode = sheet.production_mode;
+              changed.productionMode = sheet.production_mode;
             }
             if (existing.home_team !== sheet.home_team) {
-              changed.home_team = sheet.home_team;
+              changed.homeTeam = sheet.home_team;
             }
             if (existing.away_team !== sheet.away_team) {
-              changed.away_team = sheet.away_team;
+              changed.awayTeam = sheet.away_team;
             }
             if (new Date(existing.kickoff_at).getTime() !== new Date(sheet.kickoff_at).getTime()) {
-              changed.kickoff_at = sheet.kickoff_at;
+              changed.kickoffAt = sheet.kickoff_at;
             }
             if (nullableText(existing.production_code) !== nullableText(sheet.production_code)) {
-              changed.production_code = sheet.production_code;
+              changed.productionCode = sheet.production_code;
             }
             if (nullableText(existing.commentary_plan) !== nullableText(sheet.commentary_plan)) {
-              changed.commentary_plan = sheet.commentary_plan;
+              changed.commentaryPlan = sheet.commentary_plan;
             }
             if (nullableText(existing.transport) !== nullableText(sheet.transport)) {
               changed.transport = sheet.transport;
@@ -687,7 +672,7 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
               changed.notes = sheet.notes;
             }
             if ((existing.owner_id ?? null) !== (ownerId ?? null)) {
-              changed.owner_id = ownerId;
+              changed.ownerId = ownerId;
             }
 
             // Status is app-owned: never overwrite a manual "Confirmado";
@@ -700,11 +685,10 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
             }
 
             if (Object.keys(changed).length) {
-              changed.updated_at = now.toISOString();
-              const update = await supabase.from("matches").update(changed).eq("id", matchId);
-              if (update.error) {
-                throw update.error;
-              }
+              // App now owns updated_at (the set_row_metadata trigger is gone in
+              // the self-hosted DB); this sync has no actor, so *_by stays NULL.
+              changed.updatedAt = now.toISOString();
+              await db.update(matchesTable).set(changed).where(eq(matchesTable.id, matchId));
               result.updated += 1;
             } else {
               result.unchanged += 1;
@@ -738,29 +722,32 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
           for (const [roleId, personId] of desired) {
             const current = existingByRole.get(roleId);
             if (!current || current.person_id !== personId) {
-              const upsert = await supabase.from("assignments").upsert(
-                {
-                  match_id: matchId,
-                  role_id: roleId,
-                  person_id: personId,
+              // App owns updated_at on the conflict-update path (trigger dropped).
+              await db
+                .insert(assignmentsTable)
+                .values({
+                  matchId,
+                  roleId,
+                  personId,
                   confirmed: false,
                   notes: null,
-                },
-                { onConflict: "match_id,role_id" },
-              );
-              if (upsert.error) {
-                throw upsert.error;
-              }
+                })
+                .onConflictDoUpdate({
+                  target: [assignmentsTable.matchId, assignmentsTable.roleId],
+                  set: {
+                    personId,
+                    confirmed: false,
+                    notes: null,
+                    updatedAt: now.toISOString(),
+                  },
+                });
               result.assignmentsUpserted += 1;
             }
           }
 
           for (const row of existingAssignments) {
             if (!desired.has(row.role_id)) {
-              const remove = await supabase.from("assignments").delete().eq("id", row.id);
-              if (remove.error) {
-                throw remove.error;
-              }
+              await db.delete(assignmentsTable).where(eq(assignmentsTable.id, row.id));
               result.assignmentsDeleted += 1;
             }
           }
@@ -783,16 +770,33 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
 
       // Dedicated full-window select — the entries-derived min/max range is
       // empty on a zero-entry run, so this must not reuse it.
-      const candidatesQuery = await supabase
-        .from("matches")
-        .select("id, home_team, away_team, kickoff_at")
-        .gte("kickoff_at", windowStartIso)
-        .lt("kickoff_at", windowEndIso);
+      type CandidateRow = Pick<
+        MatchRow,
+        "id" | "home_team" | "away_team" | "kickoff_at"
+      >;
 
-      if (candidatesQuery.error) {
+      let candidates: CandidateRow[] | null = null;
+      try {
+        candidates = (await db
+          .select({
+            id: matchesTable.id,
+            home_team: matchesTable.homeTeam,
+            away_team: matchesTable.awayTeam,
+            kickoff_at: matchesTable.kickoffAt,
+          })
+          .from(matchesTable)
+          .where(
+            and(
+              gte(matchesTable.kickoffAt, windowStartIso),
+              lt(matchesTable.kickoffAt, windowEndIso),
+            ),
+          )) as CandidateRow[];
+      } catch (candidatesError) {
         // A failed candidate read must not abort a run that already saved.
-        result.errors.push(candidatesQuery.error.message);
-      } else {
+        result.errors.push(toErrorMessage(candidatesError));
+      }
+
+      if (candidates) {
         // Only months actually covered by a synced tab are eligible: a window
         // month with no tab coverage (e.g. pre-cutover) is not "missing", so
         // its matches must never be deleted.
@@ -801,12 +805,6 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
           const { year, month } = parseTabPeriod(tabName);
           coveredMonths.add(`${year}-${month}`);
         }
-
-        type CandidateRow = Pick<
-          MatchRow,
-          "id" | "home_team" | "away_team" | "kickoff_at"
-        >;
-        const candidates = (candidatesQuery.data ?? []) as CandidateRow[];
 
         const deletable = candidates.filter((match) => {
           if (touchedMatchIds.has(match.id)) {
@@ -818,17 +816,17 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
 
         const deletedLabels: string[] = [];
         for (const rowChunk of chunk(deletable, 300)) {
-          const remove = await supabase
-            .from("matches")
-            .delete()
-            .in(
-              "id",
-              rowChunk.map((match) => match.id),
+          try {
+            await db.delete(matchesTable).where(
+              inArray(
+                matchesTable.id,
+                rowChunk.map((match) => match.id),
+              ),
             );
-          if (remove.error) {
+          } catch (removeError) {
             // Error-tolerant: a delete failure must not abort a run that
             // already created/updated successfully.
-            result.errors.push(remove.error.message);
+            result.errors.push(toErrorMessage(removeError));
             continue;
           }
           result.deleted += rowChunk.length;
@@ -847,19 +845,19 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
       }
     }
 
-    await supabase.from("grid_sync_runs").insert({
+    await db.insert(gridSyncRunsTable).values({
       trigger,
       status: "success",
-      created_count: result.created,
-      updated_count: result.updated,
-      skipped_count: result.unchanged,
-      deleted_count: result.deleted,
-      assignments_upserted: result.assignmentsUpserted,
-      assignments_deleted: result.assignmentsDeleted,
-      people_created: result.peopleCreated,
+      createdCount: result.created,
+      updatedCount: result.updated,
+      skippedCount: result.unchanged,
+      deletedCount: result.deleted,
+      assignmentsUpserted: result.assignmentsUpserted,
+      assignmentsDeleted: result.assignmentsDeleted,
+      peopleCreated: result.peopleCreated,
       error: result.errors.length ? result.errors.join("\n") : null,
-      started_at: startedAt,
-      finished_at: new Date().toISOString(),
+      startedAt,
+      finishedAt: new Date().toISOString(),
     });
 
     return result;
@@ -867,19 +865,19 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
     const message = toErrorMessage(error);
     result.errors.push(message);
 
-    await supabase.from("grid_sync_runs").insert({
+    await db.insert(gridSyncRunsTable).values({
       trigger,
       status: "error",
-      created_count: result.created,
-      updated_count: result.updated,
-      skipped_count: result.unchanged,
-      deleted_count: result.deleted,
-      assignments_upserted: result.assignmentsUpserted,
-      assignments_deleted: result.assignmentsDeleted,
-      people_created: result.peopleCreated,
+      createdCount: result.created,
+      updatedCount: result.updated,
+      skippedCount: result.unchanged,
+      deletedCount: result.deleted,
+      assignmentsUpserted: result.assignmentsUpserted,
+      assignmentsDeleted: result.assignmentsDeleted,
+      peopleCreated: result.peopleCreated,
       error: message,
-      started_at: startedAt,
-      finished_at: new Date().toISOString(),
+      startedAt,
+      finishedAt: new Date().toISOString(),
     });
 
     throw error;

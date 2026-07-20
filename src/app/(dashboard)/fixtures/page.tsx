@@ -1,6 +1,9 @@
 import { Suspense } from "react";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { and, asc, gte, ilike } from "drizzle-orm";
+
+import { db } from "@/lib/db/client";
+import { fixtures as fixturesTable } from "@/lib/db/schema";
 import { FixturesCategoryFilter } from "@/components/fixtures/fixtures-category-filter";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 
@@ -69,16 +72,14 @@ export default async function FixturesPage({
 }
 
 async function FixturesCategoryFilterSection({ category }: { category: string }) {
-  const supabase = await createSupabaseServerClient();
-  const categories = await supabase
-    .from("fixtures")
-    .select("category")
-    .gte("match_date", getFixtureWindowStartIso())
-    .order("category")
-    .returns<{ category: string | null }[]>();
+  const categories = await db
+    .select({ category: fixturesTable.category })
+    .from(fixturesTable)
+    .where(gte(fixturesTable.matchDate, getFixtureWindowStartIso()))
+    .orderBy(asc(fixturesTable.category));
 
   const uniqueCategories = [
-    ...new Set((categories.data || []).map((r) => r.category).filter(Boolean)),
+    ...new Set(categories.map((r) => r.category).filter(Boolean)),
   ] as string[];
 
   return (
@@ -90,17 +91,37 @@ async function FixturesCategoryFilterSection({ category }: { category: string })
 }
 
 async function FixturesTable({ category }: { category: string }) {
-  const supabase = await createSupabaseServerClient();
-  const query = supabase
-    .from("fixtures")
-    .select("*")
-    .gte("match_date", getFixtureWindowStartIso())
-    .order("match_date", { ascending: true })
-    .order("match_time", { ascending: true })
-    .limit(FIXTURE_ROW_LIMIT);
+  const conditions = [gte(fixturesTable.matchDate, getFixtureWindowStartIso())];
+  if (category) {
+    conditions.push(ilike(fixturesTable.category, `%${category}%`));
+  }
 
-  const { data: fixtures } = await (category ? query.ilike("category", `%${category}%`) : query)
-    .returns<Fixture[]>();
+  const fixtures = (await db
+    .select({
+      id: fixturesTable.id,
+      competition: fixturesTable.competition,
+      category: fixturesTable.category,
+      phase: fixturesTable.phase,
+      group: fixturesTable.group,
+      home_club: fixturesTable.homeClub,
+      home_team: fixturesTable.homeTeam,
+      away_club: fixturesTable.awayClub,
+      away_team: fixturesTable.awayTeam,
+      suspended: fixturesTable.suspended,
+      home_points: fixturesTable.homePoints,
+      away_points: fixturesTable.awayPoints,
+      match_date: fixturesTable.matchDate,
+      match_time: fixturesTable.matchTime,
+      venue: fixturesTable.venue,
+      court: fixturesTable.court,
+      city: fixturesTable.city,
+      province: fixturesTable.province,
+      synced_at: fixturesTable.syncedAt,
+    })
+    .from(fixturesTable)
+    .where(and(...conditions))
+    .orderBy(asc(fixturesTable.matchDate), asc(fixturesTable.matchTime))
+    .limit(FIXTURE_ROW_LIMIT)) as Fixture[];
 
   const grouped = (fixtures || []).reduce<Record<string, Fixture[]>>((acc, f) => {
     const key = f.match_date || "Sin fecha";

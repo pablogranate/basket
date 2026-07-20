@@ -1,6 +1,17 @@
+import { and, eq, ilike } from "drizzle-orm";
+
 import type { PersonRow } from "@/lib/database.types";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { db } from "@/lib/db/client";
+import { people } from "@/lib/db/schema";
 import { normalizeText } from "@/lib/utils";
+
+const LINKED_PERSON_COLUMNS = {
+  id: people.id,
+  full_name: people.fullName,
+  email: people.email,
+  phone: people.phone,
+  active: people.active,
+} as const;
 
 export type LinkedPerson = Pick<
   PersonRow,
@@ -15,23 +26,16 @@ export async function findLinkedPerson(params: {
   email: string | null;
   profileName: string | null;
 }) {
-  const supabase = await createSupabaseServerClient();
-
   if (params.email) {
-    const byEmail = await supabase
-      .from("people")
-      .select("id, full_name, email, phone, active")
-      .eq("email", params.email)
-      .eq("active", true)
-      .maybeSingle();
+    const byEmail = await db
+      .select(LINKED_PERSON_COLUMNS)
+      .from(people)
+      .where(and(eq(people.email, params.email), eq(people.active, true)))
+      .limit(1);
 
-    if (byEmail.error) {
-      throw byEmail.error;
-    }
-
-    if (byEmail.data) {
+    if (byEmail[0]) {
       return {
-        person: byEmail.data as LinkedPerson,
+        person: byEmail[0] as LinkedPerson,
         linkedBy: "email" as const,
       };
     }
@@ -44,19 +48,19 @@ export async function findLinkedPerson(params: {
     };
   }
 
-  const candidates = await supabase
-    .from("people")
-    .select("id, full_name, email, phone, active")
-    .eq("active", true)
-    .ilike("full_name", `%${params.profileName.trim()}%`);
-
-  if (candidates.error) {
-    throw candidates.error;
-  }
+  const candidates = await db
+    .select(LINKED_PERSON_COLUMNS)
+    .from(people)
+    .where(
+      and(
+        eq(people.active, true),
+        ilike(people.fullName, `%${params.profileName.trim()}%`),
+      ),
+    );
 
   const profileName = normalizeText(params.profileName);
   const matched =
-    ((candidates.data ?? []) as LinkedPerson[]).find(
+    (candidates as LinkedPerson[]).find(
       (person) => normalizeText(person.full_name) === profileName,
     ) ?? null;
 

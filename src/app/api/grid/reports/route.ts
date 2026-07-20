@@ -1,11 +1,18 @@
 import { NextResponse } from "next/server";
+import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
 import { z } from "zod";
 
 import { withAuth } from "@/lib/api/with-auth";
 import { FULL_DASHBOARD_ACCESS_ROLES } from "@/lib/constants";
 import { getDayRange } from "@/lib/date";
+import { db } from "@/lib/db/client";
+import {
+  assignments as assignmentsTable,
+  matches as matchesTable,
+  people as peopleTable,
+  roles as rolesTable,
+} from "@/lib/db/schema";
 import type { ReportMatchRow } from "@/lib/grid/report-stats";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ensureErrorMessage } from "@/lib/utils";
 
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -56,38 +63,75 @@ export const GET = withAuth(
     const endUtc = getDayRange(to, timezone).endUtc;
 
     try {
-      const supabase = await createSupabaseServerClient();
-      const { data, error } = await supabase
-        .from("matches")
-        .select(
-          "id, kickoff_at, competition, home_team, away_team, production_mode, assignments(person_id, role:roles!assignments_role_id_fkey(name, category, sort_order), person:people!assignments_person_id_fkey(id, full_name))",
-        )
-        .gte("kickoff_at", startUtc)
-        .lte("kickoff_at", endUtc);
+      const matchRows = await db
+        .select({
+          id: matchesTable.id,
+          kickoff_at: matchesTable.kickoffAt,
+          competition: matchesTable.competition,
+          home_team: matchesTable.homeTeam,
+          away_team: matchesTable.awayTeam,
+          production_mode: matchesTable.productionMode,
+        })
+        .from(matchesTable)
+        .where(
+          and(
+            gte(matchesTable.kickoffAt, startUtc),
+            lte(matchesTable.kickoffAt, endUtc),
+          ),
+        );
 
-      if (error) {
-        throw error;
+      const matchIds = matchRows.map((row) => row.id);
+
+      const assignmentRows = matchIds.length
+        ? await db
+            .select({
+              match_id: assignmentsTable.matchId,
+              person_id: assignmentsTable.personId,
+              role: {
+                name: rolesTable.name,
+                category: rolesTable.category,
+                sort_order: rolesTable.sortOrder,
+              },
+              person: {
+                id: peopleTable.id,
+                full_name: peopleTable.fullName,
+              },
+            })
+            .from(assignmentsTable)
+            .innerJoin(rolesTable, eq(assignmentsTable.roleId, rolesTable.id))
+            .leftJoin(peopleTable, eq(assignmentsTable.personId, peopleTable.id))
+            .where(inArray(assignmentsTable.matchId, matchIds))
+            .orderBy(asc(assignmentsTable.id))
+        : [];
+
+      const assignmentsByMatch = new Map<string, MatchQueryRow["assignments"]>();
+      for (const row of assignmentRows) {
+        const bucket = assignmentsByMatch.get(row.match_id) ?? [];
+        bucket!.push({
+          person_id: row.person_id,
+          role: row.role,
+          person: row.person?.id ? row.person : null,
+        });
+        assignmentsByMatch.set(row.match_id, bucket);
       }
 
-      const matches: ReportMatchRow[] = ((data ?? []) as MatchQueryRow[]).map(
-        (row) => ({
-          id: row.id,
-          kickoffAt: row.kickoff_at,
-          competition: row.competition,
-          homeTeam: row.home_team,
-          awayTeam: row.away_team,
-          productionMode: row.production_mode,
-          assignments: (row.assignments ?? [])
-            .filter((slot) => slot.role)
-            .map((slot) => ({
-              personId: slot.person?.id ?? slot.person_id,
-              personName: slot.person?.full_name ?? null,
-              roleName: slot.role?.name ?? "",
-              roleCategory: slot.role?.category ?? "",
-              roleSortOrder: slot.role?.sort_order ?? 0,
-            })),
-        }),
-      );
+      const matches: ReportMatchRow[] = matchRows.map((row) => ({
+        id: row.id,
+        kickoffAt: row.kickoff_at,
+        competition: row.competition,
+        homeTeam: row.home_team,
+        awayTeam: row.away_team,
+        productionMode: row.production_mode,
+        assignments: (assignmentsByMatch.get(row.id) ?? [])
+          .filter((slot) => slot.role)
+          .map((slot) => ({
+            personId: slot.person?.id ?? slot.person_id,
+            personName: slot.person?.full_name ?? null,
+            roleName: slot.role?.name ?? "",
+            roleCategory: slot.role?.category ?? "",
+            roleSortOrder: slot.role?.sort_order ?? 0,
+          })),
+      }));
 
       return NextResponse.json({ matches });
     } catch (caught) {

@@ -1,10 +1,18 @@
 "use server";
 
+import { asc, eq } from "drizzle-orm";
+
 import { requireUserContext } from "@/lib/auth";
 import { RESPONSIBLE_DISPLAY_LABEL, isDashboardPathAllowedForRole } from "@/lib/constants";
+import { db } from "@/lib/db/client";
+import {
+  assignments as assignmentsTable,
+  matches as matchesTable,
+  people as peopleTable,
+  roles as rolesTable,
+} from "@/lib/db/schema";
 import { getRoleDisplayName } from "@/lib/display";
 import { getAttendanceState, type AttendanceState } from "@/lib/grid/attendance";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type MatchContact = {
   personId: string;
@@ -49,22 +57,59 @@ export async function getMatchContactsAction(
     throw new Error("No tenes permisos para ver estos contactos.");
   }
 
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("matches")
-    .select(
-      "id, owner:people!matches_owner_id_fkey(id, full_name, phone, email), assignments(person_id, attendance_response, role:roles!assignments_role_id_fkey(name, category, sort_order), person:people!assignments_person_id_fkey(id, full_name, phone, email))",
-    )
-    .eq("id", matchId)
-    .maybeSingle<ContactsRow>();
+  const matchRows = await db
+    .select({
+      id: matchesTable.id,
+      owner: {
+        id: peopleTable.id,
+        full_name: peopleTable.fullName,
+        phone: peopleTable.phone,
+        email: peopleTable.email,
+      },
+    })
+    .from(matchesTable)
+    .leftJoin(peopleTable, eq(matchesTable.ownerId, peopleTable.id))
+    .where(eq(matchesTable.id, matchId))
+    .limit(1);
 
-  if (error) {
-    throw error;
-  }
+  const matchRow = matchRows[0];
 
-  if (!data) {
+  if (!matchRow) {
     return [];
   }
+
+  const assignmentRows = await db
+    .select({
+      person_id: assignmentsTable.personId,
+      attendance_response: assignmentsTable.attendanceResponse,
+      role: {
+        name: rolesTable.name,
+        category: rolesTable.category,
+        sort_order: rolesTable.sortOrder,
+      },
+      person: {
+        id: peopleTable.id,
+        full_name: peopleTable.fullName,
+        phone: peopleTable.phone,
+        email: peopleTable.email,
+      },
+    })
+    .from(assignmentsTable)
+    .innerJoin(rolesTable, eq(assignmentsTable.roleId, rolesTable.id))
+    .leftJoin(peopleTable, eq(assignmentsTable.personId, peopleTable.id))
+    .where(eq(assignmentsTable.matchId, matchId))
+    .orderBy(asc(rolesTable.sortOrder), asc(assignmentsTable.id));
+
+  const data: ContactsRow = {
+    id: matchRow.id,
+    owner: matchRow.owner?.id ? matchRow.owner : null,
+    assignments: assignmentRows.map((row) => ({
+      person_id: row.person_id,
+      attendance_response: row.attendance_response,
+      role: row.role,
+      person: row.person?.id ? row.person : null,
+    })),
+  };
 
   const byPerson = new Map<string, Accumulated>();
 

@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-// Import the "Contactos" sheet into Supabase.
+// Import the "Contactos" sheet into the domain DB.
 // Source: tools/import/contactos.raw.md (curated, scheduling grids removed).
 // People -> public.people (dedup + enrich by name). Clubs -> public.club_contacts.
 //
 // Usage:
 //   node tools/import/contactos.mjs            # dry run: prints stats, writes contactos.clean.json
-//   node tools/import/contactos.mjs --apply    # writes to Supabase (needs migration 0009 applied)
+//   node tools/import/contactos.mjs --apply    # writes to the DB (needs migration 0009 applied)
 
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -14,7 +14,8 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import dotenv from "dotenv";
-import { createClient } from "@supabase/supabase-js";
+
+import { connectDb } from "./db.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, "../..");
@@ -186,11 +187,8 @@ function buildRecords(sections) {
   return { people: finalPeople, clubs };
 }
 
-async function applyPeople(supabase, people) {
-  const { data: existing, error } = await supabase
-    .from("people")
-    .select("id, full_name, phone, category");
-  if (error) throw error;
+async function applyPeople(sql, people) {
+  const existing = await sql`SELECT id, full_name, phone, category FROM people`;
 
   const byName = new Map();
   for (const p of existing) byName.set(normName(p.full_name), p);
@@ -218,30 +216,33 @@ async function applyPeople(supabase, people) {
       skipped += 1;
       continue;
     }
-    const { error: upErr } = await supabase.from("people").update(patch).eq("id", match.id);
-    if (upErr) throw upErr;
+    // App owns updated_at now that the metadata trigger is gone.
+    await sql`
+      UPDATE people
+      SET ${sql({ ...patch, updated_at: new Date().toISOString() })}
+      WHERE id = ${match.id}
+    `;
     updated += 1;
   }
 
   let inserted = 0;
   for (let i = 0; i < inserts.length; i += 200) {
     const chunk = inserts.slice(i, i + 200);
-    const { error: insErr } = await supabase.from("people").insert(chunk);
-    if (insErr) throw insErr;
+    await sql`INSERT INTO people ${sql(chunk)}`;
     inserted += chunk.length;
   }
 
   return { inserted, updated, skipped };
 }
 
-async function applyClubs(supabase, clubs) {
+async function applyClubs(sql, clubs) {
   let upserted = 0;
   for (let i = 0; i < clubs.length; i += 200) {
     const chunk = clubs.slice(i, i + 200);
-    const { error } = await supabase
-      .from("club_contacts")
-      .upsert(chunk, { onConflict: "club_name,responsable,phone", ignoreDuplicates: true });
-    if (error) throw error;
+    await sql`
+      INSERT INTO club_contacts ${sql(chunk)}
+      ON CONFLICT (club_name, responsable, phone) DO NOTHING
+    `;
     upserted += chunk.length;
   }
   return upserted;
@@ -268,26 +269,18 @@ async function main() {
   console.log(`  wrote ${path.relative(ROOT_DIR, CLEAN_PATH)}`);
 
   if (!APPLY) {
-    console.log("\nDRY RUN. Revisa contactos.clean.json. Para escribir en Supabase: --apply");
+    console.log("\nDRY RUN. Revisa contactos.clean.json. Para escribir en la base: --apply");
     return;
   }
 
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    console.error("Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en el entorno.");
-    process.exit(1);
-  }
+  const sql = connectDb();
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    { auth: { persistSession: false, autoRefreshToken: false } },
-  );
-
-  console.log("\nAplicando a Supabase...");
-  const p = await applyPeople(supabase, people);
+  console.log("\nAplicando a la base...");
+  const p = await applyPeople(sql, people);
   console.log(`  people: insertados ${p.inserted}, actualizados ${p.updated}, sin cambios ${p.skipped}`);
-  const c = await applyClubs(supabase, clubs);
+  const c = await applyClubs(sql, clubs);
   console.log(`  club_contacts: upserted ${c}`);
+  await sql.end();
   console.log("Listo.");
 }
 

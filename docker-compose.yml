@@ -13,5 +13,23 @@ services:
     volumes:
       - basket-auth-data:/var/lib/postgresql/data
 
+  # Self-hosted portal domain DB (Supabase replacement). Loopback-only publish:
+  # the app (pm2 on the host) and dev tooling connect via 127.0.0.1:5434.
+  # On prod bring up ONLY this service (`docker compose up -d basket-portal-db`)
+  # so the existing basket-auth-db container is left untouched.
+  basket-portal-db:
+    image: postgres:17
+    container_name: basket-portal-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: basket_portal
+      POSTGRES_USER: ${PORTAL_DB_USER:-basket_portal}
+      POSTGRES_PASSWORD: ${PORTAL_DB_PASSWORD:?set PORTAL_DB_PASSWORD}
+    ports:
+      - "127.0.0.1:${PORTAL_DB_PORT:-5434}:5432"   # loopback-only from day one (see PRD §3, issue #86)
+    volumes:
+      - basket-portal-data:/var/lib/postgresql/data
+
 volumes:
   basket-auth-data:
+  basket-portal-data:

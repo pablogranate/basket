@@ -1,30 +1,44 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
+import { auditLog as auditLogTable } from "@/lib/db/schema";
 import { makeUserContext } from "@/test/fixtures/user-context";
 
 type CapturedInsert = Record<string, unknown> | null;
 
-function makeSupabaseMock() {
-  let captured: CapturedInsert = null;
-  let lastTable: string | null = null;
+// writeAudit inserts through the Drizzle client, which throws on failure (no
+// {error} envelope). Each mock captures the .values() payload for one insert.
+const insertBehavior = { shouldThrow: false };
 
-  const client = {
-    from(table: string) {
-      lastTable = table;
+const captureState: { captured: CapturedInsert; lastTable: unknown } = {
+  captured: null,
+  lastTable: null,
+};
+
+vi.mock("@/lib/db/client", () => ({
+  db: {
+    insert(table: unknown) {
+      captureState.lastTable = table;
       return {
-        insert(payload: Record<string, unknown>) {
-          captured = payload;
-          return Promise.resolve({ error: null });
+        async values(payload: Record<string, unknown>) {
+          captureState.captured = payload;
+          if (insertBehavior.shouldThrow) {
+            throw new Error("boom");
+          }
         },
       };
     },
-  };
+  },
+}));
+
+function makeDbMock() {
+  captureState.captured = null;
+  captureState.lastTable = null;
+  insertBehavior.shouldThrow = false;
 
   return {
-    client,
-    getCaptured: () => captured,
-    getLastTable: () => lastTable,
+    getCaptured: () => captureState.captured,
+    getLastTable: () => captureState.lastTable,
   };
 }
 
@@ -64,9 +78,9 @@ describe("stampUpdate", () => {
 describe("writeAudit", () => {
   it("inserts an audit_log row with non-NULL changed_by = ctx.userId", async () => {
     const ctx = makeUserContext({ profileId: "actor-3" });
-    const mock = makeSupabaseMock();
+    const mock = makeDbMock();
 
-    await writeAudit(mock.client as never, ctx, {
+    await writeAudit(ctx, {
       table: "people",
       recordId: "rec-1",
       action: "INSERT",
@@ -75,30 +89,30 @@ describe("writeAudit", () => {
     });
 
     const captured = mock.getCaptured();
-    expect(mock.getLastTable()).toBe("audit_log");
+    expect(mock.getLastTable()).toBe(auditLogTable);
     expect(captured).not.toBeNull();
-    expect(captured?.changed_by).toBe("actor-3");
-    expect(captured?.changed_by).not.toBeNull();
-    expect(captured?.table_name).toBe("people");
-    expect(captured?.record_id).toBe("rec-1");
+    expect(captured?.changedBy).toBe("actor-3");
+    expect(captured?.changedBy).not.toBeNull();
+    expect(captured?.tableName).toBe("people");
+    expect(captured?.recordId).toBe("rec-1");
     expect(captured?.action).toBe("INSERT");
   });
 
   it("derives match_id: matches -> record id, assignments -> row match_id, else null", async () => {
     const ctx = makeUserContext({ profileId: "actor-4" });
 
-    const m1 = makeSupabaseMock();
-    await writeAudit(m1.client as never, ctx, {
+    const m1 = makeDbMock();
+    await writeAudit(ctx, {
       table: "matches",
       recordId: "match-1",
       action: "UPDATE",
       before: {},
       after: {},
     });
-    expect(m1.getCaptured()?.match_id).toBe("match-1");
+    expect(m1.getCaptured()?.matchId).toBe("match-1");
 
-    const m2 = makeSupabaseMock();
-    await writeAudit(m2.client as never, ctx, {
+    const m2 = makeDbMock();
+    await writeAudit(ctx, {
       table: "assignments",
       recordId: "asg-1",
       matchId: "match-99",
@@ -106,24 +120,24 @@ describe("writeAudit", () => {
       before: null,
       after: { match_id: "match-99" },
     });
-    expect(m2.getCaptured()?.match_id).toBe("match-99");
+    expect(m2.getCaptured()?.matchId).toBe("match-99");
 
-    const m3 = makeSupabaseMock();
-    await writeAudit(m3.client as never, ctx, {
+    const m3 = makeDbMock();
+    await writeAudit(ctx, {
       table: "people",
       recordId: "p-1",
       action: "INSERT",
       before: null,
       after: {},
     });
-    expect(m3.getCaptured()?.match_id).toBeNull();
+    expect(m3.getCaptured()?.matchId).toBeNull();
   });
 
   it("redacts secret_value from app_settings audit before/after payloads", async () => {
     const ctx = makeUserContext({ profileId: "actor-5" });
-    const mock = makeSupabaseMock();
+    const mock = makeDbMock();
 
-    await writeAudit(mock.client as never, ctx, {
+    await writeAudit(ctx, {
       table: "app_settings",
       recordId: "set-1",
       action: "UPDATE",
@@ -146,19 +160,12 @@ describe("writeAudit", () => {
 
   it("rethrows on audit insert error (audit failure must not be silent)", async () => {
     const ctx = makeUserContext({ profileId: "actor-6" });
+    makeDbMock();
+    insertBehavior.shouldThrow = true;
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const client = {
-      from() {
-        return {
-          insert() {
-            return Promise.resolve({ error: { message: "boom" } });
-          },
-        };
-      },
-    };
 
     await expect(
-      writeAudit(client as never, ctx, {
+      writeAudit(ctx, {
         table: "people",
         recordId: "p-2",
         action: "INSERT",

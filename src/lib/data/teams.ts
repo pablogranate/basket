@@ -1,33 +1,93 @@
+import { eq } from "drizzle-orm";
+
 import type { UserContext } from "@/lib/auth";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { db } from "@/lib/db/client";
+import { teams } from "@/lib/db/schema";
 import type { TeamDirectoryItem, TeamDirectoryTab } from "@/lib/team-directory";
 import { getTeamLeagueLabel, splitTeamCompetitions } from "@/lib/team-directory";
 
 const DEFAULT_LEAGUE_URL = "https://www.laliganacional.com.ar/";
 
-const TEAM_DIRECTORY_SELECT = `
-  id,
-  slug,
-  name,
-  category,
-  clubs (
-    name,
-    stadium,
-    manager,
-    website,
-    instagram,
-    logo_url,
-    official_url
-  ),
-  team_league_memberships (
-    season,
-    leagues (
-      name,
-      slug,
-      sort_order
-    )
-  )
-` as const;
+// Nested read mirroring the retired PostgREST embed: team -> club (one) and
+// team -> memberships (many) -> league (one). Column subset kept identical.
+const TEAM_DIRECTORY_QUERY = {
+  columns: { id: true, slug: true, name: true, category: true },
+  with: {
+    club: {
+      columns: {
+        name: true,
+        stadium: true,
+        manager: true,
+        website: true,
+        instagram: true,
+        logoUrl: true,
+        officialUrl: true,
+      },
+    },
+    teamLeagueMemberships: {
+      columns: { season: true },
+      with: {
+        league: { columns: { name: true, slug: true, sortOrder: true } },
+      },
+    },
+  },
+} as const;
+
+type TeamDirectoryRow = {
+  id: string;
+  slug: string;
+  name: string;
+  category: string;
+  club: {
+    name: string;
+    stadium: string | null;
+    manager: string | null;
+    website: string | null;
+    instagram: string | null;
+    logoUrl: string | null;
+    officialUrl: string | null;
+  } | null;
+  teamLeagueMemberships: Array<{
+    season: string;
+    league: {
+      name: string;
+      slug: string;
+      sortOrder: number | null;
+    } | null;
+  }>;
+};
+
+// Reshape Drizzle's relation-keyed/camelCase result back to the snake_case
+// embed shape the mappers were written against.
+function toQueryRow(row: TeamDirectoryRow): TeamDirectoryQueryRow {
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    category: row.category,
+    clubs: row.club
+      ? {
+          name: row.club.name,
+          stadium: row.club.stadium,
+          manager: row.club.manager,
+          website: row.club.website,
+          instagram: row.club.instagram,
+          logo_url: row.club.logoUrl,
+          official_url: row.club.officialUrl,
+        }
+      : null,
+    team_league_memberships: row.teamLeagueMemberships.map((entry) => ({
+      season: entry.season,
+      leagues: entry.league
+        ? {
+            name: entry.league.name,
+            slug: entry.league.slug,
+            sort_order: entry.league.sortOrder,
+          }
+        : null,
+    })),
+  };
+}
 
 type TeamDirectoryQueryRow = {
   id: string;
@@ -104,15 +164,18 @@ export async function getTeamDirectory(
     return [];
   }
 
-  const supabase = await createSupabaseServerClient();
-  const query = await supabase.from("teams").select(TEAM_DIRECTORY_SELECT);
-
-  if (query.error) {
-    console.error("[teams] failed to load team directory", query.error);
+  let rows: TeamDirectoryRow[];
+  try {
+    rows = (await db.query.teams.findMany(
+      TEAM_DIRECTORY_QUERY,
+    )) as TeamDirectoryRow[];
+  } catch (error) {
+    console.error("[teams] failed to load team directory", error);
     return [];
   }
 
-  return (query.data as TeamDirectoryQueryRow[])
+  return rows
+    .map(toQueryRow)
     .map(mapTeamRow)
     .sort((left, right) => {
       if (left.leagueSortOrder !== right.leagueSortOrder) {
@@ -132,24 +195,23 @@ export async function getTeamFromDbBySlug(
     return null;
   }
 
-  const supabase = await createSupabaseServerClient();
-  const query = await supabase
-    .from("teams")
-    .select(TEAM_DIRECTORY_SELECT)
-    .eq("slug", slug)
-    .maybeSingle();
-
-  if (query.error) {
-    console.error("[teams] failed to load team by slug", query.error);
+  let row: TeamDirectoryRow | undefined;
+  try {
+    row = (await db.query.teams.findFirst({
+      ...TEAM_DIRECTORY_QUERY,
+      where: eq(teams.slug, slug),
+    })) as TeamDirectoryRow | undefined;
+  } catch (error) {
+    console.error("[teams] failed to load team by slug", error);
     return null;
   }
 
-  if (!query.data) {
+  if (!row) {
     return null;
   }
 
   const { leagueSortOrder: _leagueSortOrder, ...team } = mapTeamRow(
-    query.data as TeamDirectoryQueryRow,
+    toQueryRow(row),
   );
   return team;
 }

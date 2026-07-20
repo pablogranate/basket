@@ -1,7 +1,10 @@
 import "server-only";
 
+import { ilike } from "drizzle-orm";
+
 import type { AppRole, ProfileRow } from "@/lib/database.types";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { db } from "@/lib/db/client";
+import { profiles } from "@/lib/db/schema";
 
 // Profile roles that grant a platform login. Kept in sync with PLATFORM_ACCESS_ROLES
 // in src/app/actions/people.ts.
@@ -28,23 +31,15 @@ export async function getPlatformAccessRole(
   }
 
   try {
-    const supabaseAdmin = createSupabaseAdminClient();
     // Case-insensitive exact match resolved in SQL (wildcards escaped) so the
     // DB returns at most one row instead of the whole table.
-    const result = await supabaseAdmin
-      .from("profiles")
-      .select("email, role")
-      .ilike("email", escapeLikePattern(normalizedEmail))
+    const rows = await db
+      .select({ email: profiles.email, role: profiles.role })
+      .from(profiles)
+      .where(ilike(profiles.email, escapeLikePattern(normalizedEmail)))
       .limit(1);
 
-    if (result.error) {
-      console.error("[platform-access] failed to load profiles", result.error);
-      return null;
-    }
-
-    const profile = (
-      (result.data as Pick<ProfileRow, "email" | "role">[] | null) ?? []
-    )[0];
+    const profile = (rows as Pick<ProfileRow, "email" | "role">[])[0];
 
     if (
       profile?.role &&

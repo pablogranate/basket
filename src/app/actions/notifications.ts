@@ -6,7 +6,16 @@ import {
   redirectWithNotice,
   rethrowNavigationError,
 } from "@/app/actions/helpers";
+import { and, eq, inArray } from "drizzle-orm";
+
 import { requireEditor } from "@/lib/auth";
+import { db } from "@/lib/db/client";
+import {
+  assignments as assignmentsTable,
+  matches as matchesTable,
+  people as peopleTable,
+  roles as rolesTable,
+} from "@/lib/db/schema";
 import { getRoleDisplayName } from "@/lib/display";
 import { buildMatchNotificationMessage } from "@/lib/integrations";
 import { sendWhatsAppText } from "@/lib/integrations/openwa";
@@ -19,8 +28,6 @@ import {
   notifyMatch,
   type NotifyMatchRow,
 } from "@/lib/notifications/send-match-day";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ensureErrorMessage } from "@/lib/utils";
 
 type Recipient = {
@@ -57,25 +64,27 @@ export async function sendAllMatchNotificationsAction(formData: FormData) {
       return;
     }
 
-    const supabase = createSupabaseAdminClient();
+    const matchRows = await db
+      .select({
+        id: matchesTable.id,
+        away_team: matchesTable.awayTeam,
+        competition: matchesTable.competition,
+        home_team: matchesTable.homeTeam,
+        kickoff_at: matchesTable.kickoffAt,
+        production_mode: matchesTable.productionMode,
+        timezone: matchesTable.timezone,
+        venue: matchesTable.venue,
+      })
+      .from(matchesTable)
+      .where(eq(matchesTable.id, matchId))
+      .limit(1);
 
-    const matchResult = await supabase
-      .from("matches")
-      .select(
-        "id, away_team, competition, home_team, kickoff_at, production_mode, timezone, venue",
-      )
-      .eq("id", matchId)
-      .single();
-
-    if (matchResult.error) {
-      throw matchResult.error;
+    const matchRow = matchRows[0];
+    if (!matchRow) {
+      throw new Error("No se encontró el partido.");
     }
 
-    const summary = await notifyMatch(
-      supabase,
-      matchResult.data as NotifyMatchRow,
-      "manual",
-    );
+    const summary = await notifyMatch(matchRow as NotifyMatchRow, "manual");
 
     revalidatePath(redirectTo);
     redirectWithNotice({
@@ -117,34 +126,51 @@ export async function sendAssignmentNotificationsAction(formData: FormData) {
       });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const matchRows = await db
+      .select({
+        away_team: matchesTable.awayTeam,
+        competition: matchesTable.competition,
+        home_team: matchesTable.homeTeam,
+        kickoff_at: matchesTable.kickoffAt,
+        production_mode: matchesTable.productionMode,
+        timezone: matchesTable.timezone,
+        venue: matchesTable.venue,
+      })
+      .from(matchesTable)
+      .where(eq(matchesTable.id, matchId))
+      .limit(1);
 
-    const matchResult = await supabase
-      .from("matches")
-      .select(
-        "away_team, competition, home_team, kickoff_at, production_mode, timezone, venue",
-      )
-      .eq("id", matchId)
-      .single();
-
-    if (matchResult.error) {
-      throw matchResult.error;
+    const matchRow = matchRows[0];
+    if (!matchRow) {
+      throw new Error("No se encontró el partido.");
     }
 
-    const assignmentsResult = await supabase
-      .from("assignments")
-      .select(
-        "id, role:roles!assignments_role_id_fkey(name), person:people!assignments_person_id_fkey(id, full_name, phone)",
-      )
-      .eq("match_id", matchId)
-      .in("id", assignmentIds);
-
-    if (assignmentsResult.error) {
-      throw assignmentsResult.error;
-    }
+    const rawAssignmentRows = await db
+      .select({
+        id: assignmentsTable.id,
+        role: { name: rolesTable.name },
+        person: {
+          id: peopleTable.id,
+          full_name: peopleTable.fullName,
+          phone: peopleTable.phone,
+        },
+      })
+      .from(assignmentsTable)
+      .leftJoin(rolesTable, eq(assignmentsTable.roleId, rolesTable.id))
+      .leftJoin(peopleTable, eq(assignmentsTable.personId, peopleTable.id))
+      .where(
+        and(
+          eq(assignmentsTable.matchId, matchId),
+          inArray(assignmentsTable.id, assignmentIds),
+        ),
+      );
 
     const recipientsByPerson = new Map<string, Recipient>();
-    const assignmentRows = (assignmentsResult.data ?? []) as AssignmentNotifyRow[];
+    const assignmentRows: AssignmentNotifyRow[] = rawAssignmentRows.map((row) => ({
+      id: row.id,
+      role: row.role?.name ? row.role : null,
+      person: row.person?.id ? row.person : null,
+    }));
 
     for (const assignment of assignmentRows) {
       const person = assignment.person;
@@ -173,7 +199,7 @@ export async function sendAssignmentNotificationsAction(formData: FormData) {
     }
 
     const recipients = [...recipientsByPerson.values()];
-    const matchLabel = `${matchResult.data.home_team} vs ${matchResult.data.away_team}`;
+    const matchLabel = `${matchRow.home_team} vs ${matchRow.away_team}`;
     const logRows: NotificationLogRow[] = [];
     let sent = 0;
     let skipped = 0;
@@ -182,7 +208,7 @@ export async function sendAssignmentNotificationsAction(formData: FormData) {
       const result = await sendWhatsAppText({
         phone: recipient.phone,
         message: buildMatchNotificationMessage({
-          match: matchResult.data,
+          match: matchRow,
           personName: recipient.personName,
           roleNames: recipient.roleNames,
         }),

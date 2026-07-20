@@ -7,6 +7,7 @@ export const appEnv = {
   allowGuestMiJornadaAccess: process.env.ALLOW_GUEST_MI_JORNADA === "true",
   portalGeminiApiKey: process.env.PORTAL_GEMINI_API_KEY ?? "",
   portalGeminiModel: process.env.PORTAL_GEMINI_MODEL ?? "gemini-2.5-flash",
+  databaseUrl: process.env.DATABASE_URL ?? "",
   authDatabaseUrl: process.env.AUTH_DATABASE_URL ?? "",
   betterAuthSecret: process.env.BETTER_AUTH_SECRET ?? "",
   betterAuthUrl:
@@ -46,6 +47,14 @@ export function assertServiceRoleKey() {
   if (!appEnv.supabaseServiceRoleKey) {
     throw new Error(
       "Missing SUPABASE_SERVICE_ROLE_KEY. The CSV importer requires a service role key.",
+    );
+  }
+}
+
+export function assertDatabaseUrl() {
+  if (!appEnv.databaseUrl) {
+    throw new Error(
+      "Missing DATABASE_URL. The portal domain database requires a connection string.",
     );
   }
 }

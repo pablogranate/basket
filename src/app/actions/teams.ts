@@ -2,16 +2,20 @@
 
 import { revalidatePath } from "next/cache";
 
+import { and, desc, eq, notInArray } from "drizzle-orm";
+
 import { requireEditor } from "@/lib/auth";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { db } from "@/lib/db/client";
+import {
+  clubs as clubsTable,
+  leagues as leaguesTable,
+  teamLeagueMemberships as teamLeagueMembershipsTable,
+  teams as teamsTable,
+} from "@/lib/db/schema";
 import { splitTeamCompetitions } from "@/lib/team-directory";
 import { ensureErrorMessage, maybeNull } from "@/lib/utils";
 
 const FALLBACK_SEASON = "2025/26";
-
-type SupabaseServerClient = Awaited<
-  ReturnType<typeof createSupabaseServerClient>
->;
 
 function slugifyTeamValue(value: string) {
   return value
@@ -34,44 +38,34 @@ function resolveTeamCategory(leagueSlug: string) {
   return "mayores";
 }
 
-async function resolveCurrentSeason(supabase: SupabaseServerClient) {
-  const seasonQuery = await supabase
-    .from("team_league_memberships")
-    .select("season")
-    .order("season", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+async function resolveCurrentSeason() {
+  const rows = await db
+    .select({ season: teamLeagueMembershipsTable.season })
+    .from(teamLeagueMembershipsTable)
+    .orderBy(desc(teamLeagueMembershipsTable.season))
+    .limit(1);
 
-  return seasonQuery.data?.season ?? FALLBACK_SEASON;
+  return rows[0]?.season ?? FALLBACK_SEASON;
 }
 
-async function ensureLeague(supabase: SupabaseServerClient, name: string) {
+async function ensureLeague(name: string) {
   const slug = slugifyTeamValue(name);
-  const existing = await supabase
-    .from("leagues")
-    .select("id, slug")
-    .eq("slug", slug)
-    .maybeSingle();
+  const existing = await db
+    .select({ id: leaguesTable.id, slug: leaguesTable.slug })
+    .from(leaguesTable)
+    .where(eq(leaguesTable.slug, slug))
+    .limit(1);
 
-  if (existing.error) {
-    throw existing.error;
+  if (existing[0]) {
+    return existing[0];
   }
 
-  if (existing.data) {
-    return existing.data;
-  }
+  const inserted = await db
+    .insert(leaguesTable)
+    .values({ name, slug })
+    .returning({ id: leaguesTable.id, slug: leaguesTable.slug });
 
-  const inserted = await supabase
-    .from("leagues")
-    .insert({ name, slug })
-    .select("id, slug")
-    .single();
-
-  if (inserted.error) {
-    throw inserted.error;
-  }
-
-  return inserted.data;
+  return inserted[0];
 }
 
 type ClubFields = {
@@ -84,75 +78,70 @@ type ClubFields = {
   logo_url: string | null;
 };
 
-async function ensureClub(
-  supabase: SupabaseServerClient,
-  fields: ClubFields,
-) {
+// Map the snake_case ClubFields to Drizzle (camelCase) column keys.
+function clubFieldColumns(fields: ClubFields) {
+  return {
+    name: fields.name,
+    stadium: fields.stadium,
+    manager: fields.manager,
+    website: fields.website,
+    instagram: fields.instagram,
+    officialUrl: fields.official_url,
+    logoUrl: fields.logo_url,
+  };
+}
+
+async function ensureClub(fields: ClubFields) {
   const slug = slugifyTeamValue(fields.name);
-  const existing = await supabase
-    .from("clubs")
-    .select("id")
-    .eq("slug", slug)
-    .maybeSingle();
+  const existing = await db
+    .select({ id: clubsTable.id })
+    .from(clubsTable)
+    .where(eq(clubsTable.slug, slug))
+    .limit(1);
 
-  if (existing.error) {
-    throw existing.error;
-  }
+  if (!existing[0]) {
+    const inserted = await db
+      .insert(clubsTable)
+      .values({ ...clubFieldColumns(fields), slug })
+      .returning({ id: clubsTable.id });
 
-  if (!existing.data) {
-    const inserted = await supabase
-      .from("clubs")
-      .insert({ ...fields, slug })
-      .select("id")
-      .single();
-
-    if (inserted.error) {
-      throw inserted.error;
-    }
-
-    return inserted.data.id;
+    return inserted[0].id;
   }
 
   // A "create" that lands on an existing club only fills gaps, never clears
   // data; full overwrites happen through the edit path.
-  const patch: Partial<ClubFields> = {};
+  const columns = clubFieldColumns(fields);
+  const patch: Partial<typeof clubsTable.$inferInsert> = {};
 
-  for (const key of Object.keys(fields) as Array<keyof ClubFields>) {
-    const value = fields[key];
+  for (const key of Object.keys(columns) as Array<keyof typeof columns>) {
+    const value = columns[key];
     if (value !== null) {
       patch[key] = value;
     }
   }
 
-  const updated = await supabase
-    .from("clubs")
-    .update(patch)
-    .eq("id", existing.data.id);
+  await db.update(clubsTable).set(patch).where(eq(clubsTable.id, existing[0].id));
 
-  if (updated.error) {
-    throw updated.error;
-  }
-
-  return existing.data.id;
+  return existing[0].id;
 }
 
-async function ensureTeam(
-  supabase: SupabaseServerClient,
-  { clubId, name, category }: { clubId: string; name: string; category: string },
-) {
-  const existing = await supabase
-    .from("teams")
-    .select("id")
-    .eq("club_id", clubId)
-    .eq("category", category)
-    .maybeSingle();
+async function ensureTeam({
+  clubId,
+  name,
+  category,
+}: {
+  clubId: string;
+  name: string;
+  category: string;
+}) {
+  const existing = await db
+    .select({ id: teamsTable.id })
+    .from(teamsTable)
+    .where(and(eq(teamsTable.clubId, clubId), eq(teamsTable.category, category)))
+    .limit(1);
 
-  if (existing.error) {
-    throw existing.error;
-  }
-
-  if (existing.data) {
-    return existing.data.id;
+  if (existing[0]) {
+    return existing[0].id;
   }
 
   const slug =
@@ -160,17 +149,12 @@ async function ensureTeam(
       ? slugifyTeamValue(name)
       : `${slugifyTeamValue(name)}-${category}`;
 
-  const inserted = await supabase
-    .from("teams")
-    .insert({ club_id: clubId, name, slug, category })
-    .select("id")
-    .single();
+  const inserted = await db
+    .insert(teamsTable)
+    .values({ clubId, name, slug, category })
+    .returning({ id: teamsTable.id });
 
-  if (inserted.error) {
-    throw inserted.error;
-  }
-
-  return inserted.data.id;
+  return inserted[0].id;
 }
 
 export type UpsertTeamResult = {
@@ -193,8 +177,6 @@ export async function upsertTeamAction(
       return { ok: false, error: "Nombre oficial y liga son obligatorios." };
     }
 
-    const supabase = await createSupabaseServerClient();
-
     const clubFields: ClubFields = {
       name,
       stadium: maybeNull(String(formData.get("stadium") ?? "")),
@@ -210,47 +192,43 @@ export async function upsertTeamAction(
     if (editedTeamId) {
       // Editing renames the club in place (slug stays stable); resolving the
       // club by name here would fork a duplicate club on any rename.
-      const editedTeam = await supabase
-        .from("teams")
-        .select("club_id")
-        .eq("id", editedTeamId)
-        .single();
+      const editedTeam = await db
+        .select({ club_id: teamsTable.clubId })
+        .from(teamsTable)
+        .where(eq(teamsTable.id, editedTeamId))
+        .limit(1);
 
-      if (editedTeam.error) {
-        throw editedTeam.error;
+      if (!editedTeam[0]) {
+        throw new Error("No se encontró el equipo a editar.");
       }
 
-      clubId = editedTeam.data.club_id;
-      const clubUpdate = await supabase
-        .from("clubs")
-        .update(clubFields)
-        .eq("id", clubId);
-
-      if (clubUpdate.error) {
-        throw clubUpdate.error;
-      }
+      clubId = editedTeam[0].club_id;
+      await db
+        .update(clubsTable)
+        .set(clubFieldColumns(clubFields))
+        .where(eq(clubsTable.id, clubId));
     } else {
-      clubId = await ensureClub(supabase, clubFields);
+      clubId = await ensureClub(clubFields);
     }
 
-    const season = await resolveCurrentSeason(supabase);
+    const season = await resolveCurrentSeason();
     const selectedLeagueIdsForEditedTeam: string[] = [];
 
     for (const leagueName of leagueNames) {
-      const league = await ensureLeague(supabase, leagueName);
+      const league = await ensureLeague(leagueName);
       const category = resolveTeamCategory(league.slug);
-      const teamId = await ensureTeam(supabase, { clubId, name, category });
+      const teamId = await ensureTeam({ clubId, name, category });
 
-      const membership = await supabase
-        .from("team_league_memberships")
-        .upsert(
-          { team_id: teamId, league_id: league.id, season },
-          { onConflict: "team_id,league_id,season", ignoreDuplicates: true },
-        );
-
-      if (membership.error) {
-        throw membership.error;
-      }
+      await db
+        .insert(teamLeagueMembershipsTable)
+        .values({ teamId, leagueId: league.id, season })
+        .onConflictDoNothing({
+          target: [
+            teamLeagueMembershipsTable.teamId,
+            teamLeagueMembershipsTable.leagueId,
+            teamLeagueMembershipsTable.season,
+          ],
+        });
 
       if (editedTeamId && teamId === editedTeamId) {
         selectedLeagueIdsForEditedTeam.push(league.id);
@@ -258,32 +236,26 @@ export async function upsertTeamAction(
     }
 
     if (editedTeamId) {
-      const teamUpdate = await supabase
-        .from("teams")
-        .update({ name })
-        .eq("id", editedTeamId);
-
-      if (teamUpdate.error) {
-        throw teamUpdate.error;
-      }
+      await db
+        .update(teamsTable)
+        .set({ name })
+        .where(eq(teamsTable.id, editedTeamId));
 
       // Switching league replaces the edited team's memberships for the
       // current season; leagues kept in the selection survive untouched.
       if (selectedLeagueIdsForEditedTeam.length) {
-        const cleanup = await supabase
-          .from("team_league_memberships")
-          .delete()
-          .eq("team_id", editedTeamId)
-          .eq("season", season)
-          .not(
-            "league_id",
-            "in",
-            `(${selectedLeagueIdsForEditedTeam.join(",")})`,
+        await db
+          .delete(teamLeagueMembershipsTable)
+          .where(
+            and(
+              eq(teamLeagueMembershipsTable.teamId, editedTeamId),
+              eq(teamLeagueMembershipsTable.season, season),
+              notInArray(
+                teamLeagueMembershipsTable.leagueId,
+                selectedLeagueIdsForEditedTeam,
+              ),
+            ),
           );
-
-        if (cleanup.error) {
-          throw cleanup.error;
-        }
       }
     }
 

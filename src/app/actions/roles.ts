@@ -7,10 +7,13 @@ import {
   redirectWithNotice,
   rethrowNavigationError,
 } from "@/app/actions/helpers";
+import { eq } from "drizzle-orm";
+
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth-access";
+import { db } from "@/lib/db/client";
+import { roles as rolesTable } from "@/lib/db/schema";
 import { normalizeRoleCategoryInput, normalizeRoleNameInput } from "@/lib/display";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ensureErrorMessage } from "@/lib/utils";
 
 export async function upsertRoleAction(formData: FormData) {
@@ -27,31 +30,51 @@ export async function upsertRoleAction(formData: FormData) {
   };
 
   try {
-    const supabase = await createSupabaseServerClient();
     const roleId = String(formData.get("roleId") ?? "");
-    const result = roleId
-      ? await supabase
-          .from("roles")
-          .update(stampUpdate(ctx, payload))
-          .eq("id", roleId)
-          .select("id")
-          .single()
-      : await supabase
-          .from("roles")
-          .insert(stampInsert(ctx, payload))
-          .select("id")
-          .single();
+    let rows: { id: string }[];
 
-    if (result.error) {
-      throw result.error;
+    if (roleId) {
+      const stamped = stampUpdate(ctx, payload);
+      rows = await db
+        .update(rolesTable)
+        .set({
+          name: stamped.name,
+          category: stamped.category,
+          sortOrder: stamped.sort_order,
+          active: stamped.active,
+          updatedBy: stamped.updated_by,
+          updatedAt: stamped.updated_at,
+        })
+        .where(eq(rolesTable.id, roleId))
+        .returning({ id: rolesTable.id });
+    } else {
+      const stamped = stampInsert(ctx, payload);
+      rows = await db
+        .insert(rolesTable)
+        .values({
+          name: stamped.name,
+          category: stamped.category,
+          sortOrder: stamped.sort_order,
+          active: stamped.active,
+          createdBy: stamped.created_by,
+          updatedBy: stamped.updated_by,
+          createdAt: stamped.created_at,
+          updatedAt: stamped.updated_at,
+        })
+        .returning({ id: rolesTable.id });
     }
 
-    await writeAudit(supabase, ctx, {
+    const row = rows[0];
+    if (!row) {
+      throw new Error("No se encontró el rol.");
+    }
+
+    await writeAudit(ctx, {
       table: "roles",
-      recordId: result.data.id,
+      recordId: row.id,
       action: roleId ? "UPDATE" : "INSERT",
       before: null,
-      after: { id: result.data.id, ...payload },
+      after: { id: row.id, ...payload },
     });
 
     revalidatePath("/roles");
@@ -76,15 +99,10 @@ export async function deleteRoleAction(formData: FormData) {
   const ctx = await requireAdmin();
 
   try {
-    const supabase = await createSupabaseServerClient();
     const roleId = String(formData.get("roleId") ?? "");
-    const result = await supabase.from("roles").delete().eq("id", roleId);
+    await db.delete(rolesTable).where(eq(rolesTable.id, roleId));
 
-    if (result.error) {
-      throw result.error;
-    }
-
-    await writeAudit(supabase, ctx, {
+    await writeAudit(ctx, {
       table: "roles",
       recordId: roleId,
       action: "DELETE",

@@ -1,8 +1,11 @@
 import { cache } from "react";
 import { cookies } from "next/headers";
 
+import { eq } from "drizzle-orm";
+
+import { db } from "@/lib/db/client";
+import { appSettings as appSettingsTable } from "@/lib/db/schema";
 import { appEnv } from "@/lib/env";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const GEMINI_API_KEY_COOKIE = "bp_gemini_api_key";
 export const GEMINI_MODEL_COOKIE = "bp_gemini_model";
@@ -84,28 +87,20 @@ const getPortalGeminiConfig = cache(async (): Promise<PortalGeminiConfig> => {
 
 async function loadPortalGeminiConfig(): Promise<PortalGeminiConfig> {
   try {
-    const supabase = await createSupabaseServerClient();
-    const result = await supabase
-      .from("app_settings")
-      .select("secret_value, public_value")
-      .eq("setting_key", GEMINI_GLOBAL_SETTING_KEY)
-      .maybeSingle();
+    const rows = await db
+      .select({
+        secret_value: appSettingsTable.secretValue,
+        public_value: appSettingsTable.publicValue,
+      })
+      .from(appSettingsTable)
+      .where(eq(appSettingsTable.settingKey, GEMINI_GLOBAL_SETTING_KEY))
+      .limit(1);
 
-    if (result.error) {
-      if (!isMissingAppSettingsError(result.error)) {
-        console.error("[settings] failed to load portal Gemini config", result.error);
-      }
-
-      return {
-        apiKey: "",
-        model: "gemini-2.5-flash" as GeminiModel,
-      };
-    }
-
-    const rawModel = result.data?.public_value?.trim() ?? "";
+    const row = rows[0] ?? null;
+    const rawModel = row?.public_value?.trim() ?? "";
 
     return {
-      apiKey: result.data?.secret_value?.trim() ?? "",
+      apiKey: row?.secret_value?.trim() ?? "",
       model: isGeminiModel(rawModel) ? rawModel : "gemini-2.5-flash",
     };
   } catch (error) {

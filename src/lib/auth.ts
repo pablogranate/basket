@@ -3,9 +3,13 @@ import { cache } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { and, eq, isNull } from "drizzle-orm";
+
 import { auth } from "@/lib/auth/server";
 import type { AppRole, ProfileRow } from "@/lib/database.types";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { db } from "@/lib/db/client";
+import { profileColumns } from "@/lib/db/rows";
+import { profiles as profilesTable } from "@/lib/db/schema";
 
 export type UserContext = Awaited<ReturnType<typeof getUserContext>>;
 
@@ -99,20 +103,17 @@ async function loadProfile(
   authUserId: string,
   email: string | null,
 ): Promise<ProfileRow | null> {
-  const supabaseAdmin = createSupabaseAdminClient();
-
   let profile: ProfileRow | null = null;
 
-  const byAuthId = await supabaseAdmin
-    .from("profiles")
-    .select("*")
-    .eq("auth_user_id", authUserId)
-    .maybeSingle();
-
-  if (byAuthId.error) {
-    console.error("[auth] failed to load profile by auth_user_id", byAuthId.error);
-  } else {
-    profile = (byAuthId.data as ProfileRow | null) ?? null;
+  try {
+    const byAuthId = await db
+      .select(profileColumns)
+      .from(profilesTable)
+      .where(eq(profilesTable.authUserId, authUserId))
+      .limit(1);
+    profile = (byAuthId[0] as ProfileRow | undefined) ?? null;
+  } catch (error) {
+    console.error("[auth] failed to load profile by auth_user_id", error);
   }
 
   // First login: stamp auth_user_id onto the email-matched, still-unlinked row
@@ -120,34 +121,38 @@ async function loadProfile(
   // SQL LIKE-wildcard false positives on emails containing `_`.
   if (!profile && email) {
     const normalizedEmail = email.toLowerCase();
-    const unlinked = await supabaseAdmin
-      .from("profiles")
-      .select("*")
-      .is("auth_user_id", null);
 
-    if (unlinked.error) {
-      console.error("[auth] failed to load unlinked profiles", unlinked.error);
-    } else {
-      const candidate = ((unlinked.data as ProfileRow[] | null) ?? []).find(
+    try {
+      const unlinked = (await db
+        .select(profileColumns)
+        .from(profilesTable)
+        .where(isNull(profilesTable.authUserId))) as ProfileRow[];
+
+      const candidate = unlinked.find(
         (row) => row.email?.toLowerCase() === normalizedEmail,
       );
 
       if (candidate) {
-        const link = await supabaseAdmin
-          .from("profiles")
-          .update({ auth_user_id: authUserId })
-          .eq("id", candidate.id)
-          .is("auth_user_id", null)
-          .select("*")
-          .maybeSingle();
-
-        if (link.error) {
-          console.error("[auth] failed to auto-link profile by email", link.error);
+        try {
+          const link = (await db
+            .update(profilesTable)
+            .set({ authUserId })
+            // Guard against a concurrent link: only stamp a still-unlinked row.
+            .where(
+              and(
+                eq(profilesTable.id, candidate.id),
+                isNull(profilesTable.authUserId),
+              ),
+            )
+            .returning(profileColumns)) as ProfileRow[];
+          profile = link[0] ?? candidate;
+        } catch (error) {
+          console.error("[auth] failed to auto-link profile by email", error);
           profile = candidate;
-        } else {
-          profile = (link.data as ProfileRow | null) ?? candidate;
         }
       }
+    } catch (error) {
+      console.error("[auth] failed to load unlinked profiles", error);
     }
   }
 

@@ -8,7 +8,8 @@ import { fileURLToPath } from "node:url";
 import { parse } from "csv-parse/sync";
 import { fromZonedTime } from "date-fns-tz";
 import dotenv from "dotenv";
-import { createClient } from "@supabase/supabase-js";
+
+import { connectDb } from "./db.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, "../..");
@@ -149,14 +150,10 @@ function toKickoffAt(dateValue, timeValue, timezone) {
 
 // Preload every person once into a normalized-name index. The dataset is small;
 // this avoids per-row queries and races, and is the source of truth for dedupe.
-async function preloadPeople(supabase, peopleCache) {
-  const result = await supabase.from("people").select("id, full_name");
+async function preloadPeople(sql, peopleCache) {
+  const people = await sql`SELECT id, full_name FROM people`;
 
-  if (result.error) {
-    throw result.error;
-  }
-
-  for (const person of result.data ?? []) {
+  for (const person of people) {
     const key = normalizePersonName(person.full_name);
     if (key && !peopleCache.has(key)) {
       peopleCache.set(key, person.id);
@@ -164,7 +161,7 @@ async function preloadPeople(supabase, peopleCache) {
   }
 }
 
-async function getOrCreatePerson(supabase, peopleCache, fullName) {
+async function getOrCreatePerson(sql, peopleCache, fullName) {
   const name = String(fullName ?? "").trim();
   if (!name) {
     return null;
@@ -177,21 +174,16 @@ async function getOrCreatePerson(supabase, peopleCache, fullName) {
   }
 
   // No normalized match: insert preserving the original (best-cased) spelling.
-  const created = await supabase
-    .from("people")
-    .insert({ full_name: name, active: true })
-    .select("id")
-    .single();
+  const [created] = await sql`
+    INSERT INTO people ${sql({ full_name: name, active: true })}
+    RETURNING id
+  `;
 
-  if (created.error) {
-    throw created.error;
-  }
-
-  peopleCache.set(key, created.data.id);
-  return created.data.id;
+  peopleCache.set(key, created.id);
+  return created.id;
 }
 
-async function linkPersonFunction(supabase, functionsSeen, personId, roleName) {
+async function linkPersonFunction(sql, functionsSeen, personId, roleName) {
   const functionKey = functionKeyFromRoleName(roleName);
 
   if (!personId || !functionKey) {
@@ -203,19 +195,15 @@ async function linkPersonFunction(supabase, functionsSeen, personId, roleName) {
     return;
   }
 
-  const result = await supabase.from("person_functions").upsert(
-    { person_id: personId, function_key: functionKey },
-    { onConflict: "person_id,function_key", ignoreDuplicates: true },
-  );
-
-  if (result.error) {
-    throw result.error;
-  }
+  await sql`
+    INSERT INTO person_functions ${sql({ person_id: personId, function_key: functionKey })}
+    ON CONFLICT (person_id, function_key) DO NOTHING
+  `;
 
   functionsSeen.add(dedupeKey);
 }
 
-async function getOrCreateRole(supabase, rolesCache, roleName) {
+async function getOrCreateRole(sql, rolesCache, roleName) {
   const name = String(roleName ?? "").trim();
   if (!name) {
     return null;
@@ -225,76 +213,51 @@ async function getOrCreateRole(supabase, rolesCache, roleName) {
     return rolesCache.get(name);
   }
 
-  const existing = await supabase
-    .from("roles")
-    .select("id, name")
-    .eq("name", name)
-    .limit(1)
-    .maybeSingle();
+  const [existing] = await sql`
+    SELECT id FROM roles WHERE name = ${name} LIMIT 1
+  `;
 
-  if (existing.error) {
-    throw existing.error;
+  if (existing?.id) {
+    rolesCache.set(name, existing.id);
+    return existing.id;
   }
 
-  if (existing.data?.id) {
-    rolesCache.set(name, existing.data.id);
-    return existing.data.id;
-  }
+  const [created] = await sql`
+    INSERT INTO roles ${sql({ name, category: "Importado", sort_order: 999, active: true })}
+    RETURNING id
+  `;
 
-  const created = await supabase
-    .from("roles")
-    .insert({ name, category: "Importado", sort_order: 999, active: true })
-    .select("id")
-    .single();
-
-  if (created.error) {
-    throw created.error;
-  }
-
-  rolesCache.set(name, created.data.id);
-  return created.data.id;
+  rolesCache.set(name, created.id);
+  return created.id;
 }
 
-async function upsertMatch(supabase, payload) {
-  const existing = await supabase
-    .from("matches")
-    .select("id")
-    .eq("home_team", payload.home_team)
-    .eq("away_team", payload.away_team)
-    .eq("kickoff_at", payload.kickoff_at)
-    .limit(1)
-    .maybeSingle();
+async function upsertMatch(sql, payload) {
+  const [existing] = await sql`
+    SELECT id FROM matches
+    WHERE home_team = ${payload.home_team}
+      AND away_team = ${payload.away_team}
+      AND kickoff_at = ${payload.kickoff_at}
+    LIMIT 1
+  `;
 
-  if (existing.error) {
-    throw existing.error;
+  if (existing?.id) {
+    // App owns updated_at now that the metadata trigger is gone.
+    const [updated] = await sql`
+      UPDATE matches
+      SET ${sql({ ...payload, updated_at: new Date().toISOString() })}
+      WHERE id = ${existing.id}
+      RETURNING id
+    `;
+
+    return { id: updated.id, created: false };
   }
 
-  if (existing.data?.id) {
-    const updated = await supabase
-      .from("matches")
-      .update(payload)
-      .eq("id", existing.data.id)
-      .select("id")
-      .single();
+  const [created] = await sql`
+    INSERT INTO matches ${sql(payload)}
+    RETURNING id
+  `;
 
-    if (updated.error) {
-      throw updated.error;
-    }
-
-    return { id: updated.data.id, created: false };
-  }
-
-  const created = await supabase
-    .from("matches")
-    .insert(payload)
-    .select("id")
-    .single();
-
-  if (created.error) {
-    throw created.error;
-  }
-
-  return { id: created.data.id, created: true };
+  return { id: created.id, created: true };
 }
 
 async function main() {
@@ -306,11 +269,6 @@ async function main() {
     process.exit(1);
   }
 
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    console.error("Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en el entorno.");
-    process.exit(1);
-  }
-
   const csvPath = path.resolve(process.cwd(), inputPath);
   const source = await fs.readFile(csvPath, "utf8");
   const records = parse(source, {
@@ -319,21 +277,12 @@ async function main() {
     relax_column_count: true,
   });
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      },
-    },
-  );
+  const sql = connectDb();
 
   const peopleCache = new Map();
   const rolesCache = new Map();
   const functionsSeen = new Set();
-  await preloadPeople(supabase, peopleCache);
+  await preloadPeople(sql, peopleCache);
   let createdMatches = 0;
   let updatedMatches = 0;
   let upsertedAssignments = 0;
@@ -350,12 +299,12 @@ async function main() {
     }
 
     const ownerId = await getOrCreatePerson(
-      supabase,
+      sql,
       peopleCache,
       readField(row, HEADER_ALIASES.owner),
     );
 
-    await linkPersonFunction(supabase, functionsSeen, ownerId, "Responsable");
+    await linkPersonFunction(sql, functionsSeen, ownerId, "Responsable");
 
     const matchPayload = {
       competition: readField(row, HEADER_ALIASES.competition) || null,
@@ -370,7 +319,7 @@ async function main() {
       notes: readField(row, HEADER_ALIASES.notes) || null,
     };
 
-    const match = await upsertMatch(supabase, matchPayload);
+    const match = await upsertMatch(sql, matchPayload);
     if (match.created) {
       createdMatches += 1;
     } else {
@@ -385,34 +334,37 @@ async function main() {
         continue;
       }
 
-      const roleId = await getOrCreateRole(supabase, rolesCache, header);
-      const personId = await getOrCreatePerson(supabase, peopleCache, value);
+      const roleId = await getOrCreateRole(sql, rolesCache, header);
+      const personId = await getOrCreatePerson(sql, peopleCache, value);
 
       if (!roleId || !personId) {
         continue;
       }
 
-      const assignment = await supabase.from("assignments").upsert(
-        {
+      // App owns updated_at on the conflict-update path (trigger dropped).
+      await sql`
+        INSERT INTO assignments ${sql({
           match_id: match.id,
           role_id: roleId,
           person_id: personId,
           confirmed: false,
           notes: null,
-        },
-        { onConflict: "match_id,role_id" },
-      );
-
-      if (assignment.error) {
-        throw assignment.error;
-      }
+        })}
+        ON CONFLICT (match_id, role_id) DO UPDATE SET
+          person_id = excluded.person_id,
+          confirmed = excluded.confirmed,
+          notes = excluded.notes,
+          updated_at = ${new Date().toISOString()}
+      `;
 
       upsertedAssignments += 1;
 
       // Keep person_functions in sync: assignment to "Camara 3" => function "Camara".
-      await linkPersonFunction(supabase, functionsSeen, personId, header);
+      await linkPersonFunction(sql, functionsSeen, personId, header);
     }
   }
+
+  await sql.end();
 
   console.log(`Importacion terminada:
 - partidos creados: ${createdMatches}

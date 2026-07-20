@@ -8,7 +8,7 @@
 //
 // Usage:
 //   node tools/import/periodistas.mjs            # dry run
-//   node tools/import/periodistas.mjs --apply    # write to Supabase
+//   node tools/import/periodistas.mjs --apply    # write to the DB
 
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -17,7 +17,8 @@ import { fileURLToPath } from "node:url";
 
 import { parse } from "csv-parse/sync";
 import dotenv from "dotenv";
-import { createClient } from "@supabase/supabase-js";
+
+import { connectDb } from "./db.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, "../..");
@@ -61,21 +62,9 @@ async function main() {
     }
   }
 
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    console.error("Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en el entorno.");
-    process.exit(1);
-  }
+  const sql = connectDb();
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    { auth: { persistSession: false, autoRefreshToken: false } },
-  );
-
-  const { data: people, error } = await supabase
-    .from("people")
-    .select("id, full_name, phone, email");
-  if (error) throw error;
+  const people = await sql`SELECT id, full_name, phone, email FROM people`;
 
   const byName = new Map();
   const byPhone = new Map();
@@ -110,16 +99,22 @@ async function main() {
   }
 
   if (!APPLY) {
-    console.log("\nDRY RUN. Para escribir en Supabase: --apply");
+    await sql.end();
+    console.log("\nDRY RUN. Para escribir en la base: --apply");
     return;
   }
 
   let updated = 0;
   for (const u of updates) {
-    const { error: upErr } = await supabase.from("people").update(u.patch).eq("id", u.id);
-    if (upErr) throw upErr;
+    // App owns updated_at now that the metadata trigger is gone.
+    await sql`
+      UPDATE people
+      SET ${sql({ ...u.patch, updated_at: new Date().toISOString() })}
+      WHERE id = ${u.id}
+    `;
     updated += 1;
   }
+  await sql.end();
   console.log(`Actualizados: ${updated}`);
 }
 
