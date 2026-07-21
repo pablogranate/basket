@@ -12,13 +12,24 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
+// A `contextRef` lets the server rebuild the dataset at question time, so the
+// page ships only a `contextCount` in its payload. `context` is the legacy
+// client-posted blob still used by the client-only workspaces (incidencias,
+// reportes) whose data has no server loader to rebuild from.
+type SectionContextRef = {
+  section: string;
+  params?: Record<string, string>;
+};
+
 type SectionAiAssistantProps = {
   section: string;
   title: string;
   description: string;
   placeholder: string;
   contextLabel: string;
-  context: unknown;
+  context?: unknown;
+  contextRef?: SectionContextRef;
+  contextCount?: number;
   hasGeminiKey: boolean;
   guidance?: string;
   examples?: string[];
@@ -45,6 +56,8 @@ export function SectionAiAssistant({
   placeholder,
   contextLabel,
   context,
+  contextRef,
+  contextCount: contextCountProp,
   hasGeminiKey,
   guidance,
   examples = [],
@@ -57,7 +70,10 @@ export function SectionAiAssistant({
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const contextCount = useMemo(() => getContextCount(context), [context]);
+  const contextCount = useMemo(
+    () => contextCountProp ?? getContextCount(context),
+    [contextCountProp, context],
+  );
   const hasContext = contextCount > 0;
 
   const submitQuestion = async () => {
@@ -79,8 +95,8 @@ export function SectionAiAssistant({
           section,
           question,
           contextLabel,
-          context,
           guidance,
+          ...(contextRef ? { contextRef } : { context }),
         }),
       });
 

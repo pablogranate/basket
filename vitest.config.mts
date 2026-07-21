@@ -18,7 +18,13 @@ export default defineConfig({
     // Integration tests need a live Postgres and run under
     // vitest.integration.config.mts (`npm run test:integration`). Keep the
     // default unit run DB-free so `npm run check` passes anywhere.
-    exclude: [...configDefaults.exclude, "**/*.integration.test.ts"],
+    // Agent worktrees under .claude/worktrees carry full repo copies; without
+    // this exclude a run from the main checkout counts their suites too.
+    exclude: [
+      ...configDefaults.exclude,
+      "**/*.integration.test.ts",
+      "**/.claude/worktrees/**",
+    ],
     // Route-handler tests dynamically import heavy module graphs (`await
     // import("../route")`); under parallel worker contention that transform can
     // exceed the 5s default and flake. Give them headroom.

@@ -35,12 +35,6 @@ export default async function RolesPage({ searchParams }: PageProps) {
     getRolesData(user),
     getSettingsSnapshot(),
   ]);
-  const aiContext = roles.map((role) => ({
-    nombre: getRoleDisplayName(role.name),
-    categoria: getRoleCategoryDisplayName(role.category),
-    orden: role.sort_order,
-    activo: role.active ? "Sí" : "No",
-  }));
 
   return (
     <div className="space-y-10">
@@ -54,7 +48,8 @@ export default async function RolesPage({ searchParams }: PageProps) {
             description="Pregunta por categorías, orden, disponibilidad o estructura de los roles configurados."
             placeholder="Ej. ¿Qué roles tiene Producción y cuáles están activos?"
             contextLabel="Roles visibles en la configuración actual"
-            context={aiContext}
+            contextCount={roles.length}
+            contextRef={{ section: "roles" }}
             guidance="Responde usando nombre, categoría, orden y estado activo de cada rol visible. Si preguntan por una categoría, agrupa de forma simple."
             examples={[
               "¿Qué roles hay en Producción?",

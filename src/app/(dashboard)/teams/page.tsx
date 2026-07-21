@@ -29,16 +29,6 @@ export default async function TeamsPage() {
   const teams = await getTeamDirectory(user);
   const canManageTeams = user.canEdit && !isCollaboratorLimitedRole(user.role);
   const tabs = buildTeamDirectoryTabs(teams);
-  const aiContext = teams.map((team) => ({
-    equipo: team.official_name,
-    liga: team.competition,
-    estadio: team.stadium ?? "Sin estadio cargado",
-    responsable: team.manager ?? "Sin responsable",
-    web: team.website ?? "",
-    instagram: team.instagram ?? "",
-    enlace_oficial: team.official_url ?? "",
-    incidencias: team.incident_count,
-  }));
 
   return (
     <div className="space-y-10">
@@ -55,7 +45,8 @@ export default async function TeamsPage() {
             description="Pregunta por clubes, responsables, estadios, ligas o incidencias usando solo el directorio visible en esta pantalla."
             placeholder="Ej. ¿Qué equipos de Liga Argentina tienen responsable y cuántas incidencias acumulan?"
             contextLabel="Equipos del directorio"
-            context={aiContext}
+            contextCount={teams.length}
+            contextRef={{ section: "teams" }}
             guidance="Prioriza equipo, liga, estadio, responsable, enlaces oficiales e incidencias. Si el usuario pide comparar equipos, responde en bullets claros."
             examples={[
               "¿Qué equipos no tienen responsable?",

@@ -14,14 +14,16 @@ const poppins = Poppins({
 const oswald = Oswald({
   variable: "--font-oswald",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  // Only 600 (font-semibold) and 700 (font-bold) are used with Oswald.
+  weight: ["600", "700"],
   display: "swap",
 });
 
 const plexMono = IBM_Plex_Mono({
   variable: "--font-plex-mono",
   subsets: ["latin"],
-  weight: ["400", "500"],
+  // Plex Mono only renders at its default 400.
+  weight: ["400"],
   display: "swap",
 });
 

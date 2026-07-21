@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import {
+  isSectionAllowedForContext,
+  resolveSectionAiContext,
+} from "@/lib/ai/section-context";
+import { sectionRefSchema } from "@/lib/ai/section-keys";
 import { consumeGuestRateLimit } from "@/lib/api/rate-limit";
 import { withAuth } from "@/lib/api/with-auth";
 import { AI_COPY } from "@/lib/copy";
@@ -16,12 +21,15 @@ function getClientKey(request: Request) {
   return request.headers.get("x-real-ip")?.trim() || "unknown";
 }
 
+// `contextRef` is the server-rebuild path (dashboard pages); `context` is the
+// legacy client-posted blob (client-only workspaces). Exactly one is expected.
 const requestSchema = z.object({
   section: z.string().trim().min(2).max(80),
   question: z.string().trim().min(3).max(500),
   contextLabel: z.string().trim().min(2).max(160),
   guidance: z.string().trim().max(1500).optional(),
-  context: z.unknown(),
+  contextRef: sectionRefSchema.optional(),
+  context: z.unknown().optional(),
 });
 
 type GeminiResponse = {
@@ -55,7 +63,23 @@ export const POST = withAuth({ allowGuest: true }, async (request, ctx) => {
     );
   }
 
-  const contextText = JSON.stringify(payload.data.context);
+  const { contextRef } = payload.data;
+  let context = payload.data.context;
+
+  // Server-rebuild path: authorize the section, then derive the dataset from the
+  // same loaders the pages use instead of trusting a client-posted blob.
+  if (contextRef) {
+    if (!isSectionAllowedForContext(contextRef.section, ctx)) {
+      return NextResponse.json(
+        { error: "No tenes permisos para consultar esta sección." },
+        { status: 403 },
+      );
+    }
+
+    context = await resolveSectionAiContext(ctx, contextRef);
+  }
+
+  const contextText = JSON.stringify(context);
 
   if (!contextText || contextText === "null" || contextText === "[]") {
     return NextResponse.json(
