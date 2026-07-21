@@ -187,19 +187,6 @@ export async function GridHeaderDataActions({
   ]);
 
   const visibleMatches = dayGroups.flatMap((group) => group.items);
-  const aiContext = visibleMatches.map((match) => ({
-    partido: `${match.home_team} vs ${match.away_team}`,
-    liga: match.competition,
-    modo: match.production_mode,
-    estado: match.status,
-    responsable: match.owner?.full_name ?? "Sin responsable",
-    fecha: formatMatchDate(match.kickoff_at, match.timezone, "dd/MM/yyyy"),
-    hora: formatMatchDate(match.kickoff_at, match.timezone, "HH:mm"),
-    sede: match.venue ?? "",
-    asignaciones_confirmadas: match.assignments.filter(
-      (assignment) => assignment.person && assignment.confirmed,
-    ).length,
-  }));
   const lastSyncedLabel = lastSync?.finished_at
     ? formatDistanceToNow(new Date(lastSync.finished_at), {
         addSuffix: true,
@@ -229,7 +216,20 @@ export async function GridHeaderDataActions({
           description="Pregunta por partidos, responsables, modos de producción o cargas visibles en esta jornada."
           placeholder="Ej. ¿Qué partidos de Liga Nacional están hoy y quién es el responsable?"
           contextLabel="Partidos visibles en Producción"
-          context={aiContext}
+          contextCount={visibleMatches.length}
+          contextRef={{
+            section: "grid",
+            params: {
+              view: filters.view,
+              date: filters.date,
+              q: filters.q,
+              league: filters.league,
+              mode: filters.mode,
+              status: filters.status,
+              owner: filters.owner,
+              timezone: filters.timezone,
+            },
+          }}
           guidance="Prioriza partido, liga, modo, estado, responsable, fecha, hora, sede y cantidad de asignaciones confirmadas."
           examples={[
             "¿Qué partidos hay hoy?",

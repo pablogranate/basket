@@ -43,9 +43,8 @@ import { ROLE_SEED } from "@/lib/constants";
 import type { AppRole } from "@/lib/database.types";
 import { getPeopleData } from "@/lib/data/dashboard";
 import { getPlatformAccessRole } from "@/lib/data/platform-access";
-import { getAssignmentStateDisplayName, getRoleDisplayName } from "@/lib/display";
+import { getRoleDisplayName } from "@/lib/display";
 import { isSupabaseConfigured } from "@/lib/env";
-import type { PeopleAiContextItem } from "@/lib/people-ai";
 import {
   applyPeopleFilters,
   derivePeopleFilterOptions,
@@ -108,21 +107,19 @@ const TEAM_OPTIONS = Array.from(
   new Set(TEAM_DIRECTORY.map((team) => team.official_name)),
 ).sort((left, right) => left.localeCompare(right, "es"));
 
-function toPeopleAiContext(people: PersonListItem[]): PeopleAiContextItem[] {
-  return people.map((person) => {
-    const meta = parsePersonNotesMeta(person.notes);
+function buildPeopleContextParams(
+  filters: ReturnType<typeof parsePeopleFilters>,
+  query: string,
+) {
+  const params: Record<string, string> = {};
 
-    return {
-      fullName: person.full_name,
-      role: meta.role || person.primary_role || "",
-      city: meta.city || "",
-      coverage: meta.coverage || "",
-      phone: person.phone ?? "",
-      email: person.email ?? "",
-      status: getAssignmentStateDisplayName(person.assignment_state),
-      notes: meta.notes ?? "",
-    };
-  });
+  if (query) params.q = query;
+  if (filters.role) params.role = filters.role;
+  if (filters.state) params.state = filters.state;
+  if (filters.city) params.city = filters.city;
+  if (filters.team) params.team = filters.team;
+
+  return params;
 }
 
 function getPersonRole(person: PersonListItem) {
@@ -289,7 +286,11 @@ async function PeopleHeaderExtras({
         description="Haz preguntas sobre roles, coberturas, disponibilidad, teléfonos o correos del personal cargado en esta pantalla."
         placeholder="Ej. ¿Qué rol tiene Santiago Córdoba y quién cubre Boca Juniors?"
         contextLabel="Personal visible en la vista actual"
-        context={toPeopleAiContext(people)}
+        contextCount={people.length}
+        contextRef={{
+          section: "people",
+          params: buildPeopleContextParams(filters, query),
+        }}
         guidance="Prioriza rol principal, responsable de equipos, estado, teléfono, email y notas. Si preguntan por una persona, responde solo con lo visible en esta pantalla."
         examples={[
           "¿Qué rol tiene Santiago Córdoba?",

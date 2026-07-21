@@ -15,7 +15,13 @@ export const GET = withAuth({}, async (request) => {
     );
   }
 
-  return NextResponse.json({
-    src: getTeamLogoPath({ teamName, competition }),
-  });
+  return NextResponse.json(
+    {
+      src: getTeamLogoPath({ teamName, competition }),
+    },
+    {
+      // The logo mapping is static per deploy; let the browser reuse it.
+      headers: { "Cache-Control": "private, max-age=86400" },
+    },
+  );
 });

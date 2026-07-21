@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, gte, inArray, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import {
@@ -377,8 +377,24 @@ async function getMatchContextMap(matchIds: string[]) {
   return contextMap;
 }
 
-async function getAssignmentsForPerson(personId: string) {
+async function getAssignmentsForPerson(
+  personId: string,
+  options: { sinceIso?: string; matchId?: string } = {},
+) {
   const ownerPeople = alias(peopleTable, "owner_people");
+  const conditions: SQL[] = [eq(assignmentsTable.personId, personId)];
+
+  // Bound the read: `sinceIso` trims the person's history to a kickoff window
+  // and `matchId` scopes it to a single match, so callers never pull the whole
+  // assignment history just to keep one slice.
+  if (options.sinceIso) {
+    conditions.push(gte(matchesTable.kickoffAt, options.sinceIso));
+  }
+
+  if (options.matchId) {
+    conditions.push(eq(assignmentsTable.matchId, options.matchId));
+  }
+
   const rows = await db
     .select({
       id: assignmentsTable.id,
@@ -419,7 +435,7 @@ async function getAssignmentsForPerson(personId: string) {
     .innerJoin(rolesTable, eq(assignmentsTable.roleId, rolesTable.id))
     .innerJoin(matchesTable, eq(assignmentsTable.matchId, matchesTable.id))
     .leftJoin(ownerPeople, eq(matchesTable.ownerId, ownerPeople.id))
-    .where(eq(assignmentsTable.personId, personId));
+    .where(and(...conditions));
 
   // The full crew of each match (the `context` reverse embed) is fetched in one
   // follow-up read and stitched onto each row.
@@ -674,9 +690,15 @@ export async function getCollaboratorDayData(
     };
   }
 
-  const assignments = await getAssignmentsForPerson(person.id);
   const todayKey = getDateInputValue();
   const currentMonth = getMonthInputValue();
+  // The page only consumes assignments from the start of the current month
+  // onward (past-month tail + today onward). Bounding at UTC month-start is safe
+  // for the app's west-of-UTC timezones and never drops an in-window row.
+  const monthStartIso = `${currentMonth}-01T00:00:00.000Z`;
+  const assignments = await getAssignmentsForPerson(person.id, {
+    sinceIso: monthStartIso,
+  });
 
   // Today and later (date-based): the primary list.
   const upcomingAssignments = assignments.filter(
@@ -723,7 +745,13 @@ export async function getCollaboratorMatchData(
     profileName: params.profileName,
   });
 
-  const assignments = person ? await getAssignmentsForPerson(person.id) : [];
+  // Real matches are UUID-scoped straight in the query; demo/trial match ids
+  // (non-UUID) never have a persisted assignment, so skip the read and let the
+  // fallback build the trial view.
+  const assignments =
+    person && isUuidLike(params.matchId)
+      ? await getAssignmentsForPerson(person.id, { matchId: params.matchId })
+      : [];
   const assignmentsForMatch = assignments.filter(
     (assignment) => assignment.matchId === params.matchId,
   );

@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Auto-memoizes components/hooks at build time, cutting needless re-renders.
+  reactCompiler: true,
   experimental: {
     // Client Router Cache: reuse a visited page's RSC payload for 30s so
     // back/forward and repeat navigations render instantly instead of

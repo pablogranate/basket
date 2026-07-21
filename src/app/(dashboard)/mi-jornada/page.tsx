@@ -34,10 +34,6 @@ function formatCompactMatchDate(dateValue: string) {
   }).toUpperCase();
 }
 
-function formatAssignmentDateLabel(dateTimeValue: string) {
-  return capitalizeSentence(format(parseISO(dateTimeValue), "d MMM yyyy", { locale: es }));
-}
-
 function formatContentUpdatedLabel() {
   const now = new Date();
   const dateFormatter = new Intl.DateTimeFormat("es-CO", {
@@ -280,18 +276,6 @@ export default async function CollaboratorDayPage() {
     (assignment) => !assignment.attendanceResponse,
   ).length;
   const contentUpdatedLabel = formatContentUpdatedLabel();
-  const aiContext = upcomingAssignments.map((assignment) => ({
-    partido: `${assignment.homeTeam} vs ${assignment.awayTeam}`,
-    liga: assignment.competition ?? "Sin liga",
-    fecha: formatAssignmentDateLabel(assignment.kickoffAt),
-    hora: assignment.timeLabel,
-    sede: assignment.venue ?? "Sede por definir",
-    responsable: assignment.responsibleName ?? assignment.ownerName ?? "Sin asignar",
-    modo: assignment.productionMode ?? "Sin definir",
-    rol: assignment.roleName,
-    camaras: assignment.cameraCount,
-    asistencia: assignment.attendanceResponse ?? "pendiente",
-  }));
 
   return (
     <div className="w-full max-w-none pb-10">
@@ -327,7 +311,8 @@ export default async function CollaboratorDayPage() {
                 description="Pregunta por tus partidos visibles, horarios, responsables, ligas, sedes o modos de producción."
                 placeholder="Ej. ¿Qué partidos tengo y quién es el responsable?"
                 contextLabel="Partidos visibles en Mi jornada"
-                context={aiContext}
+                contextCount={upcomingAssignments.length}
+                contextRef={{ section: "mi-jornada" }}
                 guidance="Prioriza partido, liga, fecha, hora, sede, responsable, modo de producción, rol asignado, cámaras y el estado de asistencia."
                 examples={[
                   "¿Qué partidos tengo y a qué hora?",
