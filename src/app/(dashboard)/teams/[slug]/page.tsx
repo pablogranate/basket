@@ -245,7 +245,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
             </div>
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--background-soft)] px-4 py-4">
               <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[var(--n-400)]">
-                Responsable
+                Responsable de cancha
               </p>
               <div className="mt-2 flex items-center gap-2">
                 <Suspense

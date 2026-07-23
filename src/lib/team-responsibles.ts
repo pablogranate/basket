@@ -10,8 +10,22 @@ export type TeamResponsibleContact = {
 
 export type TeamResponsiblePerson = Pick<
   PersonListItem,
-  "full_name" | "phone" | "email" | "active" | "notes"
+  "full_name" | "phone" | "email" | "active" | "notes" | "teams"
 >;
+
+// Team names a person covers. Prefers the proper people_teams FK link; falls
+// back to the legacy free-text "Equipos que cubre:" coverage for records not
+// yet re-saved through the new "Club" multi-select.
+export function personCoverageNames(person: {
+  teams?: { name: string }[] | null;
+  notes?: string | null;
+}): string[] {
+  if (person.teams && person.teams.length) {
+    return person.teams.map((team) => team.name);
+  }
+
+  return splitCoverageTeams(parsePersonNotesMeta(person.notes).coverage);
+}
 
 type TeamResponsibleLookup = {
   byTeam: Map<string, TeamResponsibleContact>;
@@ -56,8 +70,7 @@ export function buildTeamResponsibleLookup(
       byName.set(normalizedName, contact);
     }
 
-    const meta = parsePersonNotesMeta(person.notes);
-    splitCoverageTeams(meta.coverage).forEach((teamName) => {
+    personCoverageNames(person).forEach((teamName) => {
       const normalizedTeam = normalizeText(teamName);
 
       if (normalizedTeam && !byTeam.has(normalizedTeam)) {

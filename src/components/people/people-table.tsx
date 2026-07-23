@@ -12,6 +12,7 @@ import {
 } from "@/components/people/people-view-helpers";
 import { PersonActiveToggle } from "@/components/people/person-active-toggle";
 import { parsePersonNotesMeta } from "@/lib/people-notes";
+import { personCoverageNames } from "@/lib/team-responsibles";
 import type { PersonListItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -203,7 +204,7 @@ export function PeopleTable({
     const { roleLabel, rolePresentation } = getPersonRoleDisplay(person);
     const city = meta.city || "";
     const cityIndicator = getCityIndicator(city);
-    const detailSummary = meta.coverage || "";
+    const detailSummary = personCoverageNames(person).join(", ");
     const cellClassName = cn(
       "px-6 py-5",
       column === "profile" && "px-8",

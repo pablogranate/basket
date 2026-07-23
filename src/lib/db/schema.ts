@@ -444,6 +444,33 @@ export const personFunctions = pgTable("person_functions", {
 	check("person_functions_key_check", sql`function_key = ANY (ARRAY['Responsable'::text, 'Realizador'::text, 'Operador de Control'::text, 'Operador de Grafica'::text, 'Soporte tecnico'::text, 'Productor'::text, 'Relator'::text, 'Comentario'::text, 'Campo'::text, 'Encoder'::text, 'Ingenieria'::text, 'Camara'::text])`),
 ]);
 
+export const peopleTeams = pgTable("people_teams", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	personId: uuid("person_id").notNull(),
+	teamId: uuid("team_id").notNull(),
+	createdAt: timestamptz("created_at").default(sql`timezone('utc'::text, now())`).notNull(),
+	createdBy: uuid("created_by"),
+}, (table) => [
+	index("people_teams_person_idx").using("btree", table.personId.asc().nullsLast()),
+	index("people_teams_team_idx").using("btree", table.teamId.asc().nullsLast()),
+	foreignKey({
+			columns: [table.personId],
+			foreignColumns: [people.id],
+			name: "people_teams_person_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.teamId],
+			foreignColumns: [teams.id],
+			name: "people_teams_team_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.createdBy],
+			foreignColumns: [profiles.id],
+			name: "people_teams_created_by_fkey"
+		}).onDelete("set null"),
+	unique("people_teams_unique").on(table.personId, table.teamId),
+]);
+
 export const leagues = pgTable("leagues", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	name: text().notNull(),

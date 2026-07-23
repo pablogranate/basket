@@ -30,6 +30,7 @@ import {
 import type { PeopleAiContextItem } from "@/lib/people-ai";
 import { applyPeopleFilters, parsePeopleFilters } from "@/lib/people-filters";
 import { parsePersonNotesMeta } from "@/lib/people-notes";
+import { personCoverageNames } from "@/lib/team-responsibles";
 import type { MatchListItem, PersonListItem } from "@/lib/types";
 import type { RoleRow } from "@/lib/database.types";
 import type { TeamDirectoryItem } from "@/lib/team-directory";
@@ -70,7 +71,7 @@ export function toPeopleAiContext(
       fullName: person.full_name,
       role: meta.role || person.primary_role || "",
       city: meta.city || "",
-      coverage: meta.coverage || "",
+      coverage: personCoverageNames(person).join(", "),
       phone: person.phone ?? "",
       email: person.email ?? "",
       status: getAssignmentStateDisplayName(person.assignment_state),

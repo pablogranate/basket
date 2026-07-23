@@ -1505,7 +1505,7 @@ export function ReportsWorkspace({
     baseFilteredReports.forEach((report) => {
       const current = aggregate.get(report.responsible_name) ?? {
         responsible: report.responsible_name,
-        role: "Responsable",
+        role: "Responsable de cancha",
         reports: 0,
         assignmentIds: new Set<string>(),
       };
@@ -1854,7 +1854,7 @@ export function ReportsWorkspace({
             <div className="flex min-w-0 items-center gap-3">
               <HoverAvatarBadge
                 initials={getInitials(report.responsible_name)}
-                roleLabel="Responsable"
+                roleLabel="Responsable de cancha"
                 tone="accent"
                 size="sm"
               />
@@ -1919,7 +1919,7 @@ export function ReportsWorkspace({
 
     const label =
       column === "responsible"
-        ? "Responsable"
+        ? "Responsable de cancha"
         : column === "role"
           ? "Rol"
         : column === "assignments"
@@ -1982,7 +1982,7 @@ export function ReportsWorkspace({
             <div className="flex items-center gap-3">
               <HoverAvatarBadge
                 initials={getInitials(item.responsible)}
-                roleLabel="Responsable"
+                roleLabel="Responsable de cancha"
                 tone="accent"
                 size="sm"
               />
@@ -2662,7 +2662,7 @@ export function ReportsWorkspace({
                     <div className="mt-3 flex items-center gap-3">
                       <HoverAvatarBadge
                         initials={getInitials(selectedReport.responsible_name)}
-                        roleLabel="Responsable"
+                        roleLabel="Responsable de cancha"
                         tone="accent"
                         size="md"
                       />

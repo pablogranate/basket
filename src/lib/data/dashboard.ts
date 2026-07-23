@@ -38,9 +38,11 @@ import {
   auditLog as auditLogTable,
   matches as matchesTable,
   people as peopleTable,
+  peopleTeams as peopleTeamsTable,
   personFunctions as personFunctionsTable,
   profiles as profilesTable,
   roles as rolesTable,
+  teams as teamsTable,
 } from "@/lib/db/schema";
 import type { TeamResponsiblePerson } from "@/lib/team-responsibles";
 import type { MatchRow, PersonRow, RoleRow } from "@/lib/database.types";
@@ -513,7 +515,7 @@ export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]>
   // count only cares about matches whose end is >= now; a 1-day lower bound on
   // kickoff safely covers any in-progress match without scanning all history.
   const windowStartIso = subDays(now, 1).toISOString();
-  const [peopleData, assignmentsData, functionsData, rolesData] =
+  const [peopleData, assignmentsData, functionsData, rolesData, teamsData] =
     await Promise.all([
       db.select(peopleColumns).from(peopleTable).orderBy(asc(peopleTable.fullName)),
       db
@@ -541,6 +543,14 @@ export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]>
       db
         .select({ id: rolesTable.id, name: rolesTable.name })
         .from(rolesTable),
+      db
+        .select({
+          person_id: peopleTeamsTable.personId,
+          team_id: peopleTeamsTable.teamId,
+          team_name: teamsTable.name,
+        })
+        .from(peopleTeamsTable)
+        .innerJoin(teamsTable, eq(peopleTeamsTable.teamId, teamsTable.id)),
     ]);
 
   const functionsByPerson = new Map<string, PersonFunctionKey[]>();
@@ -559,6 +569,14 @@ export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]>
 
   for (const role of rolesData) {
     roleNameById.set(role.id, role.name);
+  }
+
+  const teamsByPerson = new Map<string, { id: string; name: string }[]>();
+
+  for (const row of teamsData) {
+    const bucket = teamsByPerson.get(row.person_id) ?? [];
+    bucket.push({ id: row.team_id, name: row.team_name });
+    teamsByPerson.set(row.person_id, bucket);
   }
 
   const currentCountByPerson = new Map<string, number>();
@@ -600,6 +618,7 @@ export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]>
       assignment_state: assignmentState,
       current_assignment_count: currentAssignmentCount,
       functions: functionsByPerson.get(person.id) ?? [],
+      teams: teamsByPerson.get(person.id) ?? [],
     };
   });
 }
@@ -608,18 +627,44 @@ export async function getPeopleContactList(
   ctx: UserContext,
 ): Promise<TeamResponsiblePerson[]> {
   void ctx;
-  const rows = await db
-    .select({
-      full_name: peopleTable.fullName,
-      phone: peopleTable.phone,
-      email: peopleTable.email,
-      active: peopleTable.active,
-      notes: peopleTable.notes,
-    })
-    .from(peopleTable)
-    .orderBy(asc(peopleTable.fullName));
+  const [rows, teamsData] = await Promise.all([
+    db
+      .select({
+        id: peopleTable.id,
+        full_name: peopleTable.fullName,
+        phone: peopleTable.phone,
+        email: peopleTable.email,
+        active: peopleTable.active,
+        notes: peopleTable.notes,
+      })
+      .from(peopleTable)
+      .orderBy(asc(peopleTable.fullName)),
+    db
+      .select({
+        person_id: peopleTeamsTable.personId,
+        team_id: peopleTeamsTable.teamId,
+        team_name: teamsTable.name,
+      })
+      .from(peopleTeamsTable)
+      .innerJoin(teamsTable, eq(peopleTeamsTable.teamId, teamsTable.id)),
+  ]);
 
-  return rows as TeamResponsiblePerson[];
+  const teamsByPerson = new Map<string, { id: string; name: string }[]>();
+
+  for (const row of teamsData) {
+    const bucket = teamsByPerson.get(row.person_id) ?? [];
+    bucket.push({ id: row.team_id, name: row.team_name });
+    teamsByPerson.set(row.person_id, bucket);
+  }
+
+  return rows.map((person) => ({
+    full_name: person.full_name,
+    phone: person.phone,
+    email: person.email,
+    active: person.active,
+    notes: person.notes,
+    teams: teamsByPerson.get(person.id) ?? [],
+  }));
 }
 
 export async function getRolesData(ctx: UserContext): Promise<{

@@ -13,7 +13,7 @@ export const PRODUCT_COPY = {
 
 export const BUSINESS_LABELS = {
   productionShort: "Produ",
-  responsible: "Responsable",
+  responsible: "Responsable de cancha",
   relatos: "Relatos",
 } as const;
 

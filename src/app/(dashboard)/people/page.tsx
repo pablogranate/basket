@@ -42,6 +42,8 @@ import { SECTION_COPY } from "@/lib/copy";
 import { ROLE_SEED } from "@/lib/constants";
 import type { AppRole } from "@/lib/database.types";
 import { getPeopleData } from "@/lib/data/dashboard";
+import { getTeamDirectory } from "@/lib/data/teams";
+import { PersonTeamsField } from "@/components/people/person-teams-field";
 import { getPlatformAccessRole } from "@/lib/data/platform-access";
 import { getRoleDisplayName } from "@/lib/display";
 import { isSupabaseConfigured } from "@/lib/env";
@@ -51,10 +53,10 @@ import {
   parsePeopleFilters,
 } from "@/lib/people-filters";
 import { parsePersonNotesMeta } from "@/lib/people-notes";
+import { personCoverageNames } from "@/lib/team-responsibles";
 import { parseNotice } from "@/lib/search-params";
 import { getSettingsSnapshot } from "@/lib/settings";
-import { TEAM_DIRECTORY } from "@/lib/team-directory";
-import type { PersonListItem } from "@/lib/types";
+import type { PersonListItem, PersonTeamLink } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type PageProps = {
@@ -67,7 +69,7 @@ function toCsvHref(people: PersonListItem[]) {
       "Nombre",
       "Rol principal",
       "Ciudad",
-      "Responsable de equipos",
+      "Club",
       "Teléfono",
       "Email",
       "Estado",
@@ -80,7 +82,7 @@ function toCsvHref(people: PersonListItem[]) {
         person.full_name,
         meta.role || person.primary_role || "",
         meta.city || "",
-        meta.coverage || "",
+        personCoverageNames(person).join(", "),
         person.phone ?? "",
         person.email ?? "",
         person.assignment_state,
@@ -103,9 +105,26 @@ function toCsvHref(people: PersonListItem[]) {
 const ROLE_OPTIONS = Array.from(
   new Map(ROLE_SEED.map((role) => [role.name, role])).values(),
 ).map((role) => role.name);
-const TEAM_OPTIONS = Array.from(
-  new Set(TEAM_DIRECTORY.map((team) => team.official_name)),
-).sort((left, right) => left.localeCompare(right, "es"));
+
+// The "Club" multi-select is name-driven downstream (responsible lookups match
+// by team name), so collapse the directory's per-category team rows to one
+// option per distinct name.
+function buildTeamOptions(
+  teams: { id: string; official_name: string }[],
+): PersonTeamLink[] {
+  const byName = new Map<string, PersonTeamLink>();
+
+  for (const team of teams) {
+    const name = team.official_name.trim();
+    if (name && !byName.has(name)) {
+      byName.set(name, { id: team.id, name });
+    }
+  }
+
+  return Array.from(byName.values()).sort((left, right) =>
+    left.name.localeCompare(right.name, "es"),
+  );
+}
 
 function buildPeopleContextParams(
   filters: ReturnType<typeof parsePeopleFilters>,
@@ -175,6 +194,7 @@ export default async function PeoplePage({ searchParams }: PageProps) {
   const settingsPromise = getSettingsSnapshot();
   const user = await requireUserContext();
   const peoplePromise = getPeopleData(user);
+  const teamOptions = buildTeamOptions(await getTeamDirectory(user));
   const filters = parsePeopleFilters(resolvedSearchParams);
   const canManageAccess = isAccessManagerRole(user.role);
   const canSelectAccessTier = user.role === "admin";
@@ -222,7 +242,7 @@ export default async function PeoplePage({ searchParams }: PageProps) {
                 canSelectAccessTier={canSelectAccessTier}
                 redirectTo={currentPeopleHref}
                 roleOptions={ROLE_OPTIONS}
-                teamOptions={TEAM_OPTIONS}
+                teamOptions={teamOptions}
               />
             ) : null}
           </>
@@ -242,6 +262,7 @@ export default async function PeoplePage({ searchParams }: PageProps) {
           canManageAccess={canManageAccess}
           canSelectAccessTier={canSelectAccessTier}
           currentPeopleHref={currentPeopleHref}
+          teamOptions={teamOptions}
         />
       </Suspense>
     </div>
@@ -330,6 +351,7 @@ async function PeopleDataRegion({
   canManageAccess,
   canSelectAccessTier,
   currentPeopleHref,
+  teamOptions,
 }: {
   peoplePromise: Promise<PersonListItem[]>;
   user: UserContext;
@@ -340,6 +362,7 @@ async function PeopleDataRegion({
   canManageAccess: boolean;
   canSelectAccessTier: boolean;
   currentPeopleHref: string;
+  teamOptions: PersonTeamLink[];
 }) {
   const allPeople = await peoplePromise;
   const filterOptions = derivePeopleFilterOptions(allPeople);
@@ -562,26 +585,13 @@ async function PeopleDataRegion({
                           />
                           Activo para asignación
                         </label>
-                        <label className="space-y-2 md:col-span-2">
-                          <span className="text-sm font-semibold text-[var(--n-700)]">
-                            Responsable
-                          </span>
-                          <>
-                            <Input
-                              name="coverageTeams"
-                              list="people-team-options-edit"
-                              defaultValue={selectedMeta?.coverage ?? ""}
-                              placeholder="Escribe o pega equipos y el sistema te sugerirá coincidencias"
-                              disabled={!user.canEdit}
-                              className="h-12 rounded-[var(--panel-radius)] border-[var(--n-200)] bg-[var(--n-50)] text-[15px] font-medium text-[var(--n-800)] placeholder:text-[var(--n-400)] shadow-[inset_0_2px_4px_rgba(28,13,16,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(227,27,35,0.08)]"
-                            />
-                            <datalist id="people-team-options-edit">
-                              {TEAM_OPTIONS.map((teamName) => (
-                                <option key={teamName} value={teamName} />
-                              ))}
-                            </datalist>
-                          </>
-                        </label>
+                        <div className="md:col-span-2">
+                          <PersonTeamsField
+                            options={teamOptions}
+                            selected={selectedPerson.teams.map((team) => team.id)}
+                            disabled={!user.canEdit}
+                          />
+                        </div>
                       </div>
                     </div>
 

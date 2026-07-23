@@ -92,7 +92,7 @@ export function PeopleFilterBar({
         onChange={(value) => handleChange("city", value)}
       />
       <FilterSelect
-        label="Responsable de equipos"
+        label="Club"
         value={filters.team}
         options={options.teams}
         onChange={(value) => handleChange("team", value)}

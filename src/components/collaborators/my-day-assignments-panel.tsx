@@ -676,7 +676,7 @@ function AssignmentTable({
                   <div className="flex items-center gap-3">
                     <HoverAvatarBadge
                       initials={getInitials(responsible.value)}
-                      roleLabel="Responsable"
+                      roleLabel="Responsable de cancha"
                       showTooltip={false}
                       tone="neutral"
                       size="sm"
@@ -1434,7 +1434,7 @@ function GroupAssistantDrawer({
             </section>
 
             <section className="space-y-4">
-              <DrawerSectionHeading>Responsables</DrawerSectionHeading>
+              <DrawerSectionHeading>Responsables de cancha</DrawerSectionHeading>
               <div className="grid grid-cols-2 gap-3">
                 <DrawerPersonCard
                   label={RESPONSIBLE_DISPLAY_LABEL}

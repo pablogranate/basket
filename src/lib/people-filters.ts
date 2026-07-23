@@ -1,6 +1,6 @@
 import { getAssignmentStateDisplayName } from "@/lib/display";
 import { parsePersonNotesMeta } from "@/lib/people-notes";
-import { splitCoverageTeams } from "@/lib/team-responsibles";
+import { personCoverageNames } from "@/lib/team-responsibles";
 import type { PersonListItem } from "@/lib/types";
 import { normalizeText } from "@/lib/utils";
 
@@ -98,14 +98,14 @@ export function applyPeopleFilters({
     const meta = parsePersonNotesMeta(person.notes);
     const role = getPersonRoleValue(person, meta);
     const city = meta.city || "";
-    const teams = splitCoverageTeams(meta.coverage);
+    const teams = personCoverageNames(person);
 
     if (normalizedQuery) {
       const haystack = [
         person.full_name,
         role,
         city,
-        meta.coverage || "",
+        teams.join(" "),
         person.phone ?? "",
         person.email ?? "",
         getAssignmentStateDisplayName(person.assignment_state),
@@ -207,7 +207,7 @@ export function derivePeopleFilterOptions(
     roleValues.push(getPersonRoleValue(person, meta));
     cityValues.push(meta.city || "");
 
-    const teams = splitCoverageTeams(meta.coverage);
+    const teams = personCoverageNames(person);
     if (teams.length === 0) {
       teamValues.push("");
     } else {

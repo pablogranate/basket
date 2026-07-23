@@ -533,6 +533,7 @@ export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]>
       assignment_state: assignmentState,
       current_assignment_count: currentAssignmentCount,
       functions: functionsByPerson.get(person.id) ?? [],
+      teams: [],
     };
   });
 }

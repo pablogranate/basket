@@ -189,7 +189,7 @@ export default async function CollaboratorReportPage({ params }: PageProps) {
           <div className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3">
             <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-[var(--n-400)]">
               <UserRound className="size-4 text-[var(--accent)]" />
-              Responsable
+              Responsable de cancha
             </div>
             <p className="mt-2 text-sm font-semibold">
               {assignment.ownerName ?? "Sin responsable"}

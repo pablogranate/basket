@@ -529,7 +529,7 @@ async function getFallbackAssignmentForMatch(params: {
         home_team: "Boca Juniors",
         away_team: "Atenas de Córdoba",
         venue: "Luis Conde, Buenos Aires",
-        transport: "Llegar 45 minutos antes. La sede suele abrir tarde.",
+        transport: "Llegar 120 minutos antes.",
         notes: "Vista demo para validar el asistente de grupo y sus contactos.",
         kickoff_at: demoKickoffAt,
         duration_minutes: 150,

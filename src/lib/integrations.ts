@@ -25,7 +25,7 @@ export function buildGoogleCalendarLink(match: MatchDetail) {
   const details = [
     `Competencia: ${match.competition ?? "Sin definir"}`,
     `${PRODUCTION_SHORT_LABEL}: ${match.production_mode ?? "Sin definir"}`,
-    `Responsable: ${match.owner?.full_name ?? "Sin definir"}`,
+    `Responsable de cancha: ${match.owner?.full_name ?? "Sin definir"}`,
     "",
     "Asignaciones:",
     ...match.assignments

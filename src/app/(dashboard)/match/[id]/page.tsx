@@ -838,7 +838,7 @@ async function MatchDetailContent({
               </label>
               <label className="space-y-2">
                 <span className="text-xs font-bold uppercase tracking-[0.22em] text-[var(--muted)]">
-                  Responsable
+                  Responsable de cancha
                 </span>
                 <Select
                   name="ownerId"

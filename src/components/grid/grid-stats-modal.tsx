@@ -68,7 +68,7 @@ const FILTER_GROUPS: ReadonlyArray<{
   { key: "ligas", label: "Liga", hasMiniSearch: false },
   { key: "teams", label: "Equipos", hasMiniSearch: true },
   { key: "modes", label: "Producción", hasMiniSearch: false },
-  { key: "categories", label: "Funciones", hasMiniSearch: false },
+  { key: "roles", label: "Funciones", hasMiniSearch: false },
 ];
 
 type SortOption = "count" | "alpha";
@@ -92,7 +92,7 @@ const EMPTY_FACETS: ReportFacetCounts = {
   ligas: [],
   teams: [],
   modes: [],
-  categories: [],
+  roles: [],
 };
 
 const tableHeaderCellClass =
@@ -933,7 +933,7 @@ export function GridStatsModal({
   const [display, setDisplay] = useState<DisplayOptions>(DEFAULT_DISPLAY);
   const [closedGroups, setClosedGroups] = useState<
     Record<FilterDimension, boolean>
-  >({ ligas: false, teams: false, modes: false, categories: false });
+  >({ ligas: false, teams: false, modes: false, roles: false });
   const [teamSearch, setTeamSearch] = useState("");
   const [openMenu, setOpenMenu] = useState<"gear" | "exp" | null>(null);
   const [exportScope, setExportScope] = useState<"current" | "all">("current");
@@ -1036,7 +1036,7 @@ export function GridStatsModal({
     filters.ligas.length +
     filters.teams.length +
     filters.modes.length +
-    filters.categories.length;
+    filters.roles.length;
   const anyFilter = activeFilterCount > 0;
   const canExport = shownMatches > 0;
   const rangeLabel = `${from} – ${to}`;

@@ -21,6 +21,7 @@ import { db } from "@/lib/db/client";
 import { profileColumns } from "@/lib/db/rows";
 import {
   people as peopleTable,
+  peopleTeams as peopleTeamsTable,
   personFunctions as personFunctionsTable,
   profiles as profilesTable,
 } from "@/lib/db/schema";
@@ -187,6 +188,16 @@ export async function upsertPersonAction(formData: FormData) {
     }
   }
 
+  // "Club" links: the person's team FKs, submitted as repeated teamIds fields.
+  const selectedTeamIds = Array.from(
+    new Set(
+      formData
+        .getAll("teamIds")
+        .map((value) => String(value).trim())
+        .filter(Boolean),
+    ),
+  );
+
   try {
     if (createPlatformAccess) {
       await requireAccessManager();
@@ -254,12 +265,32 @@ export async function upsertPersonAction(formData: FormData) {
       );
     }
 
+    // Replace-all the person's team ("Club") links, mirroring functions above.
+    await db
+      .delete(peopleTeamsTable)
+      .where(eq(peopleTeamsTable.personId, savedPersonId));
+
+    if (selectedTeamIds.length) {
+      await db.insert(peopleTeamsTable).values(
+        selectedTeamIds.map((teamId) => ({
+          personId: savedPersonId,
+          teamId,
+          createdBy: ctx.profileId,
+        })),
+      );
+    }
+
     await writeAudit(ctx, {
       table: "people",
       recordId: savedPersonId,
       action: personId ? "UPDATE" : "INSERT",
       before: null,
-      after: { id: savedPersonId, ...payload, functions: selectedFunctions },
+      after: {
+        id: savedPersonId,
+        ...payload,
+        functions: selectedFunctions,
+        teams: selectedTeamIds,
+      },
     });
 
     let accessNotice: string | null = null;

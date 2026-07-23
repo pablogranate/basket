@@ -1832,7 +1832,7 @@ export function IncidentsWorkspace({
 
         <section className="space-y-4">
           <h4 className="text-[11px] font-black uppercase tracking-[0.18em] text-[#94a3b8]">
-            Responsables
+            Responsables de cancha
           </h4>
           <div className="grid grid-cols-2 gap-3">
             <div className="panel-radius border border-[var(--border)] bg-white p-4">

@@ -16,7 +16,7 @@ const FIELD_LABELS: Record<string, string> = {
   kickoff_at: "Inicio",
   duration_minutes: "Duración",
   timezone: "Zona horaria",
-  owner_id: "Responsable",
+  owner_id: "Responsable de cancha",
   notes: "Observaciones",
   person_id: "Persona",
   confirmed: "Confirmado",

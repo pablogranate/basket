@@ -24,11 +24,17 @@ export type UserContext = {
   canEdit: boolean;
 };
 
+export type PersonTeamLink = {
+  id: string;
+  name: string;
+};
+
 export type PersonListItem = PersonRow & {
   primary_role: string | null;
   assignment_state: "En asignacion" | "Disponible" | "Inactivo";
   current_assignment_count: number;
   functions: PersonFunctionKey[];
+  teams: PersonTeamLink[];
 };
 
 export type GridOwner = Pick<

@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { profiles, people, roles, auditLog, matches, clubContacts, notificationLogs, assignments, leagues, announcements, collaboratorReports, appSettings, personFunctions, clubs, teams, clubAliases, teamLeagueMemberships } from "./schema";
+import { profiles, people, roles, auditLog, matches, clubContacts, notificationLogs, assignments, leagues, announcements, collaboratorReports, appSettings, personFunctions, peopleTeams, clubs, teams, clubAliases, teamLeagueMemberships } from "./schema";
 
 export const peopleRelations = relations(people, ({one, many}) => ({
 	profile_createdBy: one(profiles, {
@@ -20,6 +20,7 @@ export const peopleRelations = relations(people, ({one, many}) => ({
 	assignments: many(assignments),
 	matches: many(matches),
 	personFunctions: many(personFunctions),
+	peopleTeams: many(peopleTeams),
 }));
 
 export const profilesRelations = relations(profiles, ({many}) => ({
@@ -253,6 +254,22 @@ export const teamsRelations = relations(teams, ({one, many}) => ({
 		references: [clubs.id]
 	}),
 	teamLeagueMemberships: many(teamLeagueMemberships),
+	peopleTeams: many(peopleTeams),
+}));
+
+export const peopleTeamsRelations = relations(peopleTeams, ({one}) => ({
+	person: one(people, {
+		fields: [peopleTeams.personId],
+		references: [people.id]
+	}),
+	team: one(teams, {
+		fields: [peopleTeams.teamId],
+		references: [teams.id]
+	}),
+	profile: one(profiles, {
+		fields: [peopleTeams.createdBy],
+		references: [profiles.id]
+	}),
 }));
 
 export const clubsRelations = relations(clubs, ({many}) => ({

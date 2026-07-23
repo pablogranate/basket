@@ -12,7 +12,6 @@ import {
   Trash2,
   UserPlus2,
   UserRound,
-  UserSearch,
   X,
 } from "lucide-react";
 
@@ -23,6 +22,8 @@ import { Select } from "@/components/ui/select";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Textarea } from "@/components/ui/textarea";
 import { PersonFunctionsField } from "@/components/people/person-functions-field";
+import { PersonTeamsField } from "@/components/people/person-teams-field";
+import type { PersonTeamLink } from "@/lib/types";
 import { APP_ROLE_DISPLAY_NAMES, getRoleDisplayName } from "@/lib/display";
 import { cn } from "@/lib/utils";
 
@@ -90,7 +91,7 @@ export function CreatePersonModal({
   canSelectAccessTier: boolean;
   redirectTo: string;
   roleOptions: string[];
-  teamOptions: string[];
+  teamOptions: PersonTeamLink[];
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -353,29 +354,11 @@ export function CreatePersonModal({
                         </div>
                       </div>
 
-                      <label className="space-y-2">
-                        <ModalFieldLabel>Responsable</ModalFieldLabel>
-                        <div className="group">
-                          <div className="relative">
-                            <UserSearch className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[var(--n-400)] transition group-focus-within:text-[var(--accent)]" />
-                            <Input
-                              name="coverageTeams"
-                              list="people-team-options"
-                              placeholder="Buscar y asignar responsable..."
-                              disabled={!canEdit}
-                              className={cn(fieldClassName, "pl-11")}
-                            />
-                            <datalist id="people-team-options">
-                              {teamOptions.map((teamName) => (
-                                <option key={teamName} value={teamName} />
-                              ))}
-                            </datalist>
-                          </div>
-                          <p className="pl-1 text-[11px] italic text-[var(--n-400)]">
-                            Empieza a escribir para ver sugerencias de personal directivo
-                          </p>
-                        </div>
-                      </label>
+                      <PersonTeamsField
+                        options={teamOptions}
+                        selected={[]}
+                        disabled={!canEdit}
+                      />
                     </div>
                   </section>
 

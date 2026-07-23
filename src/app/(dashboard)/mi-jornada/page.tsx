@@ -202,7 +202,7 @@ function buildDemoAssignment(params: {
     cameraCount: 4,
     talentLabel: "L. Montero / G. Pérez",
     commentaryPlan: "Relato principal con apoyo de comentario 1 en cierres de cuarto.",
-    transport: "Llegar 45 minutos antes. La sede suele abrir tarde.",
+    transport: "Llegar 120 minutos antes.",
     matchNotes: "Confirmar acceso a cabina y validar energía antes de entrar al aire.",
     contacts,
     dateLabel: formatCompactMatchDate(params.date),

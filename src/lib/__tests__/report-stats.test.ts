@@ -414,7 +414,7 @@ describe("filterMatches", () => {
     ).toEqual(["m3"]);
   });
 
-  it("scopes by función category and narrows assignments (coherent world)", () => {
+  it("scopes by función role and narrows assignments (coherent world)", () => {
     const scoped = filterMatches(
       [
         match("m1", [
@@ -429,13 +429,13 @@ describe("filterMatches", () => {
           assignment({ personId: "p3", roleName: "Encoder", roleCategory: "Transmision" }),
         ]),
       ],
-      filters({ categories: ["Camaras"] }),
+      filters({ roles: ["Camara 1"] }),
     );
 
     expect(scoped.map((m) => m.id)).toEqual(["m1"]);
-    // m1 keeps only its Camaras slot; the Transmision slot is dropped.
-    expect(scoped[0].assignments.map((a) => a.roleCategory)).toEqual([
-      "Camaras",
+    // m1 keeps only its Camara 1 slot; the Encoder slot is dropped.
+    expect(scoped[0].assignments.map((a) => a.roleName)).toEqual([
+      "Camara 1",
     ]);
 
     const summary = buildGridReportSummary(scoped);

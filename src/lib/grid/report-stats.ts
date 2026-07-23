@@ -1,4 +1,10 @@
-import { ROLE_CATEGORY_ORDER } from "@/lib/constants";
+import { ROLE_CATEGORY_ORDER, ROLE_SEED } from "@/lib/constants";
+
+// Canonical role order (Coordinación → Cámaras) used to sort the per-role
+// "Funciones" filter facet so options keep a stable, meaningful order.
+const ROLE_SORT_BY_NAME = new Map<string, number>(
+  ROLE_SEED.map((role) => [role.name, role.sortOrder]),
+);
 
 // Input rows for the statistics seam: the route handler fetches matches in
 // range with their assignment slots and maps them into this shape. Every
@@ -79,7 +85,7 @@ export type ReportFilters = {
   ligas: string[];
   teams: string[];
   modes: string[];
-  categories: string[];
+  roles: string[];
 };
 
 export type FacetOption = {
@@ -91,14 +97,14 @@ export type ReportFacetCounts = {
   ligas: FacetOption[];
   teams: FacetOption[];
   modes: FacetOption[];
-  categories: FacetOption[];
+  roles: FacetOption[];
 };
 
 export const EMPTY_REPORT_FILTERS: ReportFilters = {
   ligas: [],
   teams: [],
   modes: [],
-  categories: [],
+  roles: [],
 };
 
 type FilterDimension = keyof ReportFilters;
@@ -388,10 +394,10 @@ function matchTeams(match: ReportMatchRow) {
   return teams;
 }
 
-// Categories a match actually *used* — only slots a person filled count, so a
+// Roles a match actually *used* — only slots a person filled count, so a
 // función filter reflects who was on camera, not which slots were drawn up.
-function matchCategories(match: ReportMatchRow) {
-  return new Set(countedAssignments(match).map((slot) => slot.roleCategory));
+function matchRoles(match: ReportMatchRow) {
+  return new Set(countedAssignments(match).map((slot) => slot.roleName));
 }
 
 function dimensionValues(match: ReportMatchRow, dim: FilterDimension): string[] {
@@ -404,14 +410,14 @@ function dimensionValues(match: ReportMatchRow, dim: FilterDimension): string[] 
   if (dim === "teams") {
     return [...matchTeams(match)];
   }
-  return [...matchCategories(match)];
+  return [...matchRoles(match)];
 }
 
 // Applies the locked filter semantics (handoff §4): OR within a dimension, AND
 // across dimensions, empty dimension = no filter, team by involvement (home OR
-// away). When categories are selected the match survives only if it used one of
-// them, and its assignments are narrowed to those categories so every
-// downstream count (Personas, Funciones) reflects the coherent-world model.
+// away). When roles are selected the match survives only if it used one of
+// them, and its assignments are narrowed to those roles so every downstream
+// count (Personas, Funciones) reflects the coherent-world model.
 export function filterMatches(
   rows: ReportMatchRow[],
   filters: ReportFilters,
@@ -419,7 +425,7 @@ export function filterMatches(
   const ligaSet = new Set(filters.ligas);
   const teamSet = new Set(filters.teams);
   const modeSet = new Set(filters.modes);
-  const categorySet = new Set(filters.categories);
+  const roleSet = new Set(filters.roles);
 
   const result: ReportMatchRow[] = [];
 
@@ -436,18 +442,18 @@ export function filterMatches(
       continue;
     }
 
-    if (categorySet.size) {
-      const inCategory = countedAssignments(match).some((slot) =>
-        categorySet.has(slot.roleCategory),
+    if (roleSet.size) {
+      const inRole = countedAssignments(match).some((slot) =>
+        roleSet.has(slot.roleName),
       );
-      if (!inCategory) {
+      if (!inRole) {
         continue;
       }
 
       result.push({
         ...match,
         assignments: match.assignments.filter((slot) =>
-          categorySet.has(slot.roleCategory),
+          roleSet.has(slot.roleName),
         ),
       });
       continue;
@@ -483,9 +489,11 @@ function sortFacetOptions(
     return left.value.localeCompare(right.value, "es");
   };
 
-  if (dim === "categories") {
+  if (dim === "roles") {
+    const roleRank = (name: string) =>
+      ROLE_SORT_BY_NAME.get(name) ?? Number.MAX_SAFE_INTEGER;
     return options.sort((left, right) => {
-      const rankDiff = categoryRank(left.value) - categoryRank(right.value);
+      const rankDiff = roleRank(left.value) - roleRank(right.value);
       if (rankDiff !== 0) {
         return rankDiff;
       }
@@ -544,6 +552,6 @@ export function buildFacetCounts(
     ligas: facetForDimension(rows, filters, "ligas"),
     teams: facetForDimension(rows, filters, "teams"),
     modes: facetForDimension(rows, filters, "modes"),
-    categories: facetForDimension(rows, filters, "categories"),
+    roles: facetForDimension(rows, filters, "roles"),
   };
 }

@@ -1,7 +1,6 @@
 import {
   getProductionModeLabel,
   normalizeCommentaryPlan,
-  RESPONSIBLE_DISPLAY_LABEL,
 } from "@/lib/constants";
 import { formatMatchDate, formatMatchTimeLabel } from "@/lib/date";
 import type { MatchListItem } from "@/lib/types";
@@ -41,7 +40,9 @@ export const GRID_EXPORT_COLUMNS: Array<{
   { key: "Liga", label: "Liga" },
   { key: "Partido", label: "Partido" },
   { key: "Hora", label: "Hora" },
-  { key: "Responsable", label: RESPONSIBLE_DISPLAY_LABEL },
+  // Grid table + CSV column header stays the short "Responsable" for width;
+  // the full "Responsable de cancha" display label is used everywhere else.
+  { key: "Responsable", label: "Responsable" },
   { key: "Realizador", label: "Realizador" },
   { key: "Operador de Grafica", label: "Operador de Grafica" },
   { key: "Camara 1", label: "Camara 1" },

@@ -347,7 +347,7 @@ export function CreateTeamModal({
                 </label>
                 <label className="space-y-2">
                   <span className="text-sm font-bold text-[var(--n-700)]">
-                    Responsable
+                    Responsable de cancha
                   </span>
                   <Input
                     value={manager}
