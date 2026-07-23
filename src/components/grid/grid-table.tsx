@@ -58,10 +58,14 @@ const COLUMN_WIDTHS_STORAGE_KEY =
 const COLUMN_ORDER_STORAGE_KEY =
   "basket-production.grid.table-column-order.v1";
 const MIN_COLUMN_WIDTH = 64;
-// Fixed width of the pinned Acciones gutter (two size-10 icon buttons + gap +
-// horizontal padding). Kept fixed so Partido's sticky left offset is known
-// without measuring the resizable Partido column.
-const ACTIONS_COLUMN_WIDTH = 128;
+// Fixed width of the pinned Acciones gutter (one size-10 icon button +
+// horizontal padding). Kept fixed so the pinned columns' sticky left offsets
+// are known without measuring.
+const ACTIONS_COLUMN_WIDTH = 80;
+// Default width of the pinned Liga column. Liga sits between Acciones and
+// Partido in the frozen left block, so Partido's sticky left offset depends on
+// Liga's rendered width — pin a known default and fall back to it below.
+const LEAGUE_COLUMN_WIDTH = 160;
 const PINNED_CELL_CLASSNAME =
   "sticky z-30 bg-[var(--surface)] group-hover:bg-[var(--accent-soft)]";
 
@@ -583,7 +587,9 @@ export function GridTable({
   }
 
   function getWidthStyle(columnKey: string): React.CSSProperties | undefined {
-    const width = columnWidths[columnKey];
+    const width =
+      columnWidths[columnKey] ??
+      (columnKey === "Liga" ? LEAGUE_COLUMN_WIDTH : undefined);
 
     if (!width) {
       return undefined;
@@ -717,15 +723,19 @@ export function GridTable({
 
   const editingEnabled = canEdit && editMode;
 
-  // Frozen left block: [Acciones | Partido | …scrolling columns]. Partido is
-  // pulled out of the scrolling flow and pinned to the left so match identity
-  // stays visible on horizontal scroll; Acciones is pinned beside it so row
-  // actions are always reachable without scrolling to the far right.
+  // Frozen left block: [Acciones | Liga | Partido | …scrolling columns]. Liga
+  // and Partido are pulled out of the scrolling flow and pinned to the left so
+  // league + match identity stay visible on horizontal scroll; Acciones is
+  // pinned beside them so row actions are always reachable.
   const partidoVisible = visibleColumnKeys.includes("Partido");
+  const ligaVisible = visibleColumnKeys.includes("Liga");
   const scrollingColumnKeys = visibleColumnKeys.filter(
-    (key) => key !== "Partido",
+    (key) => key !== "Partido" && key !== "Liga",
   );
-  const partidoLeft = canEdit ? ACTIONS_COLUMN_WIDTH : 0;
+  const actionsLeft = canEdit ? ACTIONS_COLUMN_WIDTH : 0;
+  const ligaLeft = actionsLeft;
+  const ligaWidth = columnWidths.Liga ?? LEAGUE_COLUMN_WIDTH;
+  const partidoLeft = actionsLeft + (ligaVisible ? ligaWidth : 0);
   const actionsWidthStyle: React.CSSProperties = {
     width: ACTIONS_COLUMN_WIDTH,
     minWidth: ACTIONS_COLUMN_WIDTH,
@@ -932,6 +942,7 @@ export function GridTable({
                   Acciones
                 </th>
               ) : null}
+              {ligaVisible ? renderHeaderCell("Liga", ligaLeft) : null}
               {partidoVisible ? renderHeaderCell("Partido", partidoLeft) : null}
               {scrollingColumnKeys.map((key) => renderHeaderCell(key))}
             </tr>
@@ -963,24 +974,18 @@ export function GridTable({
                         >
                           <Maximize2 className="size-4" />
                         </Link>
-                        <CreateMatchModal
-                          people={people}
-                          redirectTo={redirectTo}
-                          canEdit={canEdit}
-                          initialDate={formatMatchDate(
-                            match.kickoff_at,
-                            match.timezone,
-                            "yyyy-MM-dd",
-                          )}
-                          match={toMatchEditPrefill(match)}
-                          triggerVariant="icon"
-                          triggerLabel="Editar partido"
-                          triggerIcon={<PencilLine className="size-4" />}
-                          triggerClassName={editTriggerClassName}
-                        />
                       </div>
                     </td>
                   ) : null}
+                  {ligaVisible
+                    ? renderBodyCell(
+                        "Liga",
+                        match,
+                        exportRow,
+                        dayLabel,
+                        ligaLeft,
+                      )
+                    : null}
                   {partidoVisible
                     ? renderBodyCell(
                         "Partido",
