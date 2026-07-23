@@ -32,6 +32,7 @@ export const people = pgTable("people", {
 	updatedBy: uuid("updated_by"),
 	category: text(),
 	roleId: uuid("role_id"),
+	deletedAt: timestamptz("deleted_at"),
 }, (table) => [
 	index("people_category_idx").using("btree", table.category.asc().nullsLast()),
 	index("people_role_id_idx").using("btree", table.roleId.asc().nullsLast()),
@@ -95,6 +96,23 @@ export const gridSyncRuns = pgTable("grid_sync_runs", {
 	deletedCount: integer("deleted_count").default(0).notNull(),
 }, (table) => [
 	index("grid_sync_runs_started_idx").using("btree", table.startedAt.desc().nullsFirst()),
+]);
+
+export const peopleSyncRuns = pgTable("people_sync_runs", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	trigger: text().notNull(),
+	status: text().notNull(),
+	createdCount: integer("created_count").default(0).notNull(),
+	updatedCount: integer("updated_count").default(0).notNull(),
+	deletedCount: integer("deleted_count").default(0).notNull(),
+	restoredCount: integer("restored_count").default(0).notNull(),
+	skippedCount: integer("skipped_count").default(0).notNull(),
+	warnings: jsonb().$type<string[]>().default([]).notNull(),
+	error: text(),
+	startedAt: timestamptz("started_at").default(sql`timezone('utc'::text, now())`).notNull(),
+	finishedAt: timestamptz("finished_at"),
+}, (table) => [
+	index("people_sync_runs_started_idx").using("btree", table.startedAt.desc().nullsFirst()),
 ]);
 
 export const clubContacts = pgTable("club_contacts", {

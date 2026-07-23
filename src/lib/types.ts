@@ -16,6 +16,23 @@ export type NotificationLogEntry =
 export type SyncLogEntry =
   Database["public"]["Tables"]["grid_sync_runs"]["Row"];
 
+// people_sync_runs is Drizzle-only (not in the generated Database types), so its
+// row shape is declared here. Mirrors peopleSyncRunColumns in src/lib/db/rows.ts.
+export type PeopleSyncLogEntry = {
+  id: string;
+  trigger: string;
+  status: string;
+  created_count: number;
+  updated_count: number;
+  deleted_count: number;
+  restored_count: number;
+  skipped_count: number;
+  warnings: string[];
+  error: string | null;
+  started_at: string;
+  finished_at: string | null;
+};
+
 export type UserContext = {
   userId: string | null;
   email: string | null;

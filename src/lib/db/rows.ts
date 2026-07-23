@@ -9,6 +9,7 @@ import {
   matches,
   notificationLogs,
   people,
+  peopleSyncRuns,
   profiles,
   roles,
 } from "@/lib/db/schema";
@@ -116,6 +117,21 @@ export const gridSyncRunColumns = {
   started_at: gridSyncRuns.startedAt,
   finished_at: gridSyncRuns.finishedAt,
   deleted_count: gridSyncRuns.deletedCount,
+} as const;
+
+export const peopleSyncRunColumns = {
+  id: peopleSyncRuns.id,
+  trigger: peopleSyncRuns.trigger,
+  status: peopleSyncRuns.status,
+  created_count: peopleSyncRuns.createdCount,
+  updated_count: peopleSyncRuns.updatedCount,
+  deleted_count: peopleSyncRuns.deletedCount,
+  restored_count: peopleSyncRuns.restoredCount,
+  skipped_count: peopleSyncRuns.skippedCount,
+  warnings: peopleSyncRuns.warnings,
+  error: peopleSyncRuns.error,
+  started_at: peopleSyncRuns.startedAt,
+  finished_at: peopleSyncRuns.finishedAt,
 } as const;
 
 export const notificationLogColumns = {

@@ -1,4 +1,4 @@
-import { and, eq, ilike } from "drizzle-orm";
+import { and, eq, ilike, isNull } from "drizzle-orm";
 
 import type { PersonRow } from "@/lib/database.types";
 import { db } from "@/lib/db/client";
@@ -30,7 +30,13 @@ export async function findLinkedPerson(params: {
     const byEmail = await db
       .select(LINKED_PERSON_COLUMNS)
       .from(people)
-      .where(and(eq(people.email, params.email), eq(people.active, true)))
+      .where(
+        and(
+          eq(people.email, params.email),
+          eq(people.active, true),
+          isNull(people.deletedAt),
+        ),
+      )
       .limit(1);
 
     if (byEmail[0]) {
@@ -54,6 +60,7 @@ export async function findLinkedPerson(params: {
     .where(
       and(
         eq(people.active, true),
+        isNull(people.deletedAt),
         ilike(people.fullName, `%${params.profileName.trim()}%`),
       ),
     );

@@ -1,5 +1,7 @@
 import { Suspense } from "react";
 
+import { formatInTimeZone } from "date-fns-tz";
+import { es } from "date-fns/locale";
 import Link from "next/link";
 import {
   Camera,
@@ -19,6 +21,7 @@ import { SetupPanel } from "@/components/layout/setup-panel";
 import { PeopleFilterBar } from "@/components/people/people-filter-bar";
 import { CreatePersonModal } from "@/components/people/create-person-modal-lazy";
 import { PersonFunctionsField } from "@/components/people/person-functions-field";
+import { PeopleSyncButton } from "@/components/people/people-sync-button";
 import { PersonDeleteButton } from "@/components/people/person-delete-button";
 import { PersonGrantAccessButton } from "@/components/people/person-grant-access-button";
 import { PersonRevokeAccessButton } from "@/components/people/person-revoke-access-button";
@@ -42,6 +45,7 @@ import { SECTION_COPY } from "@/lib/copy";
 import { ROLE_SEED } from "@/lib/constants";
 import type { AppRole } from "@/lib/database.types";
 import { getPeopleData } from "@/lib/data/dashboard";
+import { getLastPeopleSync } from "@/lib/people/sync";
 import { getTeamDirectory } from "@/lib/data/teams";
 import { PersonTeamsField } from "@/components/people/person-teams-field";
 import { getPlatformAccessRole } from "@/lib/data/platform-access";
@@ -201,6 +205,15 @@ export default async function PeoplePage({ searchParams }: PageProps) {
   const currentPeopleHref = buildPeopleHref(resolvedSearchParams, {
     edit: undefined,
   });
+  const lastPeopleSync = canManageAccess ? await getLastPeopleSync() : null;
+  const lastPeopleSyncLabel = lastPeopleSync
+    ? formatInTimeZone(
+        lastPeopleSync.started_at,
+        "America/Argentina/Buenos_Aires",
+        "d MMM · HH:mm",
+        { locale: es },
+      )
+    : undefined;
 
   return (
     <div className="space-y-10">
@@ -235,6 +248,12 @@ export default async function PeoplePage({ searchParams }: PageProps) {
                 query={query}
               />
             </Suspense>
+            {canManageAccess ? (
+              <PeopleSyncButton
+                redirectTo={currentPeopleHref}
+                lastSyncedLabel={lastPeopleSyncLabel}
+              />
+            ) : null}
             {user.canEdit ? (
               <CreatePersonModal
                 canEdit={user.canEdit}
