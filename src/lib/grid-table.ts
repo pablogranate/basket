@@ -75,7 +75,9 @@ export function toExportRows(matches: MatchListItem[]): GridExportRow[] {
     Produccion: getProductionModeLabel(match.production_mode) || "Sin definir",
     ID: match.production_code ?? "",
     Liga: match.competition ?? "",
-    Partido: `${match.home_team} vs ${match.away_team}`,
+    Partido: match.away_team?.trim()
+      ? `${match.home_team} vs ${match.away_team}`
+      : match.home_team,
     Hora: formatMatchTimeLabel(match.kickoff_at, match.timezone),
     Responsable:
       getAssignmentName(
