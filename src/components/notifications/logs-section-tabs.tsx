@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { BellRing, RefreshCw } from "lucide-react";
+import { BellRing, RefreshCw, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 const TABS = [
   { key: "notifications", href: "/notifications/logs", label: "Notificaciones", icon: BellRing },
-  { key: "syncs", href: "/notifications/syncs", label: "Sincronizaciones", icon: RefreshCw },
+  { key: "syncs", href: "/notifications/syncs", label: "Grilla", icon: RefreshCw },
+  { key: "people-syncs", href: "/notifications/sync-people", label: "Contactos", icon: Users },
 ] as const;
 
 export type LogsSection = (typeof TABS)[number]["key"];

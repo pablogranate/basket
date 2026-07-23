@@ -8,6 +8,7 @@ import {
   ilike,
   inArray,
   isNotNull,
+  isNull,
   lte,
   ne,
   or,
@@ -149,7 +150,7 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
           email: peopleTable.email,
         })
         .from(peopleTable)
-        .where(eq(peopleTable.active, true))
+        .where(and(eq(peopleTable.active, true), isNull(peopleTable.deletedAt)))
         .orderBy(asc(peopleTable.fullName)),
       db
         .select({
@@ -313,7 +314,7 @@ export async function getMatchDetailData(ctx: UserContext, matchId: string) {
           active: peopleTable.active,
         })
         .from(peopleTable)
-        .where(eq(peopleTable.active, true))
+        .where(and(eq(peopleTable.active, true), isNull(peopleTable.deletedAt)))
         .orderBy(asc(peopleTable.fullName)),
       db
         .select({
@@ -517,7 +518,11 @@ export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]>
   const windowStartIso = subDays(now, 1).toISOString();
   const [peopleData, assignmentsData, functionsData, rolesData, teamsData] =
     await Promise.all([
-      db.select(peopleColumns).from(peopleTable).orderBy(asc(peopleTable.fullName)),
+      db
+        .select(peopleColumns)
+        .from(peopleTable)
+        .where(isNull(peopleTable.deletedAt))
+        .orderBy(asc(peopleTable.fullName)),
       db
         .select({
           person_id: assignmentsTable.personId,
@@ -638,6 +643,7 @@ export async function getPeopleContactList(
         notes: peopleTable.notes,
       })
       .from(peopleTable)
+      .where(isNull(peopleTable.deletedAt))
       .orderBy(asc(peopleTable.fullName)),
     db
       .select({

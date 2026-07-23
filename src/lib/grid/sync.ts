@@ -540,15 +540,25 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
       }
 
       // 5. Preload people, keyed by normalized name (matches people-import dedupe).
+      // Soft-deleted people are loaded too so a name that reappears in the grilla
+      // resurrects the same row instead of duplicating (see people sync PRD).
       const peopleRows = await db
-        .select({ id: peopleTable.id, full_name: peopleTable.fullName })
+        .select({
+          id: peopleTable.id,
+          full_name: peopleTable.fullName,
+          deleted_at: peopleTable.deletedAt,
+        })
         .from(peopleTable);
 
       const personIdByName = new Map<string, string>();
+      const softDeletedPersonIds = new Set<string>();
       for (const person of peopleRows) {
         const key = normalizeText(person.full_name);
         if (key && !personIdByName.has(key)) {
           personIdByName.set(key, person.id);
+          if (person.deleted_at) {
+            softDeletedPersonIds.add(person.id);
+          }
         }
       }
 
@@ -561,6 +571,19 @@ export async function runGridSync(trigger: GridSyncTrigger): Promise<GridSyncRes
         const key = normalizeText(name);
         const cached = personIdByName.get(key);
         if (cached) {
+          // Resurrect a soft-deleted person referenced by the grilla: the
+          // contacts sync removed them, but an active assignment means they
+          // still work. Clearing deleted_at re-exposes them everywhere.
+          if (softDeletedPersonIds.has(cached)) {
+            await db
+              .update(peopleTable)
+              .set({ deletedAt: null, updatedAt: now.toISOString() })
+              .where(eq(peopleTable.id, cached));
+            softDeletedPersonIds.delete(cached);
+            console.info(
+              `[grid-sync] resurrected "${name}" (asignado en la grilla pero fuera de la pestaña de contactos)`,
+            );
+          }
           return cached;
         }
 
