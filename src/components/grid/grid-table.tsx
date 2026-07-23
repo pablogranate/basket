@@ -58,10 +58,12 @@ const COLUMN_WIDTHS_STORAGE_KEY =
 const COLUMN_ORDER_STORAGE_KEY =
   "basket-production.grid.table-column-order.v1";
 const MIN_COLUMN_WIDTH = 64;
-// Fixed width of the pinned Acciones gutter (one size-10 icon button +
-// horizontal padding). Kept fixed so the pinned columns' sticky left offsets
-// are known without measuring.
-const ACTIONS_COLUMN_WIDTH = 80;
+// Fixed width of the pinned Acciones gutter: one size-10 icon button (40px) +
+// px-5 on both sides (40px) + trailing slack so it reads with the same relaxed
+// spacing as the other columns instead of hugging the button edge-to-edge.
+// Kept fixed so the pinned columns' sticky left offsets are known without
+// measuring.
+const ACTIONS_COLUMN_WIDTH = 96;
 // Default width of the pinned Liga column. Liga sits between Acciones and
 // Partido in the frozen left block, so Partido's sticky left offset depends on
 // Liga's rendered width — pin a known default and fall back to it below.
