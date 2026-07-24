@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Menu, X } from "lucide-react";
 
 import { DashboardNav } from "@/components/layout/dashboard-nav";
@@ -16,6 +17,11 @@ export function DashboardMobileNav({
   generatorUrl?: string | null;
 }) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -51,8 +57,12 @@ export function DashboardMobileNav({
         <Menu className="size-5" />
       </button>
 
-      {open ? (
-        <div className="fixed inset-0 z-[100]">
+      {open && mounted
+        ? createPortal(
+            // Portal to <body>: the surrounding header uses backdrop-blur, which
+            // establishes a containing block for fixed descendants and would
+            // otherwise trap this overlay inside the 80px-tall header.
+            <div className="fixed inset-0 z-[100]">
           <div
             className="absolute inset-0 bg-[rgba(7,18,43,0.55)] backdrop-blur-sm"
             aria-hidden="true"
@@ -82,8 +92,10 @@ export function DashboardMobileNav({
               <DashboardNav role={role} generatorUrl={generatorUrl} />
             </div>
           </aside>
-        </div>
-      ) : null}
+        </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
