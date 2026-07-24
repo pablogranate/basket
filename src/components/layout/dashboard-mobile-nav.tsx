@@ -17,11 +17,6 @@ export function DashboardMobileNav({
   generatorUrl?: string | null;
 }) {
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -57,11 +52,12 @@ export function DashboardMobileNav({
         <Menu className="size-5" />
       </button>
 
-      {open && mounted
+      {open
         ? createPortal(
             // Portal to <body>: the surrounding header uses backdrop-blur, which
             // establishes a containing block for fixed descendants and would
-            // otherwise trap this overlay inside the 80px-tall header.
+            // otherwise trap this overlay inside the 80px-tall header. open only
+            // flips on a client click, so the portal never runs during SSR.
             <div className="fixed inset-0 z-[100]">
           <div
             className="absolute inset-0 bg-[rgba(7,18,43,0.55)] backdrop-blur-sm"
