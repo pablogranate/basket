@@ -33,6 +33,14 @@ export const metadata: Metadata = {
     "Grilla operativa con asignaciones, auditoría, permisos y flujo de producción en vivo.",
   icons: {
     icon: { url: "/favicon.webp", type: "image/webp" },
+    apple: { url: "/icons/apple-touch-icon.png", sizes: "180x180" },
+  },
+  // iOS ignores the web manifest; these opt the added-to-home-screen app into
+  // fullscreen standalone mode with the right label.
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "BasquetPass",
   },
 };
 

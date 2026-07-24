@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { CollaboratorShell } from "@/components/layout/collaborator-shell";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { PwaInstallBanner } from "@/components/pwa/pwa-install-banner";
 import {
   buildApexUrl,
   buildSiblingAppUrl,
@@ -55,6 +56,7 @@ export default async function DashboardLayout({
     return (
       <CollaboratorShell user={user} announcement={announcement}>
         {children}
+        <PwaInstallBanner />
       </CollaboratorShell>
     );
   }
@@ -77,6 +79,7 @@ export default async function DashboardLayout({
       generatorUrl={generatorUrl}
     >
       {children}
+      <PwaInstallBanner />
     </DashboardShell>
   );
 }
