@@ -1,13 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
-import { BriefcaseBusiness, Camera, LogOut, Settings2, Shield, UserRound } from "lucide-react";
+import { Camera, LogOut, UserRound } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { signOutAction } from "@/app/actions/auth";
 import type { AppRole } from "@/lib/database.types";
-import { isCollaboratorLimitedRole } from "@/lib/constants";
 import {
   AVATAR_CHANGE_EVENT,
   getAvatarStorageKey,
@@ -28,7 +26,6 @@ export function UserProfileChip({
   fullName,
   email,
   roleLabel,
-  role,
   className,
   mobileMenu = false,
 }: {
@@ -160,7 +157,6 @@ export function UserProfileChip({
       )}
     </div>
   );
-  const limitedCollaborator = isCollaboratorLimitedRole(role);
 
   if (mobileMenu) {
     return (
@@ -178,32 +174,6 @@ export function UserProfileChip({
 
         {menuOpen ? (
           <div className="panel-surface absolute right-0 top-[calc(100%+0.75rem)] z-50 w-56 border border-[var(--border)] bg-[var(--surface)] p-2 shadow-[var(--shadow-lift)]">
-            <Link
-              href="/mi-jornada"
-              onClick={() => setMenuOpen(false)}
-              className="flex w-full items-center gap-3 rounded-[calc(var(--panel-radius)-4px)] px-3 py-3 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--background-soft)]"
-            >
-              <BriefcaseBusiness className="size-4 text-[var(--n-600)]" />
-              Mi jornada
-            </Link>
-            <Link
-              href="/teams"
-              onClick={() => setMenuOpen(false)}
-              className="flex w-full items-center gap-3 rounded-[calc(var(--panel-radius)-4px)] px-3 py-3 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--background-soft)]"
-            >
-              <Shield className="size-4 text-[var(--n-600)]" />
-              Equipos
-            </Link>
-            {!limitedCollaborator ? (
-              <Link
-                href="/settings"
-                onClick={() => setMenuOpen(false)}
-                className="flex w-full items-center gap-3 rounded-[calc(var(--panel-radius)-4px)] px-3 py-3 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--background-soft)]"
-              >
-                <Settings2 className="size-4 text-[var(--n-600)]" />
-                Configuración
-              </Link>
-            ) : null}
             <form action={signOutAction}>
               <button
                 type="submit"
