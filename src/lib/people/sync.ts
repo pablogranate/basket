@@ -23,7 +23,7 @@ import {
 import { normalizeText } from "@/lib/utils";
 
 const SHEET_ID = "18Zqlayhde5XpOehkXOa1FKtaBSXhDGDfvqMvstT5Rm8";
-const CONTACTS_TAB = "Contactos";
+const CONTACTS_TAB = "Contactos Portal";
 
 // A run that would soft-delete more than this share of the live roster is
 // aborted with zero mutations — a blanked or misnamed tab must never wipe

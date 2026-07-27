@@ -49,4 +49,7 @@ tools/import/contactos.raw.md
 tools/import/contactos.clean.json
 tools/import/periodistas.raw.csv
 
+# sheet templates generated from live data (club roster / contact columns)
+tools/sheets/*.csv
+
 .claude/*
