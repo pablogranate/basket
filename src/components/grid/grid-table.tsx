@@ -473,12 +473,42 @@ export function GridTable({
       return;
     }
 
-    const headerOffset =
-      container.querySelector("thead")?.getBoundingClientRect().height ?? 0;
-    const containerTop = container.getBoundingClientRect().top;
-    const rowTop = row.getBoundingClientRect().top;
-    container.scrollTop += rowTop - containerTop - headerOffset;
     didScrollToTodayRef.current = true;
+
+    // Row heights keep settling after the first paint — web fonts swap in and
+    // change every cell's line box, so a single measurement lands a few rows
+    // past the day (the thinner the rows, the more rows that same pixel error
+    // covers). Re-align at each settle point, and stop as soon as the reader
+    // scrolls themselves so we never yank the viewport out from under them.
+    let applied = -1;
+
+    const align = () => {
+      if (applied >= 0 && Math.abs(container.scrollTop - applied) > 1) {
+        return;
+      }
+
+      const headerOffset =
+        container.querySelector("thead")?.getBoundingClientRect().height ?? 0;
+      const containerTop = container.getBoundingClientRect().top;
+      const rowTop = row.getBoundingClientRect().top;
+      container.scrollTop += rowTop - containerTop - headerOffset;
+      applied = container.scrollTop;
+    };
+
+    align();
+
+    let cancelled = false;
+    const frame = requestAnimationFrame(align);
+    void document.fonts.ready.then(() => {
+      if (!cancelled) {
+        align();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+    };
   }, [todayRowIndex]);
 
   function toggleColumn(key: string) {
