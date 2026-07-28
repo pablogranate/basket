@@ -21,6 +21,16 @@ const GRID_LEAGUE_COLORS: Record<string, string> = {
   nbb: "#007520",
   bcla: "#00ffd0",
   "pre metropolina": "#ffe5a0",
+  "liga metro": "#fff400",
+  "liga metro fem": "#fe54e1",
+  "liga ecuador": "#ffe5a0",
+  "lpb ecuador": "#00fdec",
+  "interligas ldb": "#d4edbc",
+  "copa del rey": "#ffec68",
+  amistosos: "#ffcfc9",
+  fembaba: "#c6dbe1",
+  fiba: "#ffcfc9",
+  "3x3": "#753800",
 };
 
 function normalizeLeagueName(value: string) {

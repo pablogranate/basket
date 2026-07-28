@@ -58,7 +58,7 @@ const COLUMN_WIDTHS_STORAGE_KEY =
 const COLUMN_ORDER_STORAGE_KEY =
   "basket-production.grid.table-column-order.v1";
 const MIN_COLUMN_WIDTH = 64;
-// Fixed width of the pinned Acciones gutter: one size-10 icon button (40px) +
+// Fixed width of the pinned Acciones gutter: one size-8 icon button (32px) +
 // px-5 on both sides (40px) + trailing slack so it reads with the same relaxed
 // spacing as the other columns instead of hugging the button edge-to-edge.
 // Kept fixed so the pinned columns' sticky left offsets are known without
@@ -70,6 +70,10 @@ const ACTIONS_COLUMN_WIDTH = 96;
 const LEAGUE_COLUMN_WIDTH = 160;
 const PINNED_CELL_CLASSNAME =
   "sticky z-30 bg-[var(--surface)] group-hover:bg-[var(--accent-soft)]";
+// Day boundary marker. The table uses border-separate, so borders set on <tr>
+// are dropped by the browser — the rule has to live on the cells of the first
+// row of each day.
+const DAY_DIVIDER_CLASSNAME = "border-t-4 border-t-[var(--n-700)]";
 
 const TABLE_COLUMNS = GRID_EXPORT_COLUMNS.filter(
   (column) => column.key !== "Dia",
@@ -115,7 +119,7 @@ const headerCellClassName =
   "whitespace-nowrap px-5 py-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--n-400)] font-[family-name:var(--font-oswald)]";
 
 const editTriggerClassName =
-  "inline-flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--n-100)] text-[var(--foreground)] shadow-none transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]";
+  "inline-flex size-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--n-100)] text-[var(--foreground)] shadow-none transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]";
 
 function normalizeHiddenColumns(value: unknown) {
   if (!Array.isArray(value)) {
@@ -749,11 +753,13 @@ export function GridTable({
     match: MatchListItem,
     exportRow: GridExportRow,
     dayLabel: string,
+    dayStart: boolean,
     pinLeft?: number,
   ) {
     const pinned = pinLeft != null;
     const pinStyle: React.CSSProperties = pinned ? { left: pinLeft } : {};
     const pinClass = pinned ? PINNED_CELL_CLASSNAME : "";
+    const dayClass = dayStart ? DAY_DIVIDER_CLASSNAME : "";
 
     if (key === "Dia") {
       return (
@@ -761,9 +767,10 @@ export function GridTable({
           key={key}
           style={{ ...getWidthStyle("Dia"), ...pinStyle }}
           className={cn(
-            "whitespace-nowrap px-5 py-3 text-sm font-semibold text-[var(--foreground)]",
+            "whitespace-nowrap px-5 py-1.5 text-sm font-semibold text-[var(--foreground)]",
             columnWidths.Dia && "overflow-hidden text-ellipsis",
             pinClass,
+            dayClass,
           )}
         >
           {dayLabel}
@@ -788,9 +795,10 @@ export function GridTable({
           key={columnKey}
           style={{ ...getWidthStyle(columnKey), ...pinStyle }}
           className={cn(
-            "whitespace-nowrap px-5 py-3 text-sm text-[var(--foreground)]",
+            "whitespace-nowrap px-5 py-1.5 text-sm text-[var(--foreground)]",
             columnWidths[columnKey] && "overflow-hidden text-ellipsis",
             pinClass,
+            dayClass,
           )}
         >
           <div className="flex items-center gap-1">
@@ -856,13 +864,14 @@ export function GridTable({
           ...pinStyle,
         }}
         className={cn(
-          "px-5 py-3 text-sm",
+          "px-5 py-1.5 text-sm",
           isWide
             ? "max-w-[22rem] truncate text-[var(--muted)]"
             : "whitespace-nowrap text-[var(--foreground)]",
           columnWidths[columnKey] && "overflow-hidden text-ellipsis",
           !editor && attendanceClass,
           pinClass,
+          dayClass,
         )}
       >
         {editor ? (
@@ -952,6 +961,8 @@ export function GridTable({
           <tbody className="divide-y divide-[var(--border)]">
             {rows.map(({ dayLabel, match }, rowIndex) => {
               const exportRow = toExportRows([match])[0];
+              const dayStart =
+                rowIndex > 0 && rows[rowIndex - 1].dayLabel !== dayLabel;
 
               return (
                 <tr
@@ -963,8 +974,9 @@ export function GridTable({
                     <td
                       style={actionsWidthStyle}
                       className={cn(
-                        "whitespace-nowrap px-5 py-3 left-0",
+                        "whitespace-nowrap px-5 py-1.5 left-0",
                         PINNED_CELL_CLASSNAME,
+                        dayStart && DAY_DIVIDER_CLASSNAME,
                       )}
                     >
                       <div className="flex items-center gap-2">
@@ -985,6 +997,7 @@ export function GridTable({
                         match,
                         exportRow,
                         dayLabel,
+                        dayStart,
                         ligaLeft,
                       )
                     : null}
@@ -994,11 +1007,12 @@ export function GridTable({
                         match,
                         exportRow,
                         dayLabel,
+                        dayStart,
                         partidoLeft,
                       )
                     : null}
                   {scrollingColumnKeys.map((key) =>
-                    renderBodyCell(key, match, exportRow, dayLabel),
+                    renderBodyCell(key, match, exportRow, dayLabel, dayStart),
                   )}
                 </tr>
               );
