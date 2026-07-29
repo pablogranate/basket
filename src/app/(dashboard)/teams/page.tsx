@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { LazySectionAiAssistant } from "@/components/ai/section-ai-assistant-lazy";
 import { CreateTeamModalWithLeague } from "@/components/teams/create-team-modal-with-league";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
+import { TeamCardIconSprite } from "@/components/teams/team-card-icon-sprite";
 import { TeamsLeagueTabs } from "@/components/teams/teams-league-tabs";
 import { TeamsSearchField } from "@/components/teams/teams-search-field";
 import { TeamsWorkspaceClient } from "@/components/teams/teams-workspace-client";
@@ -41,6 +42,13 @@ export default async function TeamsPage() {
   const teamsPromise = getTeamDirectory(user);
 
   return (
+    <>
+      {/* Outside every Suspense boundary on purpose: the cards reference these
+          symbols with <use href="#…">, which resolves against the live document,
+          so the defs have to be in the first flushed chunk. Kept out of the
+          space-y-10 stack so it does not become a spacing sibling. */}
+      <TeamCardIconSprite />
+
     <div className="space-y-10">
       <SectionPageHeader
         title={SECTION_COPY.teams.title}
@@ -73,6 +81,7 @@ export default async function TeamsPage() {
         />
       </Suspense>
     </div>
+    </>
   );
 }
 

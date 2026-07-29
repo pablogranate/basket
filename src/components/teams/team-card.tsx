@@ -1,17 +1,9 @@
 import type { CSSProperties } from "react";
 import Image from "next/image";
-import {
-  ExternalLink,
-  Globe,
-  Instagram,
-  Mail,
-  MapPinned,
-  MessageCircle,
-  ShieldAlert,
-  UserRound,
-} from "lucide-react";
+import { Mail, MessageCircle } from "lucide-react";
 
 import { ClientTeamLogoMark } from "@/components/team-logo-mark-client";
+import { TeamCardIcon } from "@/components/teams/team-card-icon-sprite";
 import { CreateTeamModal } from "@/components/teams/create-team-modal-lazy";
 import type { TeamResponsibleContact } from "@/lib/team-responsibles";
 import {
@@ -120,13 +112,13 @@ export function TeamCard({
 
         <div className="flex items-center gap-3">
           <TeamLinkIcon href={team.website}>
-            <Globe className="size-4" />
+            <TeamCardIcon name="globe" className="size-4" />
           </TeamLinkIcon>
           <TeamLinkIcon href={team.instagram}>
-            <Instagram className="size-4" />
+            <TeamCardIcon name="instagram" className="size-4" />
           </TeamLinkIcon>
           <TeamLinkIcon href={team.official_url}>
-            <ExternalLink className="size-4" />
+            <TeamCardIcon name="external-link" className="size-4" />
           </TeamLinkIcon>
         </div>
       </div>
@@ -152,7 +144,7 @@ export function TeamCard({
                   getIncidentBadgeClass(team.incident_count),
                 )}
               >
-                <ShieldAlert className="size-3.5" />
+                <TeamCardIcon name="shield-alert" className="size-3.5" />
                 {team.incident_count}
               </span>
               {canEdit ? (
@@ -173,11 +165,11 @@ export function TeamCard({
 
           <div className="mt-3 space-y-2 text-xs text-[var(--n-500)]">
             <div className="flex items-center gap-2">
-              <MapPinned className="size-4 shrink-0" />
+              <TeamCardIcon name="map-pinned" className="size-4 shrink-0" />
               <span>{team.stadium ?? "Sin estadio cargado"}</span>
             </div>
             <div className="flex items-center gap-2">
-              <UserRound className="size-4 shrink-0" />
+              <TeamCardIcon name="user-round" className="size-4 shrink-0" />
               <span className="min-w-0 truncate">{responsibleLabel}</span>
               {responsibleContact?.phone ? (
                 <a
