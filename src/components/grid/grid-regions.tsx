@@ -2,7 +2,7 @@ import { cache, type ReactNode } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 
-import { SectionAiAssistant } from "@/components/ai/section-ai-assistant";
+import { LazySectionAiAssistant } from "@/components/ai/section-ai-assistant-lazy";
 import { GridExportButton } from "@/components/grid/grid-export-button";
 import { GridStatsButton } from "@/components/grid/grid-stats-button";
 import { GridSyncButton } from "@/components/grid/grid-sync-button";
@@ -210,7 +210,7 @@ export async function GridHeaderDataActions({
         </div>
       ) : null}
       <div className="hidden sm:block">
-        <SectionAiAssistant
+        <LazySectionAiAssistant
           section="Producción"
           title="Consulta la producción visible"
           description="Pregunta por partidos, responsables, modos de producción o cargas visibles en esta jornada."
