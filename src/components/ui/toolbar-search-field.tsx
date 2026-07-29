@@ -1,6 +1,6 @@
 "use client";
 
-import type { ChangeEventHandler, ReactNode } from "react";
+import type { ChangeEventHandler, FormEventHandler, ReactNode } from "react";
 import { Search } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -22,16 +22,22 @@ type ToolbarSearchFieldProps = {
   | {
       as?: "form";
       action?: string;
+      // Lets a caller keep the form's semantics (Enter submits, the field is
+      // labelled as a search form) while handling navigation itself instead of
+      // letting the browser do a full-document GET.
+      onSubmit?: FormEventHandler<HTMLFormElement>;
     }
   | {
       as: "div";
       action?: never;
+      onSubmit?: never;
     }
 );
 
 export function ToolbarSearchField({
   as = "form",
   action,
+  onSubmit,
   placeholder,
   className,
   shellClassName,
@@ -43,16 +49,13 @@ export function ToolbarSearchField({
   onChange,
   children,
 }: ToolbarSearchFieldProps) {
-  const Comp = as;
+  const shellClassNames = cn(
+    "flex min-w-[min(320px,100%)] flex-1 items-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] p-1.5 shadow-sm",
+    className,
+  );
 
-  return (
-    <Comp
-      {...(as === "form" ? { action } : {})}
-      className={cn(
-        "flex min-w-[min(320px,100%)] flex-1 items-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] p-1.5 shadow-sm",
-        className,
-      )}
-    >
+  const body = (
+    <>
       {children}
       <div
         className={cn(
@@ -73,6 +76,16 @@ export function ToolbarSearchField({
           )}
         />
       </div>
-    </Comp>
+    </>
+  );
+
+  if (as === "div") {
+    return <div className={shellClassNames}>{body}</div>;
+  }
+
+  return (
+    <form action={action} onSubmit={onSubmit} className={shellClassNames}>
+      {body}
+    </form>
   );
 }
