@@ -35,6 +35,13 @@ const DOMAIN_TABLES = [
 //   created_by column (no updated_by, so stampInsert does not apply); created_by
 //   is set explicitly and the selected functions are recorded in the parent
 //   people writeAudit payload.
+// - "people_teams": the person's team ("Club") links. Structurally identical to
+//   person_functions above and written immediately after it in the same audited
+//   people upsert — replace-all (delete then insert), only a created_by column
+//   (no updated_by), created_by set explicitly from ctx.profileId, and the
+//   selected team ids recorded in the parent people writeAudit payload as
+//   `teams`. Not a domain entity: rows exist only as a join between a person and
+//   the team catalog.
 // - "leagues" / "clubs" / "teams" / "team_league_memberships" / "club_aliases":
 //   the normalized team-catalog tables (0025). They carry no
 //   created_by/updated_by columns — stampInsert/stampUpdate would be rejected by
@@ -44,6 +51,7 @@ const ALLOWLISTED_TABLES = [
   "profiles",
   "audit_log",
   "person_functions",
+  "people_teams",
   "leagues",
   "clubs",
   "teams",
