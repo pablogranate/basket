@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Check,
@@ -451,15 +451,31 @@ export function GridTable({
     columnOrderRef.current = columnOrder;
   }, [columnOrder]);
 
-  // Open the month table parked on today's row: load everything (so both
-  // up- and down-scroll work) but land the user on the current day.
-  const todayRowIndex = todayKey
-    ? rows.findIndex(
-        ({ match }) =>
-          formatMatchDate(match.kickoff_at, match.timezone, "yyyy-MM-dd") ===
-          todayKey,
-      )
-    : -1;
+  // Open the month table parked on the day divider that opens today: load
+  // everything (so both up- and down-scroll work) but land the user on the line
+  // that splits today from the day before. When today has no matches, anchor on
+  // the nearest day past that boundary in the current sort direction so the
+  // reader still starts where "now" begins.
+  const todayRowIndex = useMemo(() => {
+    if (!todayKey || !rows.length) {
+      return -1;
+    }
+
+    const dayKeys = rows.map(({ match }) =>
+      formatMatchDate(match.kickoff_at, match.timezone, "yyyy-MM-dd"),
+    );
+    const exact = dayKeys.indexOf(todayKey);
+
+    if (exact >= 0) {
+      return exact;
+    }
+
+    const descending = dayKeys[dayKeys.length - 1] < dayKeys[0];
+
+    return dayKeys.findIndex((key) =>
+      descending ? key <= todayKey : key >= todayKey,
+    );
+  }, [rows, todayKey]);
 
   useEffect(() => {
     if (didScrollToTodayRef.current || todayRowIndex < 0) {
