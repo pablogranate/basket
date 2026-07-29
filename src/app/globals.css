@@ -114,6 +114,87 @@ select option {
     @apply mt-2 min-h-[2.1em] text-center text-[0.84rem] font-black leading-[1.04] tracking-[-0.03em] text-[var(--foreground)] [display:-webkit-box] overflow-hidden text-ellipsis [-webkit-box-orient:vertical] [-webkit-line-clamp:2] 2xl:mt-3 2xl:min-h-[2.16em] 2xl:text-[0.98rem];
   }
 
+  /* Team-card shared classes (/teams) — same dedup intent as .mc-* above. The
+     directory renders 195 cards, so every long Tailwind string was repeated 195×
+     in the HTML class attrs. `panel-surface` and `group` stay inline at the call
+     sites: the former is an @layer utilities rule, the latter is the marker the
+     group-hover: variants select on. State/palette variants get one class each
+     (.tc-link-on/off, .tc-incident-*) instead of a shared base plus an inline
+     tail, because the tail was the larger half of the repeated string.
+     (Consumed by team-card.tsx and team-logo-mark-client.tsx.) */
+  .tlm-mark {
+    @apply relative grid shrink-0 place-items-center overflow-hidden border border-[var(--border)] bg-white shadow-sm transition-transform duration-200 delay-0 hover:z-10 hover:scale-[1.32] hover:delay-[900ms];
+  }
+
+  .tc-card {
+    @apply overflow-hidden border border-[var(--border)] bg-white transition duration-300 hover:-translate-y-0.5 sm:flex;
+  }
+
+  .tc-logo-col {
+    @apply relative flex flex-col items-center justify-center gap-4 bg-white p-5 sm:w-32 sm:border-r sm:border-[var(--border)];
+  }
+
+  /* Link-icon enabled vs disabled: one class each rather than a shared base plus
+     an inline tail — the tail was the larger half of the repeated string. */
+  .tc-link-on {
+    @apply inline-flex size-8 items-center justify-center rounded-full border border-[#e6e4e6] bg-white text-[var(--n-400)] transition hover:border-[var(--accent)] hover:text-[var(--accent)];
+  }
+
+  .tc-link-off {
+    @apply inline-flex size-8 items-center justify-center rounded-full border border-[#e6e4e6] bg-white text-[#b7b4b8] opacity-75;
+  }
+
+  .tc-links {
+    @apply flex items-center gap-3;
+  }
+
+  /* Declared after .tlm-mark on purpose: both are @layer components, so source
+     order is what makes this card's border colour win over the mark's default. */
+  .tc-logo {
+    @apply relative z-10 size-20 border-[#ebe6e8] bg-white;
+  }
+
+  .tc-body {
+    @apply flex flex-1 flex-col justify-between p-5;
+  }
+
+  .tc-head-row {
+    @apply mb-2 flex items-start justify-between gap-3;
+  }
+
+  .tc-league-row {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .tc-league-badge {
+    @apply inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em];
+  }
+
+  /* One class per incident palette, so the badge never repeats a colour tail. */
+  .tc-incident-none {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold bg-[var(--n-100)] text-[var(--n-500)];
+  }
+
+  .tc-incident-warn {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold bg-[#fff7e8] text-[#c97a13];
+  }
+
+  .tc-incident-alert {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold bg-[#fff1f3] text-[#c21e3a];
+  }
+
+  .tc-team-name {
+    @apply text-[15px] font-bold tracking-tight text-[var(--foreground)] transition group-hover:text-[var(--team-league-accent)];
+  }
+
+  .tc-meta {
+    @apply mt-3 space-y-2 text-xs text-[var(--n-500)];
+  }
+
+  .tc-row {
+    @apply flex items-center gap-2;
+  }
+
   /* Grid TABLE shared classes — same dedup intent as .mc-* above. The month
      table renders ~278 rows × 22 cells; long Tailwind strings and per-cell
      inline styles must NOT be repeated across rows. Hoist them here so they

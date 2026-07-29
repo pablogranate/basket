@@ -115,7 +115,7 @@ export function ClientTeamLogoMark({
   return (
     <div
       className={cn(
-        "relative grid shrink-0 place-items-center overflow-hidden border border-[var(--border)] bg-white shadow-sm transition-transform duration-200 delay-0 hover:z-10 hover:scale-[1.32] hover:delay-[900ms]",
+        "tlm-mark",
         className,
       )}
     >
