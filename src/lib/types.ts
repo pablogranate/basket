@@ -61,7 +61,28 @@ export type GridOwner = Pick<
   functions: PersonFunctionKey[];
 };
 
-export type MatchListItem = MatchRow & {
+// Mirrors gridMatchColumns, not the full match row: the /grid loader stops
+// selecting the audit and bookkeeping columns, so the type must stop claiming
+// they are there. Keep the two in step — the coverage test asserts it.
+export type GridMatchFields = Pick<
+  MatchRow,
+  | "id"
+  | "competition"
+  | "production_mode"
+  | "status"
+  | "home_team"
+  | "away_team"
+  | "venue"
+  | "kickoff_at"
+  | "duration_minutes"
+  | "timezone"
+  | "notes"
+  | "production_code"
+  | "commentary_plan"
+  | "transport"
+>;
+
+export type MatchListItem = GridMatchFields & {
   owner: Pick<PersonRow, "id" | "full_name" | "phone"> | null;
   assignments: Array<{
     id: string;

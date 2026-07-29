@@ -1,8 +1,10 @@
+import { Suspense } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { CollaboratorShell } from "@/components/layout/collaborator-shell";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { NavLatencyReporter } from "@/components/perf/nav-latency-reporter";
 import { PwaInstallBanner } from "@/components/pwa/pwa-install-banner";
 import {
   buildApexUrl,
@@ -57,6 +59,9 @@ export default async function DashboardLayout({
       <CollaboratorShell user={user} announcement={announcement}>
         {children}
         <PwaInstallBanner />
+        <Suspense fallback={null}>
+          <NavLatencyReporter />
+        </Suspense>
       </CollaboratorShell>
     );
   }
@@ -80,6 +85,9 @@ export default async function DashboardLayout({
     >
       {children}
       <PwaInstallBanner />
+      <Suspense fallback={null}>
+        <NavLatencyReporter />
+      </Suspense>
     </DashboardShell>
   );
 }

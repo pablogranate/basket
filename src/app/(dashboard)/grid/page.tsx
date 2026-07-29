@@ -119,7 +119,7 @@ export default async function GridPage({ searchParams }: PageProps) {
           descriptionClassName="hidden sm:block"
           className="gap-4"
           actions={
-            <Suspense fallback={<GridHeaderActionsSkeleton />}>
+            <Suspense fallback={<GridHeaderActionsSkeleton canEdit={user.canEdit} />}>
               <GridHeaderDataActions
                 user={user}
                 filters={filters}
@@ -203,7 +203,7 @@ export default async function GridPage({ searchParams }: PageProps) {
             </div>
           </div>
 
-          <Suspense fallback={<GridContentSkeleton />}>
+          <Suspense fallback={<GridContentSkeleton display={filters.display} />}>
             <GridContent
               user={user}
               filters={filters}

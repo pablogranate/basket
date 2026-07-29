@@ -30,6 +30,7 @@ import { db } from "@/lib/db/client";
 import {
   assignmentColumns,
   auditLogColumns,
+  gridMatchColumns,
   matchColumns,
   peopleColumns,
   roleColumns,
@@ -120,6 +121,13 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
   // One parallel round: the owner rides the match query as a join, and the
   // assignments query scopes itself with a subquery over the same window
   // conditions instead of waiting for the match ids in JS.
+  // functionsByPerson is only ever read for `owners`, so the person_functions
+  // read is scoped to the same people instead of selecting the whole table.
+  const activePeopleIds = db
+    .select({ id: peopleTable.id })
+    .from(peopleTable)
+    .where(and(eq(peopleTable.active, true), isNull(peopleTable.deletedAt)));
+
   const matchIdsInWindow = db
     .select({ id: matchesTable.id })
     .from(matchesTable)
@@ -129,7 +137,7 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
     await Promise.all([
       db
         .select({
-          ...matchColumns,
+          ...gridMatchColumns,
           owner: {
             id: peopleTable.id,
             full_name: peopleTable.fullName,
@@ -168,7 +176,8 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
           person_id: personFunctionsTable.personId,
           function_key: personFunctionsTable.functionKey,
         })
-        .from(personFunctionsTable),
+        .from(personFunctionsTable)
+        .where(inArray(personFunctionsTable.personId, activePeopleIds)),
       db
         .select({
           id: assignmentsTable.id,
