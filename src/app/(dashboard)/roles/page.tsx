@@ -1,5 +1,5 @@
 import { upsertRoleAction } from "@/app/actions/roles";
-import { SectionAiAssistant } from "@/components/ai/section-ai-assistant";
+import { LazySectionAiAssistant } from "@/components/ai/section-ai-assistant-lazy";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 import { SetupPanel } from "@/components/layout/setup-panel";
 import { RoleDeleteButton } from "@/components/roles/role-delete-button";
@@ -42,7 +42,7 @@ export default async function RolesPage({ searchParams }: PageProps) {
         title={SECTION_COPY.roles.title}
         description={SECTION_COPY.roles.description}
         actions={
-          <SectionAiAssistant
+          <LazySectionAiAssistant
             section="Roles"
             title="Consulta los roles visibles"
             description="Pregunta por categorías, orden, disponibilidad o estructura de los roles configurados."

@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 
 import { upsertPersonAction } from "@/app/actions/people";
-import { SectionAiAssistant } from "@/components/ai/section-ai-assistant";
+import { LazySectionAiAssistant } from "@/components/ai/section-ai-assistant-lazy";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 import { SetupPanel } from "@/components/layout/setup-panel";
 import { PeopleFilterBar } from "@/components/people/people-filter-bar";
@@ -320,7 +320,7 @@ async function PeopleHeaderExtras({
       >
         <Download className="size-4" />
       </a>
-      <SectionAiAssistant
+      <LazySectionAiAssistant
         section="Personal"
         title="Consulta el personal visible"
         description="Haz preguntas sobre roles, coberturas, disponibilidad, teléfonos o correos del personal cargado en esta pantalla."

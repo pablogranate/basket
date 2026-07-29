@@ -5,11 +5,7 @@ import { useMemo } from "react";
 
 import { TeamCard } from "@/components/teams/team-card";
 import { EmptyState } from "@/components/ui/empty-state";
-import {
-  buildTeamResponsibleLookup,
-  getTeamResponsibleContact,
-  type TeamResponsiblePerson,
-} from "@/lib/team-responsibles";
+import type { TeamResponsibleContact } from "@/lib/team-responsibles";
 import type { TeamDirectoryItem } from "@/lib/team-directory";
 import { splitTeamCompetitions } from "@/lib/team-directory";
 
@@ -46,11 +42,11 @@ function filterTeams(
 // the client without another server round-trip.
 export function TeamsWorkspaceClient({
   teams,
-  people,
+  responsibleContacts,
   canManageTeams = false,
 }: {
   teams: TeamDirectoryItem[];
-  people: TeamResponsiblePerson[];
+  responsibleContacts: Record<string, TeamResponsibleContact | null>;
   canManageTeams?: boolean;
 }) {
   const searchParams = useSearchParams();
@@ -60,11 +56,6 @@ export function TeamsWorkspaceClient({
   const visibleTeams = useMemo(
     () => filterTeams(teams, { query, league: activeLeague }),
     [activeLeague, query, teams],
-  );
-
-  const responsibleLookup = useMemo(
-    () => buildTeamResponsibleLookup(people),
-    [people],
   );
 
   const registeredCount = visibleTeams.filter((team) => Boolean(team.manager)).length;
@@ -90,11 +81,7 @@ export function TeamsWorkspaceClient({
             key={team.id}
             team={team}
             activeLeague={activeLeague || undefined}
-            responsibleContact={getTeamResponsibleContact(
-              team.official_name,
-              team.manager,
-              responsibleLookup,
-            )}
+            responsibleContact={responsibleContacts[team.id] ?? null}
             canEdit={canManageTeams}
           />
         ))}
