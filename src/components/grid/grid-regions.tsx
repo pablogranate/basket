@@ -409,7 +409,35 @@ export async function GridContent({
   return cardsContent;
 }
 
-export function GridContentSkeleton() {
+// Approximates what replaces it. The table view is one continuous panel of thin
+// rows; the card view is a stack of tall cards. A single generic shape meant one
+// of the two always jolted on swap.
+//
+// Only the first screen is approximated — content taller than the viewport grows
+// downward and shifts nothing above it.
+export function GridContentSkeleton({
+  display = "cards",
+}: {
+  display?: "cards" | "table";
+}) {
+  if (display === "table") {
+    return (
+      <div
+        className="overflow-hidden rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)]"
+        aria-busy="true"
+        aria-live="polite"
+      >
+        <div className="h-11 animate-pulse border-b border-[var(--border)] bg-[var(--background-soft)]" />
+        {Array.from({ length: 14 }).map((_, index) => (
+          <div
+            key={index}
+            className="h-9 animate-pulse border-b border-[var(--border)] bg-[var(--surface)]"
+          />
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-4" aria-busy="true" aria-live="polite">
       {Array.from({ length: 6 }).map((_, index) => (
@@ -431,23 +459,29 @@ export function GridInsightsSkeleton() {
   );
 }
 
-export function GridHeaderActionsSkeleton() {
+// Must mirror GridHeaderDataActions exactly or the swap shifts the header, and
+// the header sits above the whole list. Every real action is `hidden sm:block`
+// (they are desktop power tools) and the sync button only exists for editors, so
+// a flat row of three always-visible squares reserved space on phones that the
+// content never fills.
+export function GridHeaderActionsSkeleton({ canEdit }: { canEdit: boolean }) {
   return (
     <div className="flex items-center gap-3" aria-busy="true">
-      {Array.from({ length: 3 }).map((_, index) => (
-        <div
-          key={index}
-          className="size-[52px] animate-pulse rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)]"
-        />
+      {Array.from({ length: canEdit ? 3 : 2 }).map((_, index) => (
+        <div key={index} className="hidden sm:block">
+          <div className="size-[52px] animate-pulse rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)]" />
+        </div>
       ))}
     </div>
   );
 }
 
+// h-5 matches the text-sm line box of the real "N partidos" span. At h-4 the
+// swap grew the row by 4px and pushed the entire match list down.
 export function GridCountSkeleton() {
   return (
     <span
-      className="inline-block h-4 w-20 animate-pulse rounded-full bg-[var(--background-soft)]"
+      className="inline-block h-5 w-20 animate-pulse rounded-full bg-[var(--background-soft)]"
       aria-busy="true"
     />
   );

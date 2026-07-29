@@ -48,6 +48,36 @@ export const matchColumns = {
   league_id: matches.leagueId,
 } as const;
 
+// The /grid read path only. A month view multiplies every column by every match
+// in the window, and the grid renders none of the audit or bookkeeping fields —
+// they were riding along purely because the loader reused matchColumns.
+//
+// Dropped versus matchColumns: created_at, created_by, updated_at, updated_by
+// (audit bookkeeping, surfaced through audit_log, never on a card or row),
+// owner_id (the grid reads the joined `owner` object instead), day_notified_at
+// (notification actions query it directly) and league_id (unused in app code —
+// grid league colors key off the competition name).
+//
+// Guarded both ways by grid-match-columns-coverage.test.ts: a field the grid
+// renders may not be missing here, and a field outside the allowlist may not be
+// added. Match detail, exports and audit still read through matchColumns.
+export const gridMatchColumns = {
+  id: matches.id,
+  competition: matches.competition,
+  production_mode: matches.productionMode,
+  status: matches.status,
+  home_team: matches.homeTeam,
+  away_team: matches.awayTeam,
+  venue: matches.venue,
+  kickoff_at: matches.kickoffAt,
+  duration_minutes: matches.durationMinutes,
+  timezone: matches.timezone,
+  notes: matches.notes,
+  production_code: matches.productionCode,
+  commentary_plan: matches.commentaryPlan,
+  transport: matches.transport,
+} as const;
+
 export const peopleColumns = {
   id: people.id,
   full_name: people.fullName,
