@@ -65,7 +65,6 @@ type MyDayAssignmentsPanelProps = {
   assignments: CollaboratorAssignmentItem[];
   // Earlier than today but within the current month — revealed on demand.
   pastAssignments: CollaboratorAssignmentItem[];
-  topContent?: ReactNode;
 };
 
 type GroupDrawerTab = "group" | "context";
@@ -1633,7 +1632,6 @@ export function MyDayAssignmentsPanel({
   canViewGrid,
   assignments,
   pastAssignments,
-  topContent,
 }: MyDayAssignmentsPanelProps) {
   const [selectedGroupAssignmentId, setSelectedGroupAssignmentId] = useState<string | null>(
     null,
@@ -1731,8 +1729,6 @@ export function MyDayAssignmentsPanel({
       )}
     >
       <div className="space-y-8">
-        {topContent}
-
         {pendingAcceptCount > 0 ? (
           <div className="flex items-center gap-3 rounded-[var(--panel-radius)] border border-[var(--accent-border)] bg-[var(--accent-soft)] px-4 py-3.5 xl:hidden">
             <span className="relative inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-[var(--accent)] text-white shadow-[0_10px_20px_-6px_rgba(227,27,35,0.5)]">

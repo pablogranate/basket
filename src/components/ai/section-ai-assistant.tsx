@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import {
-  Bot,
   LoaderCircle,
   MessageSquare,
   Send,
@@ -11,6 +10,8 @@ import {
   X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+
+import { SectionAiAssistantTrigger } from "@/components/ai/section-ai-assistant-trigger";
 
 // A `contextRef` lets the server rebuild the dataset at question time, so the
 // page ships only a `contextCount` in its payload. `context` is the legacy
@@ -21,7 +22,7 @@ type SectionContextRef = {
   params?: Record<string, string>;
 };
 
-type SectionAiAssistantProps = {
+export type SectionAiAssistantProps = {
   section: string;
   title: string;
   description: string;
@@ -35,6 +36,10 @@ type SectionAiAssistantProps = {
   examples?: string[];
   buttonLabel?: string;
   buttonVariant?: "default" | "icon";
+  // Set by the lazy wrapper: the collaborator already clicked the placeholder
+  // trigger, so the drawer opens as soon as this module finishes loading
+  // instead of asking for a second click.
+  defaultOpen?: boolean;
 };
 
 function getContextCount(context: unknown) {
@@ -63,8 +68,9 @@ export function SectionAiAssistant({
   examples = [],
   buttonLabel = "Pregúntale a la IA",
   buttonVariant = "default",
+  defaultOpen = false,
 }: SectionAiAssistantProps) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [error, setError] = useState("");
@@ -119,26 +125,12 @@ export function SectionAiAssistant({
 
   return (
     <>
-      <button
-        type="button"
+      <SectionAiAssistantTrigger
+        variant={buttonVariant}
+        label={buttonLabel}
+        hasContext={hasContext}
         onClick={() => setOpen(true)}
-        className={
-          buttonVariant === "icon"
-            ? "inline-flex size-[52px] items-center justify-center rounded-[var(--panel-radius)] border border-[#22c55e] bg-[#22c55e] text-white shadow-[0_12px_28px_rgba(34,197,94,0.3)] transition hover:-translate-y-0.5 hover:border-[#16a34a] hover:bg-[#16a34a] disabled:cursor-not-allowed disabled:opacity-60"
-            : "inline-flex h-[52px] items-center gap-2 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--n-700)] shadow-sm transition hover:border-[var(--n-200)] hover:bg-[var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-        }
-        disabled={!hasContext}
-        title={hasContext ? buttonLabel : "No hay datos visibles para consultar en esta sección."}
-      >
-        <Bot
-          className={
-            buttonVariant === "icon"
-              ? "size-5 animate-[pulse_2.8s_ease-in-out_infinite]"
-              : "size-4 text-[#16a34a]"
-          }
-        />
-        {buttonVariant === "default" ? buttonLabel : null}
-      </button>
+      />
 
       {open ? (
         <div className="fixed inset-0 z-50 flex justify-end bg-[rgba(28,13,16,0.18)] backdrop-blur-[2px]">

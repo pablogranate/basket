@@ -1,9 +1,9 @@
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { Hash, Sparkles, UserRound } from "lucide-react";
 
-import { SectionAiAssistant } from "@/components/ai/section-ai-assistant";
+import { LazySectionAiAssistant } from "@/components/ai/section-ai-assistant-lazy";
 import { MyDayAssignmentsPanel } from "@/components/collaborators/my-day-assignments-panel";
 import { TeamLogoResolutionProvider } from "@/components/team-logo-resolution-context";
 import { SetupPanel } from "@/components/layout/setup-panel";
@@ -210,57 +210,147 @@ function buildDemoAssignment(params: {
   };
 }
 
-export default async function CollaboratorDayPage() {
-  if (!isSupabaseConfigured) {
-    return <SetupPanel />;
-  }
+const EMPTY_DAY_DATA = {
+  person: null,
+  linkedBy: null,
+  allAssignments: [],
+  upcomingAssignments: [],
+  pastMonthAssignments: [],
+  summary: {
+    totalUpcoming: 0,
+    pendingUpcoming: 0,
+    nextKickoffLabel: null,
+  },
+} satisfies Awaited<ReturnType<typeof getCollaboratorDayData>>;
 
-  // Settings is independent of the user — resolve both concurrently.
-  const [user, settings] = await Promise.all([
-    getUserContext(),
-    getSettingsSnapshot(),
-  ]);
-  const guestMode = appEnv.allowGuestMiJornadaAccess && !user.userId;
-  const emptyData = {
-    person: null,
-    linkedBy: null,
-    allAssignments: [],
-    upcomingAssignments: [],
-    pastMonthAssignments: [],
-    summary: {
-      totalUpcoming: 0,
-      pendingUpcoming: 0,
-      nextKickoffLabel: null,
-    },
-  } satisfies Awaited<ReturnType<typeof getCollaboratorDayData>>;
-  const data = guestMode
-    ? emptyData
-    : await getCollaboratorDayData(user, {
-      email: user.email,
-      profileName: user.profile?.full_name ?? null,
-    }).catch((error) => {
-      console.error("[mi-jornada] failed to load collaborator data", error);
-      return emptyData;
-    });
+type CollaboratorDayData = Awaited<ReturnType<typeof getCollaboratorDayData>>;
 
-  const todayDateKey = getTodayDateKey();
-  const fallbackCollaboratorName =
-    user.profile?.full_name?.trim() || "Modo invitado";
-  const greetingName = capitalizeSentence(
-    data.person?.full_name?.trim() || fallbackCollaboratorName,
-  );
-
+// The demo assignment stands in whenever there is nothing real to show: guest
+// mode, no linked person, or a linked person with an empty day.
+function resolveVisibleAssignments(params: {
+  data: CollaboratorDayData;
+  guestMode: boolean;
+  fallbackCollaboratorName: string;
+}) {
   const showDemo =
-    guestMode || !data.person || data.upcomingAssignments.length === 0;
-  const upcomingAssignments = showDemo
-    ? [
-      buildDemoAssignment({
-        date: todayDateKey,
-        collaboratorName: data.person?.full_name ?? fallbackCollaboratorName,
-      }),
-    ]
-    : data.upcomingAssignments;
-  const pastAssignments = data.pastMonthAssignments;
+    params.guestMode ||
+    !params.data.person ||
+    params.data.upcomingAssignments.length === 0;
+
+  return {
+    showDemo,
+    upcomingAssignments: showDemo
+      ? [
+        buildDemoAssignment({
+          date: getTodayDateKey(),
+          collaboratorName:
+            params.data.person?.full_name ?? params.fallbackCollaboratorName,
+        }),
+      ]
+      : params.data.upcomingAssignments,
+    pastAssignments: params.data.pastMonthAssignments,
+  };
+}
+
+// The two data-derived slots of the header grid. Rendered as a fragment so they
+// stay direct grid children (and keep their responsive `order-*` positions)
+// while suspending as one unit.
+async function DayHeaderSlots({
+  dataPromise,
+  settingsPromise,
+  guestMode,
+  fallbackCollaboratorName,
+}: {
+  dataPromise: Promise<CollaboratorDayData>;
+  settingsPromise: ReturnType<typeof getSettingsSnapshot>;
+  guestMode: boolean;
+  fallbackCollaboratorName: string;
+}) {
+  const [data, settings] = await Promise.all([dataPromise, settingsPromise]);
+  const { upcomingAssignments } = resolveVisibleAssignments({
+    data,
+    guestMode,
+    fallbackCollaboratorName,
+  });
+  const pendingUpcoming = upcomingAssignments.filter(
+    (assignment) => !assignment.attendanceResponse,
+  ).length;
+
+  return (
+    <>
+      <div className="order-3 hidden md:order-2 md:flex md:justify-self-end">
+        <LazySectionAiAssistant
+          section="Mi jornada"
+          title="Consulta tu jornada visible"
+          description="Pregunta por tus partidos visibles, horarios, responsables, ligas, sedes o modos de producción."
+          placeholder="Ej. ¿Qué partidos tengo y quién es el responsable?"
+          contextLabel="Partidos visibles en Mi jornada"
+          contextCount={upcomingAssignments.length}
+          contextRef={{ section: "mi-jornada" }}
+          guidance="Prioriza partido, liga, fecha, hora, sede, responsable, modo de producción, rol asignado, cámaras y el estado de asistencia."
+          examples={[
+            "¿Qué partidos tengo y a qué hora?",
+            "¿Quién es el responsable de Boca Juniors vs Atenas de Córdoba?",
+            "¿Qué partidos visibles están en modo Encoder?",
+          ]}
+          hasGeminiKey={settings.hasGeminiKey}
+          buttonVariant="icon"
+        />
+      </div>
+      <div className="order-2 grid grid-cols-2 gap-3 md:order-3 md:col-span-2">
+        <DaySummaryCard
+          label="Partidos asignados"
+          value={upcomingAssignments.length}
+          icon={Hash}
+        />
+        <DaySummaryCard
+          label={
+            <>
+              <span className="md:hidden">Sin confirmar</span>
+              <span className="hidden md:inline">Asistencia sin confirmar</span>
+            </>
+          }
+          value={pendingUpcoming}
+          icon={Sparkles}
+          tone="accent"
+        />
+      </div>
+    </>
+  );
+}
+
+function DayHeaderSlotsFallback() {
+  return (
+    <>
+      <div className="order-3 hidden md:order-2 md:flex md:justify-self-end">
+        <div className="size-[52px] animate-pulse rounded-[var(--panel-radius)] bg-[var(--background-soft)]" />
+      </div>
+      <div className="order-2 grid grid-cols-2 gap-3 md:order-3 md:col-span-2">
+        {Array.from({ length: 2 }).map((_, index) => (
+          <div
+            key={index}
+            className="h-28 animate-pulse rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)]"
+          />
+        ))}
+      </div>
+    </>
+  );
+}
+
+async function DayAssignments({
+  dataPromise,
+  guestMode,
+  fallbackCollaboratorName,
+  role,
+}: {
+  dataPromise: Promise<CollaboratorDayData>;
+  guestMode: boolean;
+  fallbackCollaboratorName: string;
+  role: Awaited<ReturnType<typeof getUserContext>>["role"];
+}) {
+  const data = await dataPromise;
+  const { showDemo, upcomingAssignments, pastAssignments } =
+    resolveVisibleAssignments({ data, guestMode, fallbackCollaboratorName });
 
   // Resolve every visible crest on the server so the assignment cards paint
   // logos from the initial markup instead of fetching /api/team-logo per crest.
@@ -271,76 +361,94 @@ export default async function CollaboratorDayPage() {
     ]),
   );
 
-  const totalUpcoming = upcomingAssignments.length;
-  const pendingUpcoming = upcomingAssignments.filter(
-    (assignment) => !assignment.attendanceResponse,
-  ).length;
-  const contentUpdatedLabel = formatContentUpdatedLabel();
-
   return (
-    <div className="w-full max-w-none pb-10">
-      <TeamLogoResolutionProvider value={teamLogoMap}>
+    <TeamLogoResolutionProvider value={teamLogoMap}>
       <MyDayAssignmentsPanel
         hasLinkedPerson={Boolean(data.person)}
         showDemoToday={showDemo}
-        canViewGrid={isDashboardPathAllowedForRole("/grid", user.role)}
+        canViewGrid={isDashboardPathAllowedForRole("/grid", role)}
         assignments={upcomingAssignments}
         pastAssignments={pastAssignments}
-        topContent={
-          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-            <SectionPageHeader
-              title={(
-                <>
-                  <span className="block text-xs font-bold uppercase tracking-[0.32em] text-[var(--accent)]">
-                    Hola esta tu jornada
-                  </span>
-                  <span className="mt-2 block text-[1.6rem] leading-[1.05] md:mt-2.5 md:text-[1.6rem]">
-                    {greetingName}
-                  </span>
-                </>
-              )}
-              description={contentUpdatedLabel}
-              className="order-1 gap-0 md:block"
-              contentClassName="mx-auto text-center md:mx-0 md:text-left"
-              descriptionClassName="mt-3 block w-full max-w-none text-center text-xs font-bold uppercase tracking-[0.14em] text-[var(--n-400)] md:mx-0 md:text-left md:text-sm md:font-medium md:normal-case md:tracking-normal"
-            />
-            <div className="order-3 hidden md:order-2 md:flex md:justify-self-end">
-              <SectionAiAssistant
-                section="Mi jornada"
-                title="Consulta tu jornada visible"
-                description="Pregunta por tus partidos visibles, horarios, responsables, ligas, sedes o modos de producción."
-                placeholder="Ej. ¿Qué partidos tengo y quién es el responsable?"
-                contextLabel="Partidos visibles en Mi jornada"
-                contextCount={upcomingAssignments.length}
-                contextRef={{ section: "mi-jornada" }}
-                guidance="Prioriza partido, liga, fecha, hora, sede, responsable, modo de producción, rol asignado, cámaras y el estado de asistencia."
-                examples={[
-                  "¿Qué partidos tengo y a qué hora?",
-                  "¿Quién es el responsable de Boca Juniors vs Atenas de Córdoba?",
-                  "¿Qué partidos visibles están en modo Encoder?",
-                ]}
-                hasGeminiKey={settings.hasGeminiKey}
-                buttonVariant="icon"
-              />
-            </div>
-            <div className="order-2 grid grid-cols-2 gap-3 md:order-3 md:col-span-2">
-              <DaySummaryCard label="Partidos asignados" value={totalUpcoming} icon={Hash} />
-              <DaySummaryCard
-                label={
-                  <>
-                    <span className="md:hidden">Sin confirmar</span>
-                    <span className="hidden md:inline">Asistencia sin confirmar</span>
-                  </>
-                }
-                value={pendingUpcoming}
-                icon={Sparkles}
-                tone="accent"
-              />
-            </div>
-          </div>
-        }
       />
-      </TeamLogoResolutionProvider>
+    </TeamLogoResolutionProvider>
+  );
+}
+
+function DayAssignmentsFallback() {
+  return (
+    <div className="h-72 animate-pulse rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)]" />
+  );
+}
+
+export default async function CollaboratorDayPage() {
+  if (!isSupabaseConfigured) {
+    return <SetupPanel />;
+  }
+
+  const user = await getUserContext();
+  const guestMode = appEnv.allowGuestMiJornadaAccess && !user.userId;
+  const fallbackCollaboratorName =
+    user.profile?.full_name?.trim() || "Modo invitado";
+
+  // Started, not awaited: the greeting below paints from the session alone while
+  // these resolve, and the suspended regions share these two promises rather
+  // than reading twice.
+  const settingsPromise = getSettingsSnapshot();
+  const dataPromise = guestMode
+    ? Promise.resolve<CollaboratorDayData>(EMPTY_DAY_DATA)
+    : getCollaboratorDayData(user, {
+      email: user.email,
+      profileName: user.profile?.full_name ?? null,
+    }).catch((error) => {
+      console.error("[mi-jornada] failed to load collaborator data", error);
+      return EMPTY_DAY_DATA as CollaboratorDayData;
+    });
+
+  // The greeting is the LCP element, so it names the collaborator from their
+  // profile instead of waiting on the linked `people` row it used to prefer. The
+  // two are the same string for essentially every collaborator; when they differ,
+  // the profile spelling is what shows.
+  const greetingName = capitalizeSentence(fallbackCollaboratorName);
+
+  return (
+    <div className="w-full max-w-none pb-10">
+      <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+        <SectionPageHeader
+          title={(
+            <>
+              <span className="block text-xs font-bold uppercase tracking-[0.32em] text-[var(--accent)]">
+                Hola esta tu jornada
+              </span>
+              <span className="mt-2 block text-[1.6rem] leading-[1.05] md:mt-2.5 md:text-[1.6rem]">
+                {greetingName}
+              </span>
+            </>
+          )}
+          description={formatContentUpdatedLabel()}
+          className="order-1 gap-0 md:block"
+          contentClassName="mx-auto text-center md:mx-0 md:text-left"
+          descriptionClassName="mt-3 block w-full max-w-none text-center text-xs font-bold uppercase tracking-[0.14em] text-[var(--n-400)] md:mx-0 md:text-left md:text-sm md:font-medium md:normal-case md:tracking-normal"
+        />
+        <Suspense fallback={<DayHeaderSlotsFallback />}>
+          <DayHeaderSlots
+            dataPromise={dataPromise}
+            settingsPromise={settingsPromise}
+            guestMode={guestMode}
+            fallbackCollaboratorName={fallbackCollaboratorName}
+          />
+        </Suspense>
+      </div>
+
+      <div className="mt-8">
+        <Suspense fallback={<DayAssignmentsFallback />}>
+          <DayAssignments
+            dataPromise={dataPromise}
+            guestMode={guestMode}
+            fallbackCollaboratorName={fallbackCollaboratorName}
+            role={user.role}
+          />
+        </Suspense>
+      </div>
     </div>
   );
 }
