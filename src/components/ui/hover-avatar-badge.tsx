@@ -1,6 +1,9 @@
-"use client";
-
 import { cn } from "@/lib/utils";
+
+// Deliberately NOT a client component: the hover reveal is pure CSS
+// (`group-hover:`), so there is nothing to hydrate. /grid renders six of these
+// per match card — as a client boundary each one cost a module reference plus
+// serialized props in the RSC payload and a hydration node on the main thread.
 
 export function HoverAvatarBadge({
   initials,

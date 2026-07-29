@@ -1,8 +1,12 @@
-"use client";
-
 import Image from "next/image";
 
 import { cn } from "@/lib/utils";
+
+// Deliberately NOT a client component despite the legacy `-client` file name:
+// the mark is a pure lookup + <Image>, with no state or handlers. /grid renders
+// two per match card, so keeping it server-side drops the module reference,
+// serialized props and hydration node each instance used to cost. Still safe to
+// import from client components (modals, workspaces) — it just gets bundled.
 
 const LEAGUE_LOGO_BASE_PATH = "/LogosPNG/Logos%20Ligas%20500x500";
 
