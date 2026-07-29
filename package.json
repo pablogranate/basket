@@ -13,6 +13,7 @@
     "import:csv": "node tools/import/index.mjs",
     "sync:grid": "node tools/import/grilla.mjs",
     "perf:grid": "node scripts/perf/grid-payload.mjs",
+    "perf:mi-jornada": "node scripts/perf/mi-jornada-stream.mjs",
     "db:auth:generate": "drizzle-kit generate --config drizzle.auth.config.ts",
     "db:portal:generate": "drizzle-kit generate --config drizzle.portal.config.ts",
     "db:portal:migrate": "drizzle-kit migrate --config drizzle.portal.config.ts",
