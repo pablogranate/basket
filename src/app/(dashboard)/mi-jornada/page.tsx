@@ -3,7 +3,7 @@ import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { Hash, Sparkles, UserRound } from "lucide-react";
 
-import { SectionAiAssistant } from "@/components/ai/section-ai-assistant";
+import { LazySectionAiAssistant } from "@/components/ai/section-ai-assistant-lazy";
 import { MyDayAssignmentsPanel } from "@/components/collaborators/my-day-assignments-panel";
 import { TeamLogoResolutionProvider } from "@/components/team-logo-resolution-context";
 import { SetupPanel } from "@/components/layout/setup-panel";
@@ -305,7 +305,7 @@ export default async function CollaboratorDayPage() {
               descriptionClassName="mt-3 block w-full max-w-none text-center text-xs font-bold uppercase tracking-[0.14em] text-[var(--n-400)] md:mx-0 md:text-left md:text-sm md:font-medium md:normal-case md:tracking-normal"
             />
             <div className="order-3 hidden md:order-2 md:flex md:justify-self-end">
-              <SectionAiAssistant
+              <LazySectionAiAssistant
                 section="Mi jornada"
                 title="Consulta tu jornada visible"
                 description="Pregunta por tus partidos visibles, horarios, responsables, ligas, sedes o modos de producción."
