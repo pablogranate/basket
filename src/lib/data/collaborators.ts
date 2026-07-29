@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, type SQL } from "drizzle-orm";
+import { and, eq, exists, gte, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import {
@@ -377,26 +377,115 @@ async function getMatchContextMap(matchIds: string[]) {
   return contextMap;
 }
 
-async function getAssignmentsForPerson(
-  personId: string,
-  options: { sinceIso?: string; matchId?: string } = {},
-) {
+// The match's full crew, aggregated inside the assignments statement instead of
+// fetched as a follow-up read. Emitted as JSON so one row per assignment still
+// carries every crew member, and ordered so a match with two people in the same
+// role resolves to the same one on every request (the old follow-up read left
+// that to whatever order Postgres happened to return).
+const CREW_CONTEXT_JSON = sql<MatchAssignmentContextRow[]>`(
+    select coalesce(
+      json_agg(
+        json_build_object(
+          'match_id', crew.match_id,
+          'role', json_build_object(
+            'name', crew_role.name,
+            'category', crew_role.category,
+            'sort_order', crew_role.sort_order
+          ),
+          'person', case
+            when crew_person.full_name is null then null
+            else json_build_object(
+              'full_name', crew_person.full_name,
+              'phone', crew_person.phone,
+              'email', crew_person.email
+            )
+          end
+        )
+        order by crew_role.sort_order asc, crew_person.full_name asc nulls last
+      ),
+      '[]'::json
+    )
+    from assignments crew
+    join roles crew_role on crew_role.id = crew.role_id
+    left join people crew_person on crew_person.id = crew.person_id
+    where crew.match_id = ${matchesTable.id}
+  )`;
+
+// One statement for the whole collaborator read: resolve the `people` row behind
+// the user, their in-window assignments, and each match's crew. The three used to
+// be serial round-trips, and every one of them sat between the request and the
+// collaborator seeing their own name.
+//
+// The person is resolved in a CTE and LEFT JOINed to, so a collaborator with no
+// assignments in the window still comes back identified — the page distinguishes
+// "not linked to a person" from "linked, nothing scheduled".
+async function selectAssignmentsForLinkedPerson(params: {
+  personId?: string;
+  personEmail?: string;
+  sinceIso?: string;
+  matchId?: string;
+}) {
   const ownerPeople = alias(peopleTable, "owner_people");
-  const conditions: SQL[] = [eq(assignmentsTable.personId, personId)];
+  const windowMatch = alias(matchesTable, "window_match");
+  const linkedPerson = db.$with("linked_person").as(
+    db
+      .select({
+        id: peopleTable.id,
+        full_name: peopleTable.fullName,
+        email: peopleTable.email,
+        phone: peopleTable.phone,
+        active: peopleTable.active,
+      })
+      .from(peopleTable)
+      .where(
+        and(
+          eq(peopleTable.active, true),
+          isNull(peopleTable.deletedAt),
+          params.personId
+            ? eq(peopleTable.id, params.personId)
+            : eq(peopleTable.email, params.personEmail ?? ""),
+        ),
+      )
+      .limit(1),
+  );
 
-  // Bound the read: `sinceIso` trims the person's history to a kickoff window
-  // and `matchId` scopes it to a single match, so callers never pull the whole
-  // assignment history just to keep one slice.
-  if (options.sinceIso) {
-    conditions.push(gte(matchesTable.kickoffAt, options.sinceIso));
+  const assignmentJoin: SQL[] = [eq(assignmentsTable.personId, linkedPerson.id)];
+
+  // Bound the read: `sinceIso` trims the person's history to a kickoff window and
+  // `matchId` scopes it to a single match, so callers never pull the whole
+  // assignment history just to keep one slice. The window is an EXISTS on the
+  // join rather than a WHERE on the outer matches join, so out-of-window
+  // assignments are never fetched AND an empty window still yields the person.
+  if (params.sinceIso) {
+    assignmentJoin.push(
+      exists(
+        db
+          .select({ one: sql`1` })
+          .from(windowMatch)
+          .where(
+            and(
+              eq(windowMatch.id, assignmentsTable.matchId),
+              gte(windowMatch.kickoffAt, params.sinceIso),
+            ),
+          ),
+      ),
+    );
   }
 
-  if (options.matchId) {
-    conditions.push(eq(assignmentsTable.matchId, options.matchId));
+  if (params.matchId) {
+    assignmentJoin.push(eq(assignmentsTable.matchId, params.matchId));
   }
 
-  const rows = await db
+  return db
+    .with(linkedPerson)
     .select({
+      person: {
+        id: linkedPerson.id,
+        full_name: linkedPerson.full_name,
+        email: linkedPerson.email,
+        phone: linkedPerson.phone,
+        active: linkedPerson.active,
+      },
       id: assignmentsTable.id,
       confirmed: assignmentsTable.confirmed,
       attendance_confirmed_at: assignmentsTable.attendanceConfirmedAt,
@@ -430,32 +519,48 @@ async function getAssignmentsForPerson(
         phone: ownerPeople.phone,
         email: ownerPeople.email,
       },
+      context: CREW_CONTEXT_JSON,
     })
-    .from(assignmentsTable)
-    .innerJoin(rolesTable, eq(assignmentsTable.roleId, rolesTable.id))
-    .innerJoin(matchesTable, eq(assignmentsTable.matchId, matchesTable.id))
-    .leftJoin(ownerPeople, eq(matchesTable.ownerId, ownerPeople.id))
-    .where(and(...conditions));
+    .from(linkedPerson)
+    .leftJoin(assignmentsTable, and(...assignmentJoin))
+    .leftJoin(rolesTable, eq(assignmentsTable.roleId, rolesTable.id))
+    .leftJoin(matchesTable, eq(assignmentsTable.matchId, matchesTable.id))
+    .leftJoin(ownerPeople, eq(matchesTable.ownerId, ownerPeople.id));
+}
 
-  // The full crew of each match (the `context` reverse embed) is fetched in one
-  // follow-up read and stitched onto each row.
-  const matchIds = [...new Set(rows.map((row) => row.match.id))];
-  const contextByMatch = await getMatchContextMap(matchIds);
+async function getAssignmentsForPerson(
+  personId: string,
+  options: { sinceIso?: string; matchId?: string } = {},
+) {
+  const rows = await selectAssignmentsForLinkedPerson({ personId, ...options });
 
-  const rawRows: AssignmentRow[] = rows.map((row) => ({
-    id: row.id,
-    confirmed: row.confirmed,
-    attendance_confirmed_at: row.attendance_confirmed_at,
-    attendance_response: row.attendance_response,
-    attendance_note: row.attendance_note,
-    notes: row.notes,
-    role: row.role,
-    match: {
-      ...row.match,
-      owner: row.owner?.id ? row.owner : null,
-      context: contextByMatch.get(row.match.id) ?? [],
-    },
-  }));
+  return mapAssignmentRows(rows);
+}
+
+// A collaborator with no in-window assignments still returns one row (the person
+// LEFT JOINed to nothing), so rows without a match are the "nothing scheduled"
+// marker rather than data.
+type LinkedPersonAssignmentRow = Awaited<
+  ReturnType<typeof selectAssignmentsForLinkedPerson>
+>[number];
+
+function mapAssignmentRows(rows: LinkedPersonAssignmentRow[]) {
+  const rawRows: AssignmentRow[] = rows
+    .filter((row) => row.id !== null && row.match?.id != null)
+    .map((row) => ({
+      id: row.id!,
+      confirmed: row.confirmed!,
+      attendance_confirmed_at: row.attendance_confirmed_at,
+      attendance_response: row.attendance_response,
+      attendance_note: row.attendance_note,
+      notes: row.notes,
+      role: row.role,
+      match: {
+        ...row.match!,
+        owner: row.owner?.id ? row.owner : null,
+        context: row.context ?? [],
+      },
+    }));
   const matchContextMap = new Map<string, MatchAssignmentContextRow[]>();
 
   for (const row of rawRows) {
@@ -670,10 +775,43 @@ export async function getCollaboratorDayData(
   },
 ): Promise<CollaboratorDayData> {
   void ctx;
-  const { person, linkedBy } = await findLinkedPerson({
-    email: params.email,
-    profileName: params.profileName,
-  });
+  const todayKey = getDateInputValue();
+  const currentMonth = getMonthInputValue();
+  // The page only consumes assignments from the start of the current month
+  // onward (past-month tail + today onward). Bounding at UTC month-start is safe
+  // for the app's west-of-UTC timezones and never drops an in-window row.
+  const monthStartIso = `${currentMonth}-01T00:00:00.000Z`;
+
+  // The common path — the user's email matches a `people` row — resolves the
+  // person, their assignments, and every match's crew in a single round-trip.
+  const emailRows = params.email
+    ? await selectAssignmentsForLinkedPerson({
+      personEmail: params.email,
+      sinceIso: monthStartIso,
+    })
+    : [];
+
+  let person: LinkedPerson | null = emailRows[0]?.person ?? null;
+  let linkedBy: "email" | "name" | null = person ? "email" : null;
+  let assignments = person ? mapAssignmentRows(emailRows) : [];
+
+  // Fallback for users whose profile email is not on their `people` row: match by
+  // normalized full name, then read the assignments separately. Rare enough that
+  // its extra round-trips are not worth folding away.
+  if (!person) {
+    const byName = await findLinkedPerson({
+      email: null,
+      profileName: params.profileName,
+    });
+
+    if (byName.person) {
+      person = byName.person;
+      linkedBy = byName.linkedBy;
+      assignments = await getAssignmentsForPerson(byName.person.id, {
+        sinceIso: monthStartIso,
+      });
+    }
+  }
 
   if (!person) {
     return {
@@ -689,16 +827,6 @@ export async function getCollaboratorDayData(
       },
     };
   }
-
-  const todayKey = getDateInputValue();
-  const currentMonth = getMonthInputValue();
-  // The page only consumes assignments from the start of the current month
-  // onward (past-month tail + today onward). Bounding at UTC month-start is safe
-  // for the app's west-of-UTC timezones and never drops an in-window row.
-  const monthStartIso = `${currentMonth}-01T00:00:00.000Z`;
-  const assignments = await getAssignmentsForPerson(person.id, {
-    sinceIso: monthStartIso,
-  });
 
   // Today and later (date-based): the primary list.
   const upcomingAssignments = assignments.filter(
