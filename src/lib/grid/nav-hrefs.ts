@@ -95,6 +95,8 @@ export function buildGridDateStepHrefs(
   params: GridSearchParams,
   filters: { date: string; view: GridView },
 ) {
+  // Landing on a different date always starts collapsed: `past` never rides a
+  // date step, so the heavy past-day cards stay out of the next payload.
   return {
     previousDateHref: buildGridHref(params, {
       date: buildGridDateShift({
@@ -102,6 +104,7 @@ export function buildGridDateStepHrefs(
         view: filters.view,
         amount: -1,
       }),
+      past: undefined,
     }),
     nextDateHref: buildGridHref(params, {
       date: buildGridDateShift({
@@ -109,6 +112,7 @@ export function buildGridDateStepHrefs(
         view: filters.view,
         amount: 1,
       }),
+      past: undefined,
     }),
   };
 }
@@ -118,12 +122,23 @@ export function buildGridViewHrefs(params: GridSearchParams) {
     todayHref: buildGridHref(params, {
       view: "day",
       date: getDateInputValue(),
+      past: undefined,
     }),
     monthHref: buildGridHref(params, {
       view: "month",
       date: getMonthInputValue(),
+      past: undefined,
     }),
   };
+}
+
+// Toggle target for "Ver días anteriores". Expanding sets `past=1` so the
+// server renders (and serializes) the past-day cards only on request.
+export function buildGridPastDaysHref(
+  params: GridSearchParams,
+  pastDays: boolean,
+) {
+  return buildGridHref(params, { past: pastDays ? undefined : "1" });
 }
 
 export function buildGridDateOrderHref(
