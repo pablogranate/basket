@@ -4,7 +4,6 @@ import { GridDateOrderToggle } from "@/components/grid/grid-date-order-toggle";
 import { GridDateStepper } from "@/components/grid/grid-date-stepper";
 import { GridDisplayToggle } from "@/components/grid/grid-display-toggle";
 import { GridPageShell } from "@/components/grid/grid-page-shell";
-import { GridPastDaysProvider } from "@/components/grid/grid-past-days-context";
 import { GridSearchField } from "@/components/grid/grid-search-field";
 import {
   GridContent,
@@ -27,6 +26,7 @@ import { buildKickoffAt, formatMatchDate } from "@/lib/date";
 import {
   buildGridDateOrderHref,
   buildGridDateStepHrefs,
+  buildGridPastDaysHref,
   buildGridViewHrefs,
   serializeGridSearchParams,
   toStringGridSearchParams,
@@ -86,6 +86,10 @@ export default async function GridPage({ searchParams }: PageProps) {
     resolvedSearchParams,
     filters.dateOrder,
   );
+  const pastDaysHref = buildGridPastDaysHref(
+    resolvedSearchParams,
+    filters.pastDays,
+  );
   const hasExplicitDisplay =
     typeof resolvedSearchParams.display === "string" &&
     resolvedSearchParams.display.length > 0;
@@ -131,8 +135,7 @@ export default async function GridPage({ searchParams }: PageProps) {
 
         <PageMessage intent={intent} message={notice} />
 
-        <GridPastDaysProvider>
-          <section className="min-w-0 space-y-6">
+        <section className="min-w-0 space-y-6">
           {/* Desktop/tablet toolbar — two columns. Left: date-order + match
               count (the "Ver días anteriores" toggle sits below it in the
               list). Right: the search bar stacked over the controls, sized to
@@ -149,7 +152,11 @@ export default async function GridPage({ searchParams }: PageProps) {
                 </Suspense>
               </div>
               <Suspense fallback={null}>
-                <GridPastDaysToolbarButton user={user} filters={filters} />
+                <GridPastDaysToolbarButton
+                  user={user}
+                  filters={filters}
+                  pastDaysHref={pastDaysHref}
+                />
               </Suspense>
             </div>
             <div className="flex min-w-0 flex-col items-stretch gap-3">
@@ -208,6 +215,7 @@ export default async function GridPage({ searchParams }: PageProps) {
               user={user}
               filters={filters}
               redirectTo={redirectTo}
+              pastDaysHref={pastDaysHref}
               pastDaysAccessory={
                 <GridDateOrderToggle
                   href={dateOrderToggleHref}
@@ -217,8 +225,7 @@ export default async function GridPage({ searchParams }: PageProps) {
               }
             />
           </Suspense>
-          </section>
-        </GridPastDaysProvider>
+        </section>
       </div>
     </GridPageShell>
   );

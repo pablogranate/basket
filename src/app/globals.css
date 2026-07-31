@@ -114,6 +114,38 @@ select option {
     @apply mt-2 min-h-[2.1em] text-center text-[0.84rem] font-black leading-[1.04] tracking-[-0.03em] text-[var(--foreground)] [display:-webkit-box] overflow-hidden text-ellipsis [-webkit-box-orient:vertical] [-webkit-line-clamp:2] 2xl:mt-3 2xl:min-h-[2.16em] 2xl:text-[0.98rem];
   }
 
+  /* HoverAvatarBadge shared classes — same dedup intent as .mc-*. The month
+     grid renders hundreds of badges, so the long strings were the single
+     heaviest repeated chunk in the /grid payload. `group` stays inline (it is
+     the marker the group-hover: variants select on). */
+  .hab {
+    @apply relative inline-flex shrink-0;
+  }
+
+  .hab-badge {
+    @apply inline-flex items-center justify-center rounded-full border border-[var(--border)] font-black shadow-sm transition-transform duration-200 delay-0 group-hover:scale-[1.32] group-hover:delay-[900ms];
+  }
+
+  .hab-sm {
+    @apply size-8 text-[11px];
+  }
+
+  .hab-md {
+    @apply size-10 text-xs;
+  }
+
+  .hab-accent {
+    @apply bg-[var(--accent-border)] text-[var(--accent)];
+  }
+
+  .hab-neutral {
+    @apply bg-[var(--n-100)] text-[var(--n-600)];
+  }
+
+  .hab-tip {
+    @apply pointer-events-none absolute left-1/2 top-full z-30 mt-2 -translate-x-1/2 translate-y-1 whitespace-nowrap rounded-lg bg-[var(--n-800)] px-2.5 py-1.5 text-[11px] font-bold text-white opacity-0 shadow-lg transition-all duration-150 delay-0 group-hover:translate-y-0 group-hover:opacity-100 group-hover:delay-[900ms];
+  }
+
   /* Team-card shared classes (/teams) — same dedup intent as .mc-* above. The
      directory renders 195 cards, so every long Tailwind string was repeated 195×
      in the HTML class attrs. `panel-surface` and `group` stay inline at the call

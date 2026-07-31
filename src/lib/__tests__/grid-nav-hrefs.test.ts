@@ -5,6 +5,7 @@ import {
   buildGridDateShift,
   buildGridDateStepHrefs,
   buildGridHref,
+  buildGridPastDaysHref,
   buildGridSearchHref,
   serializeGridSearchParams,
   toStringGridSearchParams,
@@ -200,6 +201,36 @@ describe("buildGridDateOrderHref", () => {
 
     expect(search.get("view")).toBe("month");
     expect(search.get("date")).toBe("2026-07");
+  });
+});
+
+describe("buildGridPastDaysHref", () => {
+  it("sets past=1 when collapsed", () => {
+    const href = buildGridPastDaysHref(
+      { view: "month", date: "2026-07" },
+      false,
+    );
+    expect(paramsOf(href).search.get("past")).toBe("1");
+    expect(paramsOf(href).search.get("view")).toBe("month");
+  });
+
+  it("removes past when expanded", () => {
+    const href = buildGridPastDaysHref(
+      { view: "month", date: "2026-07", past: "1" },
+      true,
+    );
+    expect(paramsOf(href).search.get("past")).toBeNull();
+  });
+});
+
+describe("past param never rides a date or view change", () => {
+  it("drops past from date-step hrefs", () => {
+    const { previousDateHref, nextDateHref } = buildGridDateStepHrefs(
+      { view: "month", date: "2026-07", past: "1" },
+      { view: "month", date: "2026-07" },
+    );
+    expect(paramsOf(previousDateHref).search.get("past")).toBeNull();
+    expect(paramsOf(nextDateHref).search.get("past")).toBeNull();
   });
 });
 

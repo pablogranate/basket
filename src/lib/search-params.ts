@@ -57,6 +57,9 @@ export function parseGridSearchParams(searchParams: RawSearchParams) {
     display,
     date: getParam(searchParams, "date") ?? defaultDate,
     dateOrder,
+    // Past-day cards only travel in the payload when explicitly requested via
+    // `past=1` — the month view otherwise ships today-onward cards only.
+    pastDays: getParam(searchParams, "past") === "1",
     q: getParam(searchParams, "q") ?? "",
     league: getParam(searchParams, "league") ?? "",
     mode,

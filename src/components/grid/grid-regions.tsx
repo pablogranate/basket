@@ -7,10 +7,7 @@ import { GridExportButton } from "@/components/grid/grid-export-button";
 import { GridStatsButton } from "@/components/grid/grid-stats-button";
 import { GridSyncButton } from "@/components/grid/grid-sync-button";
 import { GridTable } from "@/components/grid/grid-table";
-import {
-  GridPastDaysButton,
-  GridPastDaysPanel,
-} from "@/components/grid/grid-past-days-toggle";
+import { GridPastDaysButton } from "@/components/grid/grid-past-days-toggle";
 import { MatchCard } from "@/components/grid/match-card";
 import { PeopleProvider } from "@/components/grid/people-context";
 import { ProductionInsightsPanel } from "@/components/grid/production-insights-panel";
@@ -267,10 +264,12 @@ export async function GridMatchCount({
 export async function GridPastDaysToolbarButton({
   user,
   filters,
+  pastDaysHref,
   className,
 }: {
   user: UserContext;
   filters: GridPageFilters;
+  pastDaysHref: string;
   className?: string;
 }) {
   const { dayGroups } = await loadGrid(user, filters);
@@ -284,19 +283,28 @@ export async function GridPastDaysToolbarButton({
     return null;
   }
 
-  return <GridPastDaysButton count={pastGroups.length} className={className} />;
+  return (
+    <GridPastDaysButton
+      count={pastGroups.length}
+      href={pastDaysHref}
+      open={filters.pastDays}
+      className={className}
+    />
+  );
 }
 
 export async function GridContent({
   user,
   filters,
   redirectTo,
+  pastDaysHref,
   // Control parked beside "Ver días anteriores" (the mobile date-order sort).
   pastDaysAccessory,
 }: {
   user: UserContext;
   filters: GridPageFilters;
   redirectTo: string;
+  pastDaysHref: string;
   pastDaysAccessory?: ReactNode;
 }) {
   const { dayGroups, owners, roles } = await loadGrid(user, filters);
@@ -318,27 +326,33 @@ export async function GridContent({
     splitPastDayGroups(sortedDayGroups, filters);
 
   // The toggle button lives in the desktop toolbar's left column, so here we
-  // only render a mobile-only button (paired with the date-order sort) plus the
-  // deferred cards panel. All three instances share `GridPastDaysProvider`. No
+  // only render a mobile-only button (paired with the date-order sort) plus,
+  // when `past=1`, the past-day cards themselves. Collapsed months never
+  // serialize the past cards at all — that is the point of the URL toggle. No
   // wrapper div: on desktop the `sm:hidden` button is `display:none` and the
-  // panel is null when closed, so nothing collects a stray `space-y-10` margin.
+  // cards are absent when collapsed, so nothing collects a stray `space-y-10`
+  // margin.
   const pastToggle = (
     <>
       <GridPastDaysButton
         className="sm:hidden"
         count={pastGroups.length}
+        href={pastDaysHref}
+        open={filters.pastDays}
         accessory={pastDaysAccessory}
       />
-      <GridPastDaysPanel>
-        {pastGroups.map((group) => (
-          <GridDayGroupCards
-            key={group.key}
-            group={group}
-            redirectTo={redirectTo}
-            canEdit={user.canEdit}
-          />
-        ))}
-      </GridPastDaysPanel>
+      {filters.pastDays ? (
+        <div className="space-y-10">
+          {pastGroups.map((group) => (
+            <GridDayGroupCards
+              key={group.key}
+              group={group}
+              redirectTo={redirectTo}
+              canEdit={user.canEdit}
+            />
+          ))}
+        </div>
+      ) : null}
     </>
   );
 

@@ -20,27 +20,22 @@ export function HoverAvatarBadge({
   size?: "sm" | "md";
   className?: string;
 }) {
-  const sizeClassName = size === "sm" ? "size-8 text-[11px]" : "size-10 text-xs";
-  const toneClassName =
-    tone === "accent"
-      ? "bg-[var(--accent-border)] text-[var(--accent)]"
-      : "bg-[var(--n-100)] text-[var(--n-600)]";
-
+  // Class strings live in globals.css (.hab-*): the month grid renders hundreds
+  // of badges, so inline Tailwind strings repeated per badge dominated the
+  // /grid payload. `group` stays inline as the group-hover: marker.
   return (
-    <div className={cn("group relative inline-flex shrink-0", className)}>
+    <div className={cn("group hab", className)}>
       <div
         className={cn(
-          "inline-flex items-center justify-center rounded-full border border-[var(--border)] font-black shadow-sm transition-transform duration-200 delay-0 group-hover:scale-[1.32] group-hover:delay-[900ms]",
-          sizeClassName,
-          toneClassName,
+          "hab-badge",
+          size === "sm" ? "hab-sm" : "hab-md",
+          tone === "accent" ? "hab-accent" : "hab-neutral",
         )}
       >
         {initials}
       </div>
       {roleLabel && showTooltip ? (
-        <div className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 -translate-x-1/2 translate-y-1 whitespace-nowrap rounded-lg bg-[var(--n-800)] px-2.5 py-1.5 text-[11px] font-bold text-white opacity-0 shadow-lg transition-all duration-150 delay-0 group-hover:translate-y-0 group-hover:opacity-100 group-hover:delay-[900ms]">
-          {roleLabel}
-        </div>
+        <div className="hab-tip">{roleLabel}</div>
       ) : null}
     </div>
   );
