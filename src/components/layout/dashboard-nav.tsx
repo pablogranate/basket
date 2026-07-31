@@ -26,14 +26,28 @@ const navItems = [
   { href: "/reports", label: "Operaciones", icon: BriefcaseBusiness },
   { href: "/teams", label: "Equipos", icon: Shield },
   { href: "/people", label: "Personal", icon: Users },
-  { href: "/notifications", label: "Registros", icon: ScrollText },
+  // Points straight at the destination: /notifications only redirects here, so
+  // linking to it warmed the redirect stub instead of the page. `activePrefix`
+  // keeps the whole section highlighted (syncs, sync-people).
+  {
+    href: "/notifications/logs",
+    activePrefix: "/notifications",
+    label: "Registros",
+    icon: ScrollText,
+  },
   { href: "/settings", label: "Configuración", icon: Settings2 },
   { href: "/support", label: "Soporte", icon: CircleHelp },
 ] as const;
 
+type NavItem = (typeof navItems)[number];
+
 const mobileNavItems = navItems.filter((item) =>
   ["/grid", "/mi-jornada", "/reports", "/teams"].includes(item.href),
 );
+
+function getNavPrefix(item: NavItem) {
+  return "activePrefix" in item ? item.activePrefix : item.href;
+}
 
 export function DashboardNav({
   mobile = false,
@@ -46,17 +60,17 @@ export function DashboardNav({
 }) {
   const pathname = usePathname();
   const allowedItems = navItems.filter((item) =>
-    isDashboardNavHrefAllowedForRole(item.href, role),
+    isDashboardNavHrefAllowedForRole(getNavPrefix(item), role),
   );
   const allowedMobileItems = mobileNavItems.filter((item) =>
-    isDashboardNavHrefAllowedForRole(item.href, role),
+    isDashboardNavHrefAllowedForRole(getNavPrefix(item), role),
   );
 
   if (mobile) {
     return (
       <nav className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {allowedMobileItems.map((item) => {
-          const active = pathname.startsWith(item.href);
+          const active = pathname.startsWith(getNavPrefix(item));
           const Icon = item.icon;
 
           return (
@@ -82,7 +96,7 @@ export function DashboardNav({
   return (
     <nav className="space-y-2">
       {allowedItems.map((item) => {
-        const active = pathname.startsWith(item.href);
+        const active = pathname.startsWith(getNavPrefix(item));
         const Icon = item.icon;
 
         return (
