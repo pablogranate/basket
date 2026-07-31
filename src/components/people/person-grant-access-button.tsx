@@ -7,6 +7,7 @@ import { grantPersonAccessAction } from "@/app/actions/people";
 import { Select } from "@/components/ui/select";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { APP_ROLE_DISPLAY_NAMES } from "@/lib/display";
+import { PeopleRedirectToInput } from "@/components/people/people-redirect-to";
 
 const ACCESS_TIER_OPTIONS = [
   { value: "admin", label: APP_ROLE_DISPLAY_NAMES.admin },
@@ -18,11 +19,9 @@ type AccessTierValue = (typeof ACCESS_TIER_OPTIONS)[number]["value"];
 
 export function PersonGrantAccessButton({
   personId,
-  redirectTo,
   canSelectAccessTier = false,
 }: {
   personId: string;
-  redirectTo: string;
   canSelectAccessTier?: boolean;
 }) {
   const [accessRole, setAccessRole] = useState<AccessTierValue>("collaborator");
@@ -30,7 +29,7 @@ export function PersonGrantAccessButton({
   return (
     <form action={grantPersonAccessAction} className="mt-5 space-y-4">
       <input type="hidden" name="personId" value={personId} />
-      <input type="hidden" name="redirectTo" value={redirectTo} />
+      <PeopleRedirectToInput keepEdit />
       <input
         type="hidden"
         name="accessRole"

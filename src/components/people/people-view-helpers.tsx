@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 
 import { getFunctionDisplayName, getRoleDisplayName } from "@/lib/display";
-import { parsePersonNotesMeta } from "@/lib/people-notes";
+import type { PersonNotesMeta } from "@/lib/people-notes";
 import type { PersonListItem } from "@/lib/types";
 
 export function getInitials(name: string) {
@@ -87,7 +87,12 @@ export function getRolePresentation(role: string) {
 // Functions (the person_functions relation) are the source of truth for a
 // person's role(s). A person can hold several — join them — and fall back to
 // the legacy notes role / assignment-derived primary_role only when untagged.
-export function getPersonRoleDisplay(person: PersonListItem) {
+// Takes the already-parsed notes meta so callers that need several derived
+// fields per person pay for a single parse.
+export function getPersonRoleDisplay(
+  person: PersonListItem,
+  meta: PersonNotesMeta,
+) {
   if (person.functions.length > 0) {
     return {
       roleLabel: person.functions.map(getFunctionDisplayName).join(", "),
@@ -95,7 +100,6 @@ export function getPersonRoleDisplay(person: PersonListItem) {
     };
   }
 
-  const meta = parsePersonNotesMeta(person.notes);
   const legacy = meta.role || person.primary_role || "";
 
   return {

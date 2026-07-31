@@ -6,6 +6,7 @@ import { RefreshCw } from "lucide-react";
 import { syncPeopleAction } from "@/app/actions/people-sync";
 import { getToolbarIconButtonClassName } from "@/components/ui/toolbar-icon-button";
 import { cn } from "@/lib/utils";
+import { PeopleRedirectToInput } from "@/components/people/people-redirect-to";
 
 function SubmitButton({ title }: { title: string }) {
   const { pending } = useFormStatus();
@@ -27,12 +28,10 @@ function SubmitButton({ title }: { title: string }) {
 }
 
 type PeopleSyncButtonProps = {
-  redirectTo: string;
   lastSyncedLabel?: string;
 };
 
 export function PeopleSyncButton({
-  redirectTo,
   lastSyncedLabel,
 }: PeopleSyncButtonProps) {
   const title = lastSyncedLabel
@@ -41,7 +40,7 @@ export function PeopleSyncButton({
 
   return (
     <form action={syncPeopleAction}>
-      <input type="hidden" name="redirectTo" value={redirectTo} />
+      <PeopleRedirectToInput />
       <SubmitButton title={title} />
     </form>
   );

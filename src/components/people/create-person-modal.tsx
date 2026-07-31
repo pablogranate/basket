@@ -26,6 +26,7 @@ import { PersonTeamsField } from "@/components/people/person-teams-field";
 import type { PersonTeamLink } from "@/lib/types";
 import { APP_ROLE_DISPLAY_NAMES, getRoleDisplayName } from "@/lib/display";
 import { cn } from "@/lib/utils";
+import { PeopleRedirectToInput } from "@/components/people/people-redirect-to";
 
 const ACCESS_TIER_OPTIONS = [
   { value: "admin", label: APP_ROLE_DISPLAY_NAMES.admin },
@@ -82,14 +83,12 @@ export function CreatePersonModal({
   canEdit,
   canManageAccess,
   canSelectAccessTier,
-  redirectTo,
   roleOptions,
   teamOptions,
 }: {
   canEdit: boolean;
   canManageAccess: boolean;
   canSelectAccessTier: boolean;
-  redirectTo: string;
   roleOptions: string[];
   teamOptions: PersonTeamLink[];
 }) {
@@ -187,7 +186,7 @@ export function CreatePersonModal({
             </header>
 
             <form action={upsertPersonAction} className="flex min-h-0 flex-1 flex-col">
-              <input type="hidden" name="redirectTo" value={redirectTo} />
+              <PeopleRedirectToInput />
               <input
                 type="hidden"
                 name="createPlatformAccess"
