@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 
 import { GridDateOrderToggle } from "@/components/grid/grid-date-order-toggle";
+import { MatchCardIconSprite } from "@/components/grid/match-card-icon-sprite";
 import { GridDateStepper } from "@/components/grid/grid-date-stepper";
 import { GridDisplayToggle } from "@/components/grid/grid-display-toggle";
 import { GridPageShell } from "@/components/grid/grid-page-shell";
@@ -210,6 +211,11 @@ export default async function GridPage({ searchParams }: PageProps) {
             </div>
           </div>
 
+          {/* Icon defs for the match cards and table action buttons. Must sit
+              outside the Suspense boundary so <use> never resolves before its
+              symbol streams in; placed mid-section (not first child) so the
+              space-y-6 sibling margins are unchanged. */}
+          <MatchCardIconSprite />
           <Suspense fallback={<GridContentSkeleton display={filters.display} />}>
             <GridContent
               user={user}

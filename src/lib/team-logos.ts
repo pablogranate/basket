@@ -313,13 +313,6 @@ function scoreEntry(
   return score;
 }
 
-export function getTeamInitials(name?: string | null) {
-  const source = (name ?? "EQ").trim();
-  const parts = source.split(/\s+/).filter(Boolean).slice(0, 2);
-
-  return parts.map((part) => part[0]?.toUpperCase() ?? "").join("") || "EQ";
-}
-
 // Server-side pre-resolution for logo-dense screens. Resolves each distinct
 // (teamName, competition) pair once and returns a plain, serializable record
 // keyed exactly like ClientTeamLogoMark's cache key, so the client component can

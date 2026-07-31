@@ -2,19 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import {
-  Check,
-  Columns3,
-  GripVertical,
-  Maximize2,
-  PencilLine,
-} from "lucide-react";
+import { Check, Columns3, GripVertical } from "lucide-react";
 
 import { CreateMatchModal } from "@/components/grid/create-match-modal-lazy";
 import {
   GridTableCellEditor,
   type GridCellEditor,
 } from "@/components/grid/grid-table-cell-editor";
+import { MatchCardIcon } from "@/components/grid/match-card-icon-sprite";
 import {
   COMMENTARY_PLAN_OPTIONS,
   getProductionModeLabel,
@@ -68,12 +63,12 @@ const ACTIONS_COLUMN_WIDTH = 96;
 // Partido in the frozen left block, so Partido's sticky left offset depends on
 // Liga's rendered width — pin a known default and fall back to it below.
 const LEAGUE_COLUMN_WIDTH = 160;
-const PINNED_CELL_CLASSNAME =
-  "sticky z-30 bg-[var(--surface)] group-hover:bg-[var(--accent-soft)]";
-// Day boundary marker. The table uses border-separate, so borders set on <tr>
-// are dropped by the browser — the rule has to live on the cells of the first
-// row of each day.
-const DAY_DIVIDER_CLASSNAME = "border-t-4 border-t-[var(--n-700)]";
+// Repeated per-cell class strings live in globals.css @layer components as
+// .gt-* rules — see the "Grid TABLE shared classes" block. The month table
+// renders ~87 rows × 22 cells, so the long Tailwind strings were the heaviest
+// repeated chunk of the table document.
+const PINNED_CELL_CLASSNAME = "gt-pin";
+const DAY_DIVIDER_CLASSNAME = "gt-day";
 
 const TABLE_COLUMNS = GRID_EXPORT_COLUMNS.filter(
   (column) => column.key !== "Dia",
@@ -115,11 +110,9 @@ const ASSIGNMENT_ROLE_BY_KEY: Partial<Record<keyof GridExportRow, string>> = {
   "Soporte tecnico": "Soporte tecnico",
 };
 
-const headerCellClassName =
-  "whitespace-nowrap px-5 py-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--n-400)] font-[family-name:var(--font-oswald)]";
+const headerCellClassName = "gt-th";
 
-const editTriggerClassName =
-  "inline-flex size-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--n-100)] text-[var(--foreground)] shadow-none transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]";
+const editTriggerClassName = "gt-edit";
 
 function normalizeHiddenColumns(value: unknown) {
   if (!Array.isArray(value)) {
@@ -813,7 +806,7 @@ export function GridTable({
           key={key}
           style={{ ...getWidthStyle("Dia"), ...pinStyle }}
           className={cn(
-            "whitespace-nowrap px-5 py-1.5 text-sm font-semibold text-[var(--foreground)]",
+            "gt-cell font-semibold",
             columnWidths.Dia && "overflow-hidden text-ellipsis",
             pinClass,
             dayClass,
@@ -841,7 +834,7 @@ export function GridTable({
           key={columnKey}
           style={{ ...getWidthStyle(columnKey), ...pinStyle }}
           className={cn(
-            "whitespace-nowrap px-5 py-1.5 text-sm text-[var(--foreground)]",
+            "gt-cell",
             columnWidths[columnKey] && "overflow-hidden text-ellipsis",
             pinClass,
             dayClass,
@@ -910,10 +903,7 @@ export function GridTable({
           ...pinStyle,
         }}
         className={cn(
-          "px-5 py-1.5 text-sm",
-          isWide
-            ? "max-w-[22rem] truncate text-[var(--muted)]"
-            : "whitespace-nowrap text-[var(--foreground)]",
+          isWide ? "gt-cell-wide" : "gt-cell",
           columnWidths[columnKey] && "overflow-hidden text-ellipsis",
           !editor && attendanceClass,
           pinClass,
@@ -932,9 +922,7 @@ export function GridTable({
         ) : columnKey === "Hora" && value ? (
           <span className="gt-time">{value}</span>
         ) : columnKey === "ID" && value ? (
-          <span className="font-mono text-[13px] text-[var(--foreground)]">
-            {value}
-          </span>
+          <span className="gt-id">{value}</span>
         ) : (
           value || "—"
         )}
@@ -1014,13 +1002,13 @@ export function GridTable({
                 <tr
                   key={match.id}
                   ref={rowIndex === todayRowIndex ? todayRowRef : undefined}
-                  className="group divide-x divide-[var(--border)] transition hover:bg-[var(--accent-soft)]"
+                  className="group gt-row"
                 >
                   {canEdit ? (
                     <td
                       style={actionsWidthStyle}
                       className={cn(
-                        "whitespace-nowrap px-5 py-1.5 left-0",
+                        "gt-cell-actions",
                         PINNED_CELL_CLASSNAME,
                         dayStart && DAY_DIVIDER_CLASSNAME,
                       )}
@@ -1032,7 +1020,7 @@ export function GridTable({
                           title="Abrir detalle"
                           className={editTriggerClassName}
                         >
-                          <Maximize2 className="size-4" />
+                          <MatchCardIcon name="maximize-2" className="size-4" />
                         </Link>
                       </div>
                     </td>

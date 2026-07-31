@@ -11,6 +11,7 @@ import { GridPastDaysButton } from "@/components/grid/grid-past-days-toggle";
 import { MatchCard } from "@/components/grid/match-card";
 import { PeopleProvider } from "@/components/grid/people-context";
 import { ProductionInsightsPanel } from "@/components/grid/production-insights-panel";
+import { TeamLogoResolutionProvider } from "@/components/team-logo-resolution-context";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatMatchDate, toDateKey } from "@/lib/date";
 import { getGridData } from "@/lib/data/dashboard";
@@ -18,6 +19,7 @@ import type { GridFilters } from "@/lib/data/dashboard";
 import { buildProductionInsightsSummary } from "@/lib/grid/insights";
 import { getLastSuccessfulSync } from "@/lib/grid/sync";
 import { toExportRows } from "@/lib/grid-table";
+import { resolveTeamLogoMap } from "@/lib/team-logos";
 import type { UserContext } from "@/lib/auth";
 import type { MatchListItem } from "@/lib/types";
 import type { parseGridSearchParams } from "@/lib/search-params";
@@ -365,30 +367,46 @@ export async function GridContent({
     />
   ));
 
+  // MatchCard is a client component, so it cannot reach the `server-only` logo
+  // index. Resolve every rendered crest here — deduped by (team, competition) —
+  // and hand the map down; a collapsed month never pays for its past days.
+  const renderedGroups =
+    !shouldSplitPastDays || filters.pastDays ? sortedDayGroups : upcomingGroups;
+  const teamLogoMap = resolveTeamLogoMap(
+    renderedGroups.flatMap((group) =>
+      group.items.flatMap((match: MatchListItem) => [
+        { teamName: match.home_team, competition: match.competition },
+        { teamName: match.away_team, competition: match.competition },
+      ]),
+    ),
+  );
+
   const cardsContent = (
     <PeopleProvider people={owners}>
-      <div className="space-y-10">
-        {!shouldSplitPastDays ? (
-          sortedDayGroups.map((group) => (
-            <GridDayGroupCards
-              key={group.key}
-              group={group}
-              redirectTo={redirectTo}
-              canEdit={user.canEdit}
-            />
-          ))
-        ) : filters.dateOrder === "asc" ? (
-          <>
-            {pastToggle}
-            {upcomingCards}
-          </>
-        ) : (
-          <>
-            {upcomingCards}
-            {pastToggle}
-          </>
-        )}
-      </div>
+      <TeamLogoResolutionProvider value={teamLogoMap}>
+        <div className="space-y-10">
+          {!shouldSplitPastDays ? (
+            sortedDayGroups.map((group) => (
+              <GridDayGroupCards
+                key={group.key}
+                group={group}
+                redirectTo={redirectTo}
+                canEdit={user.canEdit}
+              />
+            ))
+          ) : filters.dateOrder === "asc" ? (
+            <>
+              {pastToggle}
+              {upcomingCards}
+            </>
+          ) : (
+            <>
+              {upcomingCards}
+              {pastToggle}
+            </>
+          )}
+        </div>
+      </TeamLogoResolutionProvider>
     </PeopleProvider>
   );
 

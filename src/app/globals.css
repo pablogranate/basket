@@ -84,8 +84,14 @@ select option {
      (render-on-scroll). contain-intrinsic-size reserves a stable placeholder so
      the scrollbar doesn't jump; `auto` remembers the real size after first render. */
   .mc-card {
+    @apply relative overflow-visible border border-[var(--border)] bg-[var(--surface)] transition;
     content-visibility: auto;
     contain-intrinsic-size: auto 170px;
+  }
+
+  .mc-card summary::-webkit-details-marker,
+  .mc-card summary::marker {
+    display: none;
   }
 
   /* Repeated match-card summary class strings, deduplicated out of the per-card
@@ -112,6 +118,156 @@ select option {
 
   .mc-team-name {
     @apply mt-2 min-h-[2.1em] text-center text-[0.84rem] font-black leading-[1.04] tracking-[-0.03em] text-[var(--foreground)] [display:-webkit-box] overflow-hidden text-ellipsis [-webkit-box-orient:vertical] [-webkit-line-clamp:2] 2xl:mt-3 2xl:min-h-[2.16em] 2xl:text-[0.98rem];
+  }
+
+  /* Match-card mobile band (< xl). Same dedup intent as the .mc-* rules above —
+     87 cards repeat every one of these strings in the HTML AND, because the
+     card stack renders under a client provider, again in the Flight payload.
+     Dynamic league colours stay inline (per-league style attrs); conditional
+     size tails (time font-size) stay inline at the call sites. */
+  .mc-band-head {
+    @apply flex items-center gap-2.5 px-4 py-3;
+  }
+
+  .mc-band-league {
+    @apply min-w-0 flex-1 truncate text-[11px] font-extrabold uppercase tracking-[0.14em];
+  }
+
+  .mc-band-time {
+    @apply shrink-0 font-bold tracking-[-0.04em];
+    font-family: var(--font-oswald), system-ui, sans-serif;
+  }
+
+  .mc-band-hero {
+    @apply flex items-center justify-center gap-4 px-4 py-5;
+  }
+
+  .mc-hero-team {
+    @apply flex min-w-0 flex-1 flex-col items-center gap-2 text-center;
+  }
+
+  .mc-hero-name {
+    @apply line-clamp-2 text-[0.86rem] font-black leading-tight tracking-[-0.02em] text-[var(--foreground)];
+  }
+
+  .mc-band-vs {
+    @apply shrink-0 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--n-400)];
+  }
+
+  .mc-band-meta {
+    @apply flex items-center justify-center gap-4 px-4 pb-4 text-[11px] font-semibold text-[var(--n-500)];
+  }
+
+  .mc-band-foot {
+    @apply flex items-center gap-2.5 border-t border-[var(--border)] bg-[var(--n-50)] px-4 py-3;
+  }
+
+  .mc-band-owner {
+    @apply min-w-0 flex-1 truncate text-sm font-bold text-[var(--foreground)];
+  }
+
+  .mc-band-chev {
+    @apply size-5 shrink-0 text-[var(--n-400)] transition group-open:rotate-180;
+  }
+
+  .mc-band-actions {
+    @apply flex justify-end gap-2 border-t border-[var(--border)] px-4 py-2;
+  }
+
+  /* Match-card desktop (xl) grid. Status colour (.bg-*) stays inline on the tab. */
+  .mc-status-tab {
+    @apply pointer-events-none absolute left-[-12px] top-1/2 z-0 hidden h-[118px] w-[30px] -translate-y-1/2 rounded-l-[10px] rounded-r-[6px] shadow-[inset_-1px_0_0_rgba(255,255,255,0.16),0_8px_18px_rgba(28,13,16,0.06)] xl:block;
+  }
+
+  .mc-desktop {
+    @apply relative z-10 hidden overflow-visible rounded-t-[10px] rounded-b-[10px] xl:block;
+  }
+
+  .mc-grid {
+    @apply flex flex-col overflow-hidden rounded-t-[10px] rounded-b-[10px] xl:grid xl:grid-cols-[6.5rem_minmax(12.5rem,17rem)_repeat(4,minmax(10rem,1fr))_4.75rem] xl:items-stretch 2xl:grid-cols-[7rem_minmax(17.5rem,25rem)_repeat(4,minmax(10.25rem,1fr))_4.75rem];
+  }
+
+  .mc-league-col {
+    @apply relative z-10 flex flex-col items-center justify-center gap-3 border-b border-[var(--border)] px-4 py-5 text-center xl:border-b-0 xl:border-r;
+  }
+
+  .mc-league-label {
+    @apply text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--n-500)];
+  }
+
+  .mc-teams-col {
+    @apply flex min-w-0 items-center border-b border-[var(--border)] px-5 py-5 xl:border-b-0 xl:border-r xl:px-4 2xl:px-6;
+  }
+
+  .mc-teams-grid {
+    @apply grid items-center justify-center gap-2 sm:grid-cols-[minmax(0,1fr)_1.75rem_minmax(0,1fr)] sm:gap-3 2xl:gap-3 2xl:sm:grid-cols-[8.5rem_2.25rem_8.5rem] 2xl:sm:gap-4;
+  }
+
+  .mc-team-block {
+    @apply flex min-w-0 flex-col items-center text-center;
+  }
+
+  .mc-vs {
+    @apply self-center justify-self-center text-sm font-semibold uppercase tracking-[0.18em] text-[var(--n-400)] 2xl:text-base;
+  }
+
+  .mc-venue {
+    @apply mt-4 flex items-center justify-center gap-2 text-center text-[12px] font-semibold text-[var(--n-400)];
+  }
+
+  .mc-role-tag {
+    @apply text-xs font-semibold text-[var(--muted)];
+  }
+
+  .mc-role-tag-italic {
+    @apply text-xs font-semibold italic text-[var(--muted)];
+  }
+
+  .mc-date {
+    @apply mt-2 text-[1.12rem] font-extrabold leading-tight tracking-[-0.03em] text-[var(--foreground)];
+  }
+
+  .mc-time {
+    @apply mt-1 font-bold tracking-[-0.06em] text-[var(--accent)];
+    font-family: var(--font-oswald), system-ui, sans-serif;
+  }
+
+  .mc-actions-col {
+    @apply flex items-center justify-end border-t border-[var(--border)] px-4 py-4 xl:justify-center xl:border-l xl:border-t-0 xl:px-0 xl:py-0;
+  }
+
+  /* Badge variants: one full class per palette rather than badge base + colour
+     tail — the tail was the larger half of the repeated string. */
+  .mc-badge-id {
+    @apply inline-flex items-center rounded-full border border-[var(--accent-border)] bg-[var(--accent-soft)] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--accent)];
+  }
+
+  .mc-badge-neutral {
+    @apply inline-flex items-center rounded-full border border-[var(--n-200)] bg-[var(--n-50)] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--n-600)];
+  }
+
+  .mc-badge-mode {
+    @apply inline-flex shrink-0 items-center rounded-full border border-[var(--n-200)] bg-[var(--surface)] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--n-600)];
+  }
+
+  /* MatchCardActions (client component — bundle strings, but the SSR HTML still
+     repeated them 6× per card across both layouts). */
+  .mca-wrap {
+    @apply pointer-events-auto flex flex-col items-center justify-center gap-3;
+  }
+
+  .mca-btn {
+    @apply inline-flex size-10 items-center justify-center rounded-full border border-[var(--n-200)] bg-[var(--n-50)] text-[var(--n-900)] shadow-none transition hover:border-[rgba(227,27,35,0.24)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)];
+  }
+
+  /* TeamLogoMark / LeagueLogoMark bases — two per card per layout, plus reuse
+     across teams/people views. Size + radius tails stay at the call sites. */
+  .tlm {
+    @apply relative grid shrink-0 place-items-center overflow-hidden border border-[var(--border)] bg-white shadow-sm;
+  }
+
+  .llm {
+    @apply relative grid shrink-0 place-items-center rounded-lg bg-transparent;
   }
 
   /* HoverAvatarBadge shared classes — same dedup intent as .mc-*. The month
@@ -228,45 +384,60 @@ select option {
   }
 
   /* Grid TABLE shared classes — same dedup intent as .mc-* above. The month
-     table renders ~278 rows × 22 cells; long Tailwind strings and per-cell
-     inline styles must NOT be repeated across rows. Hoist them here so they
-     appear once in the bundle and never in the serialized RSC payload. The one
-     legitimate per-row inline style is the dynamic league color. (Consumed by
-     grid-table.tsx — issue #34.) */
-  .gt-head {
-    @apply whitespace-nowrap border-b border-[var(--border)] px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--n-400)];
-    font-family: var(--font-oswald), system-ui, sans-serif;
+     table renders ~87 rows × 22 cells, so every long Tailwind string repeated
+     per cell was the single heaviest chunk of the table document. Attendance
+     colours and the dynamic league colour stay inline at the call sites: the
+     colours are short single utilities and Tailwind v4 puts @layer utilities
+     after @layer components, so they win over these classes. `group` also
+     stays inline on the row (it is the marker the group-hover: variants select
+     on). (Consumed by grid-table.tsx.) */
+  .gt-row {
+    @apply divide-x divide-[var(--border)] transition hover:bg-[var(--accent-soft)];
   }
 
   .gt-cell {
-    @apply px-4 py-3 align-middle text-[13px] text-[var(--n-700)];
+    @apply whitespace-nowrap px-5 py-1.5 text-sm text-[var(--foreground)];
   }
 
-  .gt-muted {
-    @apply text-[12px] font-medium text-[var(--n-500)];
+  /* Wide free-text columns get one full class rather than a shared base plus
+     an inline tail — the tail was the larger half of the repeated string. */
+  .gt-cell-wide {
+    @apply max-w-[22rem] truncate px-5 py-1.5 text-sm text-[var(--muted)];
   }
 
-  .gt-empty {
-    @apply text-[12px] text-[var(--n-400)];
+  /* Pinned Acciones gutter cell base — always paired with .gt-pin. */
+  .gt-cell-actions {
+    @apply left-0 whitespace-nowrap px-5 py-1.5;
+  }
+
+  .gt-pin {
+    @apply sticky z-30 bg-[var(--surface)] group-hover:bg-[var(--accent-soft)];
+  }
+
+  /* Day boundary marker. The table uses border-separate, so borders set on
+     <tr> are dropped by the browser — the rule lives on the cells of the first
+     row of each day. */
+  .gt-day {
+    @apply border-t-4 border-t-[var(--n-700)];
+  }
+
+  .gt-th {
+    @apply whitespace-nowrap px-5 py-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--n-400)];
+    font-family: var(--font-oswald), system-ui, sans-serif;
+  }
+
+  .gt-edit {
+    @apply inline-flex size-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--n-100)] text-[var(--foreground)] shadow-none transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)];
+  }
+
+  .gt-id {
+    @apply font-mono text-[13px] text-[var(--foreground)];
   }
 
   .gt-time {
     @apply text-[15px] font-semibold leading-none tabular-nums;
     font-family: var(--font-oswald), system-ui, sans-serif;
     color: var(--accent);
-  }
-
-  /* Day-group header — full-width colspan row (preserves single-table sticky
-     header), branded Oswald uppercase. */
-  .gt-group {
-    @apply border-y border-[var(--border)] px-4 py-2.5 text-[13px] font-bold uppercase tracking-[0.1em] text-[var(--n-800)];
-    font-family: var(--font-oswald), system-ui, sans-serif;
-    background: var(--n-100);
-  }
-
-  .gt-group-count {
-    @apply inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold text-white;
-    background: var(--accent);
   }
 }
 

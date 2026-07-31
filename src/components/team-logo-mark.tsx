@@ -1,7 +1,9 @@
-import Image from "next/image";
+import { TeamLogoMarkView } from "@/components/team-logo-mark-view";
+import { getTeamLogoPath } from "@/lib/team-logos";
 
-import { getTeamInitials, getTeamLogoPath } from "@/lib/team-logos";
-import { cn } from "@/lib/utils";
+// Server-only wrapper: resolves the crest against the on-disk logo index and
+// delegates the markup to TeamLogoMarkView. Client components must use the view
+// directly with a pre-resolved `logoSrc` (see match-card.tsx).
 
 export function TeamLogoMark({
   teamName,
@@ -16,33 +18,13 @@ export function TeamLogoMark({
   imageClassName?: string;
   initialsClassName?: string;
 }) {
-  const logoSrc = getTeamLogoPath({ teamName, competition });
-
   return (
-    <div
-      className={cn(
-        "relative grid shrink-0 place-items-center overflow-hidden border border-[var(--border)] bg-white shadow-sm",
-        className,
-      )}
-    >
-      {logoSrc ? (
-        <Image
-          src={logoSrc}
-          alt={`Escudo de ${teamName}`}
-          fill
-          sizes="64px"
-          className={cn("object-contain p-1.5", imageClassName)}
-        />
-      ) : (
-        <span
-          className={cn(
-            "text-xs font-black uppercase tracking-[0.24em] text-[var(--foreground)]",
-            initialsClassName,
-          )}
-        >
-          {getTeamInitials(teamName)}
-        </span>
-      )}
-    </div>
+    <TeamLogoMarkView
+      teamName={teamName}
+      logoSrc={getTeamLogoPath({ teamName, competition })}
+      className={className}
+      imageClassName={imageClassName}
+      initialsClassName={initialsClassName}
+    />
   );
 }
