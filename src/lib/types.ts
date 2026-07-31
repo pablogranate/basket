@@ -82,19 +82,21 @@ export type GridMatchFields = Pick<
   | "transport"
 >;
 
+// Slimmed to what the /grid render path actually reads. Every field here is
+// multiplied by ~10 assignments per match and ~90 matches in a month window, so
+// anything the table, the cards, the export and the edit prefill do not touch
+// stays out of the Flight payload. The fat shapes live on AssignmentDetail /
+// MatchDetail for /match/[id]. Keep the loader SELECT in step with this.
 export type MatchListItem = GridMatchFields & {
-  owner: Pick<PersonRow, "id" | "full_name" | "phone"> | null;
+  owner: Pick<PersonRow, "id" | "full_name"> | null;
   assignments: Array<{
-    id: string;
-    match_id: string;
     role_id: string;
     person_id: string | null;
     confirmed: boolean;
     attendance_response: string | null;
-    attendance_note: string | null;
     notes: string | null;
-    role: Pick<RoleRow, "id" | "name" | "category" | "sort_order" | "active">;
-    person: Pick<PersonRow, "id" | "full_name" | "phone" | "email"> | null;
+    role: Pick<RoleRow, "name">;
+    person: Pick<PersonRow, "id" | "full_name"> | null;
   }>;
 };
 
