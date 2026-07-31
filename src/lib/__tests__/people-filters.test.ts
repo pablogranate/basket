@@ -109,6 +109,35 @@ describe("parsePeopleFilters", () => {
     expect(filters.role).toBe("Relator");
     expect(filters.city).toBe("Bogotá");
   });
+
+  // The client workspace parses `useSearchParams()` while the page parses the
+  // `searchParams` record. Both paths must land on the same filters or a
+  // shareable URL would render one thing and hydrate into another.
+  it("reads URLSearchParams the same way as a searchParams record", () => {
+    const params = new URLSearchParams({
+      q: "cordoba",
+      role: "  Relator  ",
+      state: "Vacaciones",
+      city: " Bogotá ",
+      team: "Boca Juniors",
+    });
+
+    expect(parsePeopleFilters(params)).toEqual(
+      parsePeopleFilters({
+        q: "cordoba",
+        role: "  Relator  ",
+        state: "Vacaciones",
+        city: " Bogotá ",
+        team: "Boca Juniors",
+      }),
+    );
+    expect(parsePeopleFilters(params)).toEqual({
+      role: "Relator",
+      state: "",
+      city: "Bogotá",
+      team: "Boca Juniors",
+    });
+  });
 });
 
 describe("applyPeopleFilters", () => {

@@ -525,6 +525,13 @@ export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]>
   // count only cares about matches whose end is >= now; a 1-day lower bound on
   // kickoff safely covers any in-progress match without scanning all history.
   const windowStartIso = subDays(now, 1).toISOString();
+  // functionsByPerson / teamsByPerson are only ever read for the people this
+  // loader returns, so both relations scope themselves with a subquery over the
+  // same non-deleted window instead of selecting their whole table.
+  const listedPeopleIds = db
+    .select({ id: peopleTable.id })
+    .from(peopleTable)
+    .where(isNull(peopleTable.deletedAt));
   const [peopleData, assignmentsData, functionsData, rolesData, teamsData] =
     await Promise.all([
       db
@@ -553,7 +560,8 @@ export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]>
           person_id: personFunctionsTable.personId,
           function_key: personFunctionsTable.functionKey,
         })
-        .from(personFunctionsTable),
+        .from(personFunctionsTable)
+        .where(inArray(personFunctionsTable.personId, listedPeopleIds)),
       db
         .select({ id: rolesTable.id, name: rolesTable.name })
         .from(rolesTable),
@@ -564,7 +572,8 @@ export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]>
           team_name: teamsTable.name,
         })
         .from(peopleTeamsTable)
-        .innerJoin(teamsTable, eq(peopleTeamsTable.teamId, teamsTable.id)),
+        .innerJoin(teamsTable, eq(peopleTeamsTable.teamId, teamsTable.id))
+        .where(inArray(peopleTeamsTable.personId, listedPeopleIds)),
     ]);
 
   const functionsByPerson = new Map<string, PersonFunctionKey[]>();

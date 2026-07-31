@@ -4,18 +4,17 @@ import { Trash2 } from "lucide-react";
 
 import { deletePersonAction } from "@/app/actions/people";
 import { cn } from "@/lib/utils";
+import { PeopleRedirectToInput } from "@/components/people/people-redirect-to";
 
 export function PersonDeleteButton({
   personId,
   fullName,
-  redirectTo,
   className,
   title,
   label,
 }: {
   personId: string;
   fullName: string;
-  redirectTo: string;
   className?: string;
   title?: string;
   label?: string;
@@ -34,7 +33,7 @@ export function PersonDeleteButton({
       }}
     >
       <input type="hidden" name="personId" value={personId} />
-      <input type="hidden" name="redirectTo" value={redirectTo} />
+      <PeopleRedirectToInput />
       <button
         type="submit"
         className={cn(

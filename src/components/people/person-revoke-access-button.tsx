@@ -4,14 +4,13 @@ import { Power } from "lucide-react";
 
 import { revokePersonAccessAction } from "@/app/actions/people";
 import { cn } from "@/lib/utils";
+import { PeopleRedirectToInput } from "@/components/people/people-redirect-to";
 
 export function PersonRevokeAccessButton({
   personId,
-  redirectTo,
   className,
 }: {
   personId: string;
-  redirectTo: string;
   className?: string;
 }) {
   return (
@@ -28,7 +27,7 @@ export function PersonRevokeAccessButton({
       }}
     >
       <input type="hidden" name="personId" value={personId} />
-      <input type="hidden" name="redirectTo" value={redirectTo} />
+      <PeopleRedirectToInput keepEdit />
       <button
         type="submit"
         className={cn(

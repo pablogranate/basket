@@ -1,11 +1,12 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 
 import { cn } from "@/lib/utils";
 
+import { SERVER_RENDERED_PEOPLE_PARAMS } from "@/components/people/people-redirect-to";
 import { Select } from "@/components/ui/select";
 import { getAssignmentStateDisplayName } from "@/lib/display";
 import {
@@ -24,14 +25,27 @@ type PeopleFilterBarProps = {
 
 const FILTER_KEYS = ["role", "state", "city", "team"] as const;
 
+// Selects used to `router.push`, so every filter change re-ran getPeopleData and
+// re-serialized the whole list server-side. The list is already on the client,
+// so a select now only pushes the URL (shallow, via history.pushState) and the
+// workspace re-filters from `useSearchParams`. The push stays inside a
+// transition: that keeps the dimmed/aria-busy state while React repaints the
+// (large) table.
 export function PeopleFilterBar({
   filters,
   options,
   query,
 }: PeopleFilterBarProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const hasActiveFilters = FILTER_KEYS.some((key) => filters[key]);
+  // buildHref drops `edit`/`notice`/`intent`, and the modal overlay and notice
+  // banner behind them are server-rendered: a shallow update would leave them on
+  // screen contradicting the URL. Fall back to the router in that case only.
+  const needsServerRender = SERVER_RENDERED_PEOPLE_PARAMS.some((key) =>
+    searchParams.has(key),
+  );
 
   function buildHref(overrides: Partial<PeopleFilters>) {
     const params = new URLSearchParams();
@@ -51,10 +65,19 @@ export function PeopleFilterBar({
     return search ? `/people?${search}` : "/people";
   }
 
-  function handleChange(key: (typeof FILTER_KEYS)[number], value: string) {
+  function navigate(href: string) {
     startTransition(() => {
-      router.push(buildHref({ [key]: value }));
+      if (needsServerRender) {
+        router.push(href);
+        return;
+      }
+
+      window.history.pushState(null, "", href);
     });
+  }
+
+  function handleChange(key: (typeof FILTER_KEYS)[number], value: string) {
+    navigate(buildHref({ [key]: value }));
   }
 
   return (
@@ -101,9 +124,7 @@ export function PeopleFilterBar({
         <button
           type="button"
           onClick={() =>
-            startTransition(() => {
-              router.push(buildHref({ role: "", state: "", city: "", team: "" }));
-            })
+            navigate(buildHref({ role: "", state: "", city: "", team: "" }))
           }
           className="inline-flex h-11 items-center gap-1.5 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-semibold text-[var(--n-500)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
         >

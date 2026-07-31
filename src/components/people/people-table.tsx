@@ -1,19 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { GripVertical, Mail, MapPin, MessageCircle } from "lucide-react";
 import Link from "next/link";
 
 import {
-  getCityIndicator,
   getInitials,
-  getPersonRoleDisplay,
   getWhatsAppHref,
 } from "@/components/people/people-view-helpers";
 import { PersonActiveToggle } from "@/components/people/person-active-toggle";
-import { parsePersonNotesMeta } from "@/lib/people-notes";
-import { personCoverageNames } from "@/lib/team-responsibles";
-import type { PersonListItem } from "@/lib/types";
+import type { PersonView } from "@/components/people/people-view-context";
 import { cn } from "@/lib/utils";
 
 type PeopleTableColumn =
@@ -58,11 +54,182 @@ function normalizePeopleTableColumns(
   return nextColumns;
 }
 
-export function PeopleTable({
-  people,
+function renderCell(
+  row: PersonView,
+  column: PeopleTableColumn,
+  canEdit: boolean,
+) {
+  const { person, roleLabel, rolePresentation, city, cityIndicator } = row;
+  const cellClassName = cn("px-6 py-5", column === "profile" && "px-8");
+
+  switch (column) {
+    case "profile":
+      return (
+        <td key={column} className={cellClassName}>
+          <div className="flex items-center gap-3">
+            <div className="grid size-10 shrink-0 place-items-center rounded-full border border-[var(--border)] bg-[var(--n-100)] text-sm font-extrabold text-[var(--n-600)]">
+              {getInitials(person.full_name)}
+            </div>
+            <div className="min-w-0">
+              {canEdit ? (
+                <Link
+                  href={`/people?edit=${person.id}`}
+                  className="truncate text-sm font-extrabold text-[var(--foreground)] transition hover:text-[var(--accent)]"
+                >
+                  {person.full_name}
+                </Link>
+              ) : (
+                <p className="truncate text-sm font-extrabold text-[var(--foreground)]">
+                  {person.full_name}
+                </p>
+              )}
+            </div>
+          </div>
+        </td>
+      );
+    case "phone":
+      return (
+        <td key={column} className={cellClassName}>
+          <div className="flex justify-start">
+            <div className="flex items-center gap-2">
+              {person.phone ? (
+                <a
+                  href={getWhatsAppHref(person.phone) ?? undefined}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`Escribir por WhatsApp a ${person.full_name}`}
+                  className="inline-flex size-8 items-center justify-center rounded-full bg-[#ecfdf3] text-[#16a34a] transition hover:bg-[#dcfce7]"
+                >
+                  <MessageCircle className="size-4" />
+                </a>
+              ) : null}
+              <p className="text-sm font-medium text-[var(--foreground)]">
+                {person.phone ?? "Sin teléfono"}
+              </p>
+            </div>
+          </div>
+        </td>
+      );
+    case "role":
+      return (
+        <td key={column} className={cellClassName}>
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                "inline-flex size-8 items-center justify-center rounded-full",
+                rolePresentation.className,
+              )}
+            >
+              <rolePresentation.Icon className="size-4" />
+            </span>
+            <p className="text-sm font-medium text-[var(--foreground)]">
+              {roleLabel}
+            </p>
+          </div>
+        </td>
+      );
+    case "city":
+      return (
+        <td key={column} className={cellClassName}>
+          <div className="flex justify-start">
+            <div className="flex items-center gap-2">
+              <span
+                title={cityIndicator.label}
+                className="inline-flex size-8 items-center justify-center rounded-full bg-[var(--n-100)] text-sm"
+              >
+                {cityIndicator.emoji ? (
+                  <span aria-hidden="true">{cityIndicator.emoji}</span>
+                ) : (
+                  <MapPin className="size-4 text-[var(--n-400)]" />
+                )}
+              </span>
+              <p className="text-sm font-medium text-[var(--foreground)]">
+                {city || "Sin ciudad"}
+              </p>
+            </div>
+          </div>
+        </td>
+      );
+    case "email":
+      return (
+        <td key={column} className={cellClassName}>
+          <div className="flex justify-start">
+            <div className="flex items-center gap-2">
+              {person.email ? (
+                <a
+                  href={`mailto:${person.email}`}
+                  aria-label={`Escribir por correo a ${person.full_name}`}
+                  className="inline-flex size-8 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)] transition hover:bg-[var(--accent-border)]"
+                >
+                  <Mail className="size-4" />
+                </a>
+              ) : null}
+              <p className="text-xs font-medium text-[var(--n-500)]">
+                {person.email ?? "Sin correo"}
+              </p>
+            </div>
+          </div>
+        </td>
+      );
+    case "status":
+      return (
+        <td key={column} className={cellClassName}>
+          <div className="flex justify-start">
+            <div className="flex items-center">
+              <PersonActiveToggle
+                personId={person.id}
+                active={person.active}
+                fullName={person.full_name}
+                canEdit={canEdit}
+              />
+            </div>
+          </div>
+        </td>
+      );
+    case "details":
+      return (
+        <td key={column} className={cellClassName}>
+          <p className="max-w-[22rem] truncate text-sm font-medium text-[var(--n-600)]">
+            {row.detailSummary || "Sin responsable asignado"}
+          </p>
+        </td>
+      );
+    default:
+      return null;
+  }
+}
+
+// Own component so the drag-hover state (which changes on every dragOver event)
+// only repaints the header row and its drop indicators — the body used to
+// re-render every row on each of those events.
+const PeopleTableBody = memo(function PeopleTableBody({
+  rows,
+  columnOrder,
   canEdit,
 }: {
-  people: PersonListItem[];
+  rows: PersonView[];
+  columnOrder: PeopleTableColumn[];
+  canEdit: boolean;
+}) {
+  return (
+    <tbody className="divide-y divide-[var(--n-100)]">
+      {rows.map((row) => (
+        <tr
+          key={row.person.id}
+          className="group transition hover:bg-[var(--n-50)]"
+        >
+          {columnOrder.map((column) => renderCell(row, column, canEdit))}
+        </tr>
+      ))}
+    </tbody>
+  );
+});
+
+export function PeopleTable({
+  rows,
+  canEdit,
+}: {
+  rows: PersonView[];
   canEdit: boolean;
 }) {
   const [columnOrder, setColumnOrder] = useState<PeopleTableColumn[]>(() => {
@@ -199,154 +366,6 @@ export function PeopleTable({
     );
   };
 
-  const renderCell = (person: PersonListItem, column: PeopleTableColumn) => {
-    const meta = parsePersonNotesMeta(person.notes);
-    const { roleLabel, rolePresentation } = getPersonRoleDisplay(person);
-    const city = meta.city || "";
-    const cityIndicator = getCityIndicator(city);
-    const detailSummary = personCoverageNames(person).join(", ");
-    const cellClassName = cn(
-      "px-6 py-5",
-      column === "profile" && "px-8",
-    );
-
-    switch (column) {
-      case "profile":
-        return (
-          <td key={column} className={cellClassName}>
-            <div className="flex items-center gap-3">
-              <div className="grid size-10 shrink-0 place-items-center rounded-full border border-[var(--border)] bg-[var(--n-100)] text-sm font-extrabold text-[var(--n-600)]">
-                {getInitials(person.full_name)}
-              </div>
-              <div className="min-w-0">
-                {canEdit ? (
-                  <Link
-                    href={`/people?edit=${person.id}`}
-                    className="truncate text-sm font-extrabold text-[var(--foreground)] transition hover:text-[var(--accent)]"
-                  >
-                    {person.full_name}
-                  </Link>
-                ) : (
-                  <p className="truncate text-sm font-extrabold text-[var(--foreground)]">
-                    {person.full_name}
-                  </p>
-                )}
-              </div>
-            </div>
-          </td>
-        );
-      case "phone":
-        return (
-          <td key={column} className={cellClassName}>
-            <div className="flex justify-start">
-              <div className="flex items-center gap-2">
-                {person.phone ? (
-                  <a
-                    href={getWhatsAppHref(person.phone) ?? undefined}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label={`Escribir por WhatsApp a ${person.full_name}`}
-                    className="inline-flex size-8 items-center justify-center rounded-full bg-[#ecfdf3] text-[#16a34a] transition hover:bg-[#dcfce7]"
-                  >
-                    <MessageCircle className="size-4" />
-                  </a>
-                ) : null}
-                <p className="text-sm font-medium text-[var(--foreground)]">
-                  {person.phone ?? "Sin teléfono"}
-                </p>
-              </div>
-            </div>
-          </td>
-        );
-      case "role":
-        return (
-          <td key={column} className={cellClassName}>
-            <div className="flex items-center gap-2">
-              <span
-                className={cn(
-                  "inline-flex size-8 items-center justify-center rounded-full",
-                  rolePresentation.className,
-                )}
-              >
-                <rolePresentation.Icon className="size-4" />
-              </span>
-              <p className="text-sm font-medium text-[var(--foreground)]">
-                {roleLabel}
-              </p>
-            </div>
-          </td>
-        );
-      case "city":
-        return (
-          <td key={column} className={cellClassName}>
-            <div className="flex justify-start">
-              <div className="flex items-center gap-2">
-                <span
-                  title={cityIndicator.label}
-                  className="inline-flex size-8 items-center justify-center rounded-full bg-[var(--n-100)] text-sm"
-                >
-                  {cityIndicator.emoji ? (
-                    <span aria-hidden="true">{cityIndicator.emoji}</span>
-                  ) : (
-                    <MapPin className="size-4 text-[var(--n-400)]" />
-                  )}
-                </span>
-                <p className="text-sm font-medium text-[var(--foreground)]">
-                  {city || "Sin ciudad"}
-                </p>
-              </div>
-            </div>
-          </td>
-        );
-      case "email":
-        return (
-          <td key={column} className={cellClassName}>
-            <div className="flex justify-start">
-              <div className="flex items-center gap-2">
-                {person.email ? (
-                  <a
-                    href={`mailto:${person.email}`}
-                    aria-label={`Escribir por correo a ${person.full_name}`}
-                    className="inline-flex size-8 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)] transition hover:bg-[var(--accent-border)]"
-                  >
-                    <Mail className="size-4" />
-                  </a>
-                ) : null}
-                <p className="text-xs font-medium text-[var(--n-500)]">
-                  {person.email ?? "Sin correo"}
-                </p>
-              </div>
-            </div>
-          </td>
-        );
-      case "status":
-        return (
-          <td key={column} className={cellClassName}>
-            <div className="flex justify-start">
-              <div className="flex items-center">
-                <PersonActiveToggle
-                  personId={person.id}
-                  active={person.active}
-                  fullName={person.full_name}
-                  canEdit={canEdit}
-                />
-              </div>
-            </div>
-          </td>
-        );
-      case "details":
-        return (
-          <td key={column} className={cellClassName}>
-            <p className="max-w-[22rem] truncate text-sm font-medium text-[var(--n-600)]">
-              {detailSummary || "Sin responsable asignado"}
-            </p>
-          </td>
-        );
-      default:
-        return null;
-    }
-  };
-
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full border-collapse text-left">
@@ -355,13 +374,11 @@ export function PeopleTable({
             {columnOrder.map((column) => renderHeader(column))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-[var(--n-100)]">
-          {people.map((person) => (
-            <tr key={person.id} className="group transition hover:bg-[var(--n-50)]">
-              {columnOrder.map((column) => renderCell(person, column))}
-            </tr>
-          ))}
-        </tbody>
+        <PeopleTableBody
+          rows={rows}
+          columnOrder={columnOrder}
+          canEdit={canEdit}
+        />
       </table>
     </div>
   );
