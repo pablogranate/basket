@@ -61,16 +61,12 @@ function normalizeGridAssignments(params: {
     }
 
     return {
-      id: `${params.matchId}:${role.id}`,
-      match_id: params.matchId,
       role_id: role.id,
       person_id: null,
       confirmed: false,
-      attendance_confirmed_at: null,
       attendance_response: null,
-      attendance_note: null,
       notes: null,
-      role,
+      role: { name: role.name },
       person: null,
     };
   });
@@ -88,7 +84,7 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
   let query = supabase
     .from("matches")
     .select(
-      "*, owner:people!matches_owner_id_fkey(id, full_name, phone), assignments(id, match_id, role_id, person_id, confirmed, attendance_response, attendance_note, notes, role:roles!assignments_role_id_fkey(id, name, category, sort_order, active), person:people!assignments_person_id_fkey(id, full_name, phone, email))",
+      "*, owner:people!matches_owner_id_fkey(id, full_name), assignments(role_id, person_id, confirmed, attendance_response, notes, role:roles!assignments_role_id_fkey(name), person:people!assignments_person_id_fkey(id, full_name))",
     )
     .gte("kickoff_at", window.startUtc)
     .lte("kickoff_at", window.endUtc)

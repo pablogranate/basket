@@ -22,14 +22,27 @@ export type MatchCardSection = {
   rows: SectionRow[];
 };
 
-// Structural subset of a match sufficient to build the expandable detail
-// sections. Both MatchListItem (grid render) and the on-demand
-// getMatchCardSectionsAction row satisfy it.
-type SectionAssignment = {
+// Structural subset needed to read a single role slot by name. MatchListItem
+// (grid render, role slimmed to its name) satisfies it, so MatchCard can call
+// getAssignmentValue without carrying the role category/sort_order the grouped
+// sections need.
+type LookupAssignment = {
   person_id: string | null;
   attendance_response: string | null;
-  role: Pick<RoleRow, "name" | "category" | "sort_order">;
+  role: Pick<RoleRow, "name">;
   person: Pick<PersonRow, "full_name"> | null;
+};
+
+export type LookupMatchInput = {
+  assignments: LookupAssignment[];
+  owner: Pick<PersonRow, "full_name"> | null;
+};
+
+// Structural subset sufficient to build the expandable detail sections. Only the
+// on-demand getMatchCardSectionsAction row feeds this one: grouping by category
+// and ordering by sort_order needs the wider role.
+type SectionAssignment = LookupAssignment & {
+  role: Pick<RoleRow, "name" | "category" | "sort_order">;
 };
 
 export type SectionMatchInput = {
@@ -40,7 +53,7 @@ export type SectionMatchInput = {
 };
 
 export function getAssignmentValue(
-  match: SectionMatchInput,
+  match: LookupMatchInput,
   roleName: string,
   fallback?: string | null,
 ) {

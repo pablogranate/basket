@@ -141,7 +141,6 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
           owner: {
             id: peopleTable.id,
             full_name: peopleTable.fullName,
-            phone: peopleTable.phone,
           },
         })
         .from(matchesTable)
@@ -179,27 +178,22 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
         .from(personFunctionsTable)
         .where(inArray(personFunctionsTable.personId, activePeopleIds)),
       db
+        // match_id rides along only to bucket the rows below; it is stripped
+        // before the assignment reaches the payload. The rest mirrors
+        // MatchListItem["assignments"] exactly.
         .select({
-          id: assignmentsTable.id,
           match_id: assignmentsTable.matchId,
           role_id: assignmentsTable.roleId,
           person_id: assignmentsTable.personId,
           confirmed: assignmentsTable.confirmed,
           attendance_response: assignmentsTable.attendanceResponse,
-          attendance_note: assignmentsTable.attendanceNote,
           notes: assignmentsTable.notes,
           role: {
-            id: rolesTable.id,
             name: rolesTable.name,
-            category: rolesTable.category,
-            sort_order: rolesTable.sortOrder,
-            active: rolesTable.active,
           },
           person: {
             id: peopleTable.id,
             full_name: peopleTable.fullName,
-            phone: peopleTable.phone,
-            email: peopleTable.email,
           },
         })
         .from(assignmentsTable)
@@ -210,11 +204,11 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
     ]);
 
   const assignmentsByMatch = new Map<string, GridAssignment[]>();
-  for (const row of assignmentRows) {
+  for (const { match_id: matchId, ...row } of assignmentRows) {
     const person = row.person?.id ? row.person : null;
-    const bucket = assignmentsByMatch.get(row.match_id) ?? [];
-    bucket.push({ ...row, person } as GridAssignment);
-    assignmentsByMatch.set(row.match_id, bucket);
+    const bucket = assignmentsByMatch.get(matchId) ?? [];
+    bucket.push({ ...row, person });
+    assignmentsByMatch.set(matchId, bucket);
   }
 
   const functionsByPerson = new Map<string, PersonFunctionKey[]>();

@@ -25,7 +25,7 @@ import {
   toExportRows,
   type GridExportRow,
 } from "@/lib/grid-table";
-import { toMatchEditPrefill } from "@/lib/grid/match-prefill";
+import type { RoleRow } from "@/lib/database.types";
 import type { GridOwner, MatchListItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -34,7 +34,9 @@ export type GridTableRow = {
   match: MatchListItem;
 };
 
-type GridRole = MatchListItem["assignments"][number]["role"];
+// The `roles` prop is the active-roles list, not the slimmed role embedded on an
+// assignment: empty cells resolve their role id from here to seed the editor.
+type GridRole = Pick<RoleRow, "id" | "name">;
 
 type GridTableProps = {
   rows: GridTableRow[];
