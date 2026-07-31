@@ -228,45 +228,60 @@ select option {
   }
 
   /* Grid TABLE shared classes — same dedup intent as .mc-* above. The month
-     table renders ~278 rows × 22 cells; long Tailwind strings and per-cell
-     inline styles must NOT be repeated across rows. Hoist them here so they
-     appear once in the bundle and never in the serialized RSC payload. The one
-     legitimate per-row inline style is the dynamic league color. (Consumed by
-     grid-table.tsx — issue #34.) */
-  .gt-head {
-    @apply whitespace-nowrap border-b border-[var(--border)] px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--n-400)];
-    font-family: var(--font-oswald), system-ui, sans-serif;
+     table renders ~87 rows × 22 cells, so every long Tailwind string repeated
+     per cell was the single heaviest chunk of the table document. Attendance
+     colours and the dynamic league colour stay inline at the call sites: the
+     colours are short single utilities and Tailwind v4 puts @layer utilities
+     after @layer components, so they win over these classes. `group` also
+     stays inline on the row (it is the marker the group-hover: variants select
+     on). (Consumed by grid-table.tsx.) */
+  .gt-row {
+    @apply divide-x divide-[var(--border)] transition hover:bg-[var(--accent-soft)];
   }
 
   .gt-cell {
-    @apply px-4 py-3 align-middle text-[13px] text-[var(--n-700)];
+    @apply whitespace-nowrap px-5 py-1.5 text-sm text-[var(--foreground)];
   }
 
-  .gt-muted {
-    @apply text-[12px] font-medium text-[var(--n-500)];
+  /* Wide free-text columns get one full class rather than a shared base plus
+     an inline tail — the tail was the larger half of the repeated string. */
+  .gt-cell-wide {
+    @apply max-w-[22rem] truncate px-5 py-1.5 text-sm text-[var(--muted)];
   }
 
-  .gt-empty {
-    @apply text-[12px] text-[var(--n-400)];
+  /* Pinned Acciones gutter cell base — always paired with .gt-pin. */
+  .gt-cell-actions {
+    @apply left-0 whitespace-nowrap px-5 py-1.5;
+  }
+
+  .gt-pin {
+    @apply sticky z-30 bg-[var(--surface)] group-hover:bg-[var(--accent-soft)];
+  }
+
+  /* Day boundary marker. The table uses border-separate, so borders set on
+     <tr> are dropped by the browser — the rule lives on the cells of the first
+     row of each day. */
+  .gt-day {
+    @apply border-t-4 border-t-[var(--n-700)];
+  }
+
+  .gt-th {
+    @apply whitespace-nowrap px-5 py-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--n-400)];
+    font-family: var(--font-oswald), system-ui, sans-serif;
+  }
+
+  .gt-edit {
+    @apply inline-flex size-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--n-100)] text-[var(--foreground)] shadow-none transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)];
+  }
+
+  .gt-id {
+    @apply font-mono text-[13px] text-[var(--foreground)];
   }
 
   .gt-time {
     @apply text-[15px] font-semibold leading-none tabular-nums;
     font-family: var(--font-oswald), system-ui, sans-serif;
     color: var(--accent);
-  }
-
-  /* Day-group header — full-width colspan row (preserves single-table sticky
-     header), branded Oswald uppercase. */
-  .gt-group {
-    @apply border-y border-[var(--border)] px-4 py-2.5 text-[13px] font-bold uppercase tracking-[0.1em] text-[var(--n-800)];
-    font-family: var(--font-oswald), system-ui, sans-serif;
-    background: var(--n-100);
-  }
-
-  .gt-group-count {
-    @apply inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold text-white;
-    background: var(--accent);
   }
 }
 
