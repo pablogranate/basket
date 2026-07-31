@@ -20,10 +20,7 @@ export function TeamLogoMark({
 
   return (
     <div
-      className={cn(
-        "relative grid shrink-0 place-items-center overflow-hidden border border-[var(--border)] bg-white shadow-sm",
-        className,
-      )}
+      className={cn("tlm", className)}
     >
       {logoSrc ? (
         <Image

@@ -2,19 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import {
-  Check,
-  Columns3,
-  GripVertical,
-  Maximize2,
-  PencilLine,
-} from "lucide-react";
+import { Check, Columns3, GripVertical } from "lucide-react";
 
 import { CreateMatchModal } from "@/components/grid/create-match-modal-lazy";
 import {
   GridTableCellEditor,
   type GridCellEditor,
 } from "@/components/grid/grid-table-cell-editor";
+import { MatchCardIcon } from "@/components/grid/match-card-icon-sprite";
 import {
   COMMENTARY_PLAN_OPTIONS,
   getProductionModeLabel,
@@ -1025,7 +1020,7 @@ export function GridTable({
                           title="Abrir detalle"
                           className={editTriggerClassName}
                         >
-                          <Maximize2 className="size-4" />
+                          <MatchCardIcon name="maximize-2" className="size-4" />
                         </Link>
                       </div>
                     </td>

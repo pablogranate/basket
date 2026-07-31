@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, Maximize2, PencilLine } from "lucide-react";
-
 import { CreateMatchModal } from "@/components/grid/create-match-modal-lazy";
+import { MatchCardIcon } from "@/components/grid/match-card-icon-sprite";
 import { usePeople } from "@/components/grid/people-context";
 import { formatMatchDate } from "@/lib/date";
 import type { MatchEditPrefill } from "@/lib/types";
@@ -18,8 +17,7 @@ type MatchCardActionsProps = {
   className?: string;
 };
 
-const controlClassName =
-  "inline-flex size-10 items-center justify-center rounded-full border border-[var(--n-200)] bg-[var(--n-50)] text-[var(--n-900)] transition hover:border-[rgba(227,27,35,0.24)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]";
+const controlClassName = "mca-btn";
 
 export function MatchCardActions({
   canEdit,
@@ -62,19 +60,16 @@ export function MatchCardActions({
 
   return (
     <div
-      className={cn(
-        "pointer-events-auto flex flex-col items-center justify-center gap-3",
-        className,
-      )}
+      className={cn("mca-wrap", className)}
     >
       <Link
         href={`/match/${match.id}`}
         aria-label="Abrir detalle"
         title="Abrir detalle"
         onClick={(event) => event.stopPropagation()}
-        className={cn(controlClassName, "shadow-none")}
+        className={controlClassName}
       >
-        <Maximize2 className="size-4" />
+        <MatchCardIcon name="maximize-2" className="size-4" />
       </Link>
 
       <CreateMatchModal
@@ -85,8 +80,8 @@ export function MatchCardActions({
         match={match}
         triggerVariant="icon"
         triggerLabel="Editar partido"
-        triggerIcon={<PencilLine className="size-4" />}
-        triggerClassName={cn(controlClassName, "shadow-none")}
+        triggerIcon={<MatchCardIcon name="pencil-line" className="size-4" />}
+        triggerClassName={controlClassName}
       />
 
       <button
@@ -99,7 +94,7 @@ export function MatchCardActions({
             "rotate-180 border-[rgba(227,27,35,0.24)] bg-[var(--accent-soft)] text-[var(--accent)]",
         )}
       >
-        <ChevronDown className="size-4" />
+        <MatchCardIcon name="chevron-down" className="size-4" />
       </button>
     </div>
   );

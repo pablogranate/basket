@@ -69,10 +69,7 @@ export function LeagueLogoMarkClient({
 
   return (
     <div
-      className={cn(
-        "relative grid shrink-0 place-items-center rounded-lg bg-transparent",
-        className,
-      )}
+      className={cn("llm", className)}
     >
       {src ? (
         <Image

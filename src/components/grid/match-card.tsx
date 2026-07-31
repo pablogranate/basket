@@ -1,21 +1,10 @@
-import {
-  CalendarDays,
-  ChevronDown,
-  Clock3,
-  Hash,
-  MapPin,
-  Mic2,
-  ShieldUser,
-  Video,
-} from "lucide-react";
-
 import { MatchCardActions } from "@/components/grid/match-card-actions";
+import { MatchCardIcon } from "@/components/grid/match-card-icon-sprite";
 import { MatchCardDetails } from "@/components/grid/match-card-details";
 import { getAssignmentValue } from "@/lib/grid/match-card-sections";
 import { TeamLogoMark } from "@/components/team-logo-mark";
 import { LeagueLogoMarkClient } from "@/components/league-logo-mark-client";
 import { QuickMatchFieldEditor } from "@/components/grid/quick-match-field-editor";
-import { badgeBaseClassName } from "@/components/ui/badge";
 import { HoverAvatarBadge } from "@/components/ui/hover-avatar-badge";
 import {
   getProductionModeLabel,
@@ -123,9 +112,7 @@ export function MatchCard({
   return (
     <details
       id={detailsId}
-      className={cn(
-        "mc-card panel-surface group relative overflow-visible border border-[var(--border)] bg-[var(--surface)] transition [&_summary::-webkit-details-marker]:hidden [&_summary::marker]:hidden",
-      )}
+      className="mc-card panel-surface group"
     >
       <summary className="relative cursor-pointer list-none">
         {/* Mobile / tablet band card (< xl) — league-color band, teams hero,
@@ -133,7 +120,7 @@ export function MatchCard({
             unchanged; everything else stays behind the expand. */}
         <div className="overflow-hidden rounded-[10px] xl:hidden">
           <div
-            className="flex items-center gap-2.5 px-4 py-3"
+            className="mc-band-head"
             style={
               leagueColor
                 ? { backgroundColor: leagueColor.background }
@@ -148,14 +135,14 @@ export function MatchCard({
               )}
             />
             <p
-              className="min-w-0 flex-1 truncate text-[11px] font-extrabold uppercase tracking-[0.14em]"
+              className="mc-band-league"
               style={{ color: leagueColor?.text ?? "var(--n-600)" }}
             >
               {leagueLabel}
             </p>
             <span
               className={cn(
-                "font-[family-name:var(--font-oswald)] shrink-0 font-bold tracking-[-0.04em]",
+                "mc-band-time",
                 isPendingKickoffTime(match.kickoff_at, match.timezone)
                   ? "text-sm"
                   : "text-2xl leading-none",
@@ -166,44 +153,44 @@ export function MatchCard({
             </span>
           </div>
 
-          <div className="flex items-center justify-center gap-4 px-4 py-5">
-            <div className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
+          <div className="mc-band-hero">
+            <div className="mc-hero-team">
               <TeamLogoMark
                 teamName={match.home_team}
                 competition={match.competition}
                 className="size-14 rounded-full"
               />
-              <p className="line-clamp-2 text-[0.86rem] font-black leading-tight tracking-[-0.02em] text-[var(--foreground)]">
+              <p className="mc-hero-name">
                 {match.home_team}
               </p>
             </div>
-            <span className="shrink-0 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--n-400)]">
+            <span className="mc-band-vs">
               vs
             </span>
-            <div className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
+            <div className="mc-hero-team">
               <TeamLogoMark
                 teamName={match.away_team}
                 competition={match.competition}
                 className="size-14 rounded-full"
               />
-              <p className="line-clamp-2 text-[0.86rem] font-black leading-tight tracking-[-0.02em] text-[var(--foreground)]">
+              <p className="mc-hero-name">
                 {match.away_team}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center justify-center gap-4 px-4 pb-4 text-[11px] font-semibold text-[var(--n-500)]">
+          <div className="mc-band-meta">
             <span className="inline-flex items-center gap-1.5">
-              <CalendarDays className="size-3.5" />
+              <MatchCardIcon name="calendar-days" className="size-3.5" />
               {formatGridDateShort(match.kickoff_at, match.timezone)}
             </span>
             <span className="inline-flex min-w-0 items-center gap-1.5">
-              <MapPin className="size-3.5 shrink-0" />
+              <MatchCardIcon name="map-pin" className="size-3.5 shrink-0" />
               <span className="truncate">{venueLabel}</span>
             </span>
           </div>
 
-          <div className="flex items-center gap-2.5 border-t border-[var(--border)] bg-[var(--n-50)] px-4 py-3">
+          <div className="mc-band-foot">
             <HoverAvatarBadge
               initials={getInitials(responsible.value)}
               roleLabel={RESPONSIBLE_DISPLAY_LABEL}
@@ -213,25 +200,20 @@ export function MatchCard({
             />
             <p
               className={cn(
-                "min-w-0 flex-1 truncate text-sm font-bold text-[var(--foreground)]",
+                "mc-band-owner",
                 responsible.muted && "italic font-semibold text-[var(--muted)]",
                 getAttendanceTextClass(responsible.attendanceState),
               )}
             >
               {getCompactPersonName(responsible.value)}
             </p>
-            <span
-              className={cn(
-                badgeBaseClassName,
-                "shrink-0 border border-[var(--n-200)] bg-[var(--surface)] text-[var(--n-600)]",
-              )}
-            >
+            <span className="mc-badge-mode">
               {formatProductionModeLabel(match.production_mode)}
             </span>
-            <ChevronDown className="size-5 shrink-0 text-[var(--n-400)] transition group-open:rotate-180" />
+            <MatchCardIcon name="chevron-down" className="mc-band-chev" />
           </div>
 
-          <div className="flex justify-end gap-2 border-t border-[var(--border)] px-4 py-2">
+          <div className="mc-band-actions">
             <MatchCardActions
               canEdit={canEdit}
               detailsId={detailsId}
@@ -245,15 +227,15 @@ export function MatchCard({
         <span
           aria-hidden="true"
           className={cn(
-            "pointer-events-none absolute left-[-12px] top-1/2 z-0 hidden h-[118px] w-[30px] -translate-y-1/2 rounded-l-[10px] rounded-r-[6px] shadow-[inset_-1px_0_0_rgba(255,255,255,0.16),0_8px_18px_rgba(28,13,16,0.06)] xl:block",
+            "mc-status-tab",
             statusAccentClass,
           )}
         />
-        <div className="relative z-10 hidden overflow-visible rounded-t-[10px] rounded-b-[10px] xl:block">
-          <div className="overflow-hidden rounded-t-[10px] rounded-b-[10px] flex flex-col xl:grid xl:grid-cols-[6.5rem_minmax(12.5rem,17rem)_repeat(4,minmax(10rem,1fr))_4.75rem] xl:items-stretch 2xl:grid-cols-[7rem_minmax(17.5rem,25rem)_repeat(4,minmax(10.25rem,1fr))_4.75rem]">
+        <div className="mc-desktop">
+          <div className="mc-grid">
           <div
             className={cn(
-              "relative z-10 flex flex-col items-center justify-center gap-3 border-b border-[var(--border)] px-4 py-5 text-center xl:border-b-0 xl:border-r",
+              "mc-league-col",
               !leagueColor && "bg-[var(--surface)]",
             )}
             style={
@@ -269,7 +251,7 @@ export function MatchCard({
             />
             <p
               className={cn(
-                "text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--n-500)]",
+                "mc-league-label",
                 isUnassignedLeague && "text-[var(--n-500)]",
               )}
               style={leagueColor ? { color: leagueColor.text } : undefined}
@@ -278,10 +260,10 @@ export function MatchCard({
             </p>
           </div>
 
-          <div className="flex min-w-0 items-center border-b border-[var(--border)] px-5 py-5 xl:border-b-0 xl:border-r xl:px-4 2xl:px-6">
+          <div className="mc-teams-col">
             <div className="mx-auto w-full max-w-[16rem] 2xl:max-w-[20.5rem]">
-              <div className="grid items-center justify-center gap-2 sm:grid-cols-[minmax(0,1fr)_1.75rem_minmax(0,1fr)] sm:gap-3 2xl:gap-3 2xl:sm:grid-cols-[8.5rem_2.25rem_8.5rem] 2xl:sm:gap-4">
-                <div className="flex min-w-0 flex-col items-center text-center">
+              <div className="mc-teams-grid">
+                <div className="mc-team-block">
                   {canEdit ? (
                     <QuickMatchFieldEditor
                       field="homeTeam"
@@ -312,11 +294,11 @@ export function MatchCard({
                   </p>
                 </div>
 
-                <span className="self-center justify-self-center text-sm font-semibold uppercase tracking-[0.18em] text-[var(--n-400)] 2xl:text-base">
+                <span className="mc-vs">
                   vs
                 </span>
 
-                <div className="flex min-w-0 flex-col items-center text-center">
+                <div className="mc-team-block">
                   {canEdit ? (
                     <QuickMatchFieldEditor
                       field="awayTeam"
@@ -349,8 +331,8 @@ export function MatchCard({
                 </div>
               </div>
 
-              <div className="mt-4 flex items-center justify-center gap-2 text-center text-[12px] font-semibold text-[var(--n-400)]">
-                <MapPin className="size-3.5 shrink-0" />
+              <div className="mc-venue">
+                <MatchCardIcon name="map-pin" className="size-3.5 shrink-0" />
                 <span className="truncate" title={venueLabel}>
                   {venueLabel}
                 </span>
@@ -360,7 +342,7 @@ export function MatchCard({
 
           <div className="mc-col xl:border-r">
             <div className="flex items-center gap-2">
-              <ShieldUser className="mc-icon" />
+              <MatchCardIcon name="shield-user" className="mc-icon" />
               <p className="mc-col-tag">
                 Staff
               </p>
@@ -383,7 +365,7 @@ export function MatchCard({
                 >
                   {getCompactPersonName(responsible.value)}
                 </p>
-                <p className="text-xs font-semibold text-[var(--muted)]">
+                <p className="mc-role-tag">
                   {RESPONSIBLE_DISPLAY_LABEL}
                 </p>
               </div>
@@ -406,7 +388,7 @@ export function MatchCard({
                 >
                   {getCompactPersonName(director.value)}
                 </p>
-                <p className="text-xs font-semibold text-[var(--muted)]">
+                <p className="mc-role-tag">
                   Realizador Integral
                 </p>
               </div>
@@ -415,7 +397,7 @@ export function MatchCard({
 
           <div className="mc-col xl:border-r">
             <div className="flex items-center gap-2">
-              <Mic2 className="mc-icon" />
+              <MatchCardIcon name="mic-vocal" className="mc-icon" />
               <p className="mc-col-tag">
                 Relatos
               </p>
@@ -431,13 +413,13 @@ export function MatchCard({
               <div className="min-w-0">
                 <p
                   className={cn(
-                    "mt-1 text-sm font-bold text-[var(--foreground)]",
+                    "mt-1 mc-person-name",
                     getAttendanceTextClass(narrator.attendanceState),
                   )}
                 >
                   {getCompactPersonName(narrator.value)}
                 </p>
-                <p className="text-xs font-semibold italic text-[var(--muted)]">
+                <p className="mc-role-tag-italic">
                   Relatos
                 </p>
               </div>
@@ -460,7 +442,7 @@ export function MatchCard({
                 >
                   {getCompactPersonName(commentator.value)}
                 </p>
-                <p className="text-xs font-semibold italic text-[var(--muted)]">
+                <p className="mc-role-tag-italic">
                   Comentarios
                 </p>
               </div>
@@ -471,16 +453,11 @@ export function MatchCard({
             {match.production_code ? (
               <div>
                 <p className="mc-col-label">
-                  <Hash className="mc-icon" />
+                  <MatchCardIcon name="hash" className="mc-icon" />
                   ID Plataforma
                 </p>
                 <div className="mt-2">
-                  <span
-                    className={cn(
-                      badgeBaseClassName,
-                      "border border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]",
-                    )}
-                  >
+                  <span className="mc-badge-id">
                     {match.production_code}
                   </span>
                 </div>
@@ -488,16 +465,11 @@ export function MatchCard({
             ) : null}
             <div>
               <p className="mc-col-label">
-                <Video className="mc-icon" />
+                <MatchCardIcon name="video" className="mc-icon" />
                 {PRODUCTION_SHORT_LABEL}
               </p>
               <div className="mt-2">
-                <span
-                  className={cn(
-                    badgeBaseClassName,
-                    "border border-[var(--n-200)] bg-[var(--n-50)] text-[var(--n-600)]",
-                  )}
-                >
+                <span className="mc-badge-neutral">
                   {formatProductionModeLabel(match.production_mode)}
                 </span>
               </div>
@@ -507,21 +479,21 @@ export function MatchCard({
           <div className="mc-col">
             <div>
               <p className="mc-col-label">
-                <CalendarDays className="mc-icon" />
+                <MatchCardIcon name="calendar-days" className="mc-icon" />
                 Fecha
               </p>
-              <p className="mt-2 text-[1.12rem] font-extrabold leading-tight tracking-[-0.03em] text-[var(--foreground)]">
+              <p className="mc-date">
                 {formatGridDate(match.kickoff_at, match.timezone)}
               </p>
             </div>
             <div>
               <p className="mc-col-label">
-                <Clock3 className="mc-icon" />
+                <MatchCardIcon name="clock-3" className="mc-icon" />
                 Hora
               </p>
               <p
                 className={cn(
-                  "font-[family-name:var(--font-oswald)] mt-1 font-bold tracking-[-0.06em] text-[var(--accent)]",
+                  "mc-time",
                   isPendingKickoffTime(match.kickoff_at, match.timezone)
                     ? "text-lg"
                     : "text-4xl",
@@ -532,7 +504,7 @@ export function MatchCard({
             </div>
           </div>
 
-          <div className="flex items-center justify-end border-t border-[var(--border)] px-4 py-4 xl:justify-center xl:border-l xl:border-t-0 xl:px-0 xl:py-0">
+          <div className="mc-actions-col">
             <MatchCardActions
               canEdit={canEdit}
               detailsId={detailsId}
