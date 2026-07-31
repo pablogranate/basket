@@ -1,8 +1,21 @@
+"use client";
+
+// A client component on purpose. As an RSC, the Flight payload had to carry the
+// fully serialized element tree of every card — ~1.26 MB for a month of ~87
+// cards. As a client component the payload carries only the `match` data props
+// (~174 kB) and the browser builds the tree from the bundled module. Same shape
+// as /teams' TeamCard.
+//
+// Consequence: everything this module touches is client code. Crest paths come
+// from the server-built TeamLogoResolutionProvider map (grid-regions.tsx) rather
+// than the `server-only` logo index.
+
 import { MatchCardActions } from "@/components/grid/match-card-actions";
 import { MatchCardIcon } from "@/components/grid/match-card-icon-sprite";
 import { MatchCardDetails } from "@/components/grid/match-card-details";
 import { getAssignmentValue } from "@/lib/grid/match-card-sections";
-import { TeamLogoMark } from "@/components/team-logo-mark";
+import { TeamLogoMarkView } from "@/components/team-logo-mark-view";
+import { useResolvedTeamLogo } from "@/components/team-logo-resolution-context";
 import { LeagueLogoMarkClient } from "@/components/league-logo-mark-client";
 import { QuickMatchFieldEditor } from "@/components/grid/quick-match-field-editor";
 import { HoverAvatarBadge } from "@/components/ui/hover-avatar-badge";
@@ -108,6 +121,15 @@ export function MatchCard({
   // desktop): Flight dedupes by reference, so a second toMatchEditPrefill call
   // would serialize the whole prefill twice per card.
   const matchPrefill = toMatchEditPrefill(match);
+  // Crests resolved once per distinct (team, competition) pair by the server
+  // region and handed down through context, so the payload carries one deduped
+  // map instead of two path strings per card.
+  const homeLogoSrc = useResolvedTeamLogo(
+    `${match.home_team}::${match.competition ?? ""}`,
+  ).src;
+  const awayLogoSrc = useResolvedTeamLogo(
+    `${match.away_team}::${match.competition ?? ""}`,
+  ).src;
 
   return (
     <details
@@ -155,9 +177,9 @@ export function MatchCard({
 
           <div className="mc-band-hero">
             <div className="mc-hero-team">
-              <TeamLogoMark
+              <TeamLogoMarkView
                 teamName={match.home_team}
-                competition={match.competition}
+                logoSrc={homeLogoSrc}
                 className="size-14 rounded-full"
               />
               <p className="mc-hero-name">
@@ -168,9 +190,9 @@ export function MatchCard({
               vs
             </span>
             <div className="mc-hero-team">
-              <TeamLogoMark
+              <TeamLogoMarkView
                 teamName={match.away_team}
-                competition={match.competition}
+                logoSrc={awayLogoSrc}
                 className="size-14 rounded-full"
               />
               <p className="mc-hero-name">
@@ -273,16 +295,16 @@ export function MatchCard({
                       listId="grid-club-catalog"
                       panelClassName="w-[19rem]"
                     >
-                      <TeamLogoMark
+                      <TeamLogoMarkView
                         teamName={match.home_team}
-                        competition={match.competition}
+                        logoSrc={homeLogoSrc}
                         className="size-12 rounded-full 2xl:size-14"
                       />
                     </QuickMatchFieldEditor>
                   ) : (
-                    <TeamLogoMark
+                    <TeamLogoMarkView
                       teamName={match.home_team}
-                      competition={match.competition}
+                      logoSrc={homeLogoSrc}
                       className="size-12 rounded-full 2xl:size-14"
                     />
                   )}
@@ -309,16 +331,16 @@ export function MatchCard({
                       listId="grid-club-catalog"
                       panelClassName="w-[19rem]"
                     >
-                      <TeamLogoMark
+                      <TeamLogoMarkView
                         teamName={match.away_team}
-                        competition={match.competition}
+                        logoSrc={awayLogoSrc}
                         className="size-12 rounded-full 2xl:size-14"
                       />
                     </QuickMatchFieldEditor>
                   ) : (
-                    <TeamLogoMark
+                    <TeamLogoMarkView
                       teamName={match.away_team}
-                      competition={match.competition}
+                      logoSrc={awayLogoSrc}
                       className="size-12 rounded-full 2xl:size-14"
                     />
                   )}
