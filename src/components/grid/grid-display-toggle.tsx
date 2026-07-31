@@ -1,27 +1,24 @@
 "use client";
 
-import { useEffect, useTransition } from "react";
+import { useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { GRID_DISPLAY_COOKIE, type GridDisplay } from "@/lib/search-params";
 
-const GRID_DISPLAY_STORAGE_KEY = "basket-production.grid.display";
-
-type GridDisplay = "cards" | "table";
+const DISPLAY_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
 type GridDisplayToggleProps = {
   display: GridDisplay;
-  hasExplicitParam: boolean;
   baseSearchParams: Record<string, string>;
 };
 
-function isGridDisplay(value: string | null): value is GridDisplay {
-  return value === "cards" || value === "table";
-}
-
+// The chosen view is persisted in a cookie so the /grid RSC can honour it on the
+// very first render. It used to live in localStorage and be applied after mount
+// with a router.replace, which made every table-preferring arrival at /grid pay
+// for a second full grid render.
 export function GridDisplayToggle({
   display,
-  hasExplicitParam,
   baseSearchParams,
 }: GridDisplayToggleProps) {
   const pathname = usePathname();
@@ -39,23 +36,11 @@ export function GridDisplayToggle({
   }
 
   function handleSelect(nextDisplay: GridDisplay) {
-    window.localStorage.setItem(GRID_DISPLAY_STORAGE_KEY, nextDisplay);
+    document.cookie = `${GRID_DISPLAY_COOKIE}=${nextDisplay}; path=/; max-age=${DISPLAY_COOKIE_MAX_AGE}; samesite=lax`;
     startTransition(() => {
       router.push(buildHref(nextDisplay));
     });
   }
-
-  useEffect(() => {
-    if (hasExplicitParam) {
-      return;
-    }
-
-    const stored = window.localStorage.getItem(GRID_DISPLAY_STORAGE_KEY);
-    if (isGridDisplay(stored) && stored !== display) {
-      router.replace(buildHref(stored));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   return (
     <div

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CreateMatchModal } from "@/components/grid/create-match-modal-lazy";
 import { MatchCardIcon } from "@/components/grid/match-card-icon-sprite";
 import { usePeople } from "@/components/grid/people-context";
@@ -27,7 +28,9 @@ export function MatchCardActions({
   className,
 }: MatchCardActionsProps) {
   const people = usePeople();
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+  const detailHref = `/match/${match.id}`;
 
   useEffect(() => {
     const details = document.getElementById(detailsId);
@@ -35,16 +38,15 @@ export function MatchCardActions({
       return undefined;
     }
 
-    const observer = new MutationObserver(() => {
+    // <details> fires a native `toggle` event on open/close — one listener per
+    // card instead of one MutationObserver per card.
+    const handleToggle = () => {
       setIsOpen(details.open);
-    });
+    };
 
-    observer.observe(details, {
-      attributes: true,
-      attributeFilter: ["open"],
-    });
+    details.addEventListener("toggle", handleToggle);
 
-    return () => observer.disconnect();
+    return () => details.removeEventListener("toggle", handleToggle);
   }, [detailsId]);
 
   function toggleDetails(event: React.MouseEvent<HTMLButtonElement>) {
@@ -62,8 +64,13 @@ export function MatchCardActions({
     <div
       className={cn("mca-wrap", className)}
     >
+      {/* Prefetch on intent only: the default viewport prefetch fires one
+          request per visible row and competes with the real navigation. */}
       <Link
-        href={`/match/${match.id}`}
+        href={detailHref}
+        prefetch={false}
+        onPointerEnter={() => router.prefetch(detailHref)}
+        onFocus={() => router.prefetch(detailHref)}
         aria-label="Abrir detalle"
         title="Abrir detalle"
         onClick={(event) => event.stopPropagation()}

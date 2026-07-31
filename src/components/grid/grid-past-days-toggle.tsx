@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useLinkStatus } from "next/link";
+import { useRouter } from "next/navigation";
 import { type ReactNode } from "react";
 import { History, Loader2 } from "lucide-react";
 
@@ -37,12 +38,18 @@ export function GridPastDaysButton({
   accessory?: ReactNode;
   className?: string;
 }) {
+  const router = useRouter();
+
   return (
     <div className={cn("flex items-center gap-2", className)}>
+      {/* Not eagerly prefetched — the expanded payload is the expensive one.
+          Warmed on hover/focus so the click is not a cold round-trip. */}
       <Link
         href={href}
         scroll={false}
         prefetch={false}
+        onPointerEnter={() => router.prefetch(href)}
+        onFocus={() => router.prefetch(href)}
         aria-expanded={open}
         className={cn(
           "inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--muted)] shadow-[var(--shadow-rest)] transition hover:border-[var(--accent-border)] hover:text-[var(--accent)]",

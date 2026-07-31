@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { cookies } from "next/headers";
 
 import { GridDateOrderToggle } from "@/components/grid/grid-date-order-toggle";
 import { MatchCardIconSprite } from "@/components/grid/match-card-icon-sprite";
@@ -34,7 +35,12 @@ import {
 } from "@/lib/grid/nav-hrefs";
 import { requireUserContext } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/lib/env";
-import { parseGridSearchParams, parseNotice } from "@/lib/search-params";
+import {
+  GRID_DISPLAY_COOKIE,
+  normalizeGridDisplay,
+  parseGridSearchParams,
+  parseNotice,
+} from "@/lib/search-params";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -70,7 +76,12 @@ export default async function GridPage({ searchParams }: PageProps) {
   }
 
   const user = await requireUserContext();
-  const filters = parseGridSearchParams(resolvedSearchParams);
+  const storedDisplay = normalizeGridDisplay(
+    (await cookies()).get(GRID_DISPLAY_COOKIE)?.value,
+  );
+  const filters = parseGridSearchParams(resolvedSearchParams, {
+    displayFallback: storedDisplay,
+  });
   const redirectTo = serializeGridSearchParams(resolvedSearchParams);
   const baseSearchParams = toStringGridSearchParams(resolvedSearchParams);
   const { todayHref, monthHref } = buildGridViewHrefs(resolvedSearchParams);
@@ -165,7 +176,6 @@ export default async function GridPage({ searchParams }: PageProps) {
               <div className="flex flex-wrap items-center justify-end gap-3">
                 <GridDisplayToggle
                   display={filters.display}
-                  hasExplicitParam={hasExplicitDisplay}
                   baseSearchParams={baseSearchParams}
                 />
                 <SegmentedControl
