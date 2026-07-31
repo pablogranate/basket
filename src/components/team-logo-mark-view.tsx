@@ -31,9 +31,9 @@ export function TeamLogoMarkView({
         <Image
           src={logoSrc}
           alt={`Escudo de ${teamName}`}
-          fill
-          sizes="64px"
-          className={cn("object-contain p-1.5", imageClassName)}
+          width={64}
+          height={64}
+          className={cn("size-full object-contain p-1.5", imageClassName)}
         />
       ) : (
         <span
