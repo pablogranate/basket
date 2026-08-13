@@ -58,7 +58,6 @@ const CollaboratorReportForm = dynamic(
 
 type MyDayAssignmentsPanelProps = {
   hasLinkedPerson: boolean;
-  showDemoToday: boolean;
   // Externo (collaborator/viewer) users cannot reach /grid; hide the shortcut.
   canViewGrid: boolean;
   // Today's date onward — the primary list.
@@ -1628,7 +1627,6 @@ function MyDayPastToggle({
 
 export function MyDayAssignmentsPanel({
   hasLinkedPerson,
-  showDemoToday,
   canViewGrid,
   assignments,
   pastAssignments,
@@ -1750,15 +1748,6 @@ export function MyDayAssignmentsPanel({
           </div>
         ) : null}
 
-        {showDemoToday ? (
-          <div className="rounded-[var(--panel-radius)] border border-[var(--n-200)] bg-[var(--n-50)] px-4 py-3 text-sm font-semibold text-[var(--n-600)]">
-            {!hasLinkedPerson ? "Aún no encontramos tu vínculo en Personal. " : null}
-            Te dejamos una{" "}
-            <span className="font-black text-[var(--accent)]">vista demo</span>{" "}
-            para que valides cómo se ve `Mi jornada`.
-          </div>
-        ) : null}
-
         <section className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -1800,6 +1789,12 @@ export function MyDayAssignmentsPanel({
                   ? "Revisa los partidos anteriores del mes más abajo."
                   : "Cuando te asignen un partido aparecerá aquí."}
               </p>
+              {!hasLinkedPerson ? (
+                <p className="text-sm leading-7 text-[var(--n-500)]">
+                  Todavía no encontramos tu vínculo en Personal. Si esperabas ver
+                  partidos acá, avisale a produccion.
+                </p>
+              ) : null}
             </Card>
           )}
         </section>

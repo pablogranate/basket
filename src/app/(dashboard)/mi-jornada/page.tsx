@@ -1,22 +1,14 @@
 import { Suspense, type ReactNode } from "react";
-import { format, parseISO } from "date-fns";
-import { es } from "date-fns/locale";
 import { Hash, Sparkles, UserRound } from "lucide-react";
 
-import { LazySectionAiAssistant } from "@/components/ai/section-ai-assistant-lazy";
 import { MyDayAssignmentsPanel } from "@/components/collaborators/my-day-assignments-panel";
 import { TeamLogoResolutionProvider } from "@/components/team-logo-resolution-context";
 import { SetupPanel } from "@/components/layout/setup-panel";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 import { getUserContext } from "@/lib/auth";
 import { isDashboardPathAllowedForRole } from "@/lib/constants";
-import {
-  type CollaboratorAssignmentItem,
-  type CollaboratorGroupContact,
-  getCollaboratorDayData,
-} from "@/lib/data/collaborators";
+import { getCollaboratorDayData } from "@/lib/data/collaborators";
 import { appEnv, isSupabaseConfigured } from "@/lib/env";
-import { getSettingsSnapshot } from "@/lib/settings";
 import { resolveTeamLogoMap } from "@/lib/team-logos";
 import { cn } from "@/lib/utils";
 
@@ -26,12 +18,6 @@ function capitalizeSentence(value: string) {
   }
 
   return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
-function formatCompactMatchDate(dateValue: string) {
-  return format(parseISO(`${dateValue}T00:00:00`), "dd MMM, yyyy", {
-    locale: es,
-  }).toUpperCase();
 }
 
 function formatContentUpdatedLabel() {
@@ -53,21 +39,6 @@ function formatContentUpdatedLabel() {
   const year = dateParts.find((part) => part.type === "year")?.value ?? "";
 
   return `${day} de ${month} de ${year}, ${timeFormatter.format(now)}`;
-}
-
-function getTodayDateKey() {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: appEnv.appTimezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  const parts = formatter.formatToParts(new Date());
-  const year = parts.find((part) => part.type === "year")?.value ?? "0000";
-  const month = parts.find((part) => part.type === "month")?.value ?? "01";
-  const day = parts.find((part) => part.type === "day")?.value ?? "01";
-
-  return `${year}-${month}-${day}`;
 }
 
 function DaySummaryCard({
@@ -114,102 +85,6 @@ function DaySummaryCard({
   );
 }
 
-function buildDemoAssignment(params: {
-  date: string;
-  collaboratorName: string;
-}): CollaboratorAssignmentItem {
-  const contacts: CollaboratorGroupContact[] = [
-    {
-      roleName: "Responsable",
-      roleCategory: "Coordinacion",
-      sortOrder: 10,
-      personName: params.collaboratorName,
-      phone: "573000000000",
-      email: "santiago.demo@basketproduction.pro",
-    },
-    {
-      roleName: "Realizador",
-      roleCategory: "Produccion",
-      sortOrder: 20,
-      personName: params.collaboratorName,
-      phone: "573000000000",
-      email: "santiago.demo@basketproduction.pro",
-    },
-    {
-      roleName: "Operador de Control",
-      roleCategory: "Produccion",
-      sortOrder: 30,
-      personName: "Mauro Ruiz Díaz",
-      phone: "573001112233",
-      email: "mauro.ruiz@basketproduction.pro",
-    },
-    {
-      roleName: "Soporte tecnico",
-      roleCategory: "Produccion",
-      sortOrder: 40,
-      personName: "Fary Leonardo Urriaga",
-      phone: "573001112244",
-      email: "fary.urriaga@basketproduction.pro",
-    },
-    {
-      roleName: "Productor",
-      roleCategory: "Produccion",
-      sortOrder: 50,
-      personName: "M. Casella",
-      phone: "573001112255",
-      email: "casella@basketproduction.pro",
-    },
-    {
-      roleName: "Relator",
-      roleCategory: "Talento",
-      sortOrder: 60,
-      personName: "Matias Díaz",
-      phone: "573001112266",
-      email: "matias.diaz@basketproduction.pro",
-    },
-  ];
-
-  return {
-    assignmentId: "demo-assignment",
-    matchId: "demo-match-boca-atenas",
-    confirmed: false,
-    attendanceConfirmedAt: null,
-    attendanceResponse: null,
-    attendanceNote: null,
-    notes: "Vista demo para validar la tarjeta móvil de Mi jornada.",
-    roleName: "Realizador",
-    roleCategory: "Produccion",
-    competition: "Liga Nacional",
-    productionMode: "Encoder",
-    productionCode: "27900",
-    status: "Pendiente",
-    homeTeam: "Boca Juniors",
-    awayTeam: "Atenas de Córdoba",
-    venue: "Luis Conde, Buenos Aires",
-    kickoffAt: `${params.date}T19:30:00-05:00`,
-    durationMinutes: 150,
-    timezone: "America/Bogota",
-    ownerName: params.collaboratorName,
-    ownerPhone: "573000000000",
-    ownerEmail: "santiago.demo@basketproduction.pro",
-    responsibleName: params.collaboratorName,
-    realizerName: params.collaboratorName,
-    operatorControlName: "Mauro Ruiz Díaz",
-    supportTechName: "Fary Leonardo Urriaga",
-    producerName: "M. Casella",
-    encoderName: "Encoder HD",
-    relatorName: "Matias Díaz",
-    cameraCount: 4,
-    talentLabel: "L. Montero / G. Pérez",
-    commentaryPlan: "Relato principal con apoyo de comentario 1 en cierres de cuarto.",
-    transport: "Llegar 120 minutos antes.",
-    matchNotes: "Confirmar acceso a cabina y validar energía antes de entrar al aire.",
-    contacts,
-    dateLabel: formatCompactMatchDate(params.date),
-    timeLabel: "19:30",
-  };
-}
-
 const EMPTY_DAY_DATA = {
   person: null,
   linkedBy: null,
@@ -225,132 +100,65 @@ const EMPTY_DAY_DATA = {
 
 type CollaboratorDayData = Awaited<ReturnType<typeof getCollaboratorDayData>>;
 
-// The demo assignment stands in whenever there is nothing real to show: guest
-// mode, no linked person, or a linked person with an empty day.
-function resolveVisibleAssignments(params: {
-  data: CollaboratorDayData;
-  guestMode: boolean;
-  fallbackCollaboratorName: string;
-}) {
-  const showDemo =
-    params.guestMode ||
-    !params.data.person ||
-    params.data.upcomingAssignments.length === 0;
-
-  return {
-    showDemo,
-    upcomingAssignments: showDemo
-      ? [
-        buildDemoAssignment({
-          date: getTodayDateKey(),
-          collaboratorName:
-            params.data.person?.full_name ?? params.fallbackCollaboratorName,
-        }),
-      ]
-      : params.data.upcomingAssignments,
-    pastAssignments: params.data.pastMonthAssignments,
-  };
-}
-
 // The two data-derived slots of the header grid. Rendered as a fragment so they
 // stay direct grid children (and keep their responsive `order-*` positions)
 // while suspending as one unit.
 async function DayHeaderSlots({
   dataPromise,
-  settingsPromise,
-  guestMode,
-  fallbackCollaboratorName,
 }: {
   dataPromise: Promise<CollaboratorDayData>;
-  settingsPromise: ReturnType<typeof getSettingsSnapshot>;
-  guestMode: boolean;
-  fallbackCollaboratorName: string;
 }) {
-  const [data, settings] = await Promise.all([dataPromise, settingsPromise]);
-  const { upcomingAssignments } = resolveVisibleAssignments({
-    data,
-    guestMode,
-    fallbackCollaboratorName,
-  });
+  const data = await dataPromise;
+  const upcomingAssignments = data.upcomingAssignments;
   const pendingUpcoming = upcomingAssignments.filter(
     (assignment) => !assignment.attendanceResponse,
   ).length;
 
   return (
-    <>
-      <div className="order-3 hidden md:order-2 md:flex md:justify-self-end">
-        <LazySectionAiAssistant
-          section="Mi jornada"
-          title="Consulta tu jornada visible"
-          description="Pregunta por tus partidos visibles, horarios, responsables, ligas, sedes o modos de producción."
-          placeholder="Ej. ¿Qué partidos tengo y quién es el responsable?"
-          contextLabel="Partidos visibles en Mi jornada"
-          contextCount={upcomingAssignments.length}
-          contextRef={{ section: "mi-jornada" }}
-          guidance="Prioriza partido, liga, fecha, hora, sede, responsable, modo de producción, rol asignado, cámaras y el estado de asistencia."
-          examples={[
-            "¿Qué partidos tengo y a qué hora?",
-            "¿Quién es el responsable de Boca Juniors vs Atenas de Córdoba?",
-            "¿Qué partidos visibles están en modo Encoder?",
-          ]}
-          hasGeminiKey={settings.hasGeminiKey}
-          buttonVariant="icon"
-        />
-      </div>
-      <div className="order-2 grid grid-cols-2 gap-3 md:order-3 md:col-span-2">
-        <DaySummaryCard
-          label="Partidos asignados"
-          value={upcomingAssignments.length}
-          icon={Hash}
-        />
-        <DaySummaryCard
-          label={
-            <>
-              <span className="md:hidden">Sin confirmar</span>
-              <span className="hidden md:inline">Asistencia sin confirmar</span>
-            </>
-          }
-          value={pendingUpcoming}
-          icon={Sparkles}
-          tone="accent"
-        />
-      </div>
-    </>
+    <div className="order-2 grid grid-cols-2 gap-3 md:order-3 md:col-span-2">
+      <DaySummaryCard
+        label="Partidos asignados"
+        value={upcomingAssignments.length}
+        icon={Hash}
+      />
+      <DaySummaryCard
+        label={
+          <>
+            <span className="md:hidden">Sin confirmar</span>
+            <span className="hidden md:inline">Asistencia sin confirmar</span>
+          </>
+        }
+        value={pendingUpcoming}
+        icon={Sparkles}
+        tone="accent"
+      />
+    </div>
   );
 }
 
 function DayHeaderSlotsFallback() {
   return (
-    <>
-      <div className="order-3 hidden md:order-2 md:flex md:justify-self-end">
-        <div className="size-[52px] animate-pulse rounded-[var(--panel-radius)] bg-[var(--background-soft)]" />
-      </div>
-      <div className="order-2 grid grid-cols-2 gap-3 md:order-3 md:col-span-2">
-        {Array.from({ length: 2 }).map((_, index) => (
-          <div
-            key={index}
-            className="h-28 animate-pulse rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)]"
-          />
-        ))}
-      </div>
-    </>
+    <div className="order-2 grid grid-cols-2 gap-3 md:order-3 md:col-span-2">
+      {Array.from({ length: 2 }).map((_, index) => (
+        <div
+          key={index}
+          className="h-28 animate-pulse rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)]"
+        />
+      ))}
+    </div>
   );
 }
 
 async function DayAssignments({
   dataPromise,
-  guestMode,
-  fallbackCollaboratorName,
   role,
 }: {
   dataPromise: Promise<CollaboratorDayData>;
-  guestMode: boolean;
-  fallbackCollaboratorName: string;
   role: Awaited<ReturnType<typeof getUserContext>>["role"];
 }) {
   const data = await dataPromise;
-  const { showDemo, upcomingAssignments, pastAssignments } =
-    resolveVisibleAssignments({ data, guestMode, fallbackCollaboratorName });
+  const upcomingAssignments = data.upcomingAssignments;
+  const pastAssignments = data.pastMonthAssignments;
 
   // Resolve every visible crest on the server so the assignment cards paint
   // logos from the initial markup instead of fetching /api/team-logo per crest.
@@ -365,7 +173,6 @@ async function DayAssignments({
     <TeamLogoResolutionProvider value={teamLogoMap}>
       <MyDayAssignmentsPanel
         hasLinkedPerson={Boolean(data.person)}
-        showDemoToday={showDemo}
         canViewGrid={isDashboardPathAllowedForRole("/grid", role)}
         assignments={upcomingAssignments}
         pastAssignments={pastAssignments}
@@ -391,9 +198,8 @@ export default async function CollaboratorDayPage() {
     user.profile?.full_name?.trim() || "Modo invitado";
 
   // Started, not awaited: the greeting below paints from the session alone while
-  // these resolve, and the suspended regions share these two promises rather
-  // than reading twice.
-  const settingsPromise = getSettingsSnapshot();
+  // this resolves, and both suspended regions share the one promise rather than
+  // reading twice.
   const dataPromise = guestMode
     ? Promise.resolve<CollaboratorDayData>(EMPTY_DAY_DATA)
     : getCollaboratorDayData(user, {
@@ -430,23 +236,13 @@ export default async function CollaboratorDayPage() {
           descriptionClassName="mt-3 block w-full max-w-none text-center text-xs font-bold uppercase tracking-[0.14em] text-[var(--n-400)] md:mx-0 md:text-left md:text-sm md:font-medium md:normal-case md:tracking-normal"
         />
         <Suspense fallback={<DayHeaderSlotsFallback />}>
-          <DayHeaderSlots
-            dataPromise={dataPromise}
-            settingsPromise={settingsPromise}
-            guestMode={guestMode}
-            fallbackCollaboratorName={fallbackCollaboratorName}
-          />
+          <DayHeaderSlots dataPromise={dataPromise} />
         </Suspense>
       </div>
 
       <div className="mt-8">
         <Suspense fallback={<DayAssignmentsFallback />}>
-          <DayAssignments
-            dataPromise={dataPromise}
-            guestMode={guestMode}
-            fallbackCollaboratorName={fallbackCollaboratorName}
-            role={user.role}
-          />
+          <DayAssignments dataPromise={dataPromise} role={user.role} />
         </Suspense>
       </div>
     </div>
