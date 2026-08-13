@@ -47,7 +47,11 @@ Acentos y mayúsculas no importan: `Atenas de Cordoba` y `ATENAS DE CÓRDOBA` so
 2. **Vaciar la celda `Funcion` o `Club` borra todas las funciones o clubes de esa persona.** Cada sincronización reemplaza el conjunto completo por lo que dice la fila; no suma.
 3. **Borrar una fila elimina a la persona del portal y le quita el login.** Si vuelve a aparecer más adelante con el mismo nombre, se restaura.
 
-Freno de seguridad: si una corrida fuera a eliminar más de la mitad del listado (pestaña a medio cargar, mal nombrada, pegado incompleto), se cancela sin tocar nada y queda registrada como error. Por eso la primera sincronización necesita el listado **completo**, no una prueba con dos filas.
+Freno de seguridad: **nada se escribe hasta que confirmás**. Al apretar sincronizar se abre una ventana con el detalle exacto de la corrida — a quién se elimina, a quién se actualiza (y qué cambia), a quién se agrega — y recién con "Confirmar" se aplica. Si la lista de eliminados no tiene sentido (pestaña a medio cargar, mal nombrada, pegado incompleto), cancelás y no pasó nada. No hay ningún otro límite por cantidad o porcentaje: lo que muestra la ventana es lo que se hace.
+
+Por eso la primera sincronización necesita el listado **completo**, no una prueba con dos filas.
+
+**Las cuentas internas `@basquetpass.tv` nunca se eliminan por sincronización.** Aunque no estén en la pestaña, quedan intactas y conservan su acceso; la ventana las lista aparte como "no se tocan". La única forma de darlas de baja es desde Personas en el portal.
 
 ## Nombres repetidos
 
