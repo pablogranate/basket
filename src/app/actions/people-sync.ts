@@ -8,8 +8,19 @@ import {
   rethrowNavigationError,
 } from "@/app/actions/helpers";
 import { requireAccessManager } from "@/lib/auth-access";
-import { runPeopleSync } from "@/lib/people/sync";
+import {
+  previewPeopleSync,
+  runPeopleSync,
+  type PeopleSyncPreview,
+} from "@/lib/people/sync";
 import { ensureErrorMessage } from "@/lib/utils";
+
+// Read-only diff behind the confirmation modal: nothing is written until the
+// operator confirms and the form posts syncPeopleAction.
+export async function previewPeopleSyncAction(): Promise<PeopleSyncPreview> {
+  await requireAccessManager();
+  return previewPeopleSync();
+}
 
 function buildSyncNotice(result: Awaited<ReturnType<typeof runPeopleSync>>) {
   const parts = [
