@@ -27,7 +27,6 @@ import {
   X,
 } from "lucide-react";
 
-import { SectionAiAssistant } from "@/components/ai/section-ai-assistant";
 import dynamic from "next/dynamic";
 import { LeagueLogoMarkClient } from "@/components/league-logo-mark-client";
 import { ClientTeamLogoMark } from "@/components/team-logo-mark-client";
@@ -825,12 +824,10 @@ export function ReportsWorkspace({
   reports,
   activities,
   incidents,
-  hasGeminiKey,
 }: {
   reports: ReportRecord[];
   activities: ReportActivity[];
   incidents: IncidentRecord[];
-  hasGeminiKey: boolean;
 }) {
   const [activeView, setActiveView] = useState<ReportView>("summary");
   const [incidentsHeaderActionsPortalTarget, setIncidentsHeaderActionsPortalTarget] =
@@ -1237,24 +1234,6 @@ export function ReportsWorkspace({
         : 0,
     };
   }, [queryFilteredReports]);
-
-  const aiContext = useMemo(
-    () =>
-      queryFilteredReports.map((report) => ({
-        id_feed: report.id_feed,
-        id_bp: report.id_bp,
-        partido: report.match_label,
-        competencia: report.competition,
-        liga: report.league,
-        responsable: report.responsible_name,
-        gravedad: report.severity,
-        pago: report.paid ? "Sí" : "No",
-        feed_detecto: report.feed_detected ? "Sí" : "No",
-        problema: report.problem,
-        actualizado: report.updated_at,
-      })),
-    [queryFilteredReports],
-  );
 
   const incidentLeagueChart = useMemo(() => {
     const buckets = new Map<
@@ -2242,22 +2221,6 @@ export function ReportsWorkspace({
         </select>
         <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#94a3b8]" />
       </div>
-      <SectionAiAssistant
-        section="Reportes"
-        title="Consulta el resumen actual"
-        description="Haz preguntas ejecutivas sobre volumen, calidad, pagos, feed y responsables usando el corte visible."
-        placeholder="Ej. ¿Qué liga concentra más reportes con incidencia en este periodo?"
-        contextLabel="Resumen filtrado de reportes"
-        context={aiContext}
-        guidance="Responde con foco ejecutivo: volumen, incidencia, pagos, feed detectado, responsables y ligas más relevantes."
-        examples={[
-          "¿Qué liga tiene más cierres con incidencia?",
-          "¿Cuántos reportes críticos están sin pago?",
-          "¿Quién lidera el ranking de responsables visibles?",
-        ]}
-        hasGeminiKey={hasGeminiKey}
-        buttonVariant="icon"
-      />
       <ToolbarIconButton
         type="button"
         onClick={() => void exportVisibleReports(baseFilteredReports)}
@@ -2281,22 +2244,6 @@ export function ReportsWorkspace({
         inputClassName="text-sm font-medium text-[var(--foreground)] placeholder:text-[#94a3b8]"
       />
       <div className="flex shrink-0 items-center gap-3">
-        <SectionAiAssistant
-          section="Reportes"
-          title="Consulta los reportes visibles"
-          description="Pregunta por gravedad, responsables, pagos, detección de feed o cierres pendientes usando solo los reportes visibles."
-          placeholder="Ej. ¿Qué reportes tienen gravedad alta o crítica y quién es el responsable?"
-          contextLabel="Reportes visibles en la tabla actual"
-          context={aiContext}
-          guidance="Prioriza gravedad, responsable, pago, detección de feed, partido, liga y problema. Si preguntan por pendientes, usa los reportes visibles con incidencia."
-          examples={[
-            "¿Qué reportes tienen Sin incidencia?",
-            "¿Qué responsable lleva más cierres críticos?",
-            "¿Qué partidos siguen con problemas de pago?",
-          ]}
-          hasGeminiKey={hasGeminiKey}
-          buttonVariant="icon"
-        />
         <ToolbarIconButton
           type="button"
           onClick={() => void exportVisibleReports(sortedReports)}
@@ -3290,7 +3237,6 @@ export function ReportsWorkspace({
             ) : (
               <IncidentsWorkspace
                 incidents={incidents}
-                hasGeminiKey={hasGeminiKey}
                 embedded
                 headerActionsPortalTarget={incidentsHeaderActionsPortalTarget}
                 drawerPortalTarget={incidentsDrawerPortalTarget}

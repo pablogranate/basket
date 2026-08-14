@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 
-import { LazySectionAiAssistant } from "@/components/ai/section-ai-assistant-lazy";
 import { CreateTeamModalWithLeague } from "@/components/teams/create-team-modal-with-league";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 import { TeamCardIconSprite } from "@/components/teams/team-card-icon-sprite";
@@ -14,7 +13,6 @@ import { isCollaboratorLimitedRole } from "@/lib/constants";
 import type { UserContext } from "@/lib/auth";
 import { getPeopleContactList } from "@/lib/data/dashboard";
 import { buildTeamDirectoryTabs, getTeamDirectory } from "@/lib/data/teams";
-import { getSettingsSnapshot } from "@/lib/settings";
 import type { TeamDirectoryItem } from "@/lib/team-directory";
 import { resolveTeamLogoMap } from "@/lib/team-logos";
 import {
@@ -31,13 +29,9 @@ import {
 // The directory read is started but never awaited here: the header (whose
 // description paragraph is this page's LCP element) has to reach the browser in
 // the first flushed chunk. Everything that needs the directory — the tabs, the
-// assistant's context count, the cards — awaits the same promise behind its own
-// Suspense boundary.
+// cards — awaits the same promise behind its own Suspense boundary.
 export default async function TeamsPage() {
-  const [user, settings] = await Promise.all([
-    getUserContext(),
-    getSettingsSnapshot(),
-  ]);
+  const user = await getUserContext();
   const canManageTeams = user.canEdit && !isCollaboratorLimitedRole(user.role);
   const teamsPromise = getTeamDirectory(user);
 
@@ -57,13 +51,6 @@ export default async function TeamsPage() {
           <>
           <TeamsSearchField className="w-full md:min-w-[22rem] md:flex-1" />
 
-          <Suspense fallback={<TeamsAiAssistantPlaceholder />}>
-            <TeamsAiAssistantRegion
-              teamsPromise={teamsPromise}
-              hasGeminiKey={settings.hasGeminiKey}
-            />
-          </Suspense>
-
           <CreateTeamModalWithLeague canEdit={canManageTeams} />
           </>
         }
@@ -82,36 +69,6 @@ export default async function TeamsPage() {
       </Suspense>
     </div>
     </>
-  );
-}
-
-async function TeamsAiAssistantRegion({
-  teamsPromise,
-  hasGeminiKey,
-}: {
-  teamsPromise: Promise<TeamDirectoryItem[]>;
-  hasGeminiKey: boolean;
-}) {
-  const teams = await teamsPromise;
-
-  return (
-    <LazySectionAiAssistant
-      section="Equipos"
-      title="Consulta el directorio visible"
-      description="Pregunta por clubes, responsables, estadios, ligas o incidencias usando solo el directorio visible en esta pantalla."
-      placeholder="Ej. ¿Qué equipos de Liga Argentina tienen responsable y cuántas incidencias acumulan?"
-      contextLabel="Equipos del directorio"
-      contextCount={teams.length}
-      contextRef={{ section: "teams" }}
-      guidance="Prioriza equipo, liga, estadio, responsable, enlaces oficiales e incidencias. Si el usuario pide comparar equipos, responde en bullets claros."
-      examples={[
-        "¿Qué equipos no tienen responsable?",
-        "¿Qué estadio tiene Atenas de Córdoba?",
-        "¿Qué clubes acumulan más incidencias?",
-      ]}
-      hasGeminiKey={hasGeminiKey}
-      buttonVariant="icon"
-    />
   );
 }
 
@@ -179,13 +136,6 @@ async function TeamsDirectoryRegion({
       />
     </TeamLogoResolutionProvider>
   );
-}
-
-// The assistant trigger needs a live click handler, so the placeholder is just
-// its 52px footprint — enough to keep the header actions from reflowing when the
-// real button streams in.
-function TeamsAiAssistantPlaceholder() {
-  return <div className="size-[52px] shrink-0" aria-hidden="true" />;
 }
 
 function TeamsLeagueTabsSkeleton() {

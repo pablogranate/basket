@@ -28,7 +28,6 @@ import {
   X,
 } from "lucide-react";
 
-import { SectionAiAssistant } from "@/components/ai/section-ai-assistant";
 import { LeagueLogoMarkClient } from "@/components/league-logo-mark-client";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 import { MatchSummaryCell } from "@/components/shared/match-summary-cell";
@@ -869,14 +868,12 @@ function ActiveProblemSummary({ problems }: { problems: IncidentProblem[] }) {
 
 export function IncidentsWorkspace({
   incidents,
-  hasGeminiKey,
   embedded = false,
   headerActionsPortalTarget = null,
   drawerPortalTarget = null,
   onSelectedIdChange,
 }: {
   incidents: IncidentRecord[];
-  hasGeminiKey: boolean;
   embedded?: boolean;
   headerActionsPortalTarget?: HTMLElement | null;
   drawerPortalTarget?: HTMLElement | null;
@@ -1157,34 +1154,6 @@ export function IncidentsWorkspace({
       mediumHighPercent: total ? Math.round((mediumHigh / total) * 100) : 0,
     };
   }, [filteredIncidents]);
-  const aiContext = useMemo(
-    () =>
-      filteredIncidents.map((incident) => ({
-        id: incident.id,
-        partido: incident.matchLabel,
-        competencia: incident.competition,
-        gravedad: incident.severity,
-        operador_control: incident.operatorControl,
-        streamer: incident.streamer,
-        problema_principal: incident.mainIssue,
-        prueba: incident.testCheck,
-        inicio: incident.startCheck,
-        grafica: incident.graphicsCheck,
-        hora_prueba: incident.testTime,
-        speedtest: incident.speedtest,
-        ping: incident.ping,
-        gpu: incident.gpuLoad,
-        sede: incident.venue,
-        tipo_transmision: incident.transmissionType,
-        envios_senal: incident.signalDelivery,
-        apto_lineal: incident.aptoLineal ? "Sí" : "No",
-        overlays: incident.problems.find((problem) => problem.label === "Overlays (GES)")?.active
-          ? "Sí"
-          : "No",
-        actualizado: incident.updatedAt,
-      })),
-    [filteredIncidents],
-  );
 
   async function exportVisibleIncidents(sourceIncidents: IncidentRecord[]) {
     if (!sourceIncidents.length || isExporting) {
@@ -1486,23 +1455,6 @@ export function IncidentsWorkspace({
       />
 
       <div className="flex shrink-0 items-center gap-3">
-        <SectionAiAssistant
-          section="Incidencias"
-          title="Consulta las incidencias visibles"
-          description="Pregunta por gravedad, operador, streamer, partido afectado o problema principal usando solo la tabla filtrada actual."
-          placeholder="Ej. ¿Qué incidencias críticas hay y cómo quedó la prueba?"
-          contextLabel="Incidencias visibles en la tabla actual"
-          context={aiContext}
-          guidance="Prioriza gravedad, operador control, streamer, partido, competencia, problema principal y checks de prueba, inicio y gráfica. Si preguntan por prioridad, ordena de crítica a baja."
-          examples={[
-            "¿Qué incidencias críticas hay ahora?",
-            "¿Qué streamer tiene más incidencias visibles?",
-            "¿Qué partidos tienen problemas de Internet?",
-            "¿Qué incidencias tienen la gráfica manual o con observación?",
-          ]}
-          hasGeminiKey={hasGeminiKey}
-          buttonVariant="icon"
-        />
         <ToolbarIconButton
           type="button"
           onClick={() => void exportVisibleIncidents(sortedIncidents)}

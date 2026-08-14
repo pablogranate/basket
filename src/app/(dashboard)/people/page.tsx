@@ -41,7 +41,6 @@ import { getRoleDisplayName } from "@/lib/display";
 import { isSupabaseConfigured } from "@/lib/env";
 import { parsePersonNotesMeta } from "@/lib/people-notes";
 import { parseNotice } from "@/lib/search-params";
-import { getSettingsSnapshot } from "@/lib/settings";
 import type { PersonListItem, PersonTeamLink } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -113,7 +112,6 @@ export default async function PeoplePage({ searchParams }: PageProps) {
   // Nothing but the permission context is awaited here: the people, settings,
   // team-directory and last-sync reads all start unawaited and stream into the
   // Suspense boundary that actually needs them, so none of them gate first paint.
-  const settingsPromise = getSettingsSnapshot();
   const user = await requireUserContext();
   const peoplePromise = getPeopleData(user);
   const teamOptionsPromise = getTeamDirectory(user).then(buildTeamOptions);
@@ -133,9 +131,7 @@ export default async function PeoplePage({ searchParams }: PageProps) {
           actions={
             <>
               <PeopleSearchField />
-              <Suspense fallback={null}>
-                <PeopleAssistantSlot settingsPromise={settingsPromise} />
-              </Suspense>
+              <PeopleHeaderExtras />
               {lastPeopleSyncPromise ? (
                 <Suspense fallback={null}>
                   <PeopleSyncSlot
@@ -190,16 +186,6 @@ export default async function PeoplePage({ searchParams }: PageProps) {
       </div>
     </PeopleViewProvider>
   );
-}
-
-async function PeopleAssistantSlot({
-  settingsPromise,
-}: {
-  settingsPromise: ReturnType<typeof getSettingsSnapshot>;
-}) {
-  const settings = await settingsPromise;
-
-  return <PeopleHeaderExtras hasGeminiKey={settings.hasGeminiKey} />;
 }
 
 async function PeopleSyncSlot({

@@ -2,7 +2,6 @@ import { cache, type ReactNode } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 
-import { LazySectionAiAssistant } from "@/components/ai/section-ai-assistant-lazy";
 import { GridExportButton } from "@/components/grid/grid-export-button";
 import { GridStatsButton } from "@/components/grid/grid-stats-button";
 import { GridSyncButton } from "@/components/grid/grid-sync-button";
@@ -23,7 +22,6 @@ import { resolveTeamLogoMap } from "@/lib/team-logos";
 import type { UserContext } from "@/lib/auth";
 import type { MatchListItem } from "@/lib/types";
 import type { parseGridSearchParams } from "@/lib/search-params";
-import { getSettingsSnapshot } from "@/lib/settings";
 
 // The grid page parses a richer filter set (adds `dateOrder`/`display`) than the
 // data-layer `GridFilters`; the regions need those view-only fields too.
@@ -179,13 +177,11 @@ export async function GridHeaderDataActions({
   filters: GridPageFilters;
   redirectTo: string;
 }) {
-  const [{ dayGroups }, settings, lastSync] = await Promise.all([
+  const [, lastSync] = await Promise.all([
     loadGrid(user, filters),
-    getSettingsSnapshot(),
     user.canEdit ? getLastSuccessfulSync() : Promise.resolve(null),
   ]);
 
-  const visibleMatches = dayGroups.flatMap((group) => group.items);
   const lastSyncedLabel = lastSync?.finished_at
     ? formatDistanceToNow(new Date(lastSync.finished_at), {
         addSuffix: true,
@@ -195,8 +191,8 @@ export async function GridHeaderDataActions({
 
   return (
     <>
-      {/* Sync and the AI assistant are power tools that don't belong on a phone
-          toolbar — hide them below `sm`. Export stays available everywhere. */}
+      {/* Stats and sync are power tools that don't belong on a phone toolbar —
+          hide them below `sm`. Export stays available everywhere. */}
       <div className="hidden sm:block">
         <GridStatsButton timezone={filters.timezone} />
       </div>
@@ -208,37 +204,6 @@ export async function GridHeaderDataActions({
           />
         </div>
       ) : null}
-      <div className="hidden sm:block">
-        <LazySectionAiAssistant
-          section="Producción"
-          title="Consulta la producción visible"
-          description="Pregunta por partidos, responsables, modos de producción o cargas visibles en esta jornada."
-          placeholder="Ej. ¿Qué partidos de Liga Nacional están hoy y quién es el responsable?"
-          contextLabel="Partidos visibles en Producción"
-          contextCount={visibleMatches.length}
-          contextRef={{
-            section: "grid",
-            params: {
-              view: filters.view,
-              date: filters.date,
-              q: filters.q,
-              league: filters.league,
-              mode: filters.mode,
-              status: filters.status,
-              owner: filters.owner,
-              timezone: filters.timezone,
-            },
-          }}
-          guidance="Prioriza partido, liga, modo, estado, responsable, fecha, hora, sede y cantidad de asignaciones confirmadas."
-          examples={[
-            "¿Qué partidos hay hoy?",
-            "¿Quién lleva Bochas Sport Club vs River Plate?",
-            "¿Qué producciones están en modo Encoder?",
-          ]}
-          hasGeminiKey={settings.hasGeminiKey}
-          buttonVariant="icon"
-        />
-      </div>
     </>
   );
 }
