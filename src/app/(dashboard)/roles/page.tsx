@@ -1,5 +1,4 @@
 import { upsertRoleAction } from "@/app/actions/roles";
-import { LazySectionAiAssistant } from "@/components/ai/section-ai-assistant-lazy";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 import { SetupPanel } from "@/components/layout/setup-panel";
 import { RoleDeleteButton } from "@/components/roles/role-delete-button";
@@ -15,7 +14,6 @@ import { getRolesData } from "@/lib/data/dashboard";
 import { getRoleCategoryDisplayName, getRoleDisplayName } from "@/lib/display";
 import { isSupabaseConfigured } from "@/lib/env";
 import { parseNotice } from "@/lib/search-params";
-import { getSettingsSnapshot } from "@/lib/settings";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -30,36 +28,13 @@ export default async function RolesPage({ searchParams }: PageProps) {
   }
 
   const user = await requireUserContext();
-  // Roles and settings are independent — resolve both concurrently.
-  const [{ roles, grouped }, settings] = await Promise.all([
-    getRolesData(user),
-    getSettingsSnapshot(),
-  ]);
+  const { roles, grouped } = await getRolesData(user);
 
   return (
     <div className="space-y-10">
       <SectionPageHeader
         title={SECTION_COPY.roles.title}
         description={SECTION_COPY.roles.description}
-        actions={
-          <LazySectionAiAssistant
-            section="Roles"
-            title="Consulta los roles visibles"
-            description="Pregunta por categorías, orden, disponibilidad o estructura de los roles configurados."
-            placeholder="Ej. ¿Qué roles tiene Producción y cuáles están activos?"
-            contextLabel="Roles visibles en la configuración actual"
-            contextCount={roles.length}
-            contextRef={{ section: "roles" }}
-            guidance="Responde usando nombre, categoría, orden y estado activo de cada rol visible. Si preguntan por una categoría, agrupa de forma simple."
-            examples={[
-              "¿Qué roles hay en Producción?",
-              "¿Cuál es el orden de las cámaras?",
-              "¿Qué roles están inactivos?",
-            ]}
-            hasGeminiKey={settings.hasGeminiKey}
-            buttonVariant="icon"
-          />
-        }
       />
 
       <PageMessage intent={intent} message={notice} />
