@@ -11,7 +11,6 @@ import {
   peopleSyncRuns as peopleSyncRunsTable,
   personFunctions as personFunctionsTable,
   profiles as profilesTable,
-  teams as teamsTable,
 } from "@/lib/db/schema";
 import type { AppRole } from "@/lib/database.types";
 import {
@@ -20,7 +19,15 @@ import {
   roleNameToFunctionKey,
   type PersonFunctionKey,
 } from "@/lib/functions";
-import type { PeopleSyncPreview } from "@/lib/people/sync-preview";
+import type {
+  PeopleSyncPreview,
+  TeamsSyncDecisions,
+} from "@/lib/people/sync-preview";
+import {
+  applyTeamDecisions,
+  buildTeamIdByName,
+  buildTeamsSyncPlan,
+} from "@/lib/people/teams-from-listas";
 import { normalizeText } from "@/lib/utils";
 
 export type { PeopleSyncPreview };
@@ -54,6 +61,7 @@ export type PeopleSyncResult = {
   deleted: number;
   restored: number;
   skippedRows: number;
+  teamsCreated: number;
   warnings: string[];
   error: string | null;
 };
@@ -284,19 +292,12 @@ export async function getLastPeopleSync() {
 // Reads the sheet and the roster and diffs them without writing anything.
 // Both the confirmation modal and the run itself go through here, so what the
 // operator confirms is exactly what the apply step executes.
-async function buildPeopleSyncPlan(): Promise<PeopleSyncPlan> {
-  // 1. Team name -> id map (first id per normalized name, matches the people
-  //    form's name-collapsed "Club" options).
-  const teamRows = await db
-    .select({ id: teamsTable.id, name: teamsTable.name })
-    .from(teamsTable);
-  const teamIdByName = new Map<string, string>();
-  for (const team of teamRows) {
-    const key = normalizeText(team.name);
-    if (key && !teamIdByName.has(key)) {
-      teamIdByName.set(key, team.id);
-    }
-  }
+async function buildPeopleSyncPlan(
+  pendingTeamNames: string[] = [],
+): Promise<PeopleSyncPlan> {
+  // 1. Club name -> team id, aliases included, plus the teams this run is about
+  //    to create (so the preview does not report them as unknown clubs).
+  const teamIdByName = await buildTeamIdByName(pendingTeamNames);
 
   // 2. Fetch + parse the tab. A fetch/parse failure aborts with zero
   //    mutations — a broken sheet must never delete the roster.
@@ -462,7 +463,19 @@ async function buildPeopleSyncPlan(): Promise<PeopleSyncPlan> {
 }
 
 export async function previewPeopleSync(): Promise<PeopleSyncPreview> {
-  const plan = await buildPeopleSyncPlan();
+  // The teams pass runs first so the people diff can treat the about-to-exist
+  // clubs as known. A "Listas" that cannot be read is reported, never fatal:
+  // the roster is the point of the run, teams are the add-on.
+  let teams: PeopleSyncPreview["teams"] = { created: [], ambiguous: [] };
+  let teamsError: string | null = null;
+
+  try {
+    teams = await buildTeamsSyncPlan(SHEET_ID);
+  } catch (error) {
+    teamsError = toErrorMessage(error);
+  }
+
+  const plan = await buildPeopleSyncPlan(teams.created);
 
   return {
     created: plan.creates.map((person) => person.fullName),
@@ -476,11 +489,14 @@ export async function previewPeopleSync(): Promise<PeopleSyncPreview> {
     unchanged: plan.unchanged,
     skippedRows: plan.skippedRows,
     warnings: plan.warnings,
+    teams,
+    teamsError,
   };
 }
 
 export async function runPeopleSync(
   trigger: PeopleSyncTrigger,
+  teamDecisions?: TeamsSyncDecisions,
 ): Promise<PeopleSyncResult> {
   const result: PeopleSyncResult = {
     trigger,
@@ -493,6 +509,7 @@ export async function runPeopleSync(
     deleted: 0,
     restored: 0,
     skippedRows: 0,
+    teamsCreated: 0,
     warnings: [],
     error: null,
   };
@@ -510,6 +527,25 @@ export async function runPeopleSync(
   let profilesMutated = false;
 
   try {
+    // Teams first: a club created here resolves for the very same run, so a
+    // person whose only club is brand new lands complete instead of warned.
+    if (teamDecisions && (teamDecisions.create.length || teamDecisions.aliases.length)) {
+      const teamResult = await applyTeamDecisions(teamDecisions);
+      result.teamsCreated = teamResult.createdTeams.length;
+      result.warnings.push(...teamResult.warnings);
+
+      if (teamResult.createdTeams.length) {
+        result.warnings.push(
+          `Equipos creados desde "Listas" (${teamResult.createdTeams.length}): ${teamResult.createdTeams.join(", ")}. Completá sus datos en /teams.`,
+        );
+      }
+      if (teamResult.aliasedNames.length) {
+        result.warnings.push(
+          `Nombres vinculados a un club existente (${teamResult.aliasedNames.length}): ${teamResult.aliasedNames.join(", ")}.`,
+        );
+      }
+    }
+
     const plan = await buildPeopleSyncPlan();
 
     result.warnings.push(...plan.warnings);

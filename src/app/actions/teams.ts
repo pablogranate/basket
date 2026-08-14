@@ -13,18 +13,10 @@ import {
   teams as teamsTable,
 } from "@/lib/db/schema";
 import { splitTeamCompetitions } from "@/lib/team-directory";
+import { slugifyTeamValue } from "@/lib/teams/slug";
 import { ensureErrorMessage, maybeNull } from "@/lib/utils";
 
 const FALLBACK_SEASON = "2025/26";
-
-function slugifyTeamValue(value: string) {
-  return value
-    .normalize("NFD")
-    .replaceAll(/[̀-ͯ]/g, "")
-    .replaceAll(/[^a-zA-Z0-9]+/g, "-")
-    .replaceAll(/^-+|-+$/g, "")
-    .toLowerCase();
-}
 
 function resolveTeamCategory(leagueSlug: string) {
   if (leagueSlug.includes("femenina")) {

@@ -7,13 +7,39 @@ import {
   redirectWithNotice,
   rethrowNavigationError,
 } from "@/app/actions/helpers";
+import { z } from "zod";
+
 import { requireAccessManager } from "@/lib/auth-access";
 import {
   previewPeopleSync,
   runPeopleSync,
   type PeopleSyncPreview,
 } from "@/lib/people/sync";
+import type { TeamsSyncDecisions } from "@/lib/people/sync-preview";
 import { ensureErrorMessage } from "@/lib/utils";
+
+// What the modal resolved on screen. Names absent from this payload are not
+// created, even if "Listas" grew between the preview and the confirm.
+const teamsDecisionsSchema = z.object({
+  create: z.array(z.string().trim().min(1)).max(500),
+  aliases: z
+    .array(z.object({ alias: z.string().trim().min(1), clubId: z.string().uuid() }))
+    .max(500),
+});
+
+function readTeamDecisions(formData: FormData): TeamsSyncDecisions | undefined {
+  const raw = formData.get("teamDecisions");
+  if (typeof raw !== "string" || !raw.trim()) {
+    return undefined;
+  }
+
+  try {
+    const parsed = teamsDecisionsSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 // Read-only diff behind the confirmation modal: nothing is written until the
 // operator confirms and the form posts syncPeopleAction.
@@ -24,6 +50,7 @@ export async function previewPeopleSyncAction(): Promise<PeopleSyncPreview> {
 
 function buildSyncNotice(result: Awaited<ReturnType<typeof runPeopleSync>>) {
   const parts = [
+    ...(result.teamsCreated ? [`${result.teamsCreated} equipos creados`] : []),
     `${result.created} creados`,
     `${result.updated} actualizados`,
     `${result.restored} restaurados`,
@@ -41,7 +68,7 @@ export async function syncPeopleAction(formData: FormData) {
     // Admin + Productor (access managers) may run the sync.
     await requireAccessManager();
 
-    const result = await runPeopleSync("manual");
+    const result = await runPeopleSync("manual", readTeamDecisions(formData));
 
     if (result.skipped) {
       redirectWithNotice({

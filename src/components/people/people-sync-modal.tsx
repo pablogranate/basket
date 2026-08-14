@@ -2,7 +2,17 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal, useFormStatus } from "react-dom";
-import { AlertTriangle, Minus, Pencil, Plus, ShieldCheck, X } from "lucide-react";
+import Link from "next/link";
+import {
+  AlertTriangle,
+  ArrowUpRight,
+  Minus,
+  Pencil,
+  Plus,
+  ShieldCheck,
+  Shuffle,
+  X,
+} from "lucide-react";
 
 import {
   previewPeopleSyncAction,
@@ -11,6 +21,9 @@ import {
 import { PeopleRedirectToInput } from "@/components/people/people-redirect-to";
 import type { PeopleSyncPreview } from "@/lib/people/sync-preview";
 import { ensureErrorMessage } from "@/lib/utils";
+
+// Sentinel for "this is not any of the clubs we suggested".
+const NEW_TEAM_CHOICE = "__new__";
 
 function ConfirmButton({ disabled }: { disabled: boolean }) {
   const { pending } = useFormStatus();
@@ -70,6 +83,95 @@ function PreviewGroup({
   );
 }
 
+
+// Names from the "Listas" tab the portal does not know. Unambiguous ones are
+// created; the look-alikes wait on an explicit answer, because "Atlético Pilar"
+// next to "Club Atlético Pilar" is either a second club or the same one and the
+// sheet cannot say which.
+function TeamsGroup({
+  teams,
+  decisions,
+  onDecide,
+}: {
+  teams: PeopleSyncPreview["teams"];
+  decisions: Record<string, string>;
+  onDecide: (name: string, value: string) => void;
+}) {
+  if (!teams.created.length && !teams.ambiguous.length) {
+    return null;
+  }
+
+  return (
+    <section className="rounded-[var(--panel-radius)] border border-[rgba(22,140,90,0.28)] bg-[rgba(22,140,90,0.06)] px-4 py-4 text-[#0f7a4f]">
+      <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em]">
+        <Plus className="size-3.5" />
+        Equipos nuevos en Listas (
+        {teams.created.length + teams.ambiguous.length})
+      </p>
+
+      {teams.created.length ? (
+        <ul className="mt-3 space-y-1.5">
+          {teams.created.map((name) => (
+            <li key={`team-${name}`} className="text-sm font-semibold leading-snug">
+              {name}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {teams.ambiguous.length ? (
+        <div className="mt-4 space-y-3">
+          <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em]">
+            <Shuffle className="size-3.5" />
+            ¿Son el mismo equipo?
+          </p>
+          {teams.ambiguous.map((item) => (
+            <div
+              key={`amb-${item.name}`}
+              className="rounded-[var(--panel-radius)] border border-[rgba(22,140,90,0.28)] bg-[var(--surface)] px-3 py-3"
+            >
+              <p className="text-sm font-bold text-[var(--foreground)]">{item.name}</p>
+              <div className="mt-2 space-y-1.5">
+                {item.candidates.map((candidate) => (
+                  <label
+                    key={`${item.name}-${candidate.clubId}`}
+                    className="flex items-center gap-2 text-sm font-medium text-[var(--foreground)]"
+                  >
+                    <input
+                      type="radio"
+                      name={`team-${item.name}`}
+                      checked={decisions[item.name] === candidate.clubId}
+                      onChange={() => onDecide(item.name, candidate.clubId)}
+                    />
+                    Es el mismo que <strong>{candidate.name}</strong>
+                  </label>
+                ))}
+                <label className="flex items-center gap-2 text-sm font-medium text-[var(--foreground)]">
+                  <input
+                    type="radio"
+                    name={`team-${item.name}`}
+                    checked={decisions[item.name] === NEW_TEAM_CHOICE}
+                    onChange={() => onDecide(item.name, NEW_TEAM_CHOICE)}
+                  />
+                  Es un equipo nuevo
+                </label>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <Link
+        href="/teams"
+        className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold underline"
+      >
+        Después completá sus datos en /teams
+        <ArrowUpRight className="size-3.5" />
+      </Link>
+    </section>
+  );
+}
+
 export function PeopleSyncModal({
   title,
   triggerClassName,
@@ -83,6 +185,8 @@ export function PeopleSyncModal({
   const [preview, setPreview] = useState<PeopleSyncPreview | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // name -> clubId of the club it duplicates, or NEW_TEAM_CHOICE.
+  const [teamDecisions, setTeamDecisions] = useState<Record<string, string>>({});
 
   // SSR-safe portal gate: document is only available after client mount.
   const isMounted = useSyncExternalStore(
@@ -118,7 +222,9 @@ export function PeopleSyncModal({
     setError(null);
 
     try {
-      setPreview(await previewPeopleSyncAction());
+      const next = await previewPeopleSyncAction();
+      setTeamDecisions({});
+      setPreview(next);
     } catch (caught) {
       setError(ensureErrorMessage(caught));
     } finally {
@@ -129,13 +235,40 @@ export function PeopleSyncModal({
   function openModal() {
     setIsOpen(true);
     setPreview(null);
+    setTeamDecisions({});
     void loadPreview();
   }
 
+  const ambiguousTeams = preview?.teams.ambiguous ?? [];
+  const pendingAmbiguous = ambiguousTeams.filter(
+    (item) => !teamDecisions[item.name],
+  ).length;
+
   const hasChanges = Boolean(
     preview &&
-      (preview.created.length || preview.updated.length || preview.deleted.length),
+      (preview.created.length ||
+        preview.updated.length ||
+        preview.deleted.length ||
+        preview.teams.created.length ||
+        ambiguousTeams.length),
   );
+
+  // Exactly what was resolved on screen: the approved new names plus the
+  // look-alikes the operator merged into an existing club.
+  const decisionsPayload = JSON.stringify({
+    create: [
+      ...(preview?.teams.created ?? []),
+      ...ambiguousTeams
+        .filter((item) => teamDecisions[item.name] === NEW_TEAM_CHOICE)
+        .map((item) => item.name),
+    ],
+    aliases: ambiguousTeams
+      .filter(
+        (item) =>
+          teamDecisions[item.name] && teamDecisions[item.name] !== NEW_TEAM_CHOICE,
+      )
+      .map((item) => ({ alias: item.name, clubId: teamDecisions[item.name] })),
+  });
 
   return (
     <>
@@ -200,6 +333,23 @@ export function PeopleSyncModal({
                     </div>
                   ) : preview ? (
                     <>
+                      <TeamsGroup
+                        teams={preview.teams}
+                        decisions={teamDecisions}
+                        onDecide={(name, value) =>
+                          setTeamDecisions((current) => ({
+                            ...current,
+                            [name]: value,
+                          }))
+                        }
+                      />
+                      {preview.teamsError ? (
+                        <p className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3 text-xs font-semibold text-[var(--muted)]">
+                          No se pudo leer la pestaña Listas, no se revisaron
+                          equipos: {preview.teamsError}
+                        </p>
+                      ) : null}
+
                       <PreviewGroup
                         title="Se eliminan"
                         tone="remove"
@@ -283,6 +433,18 @@ export function PeopleSyncModal({
                   className="flex items-center justify-end gap-3 border-t border-[var(--border)] px-7 py-5"
                 >
                   <PeopleRedirectToInput />
+                  <input
+                    type="hidden"
+                    name="teamDecisions"
+                    value={decisionsPayload}
+                  />
+                  {pendingAmbiguous ? (
+                    <p className="mr-auto text-xs font-semibold text-[var(--muted)]">
+                      Resolvé {pendingAmbiguous}{" "}
+                      {pendingAmbiguous === 1 ? "nombre" : "nombres"} para
+                      continuar.
+                    </p>
+                  ) : null}
                   <button
                     type="button"
                     onClick={() => setIsOpen(false)}
@@ -290,7 +452,7 @@ export function PeopleSyncModal({
                   >
                     Cancelar
                   </button>
-                  <ConfirmButton disabled={!hasChanges} />
+                  <ConfirmButton disabled={!hasChanges || pendingAmbiguous > 0} />
                 </form>
               </div>
             </div>,

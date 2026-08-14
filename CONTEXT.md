@@ -66,3 +66,25 @@ _Avoid_: sync range, sync horizon
 
 **Partido** (retired):
 The legacy single sheet column that held both teams as `"Local vs Visitante"`, split apart at parse time. Retired as of the Julio 26 tab — the sheet now ships `Local` and `Visitante` as separate columns. No longer read by the sync, and tabs before Julio 26 are never fetched.
+
+### Clubs and teams
+
+**Club**:
+The institution — its name, crest, stadium, manager and social links. Identity lives here and is shared across every category it fields. One club per name (`clubs.name` is unique).
+_Avoid_: equipo (when the institution is meant), team (in Spanish-facing copy)
+
+**Equipo**:
+A club in one category (`mayores`, `proximo`, `femenino`) — a club fielding both a first and a women's squad is two equipos, one club. This, not the club, is what a person is linked to and what `/teams` lists. A bare club name means its `mayores` equipo.
+_Avoid_: club (when the category-level entity is meant)
+
+**Alias de club**:
+An alternative spelling that resolves to a club already loaded — `Atlético Pilar` for `Club Atlético Pilar`. Recorded when an operator confirms two names are the same club during a contacts sync, and honoured everywhere a club name is read afterwards. An alias belongs to exactly one club.
+_Avoid_: sinónimo, nombre alternativo
+
+**Listas**:
+The tab of the production spreadsheet holding the two controlled vocabularies the contacts sheet validates against: `Funciones` in column A and `Clubes` in column B. Column B is the source of truth for which clubs exist — a name there that the portal does not know is a team to create, not an error.
+_Avoid_: ClubesValidos (that is the named range inside the tab, not the tab)
+
+**Equipo incompleto**:
+An equipo created from `Listas` with nothing but its name: no league membership, no crest, no stadium. It is a real equipo people can be linked to, but it shows in `/teams` only with no league filter applied, until an editor fills it in.
+_Avoid_: equipo provisorio, borrador
