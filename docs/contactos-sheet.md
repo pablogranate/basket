@@ -17,7 +17,7 @@ La pestaña vieja `Contactos` (la lista de teléfonos por bloques) no se toca ni
    |---|---|---|---|---|---|
 
    Los nombres de las columnas son parte del contrato: escribilos así. Si una columna se llama distinto (`Nombre completo`, `E-mail`), la app la lee **vacía**, y vacío en `Funcion` o `Club` significa *borrar*. El orden de las columnas no importa.
-3. Creá una pestaña `Listas` y pegá ahí `tools/sheets/contactos-listas.csv`: columna A `Funciones` (12 valores), columna B `Clubes` (166 clubes tal como están cargados en el portal).
+3. Creá una pestaña `Listas` y pegá ahí `tools/sheets/contactos-listas.csv`: columna A `Funciones` (12 valores), columna B `Clubes`. **La columna B manda**: es la lista de clubes que existen. Si agregás un club ahí, la sincronización lo da de alta en el portal (ver "Clubes nuevos" más abajo). Al ampliarla, acordate de estirar el rango `ClubesValidos`.
 4. Rangos con nombre, en la pestaña `Listas`:
    - `FuncionesValidas` → `Listas!$A$2:$A$13`
    - `ClubesValidos` → `Listas!$B$2:$B$167`
@@ -25,7 +25,7 @@ La pestaña vieja `Contactos` (la lista de teléfonos por bloques) no se toca ni
    - `Funcion` → lista desde el rango `=FuncionesValidas`, **rechazar la entrada**, mostrar desplegable.
    - `Club` → lista desde el rango `=ClubesValidos`, **rechazar la entrada**, mostrar desplegable.
 
-   La validación rechaza, no avisa: un valor escrito a mano que el portal no conoce se descarta en silencio (queda solo como aviso en el log).
+   La validación rechaza, no avisa: un valor escrito a mano en `Contactos Portal` que no esté en `Listas` se descarta en silencio (queda solo como aviso en el log). Los clubes se dan de alta desde `Listas`, nunca desde la celda de una persona.
 6. Cargá **todas** las personas y borrá las filas de ejemplo antes de la primera sincronización.
 
 ## Reglas por columna
@@ -52,6 +52,18 @@ Freno de seguridad: **nada se escribe hasta que confirmás**. Al apretar sincron
 Por eso la primera sincronización necesita el listado **completo**, no una prueba con dos filas.
 
 **Las cuentas internas `@basquetpass.tv` nunca se eliminan por sincronización.** Aunque no estén en la pestaña, quedan intactas y conservan su acceso; la ventana las lista aparte como "no se tocan". La única forma de darlas de baja es desde Personas en el portal.
+
+## Clubes nuevos
+
+La columna B de `Listas` es la lista de clubes que el portal reconoce. Cuando agregás uno que no existe, la ventana de confirmación lo muestra en **Equipos nuevos en Listas** y lo crea al confirmar. Si no hay ninguno nuevo, la ventana no dice nada de equipos.
+
+El equipo nace con lo único que la planilla sabe: el nombre, en categoría `mayores`. Sin liga, sin escudo, sin estadio — por eso la ventana te manda a `/teams` a completarlo. Ojo con esto: **hasta que le cargues la liga, el equipo aparece en `/teams` solo sin filtro de liga**, no bajo ninguna pestaña.
+
+Si el nombre nuevo se parece a un club que ya existe — `Atlético Pilar` cuando ya está `Club Atlético Pilar` —, la ventana no adivina: te pregunta si son el mismo. Si decís que sí, no se crea nada y el nombre queda guardado como **alias** de ese club, así funciona desde ahí en adelante (también en la celda `Club` de una persona) y no te vuelve a preguntar. Si decís que es nuevo, se crea. No podés confirmar la sincronización con preguntas sin responder.
+
+La comparación es por palabras contenidas, no por parecido de letras: `Atlético Pilar` dentro de `Club Atlético Pilar` pregunta, `Imperio Juniors` contra `Boca Juniors` no. Nombres repetidos en la columna B se ignoran sin aviso: no cambian nada.
+
+Dar de baja un equipo es solo desde `/teams`. La sincronización nunca borra equipos.
 
 ## Nombres repetidos
 
