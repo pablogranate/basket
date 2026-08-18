@@ -120,7 +120,7 @@ function buildNotes(observacion, transporte) {
 }
 
 async function fetchTabCsv(tabName) {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`;
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent(tabName)}`;
   const response = await fetch(url);
 
   if (!response.ok) {
