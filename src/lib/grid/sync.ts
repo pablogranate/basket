@@ -172,7 +172,7 @@ function buildNotes(observacion: string, transporte: string) {
 }
 
 async function fetchTabCsv(tabName: string) {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`;
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent(tabName)}`;
   const response = await fetch(url, { cache: "no-store" });
 
   if (!response.ok) {

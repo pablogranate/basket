@@ -72,7 +72,7 @@ export function findNameCandidates(
 }
 
 async function fetchClubNamesFromListas(sheetId: string): Promise<string[]> {
-  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(CLUBS_TAB)}`;
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent(CLUBS_TAB)}`;
   const response = await fetch(url, { cache: "no-store" });
 
   if (!response.ok) {

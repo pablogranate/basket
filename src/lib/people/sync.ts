@@ -145,7 +145,7 @@ function splitCell(value: string): string[] {
 }
 
 async function fetchTabCsv(tabName: string) {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`;
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent(tabName)}`;
   const response = await fetch(url, { cache: "no-store" });
 
   if (!response.ok) {
@@ -180,6 +180,15 @@ function parseContactsTab(
       columnIndex.set(header, index);
     }
   });
+
+  // A header row we cannot read is a read failure, not an empty tab: without
+  // "Nombre" every row parses as blank and the whole roster looks absent. Throw
+  // so the run aborts with zero mutations, the same as a failed download.
+  if (!columnIndex.has("nombre")) {
+    throw new Error(
+      `La pestaña "${CONTACTS_TAB}" no tiene una columna "Nombre" legible (encabezados: ${headers.join(" | ")}).`,
+    );
+  }
 
   const readCell = (row: string[], ...aliases: string[]) => {
     for (const alias of aliases) {
@@ -312,6 +321,14 @@ async function buildPeopleSyncPlan(
   } catch (fetchError) {
     throw new Error(
       `No se pudo leer la pestaña "${CONTACTS_TAB}": ${toErrorMessage(fetchError)}`,
+    );
+  }
+
+  // Zero usable rows is always a broken read (bad tab name, gviz header
+  // guessing, an emptied sheet), never an instruction to delete everyone.
+  if (!sheet.people.length) {
+    throw new Error(
+      `La pestaña "${CONTACTS_TAB}" no devolvió ninguna fila válida; no se sincronizó nada.`,
     );
   }
 
