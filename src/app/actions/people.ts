@@ -29,7 +29,11 @@ import { sendCollaboratorInviteEmail } from "@/lib/email/mailer";
 import { isPersonFunctionKey, resolveFunctionKey } from "@/lib/functions";
 import { appEnv } from "@/lib/env";
 import { buildPersonNotesMeta } from "@/lib/people-notes";
-import { ensureErrorMessage, maybeNull } from "@/lib/utils";
+import {
+  ensureErrorMessage,
+  maybeNull,
+  resolveCheckboxFlag,
+} from "@/lib/utils";
 
 // Access-grant tiers map onto the profiles.role enum: Admin/Productor/Externo.
 // Unknown or missing input falls back to the least-privileged tier (Externo).
@@ -138,7 +142,6 @@ async function grantPlatformAccess({
 export async function upsertPersonAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData, "/people");
   const ctx = await requireEditor();
-  const hasActiveField = formData.has("active");
   const createPlatformAccess =
     String(formData.get("createPlatformAccess") ?? "off") === "on";
   const requestedAccessRole = normalizeAccessTier(
@@ -165,9 +168,7 @@ export async function upsertPersonAction(formData: FormData) {
       coverage: maybeNull(String(formData.get("coverageTeams") ?? "")),
       notes: maybeNull(String(formData.get("notes") ?? "")),
     }),
-    active: hasActiveField
-      ? String(formData.get("active") ?? "") !== "off"
-      : true,
+    active: resolveCheckboxFlag(formData, "active", true),
   };
 
   // Canonical capabilities: validate at the boundary, dedupe, and fall back to
@@ -509,7 +510,7 @@ export async function togglePersonActiveAction(formData: FormData) {
   const ctx = await requireEditor();
 
   const personId = String(formData.get("personId") ?? "").trim();
-  const nextActive = String(formData.get("active") ?? "") === "on";
+  const nextActive = resolveCheckboxFlag(formData, "active", false);
 
   try {
     const stamped = stampUpdate(ctx, { active: nextActive });

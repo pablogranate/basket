@@ -80,6 +80,22 @@ export function maybeNull(value: string | null | undefined) {
   return trimmed ? trimmed : null;
 }
 
+// Checkbox fields post nothing when unchecked, so forms pair the checkbox with
+// a hidden companion (`value="off"`) that carries the unchecked state. Both
+// share one field name, and `FormData.get` returns only the FIRST entry — which
+// is the hidden "off" whenever the companion is declared before the checkbox.
+// Read every entry instead and let an explicit "on" win regardless of order.
+// `fallback` covers forms that submit no entry for the field at all.
+export function resolveCheckboxFlag(
+  formData: FormData,
+  name: string,
+  fallback: boolean,
+) {
+  const values = formData.getAll(name).map((value) => String(value));
+
+  return values.length === 0 ? fallback : values.includes("on");
+}
+
 export function toTitleCase(value: string) {
   return value
     .split(" ")
