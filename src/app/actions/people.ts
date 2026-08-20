@@ -129,7 +129,7 @@ async function grantPlatformAccess({
 
   await sendCollaboratorInviteEmail({
     to: email,
-    loginUrl: `${appEnv.appUrl}/login`,
+    loginUrl: `${appEnv.portalBaseUrl}/login`,
   });
 
   return { emailSent: true };

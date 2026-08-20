@@ -97,7 +97,7 @@ export function buildMatchNotificationMessage(params: {
   const roleLabel = params.roleNames?.length
     ? params.roleNames.join(", ")
     : "equipo asignado";
-  const portalLink = `${appEnv.appUrl.replace(/\/$/, "")}/mi-jornada`;
+  const portalLink = `${appEnv.portalBaseUrl}/mi-jornada`;
   const dateLabel = formatMatchDate(
     params.match.kickoff_at,
     params.match.timezone,

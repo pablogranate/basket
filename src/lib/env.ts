@@ -1,3 +1,8 @@
+const BETTER_AUTH_URL =
+  process.env.BETTER_AUTH_URL ??
+  process.env.NEXT_PUBLIC_APP_URL ??
+  "http://localhost:3000";
+
 export const appEnv = {
   supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
   supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
@@ -10,10 +15,13 @@ export const appEnv = {
   databaseUrl: process.env.DATABASE_URL ?? "",
   authDatabaseUrl: process.env.AUTH_DATABASE_URL ?? "",
   betterAuthSecret: process.env.BETTER_AUTH_SECRET ?? "",
-  betterAuthUrl:
-    process.env.BETTER_AUTH_URL ??
-    process.env.NEXT_PUBLIC_APP_URL ??
-    "http://localhost:3000",
+  betterAuthUrl: BETTER_AUTH_URL,
+  // Every auth flow (login, magic link, OAuth callback) lives on the portal
+  // origin, which is exactly what BETTER_AUTH_URL must point at. Derive
+  // user-facing portal links from it instead of NEXT_PUBLIC_APP_URL, which may
+  // point at the apex launcher and would bounce recipients through an extra
+  // cross-subdomain login redirect.
+  portalBaseUrl: BETTER_AUTH_URL.replace(/\/$/, ""),
   googleClientId: process.env.GOOGLE_CLIENT_ID ?? "",
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
   staffEmailDomain: process.env.STAFF_EMAIL_DOMAIN ?? "basquetpass.tv",
@@ -78,6 +86,19 @@ export function assertBetterAuthEnv() {
     throw new Error(
       "Missing Google OAuth credentials. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.",
     );
+  }
+
+  // Auth runs on the portal origin only. Pointing BETTER_AUTH_URL at the apex
+  // launcher makes every emailed login link bounce through a cross-subdomain
+  // redirect before reaching the login form.
+  try {
+    if (new URL(appEnv.betterAuthUrl).hostname === "basket-app.com") {
+      console.warn(
+        "[auth] BETTER_AUTH_URL points at the apex host; it should be the portal origin (https://portal.basket-app.com).",
+      );
+    }
+  } catch {
+    console.warn(`[auth] BETTER_AUTH_URL is not a valid URL: ${appEnv.betterAuthUrl}`);
   }
 }
 
