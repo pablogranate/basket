@@ -8,8 +8,11 @@ import { PRODUCT_COPY } from "@/lib/copy";
 import {
   APP_NAME,
   resolvePostLoginDestination,
-  sanitizeRedirectTo,
 } from "@/lib/constants";
+import {
+  buildLoginCallbackURL,
+  resolveLoginRedirectTarget,
+} from "@/lib/auth/login-callback";
 import { isSupabaseConfigured } from "@/lib/env";
 import { parseNotice } from "@/lib/search-params";
 import { getUserContext } from "@/lib/auth";
@@ -75,24 +78,20 @@ export default async function LoginPage({ searchParams }: PageProps) {
 
   const user = await getUserContext();
 
-  const rawRedirectTo =
-    typeof resolvedSearchParams.redirectTo === "string"
-      ? resolvedSearchParams.redirectTo
-      : null;
+  // Accepts both the middleware form (`?redirectTo=/grid`) and the post-auth
+  // callback form (`?r=<token>`); already sanitized against open redirects.
+  const redirectTarget = resolveLoginRedirectTarget(resolvedSearchParams);
 
   if (user.userId) {
     redirect(
-      resolvePostLoginDestination({ role: user.role, redirectTo: rawRedirectTo }),
+      resolvePostLoginDestination({ role: user.role, redirectTo: redirectTarget }),
     );
   }
 
   // Route the OAuth / magic-link callback back through this page so the
   // role-aware destination is resolved once the session exists (the role is
   // unknown before authentication completes).
-  const safeRedirectTo = sanitizeRedirectTo(rawRedirectTo);
-  const callbackURL = safeRedirectTo
-    ? `/login?redirectTo=${encodeURIComponent(safeRedirectTo)}`
-    : "/login";
+  const callbackURL = buildLoginCallbackURL(redirectTarget);
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
