@@ -53,10 +53,13 @@ export default async function RolesPage({ searchParams }: PageProps) {
           <Input name="name" placeholder="Cámara 6" disabled={!user.canEdit} />
           <Input name="category" placeholder="Cámaras" disabled={!user.canEdit} />
           <Input name="sortOrder" type="number" placeholder="170" disabled={!user.canEdit} />
+          {/* Unchecked checkboxes post nothing; the companion carries the "off". */}
+          <input type="hidden" name="active" value="off" />
           <label className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3 text-sm font-semibold text-[var(--foreground)]">
             <input
               type="checkbox"
               name="active"
+              value="on"
               defaultChecked
               disabled={!user.canEdit}
               className="size-4"
@@ -113,10 +116,12 @@ export default async function RolesPage({ searchParams }: PageProps) {
                         defaultValue={role.sort_order}
                         disabled={!user.canEdit}
                       />
+                      <input type="hidden" name="active" value="off" />
                       <label className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm font-semibold text-[var(--foreground)]">
                         <input
                           type="checkbox"
                           name="active"
+                          value="on"
                           defaultChecked={role.active}
                           disabled={!user.canEdit}
                           className="size-4"

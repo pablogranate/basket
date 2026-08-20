@@ -14,7 +14,7 @@ import { requireAdmin } from "@/lib/auth-access";
 import { db } from "@/lib/db/client";
 import { roles as rolesTable } from "@/lib/db/schema";
 import { normalizeRoleCategoryInput, normalizeRoleNameInput } from "@/lib/display";
-import { ensureErrorMessage } from "@/lib/utils";
+import { ensureErrorMessage, resolveCheckboxFlag } from "@/lib/utils";
 
 export async function upsertRoleAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData, "/roles");
@@ -26,7 +26,7 @@ export async function upsertRoleAction(formData: FormData) {
       String(formData.get("category") ?? "Produccion"),
     ),
     sort_order: Number(formData.get("sortOrder") ?? 0),
-    active: String(formData.get("active") ?? "") !== "off",
+    active: resolveCheckboxFlag(formData, "active", true),
   };
 
   try {
