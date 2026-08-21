@@ -12,7 +12,7 @@ function buildCsv(rows: PersonView[]) {
   const table = [
     [
       "Nombre",
-      "Rol principal",
+      "Funciones",
       "Ciudad",
       "Club",
       "Teléfono",
@@ -22,7 +22,7 @@ function buildCsv(rows: PersonView[]) {
     ],
     ...rows.map((row) => [
       row.person.full_name,
-      row.role,
+      row.roleLabel,
       row.city,
       row.detailSummary,
       row.person.phone ?? "",

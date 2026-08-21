@@ -9,13 +9,13 @@ import {
   derivePeopleFilterOptions,
   parsePeopleFilters,
 } from "@/lib/people-filters";
+import type { PersonFunctionKey } from "@/lib/functions";
 import type { PersonListItem } from "@/lib/types";
 
 type PersonInput = {
   id?: string;
   name: string;
-  role?: string;
-  primaryRole?: string | null;
+  functions?: PersonFunctionKey[];
   city?: string;
   coverage?: string;
   state?: PersonListItem["assignment_state"];
@@ -32,40 +32,38 @@ function makePerson(input: PersonInput): PersonListItem {
   return {
     id: input.id ?? `p-${counter}`,
     full_name: input.name,
-    primary_role: input.primaryRole ?? null,
     assignment_state: input.state ?? "Disponible",
     active: input.active ?? true,
     phone: input.phone ?? null,
     email: input.email ?? null,
     notes: buildPersonNotesMeta({
-      role: input.role ?? "",
       city: input.city ?? "",
       coverage: input.coverage ?? "",
       notes: input.notes ?? "",
     }),
     current_assignment_count: 0,
-    functions: [],
+    functions: input.functions ?? [],
   } as unknown as PersonListItem;
 }
 
 const PEOPLE: PersonListItem[] = [
   makePerson({
     name: "Santiago Cordoba",
-    role: "Relator",
+    functions: ["Relator"],
     city: "Bogotá",
     coverage: "Boca Juniors, River Plate",
     state: "En asignacion",
   }),
   makePerson({
     name: "Juan Camilo",
-    role: "Camara 1",
+    functions: ["Camara"],
     city: "bogota",
     coverage: "Boca Juniors",
     state: "Disponible",
   }),
   makePerson({
     name: "Samuel Venegas",
-    role: "Productor",
+    functions: ["Productor"],
     city: "Medellín",
     coverage: "Independiente",
     state: "Inactivo",
@@ -73,7 +71,6 @@ const PEOPLE: PersonListItem[] = [
   }),
   makePerson({
     name: "Persona Sin Datos",
-    primaryRole: null,
   }),
 ];
 
@@ -150,7 +147,7 @@ describe("applyPeopleFilters", () => {
     expect(result).toHaveLength(PEOPLE.length);
   });
 
-  it("narrows by role (exact match)", () => {
+  it("narrows by role (matches any of the person's funciones)", () => {
     const result = applyPeopleFilters({
       people: PEOPLE,
       filters: { ...EMPTY_PEOPLE_FILTERS, role: "Relator" },
@@ -244,24 +241,34 @@ describe("derivePeopleFilterOptions", () => {
     expect(realCities).toHaveLength(1);
   });
 
-  it("lists distinct roles and teams from the full set", () => {
+  it("lists distinct funciones and teams from the full set", () => {
     const { roles, teams } = derivePeopleFilterOptions(PEOPLE);
-    expect(roles).toContain("Relator");
-    expect(roles).toContain("Camara 1");
-    expect(roles).toContain("Productor");
+    const roleValues = roles.map((role) => role.value);
+    expect(roleValues).toContain("Relator");
+    expect(roleValues).toContain("Camara");
+    expect(roleValues).toContain("Productor");
     expect(teams).toContain("Boca Juniors");
     expect(teams).toContain("River Plate");
   });
 
   it("appends (Sin asignar) only when a blank-field person exists", () => {
     const withBlank = derivePeopleFilterOptions(PEOPLE);
-    expect(withBlank.roles).toContain(UNASSIGNED_OPTION);
+    expect(withBlank.roles.map((role) => role.value)).toContain(
+      UNASSIGNED_OPTION,
+    );
     expect(withBlank.cities).toContain(UNASSIGNED_OPTION);
 
     const noBlank = derivePeopleFilterOptions([
-      makePerson({ name: "X", role: "Relator", city: "Cali", coverage: "Cali FC" }),
+      makePerson({
+        name: "X",
+        functions: ["Relator"],
+        city: "Cali",
+        coverage: "Cali FC",
+      }),
     ]);
-    expect(noBlank.roles).not.toContain(UNASSIGNED_OPTION);
+    expect(noBlank.roles.map((role) => role.value)).not.toContain(
+      UNASSIGNED_OPTION,
+    );
     expect(noBlank.cities).not.toContain(UNASSIGNED_OPTION);
     expect(noBlank.teams).not.toContain(UNASSIGNED_OPTION);
   });

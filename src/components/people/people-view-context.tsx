@@ -24,7 +24,6 @@ import type { PersonListItem } from "@/lib/types";
 
 export type PersonView = {
   person: PersonListItem;
-  role: string;
   city: string;
   notes: string;
   coverageNames: string[];
@@ -38,13 +37,12 @@ export type PersonView = {
 // single notes parse per person.
 function buildPersonView(person: PersonListItem): PersonView {
   const meta = parsePersonNotesMeta(person.notes);
-  const { roleLabel, rolePresentation } = getPersonRoleDisplay(person, meta);
+  const { roleLabel, rolePresentation } = getPersonRoleDisplay(person);
   const city = meta.city || "";
   const coverageNames = personCoverageNames(person);
 
   return {
     person,
-    role: meta.role || person.primary_role || "",
     city,
     notes: meta.notes,
     coverageNames,

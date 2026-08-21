@@ -1,4 +1,8 @@
-import { getAssignmentStateDisplayName } from "@/lib/display";
+import {
+  getAssignmentStateDisplayName,
+  getFunctionDisplayName,
+} from "@/lib/display";
+import { PERSON_FUNCTIONS } from "@/lib/functions";
 import { parsePersonNotesMeta } from "@/lib/people-notes";
 import { personCoverageNames } from "@/lib/team-responsibles";
 import type { PersonListItem } from "@/lib/types";
@@ -38,7 +42,7 @@ const STATE_FILTER_ALLOWED = [
 export const UNASSIGNED_OPTION = "(Sin asignar)";
 
 export type PeopleFilterOptions = {
-  roles: string[];
+  roles: { value: string; label: string }[];
   cities: string[];
   teams: string[];
 };
@@ -74,11 +78,10 @@ export function hasActivePeopleFilters(filters: PeopleFilters): boolean {
   return Boolean(filters.role || filters.state || filters.city || filters.team);
 }
 
-function getPersonRoleValue(
-  person: PersonListItem,
-  meta: ReturnType<typeof parsePersonNotesMeta>,
-): string {
-  return meta.role || person.primary_role || "";
+// Funciones (the person_functions relation) are the only role source. A person
+// can hold several, so the Rol filter is a membership test, not an equality one.
+function getPersonRoleLabels(person: PersonListItem): string[] {
+  return person.functions.map(getFunctionDisplayName);
 }
 
 export function applyPeopleFilters({
@@ -96,14 +99,14 @@ export function applyPeopleFilters({
 
   return people.filter((person) => {
     const meta = parsePersonNotesMeta(person.notes);
-    const role = getPersonRoleValue(person, meta);
+    const roles = person.functions;
     const city = meta.city || "";
     const teams = personCoverageNames(person);
 
     if (normalizedQuery) {
       const haystack = [
         person.full_name,
-        role,
+        getPersonRoleLabels(person).join(" "),
         city,
         teams.join(" "),
         person.phone ?? "",
@@ -120,7 +123,11 @@ export function applyPeopleFilters({
     }
 
     if (filters.role) {
-      if (filters.role === UNASSIGNED_OPTION ? role !== "" : role !== filters.role) {
+      if (
+        filters.role === UNASSIGNED_OPTION
+          ? roles.length > 0
+          : !roles.some((functionKey) => functionKey === filters.role)
+      ) {
         return false;
       }
     }
@@ -198,13 +205,22 @@ function withUnassigned(
 export function derivePeopleFilterOptions(
   people: PersonListItem[],
 ): PeopleFilterOptions {
-  const roleValues: string[] = [];
+  const usedFunctions = new Set<string>();
+  let hasPersonWithoutFunction = false;
   const cityValues: string[] = [];
   const teamValues: string[] = [];
 
   for (const person of people) {
     const meta = parsePersonNotesMeta(person.notes);
-    roleValues.push(getPersonRoleValue(person, meta));
+
+    if (person.functions.length === 0) {
+      hasPersonWithoutFunction = true;
+    } else {
+      for (const functionKey of person.functions) {
+        usedFunctions.add(functionKey);
+      }
+    }
+
     cityValues.push(meta.city || "");
 
     const teams = personCoverageNames(person);
@@ -215,8 +231,16 @@ export function derivePeopleFilterOptions(
     }
   }
 
+  // Ordered by the canonical PERSON_FUNCTIONS list, not alphabetically, so the
+  // dropdown keeps the same order as the Funciones checkboxes.
+  const roles = PERSON_FUNCTIONS.filter((key) => usedFunctions.has(key)).map(
+    (key) => ({ value: key, label: getFunctionDisplayName(key) }),
+  );
+
   return {
-    roles: withUnassigned(collectDistinct(roleValues)),
+    roles: hasPersonWithoutFunction
+      ? [...roles, { value: UNASSIGNED_OPTION, label: UNASSIGNED_OPTION }]
+      : roles,
     cities: withUnassigned(collectDistinct(cityValues)),
     teams: withUnassigned(collectDistinct(teamValues)),
   };

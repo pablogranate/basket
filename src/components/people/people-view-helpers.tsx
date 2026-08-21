@@ -9,8 +9,7 @@ import {
   Wrench,
 } from "lucide-react";
 
-import { getFunctionDisplayName, getRoleDisplayName } from "@/lib/display";
-import type { PersonNotesMeta } from "@/lib/people-notes";
+import { getFunctionDisplayName } from "@/lib/display";
 import type { PersonListItem } from "@/lib/types";
 
 export function getInitials(name: string) {
@@ -84,27 +83,19 @@ export function getRolePresentation(role: string) {
   return { Icon: ShieldCheck, className: "bg-[#f4f7fb] text-[#64748b]" };
 }
 
-// Functions (the person_functions relation) are the source of truth for a
-// person's role(s). A person can hold several — join them — and fall back to
-// the legacy notes role / assignment-derived primary_role only when untagged.
-// Takes the already-parsed notes meta so callers that need several derived
-// fields per person pay for a single parse.
-export function getPersonRoleDisplay(
-  person: PersonListItem,
-  meta: PersonNotesMeta,
-) {
-  if (person.functions.length > 0) {
+// Funciones (the person_functions relation) are the only source of truth for a
+// person's role(s). A person can hold several — join them.
+export function getPersonRoleDisplay(person: PersonListItem) {
+  if (person.functions.length === 0) {
     return {
-      roleLabel: person.functions.map(getFunctionDisplayName).join(", "),
-      rolePresentation: getRolePresentation(person.functions[0]),
+      roleLabel: "Sin rol",
+      rolePresentation: getRolePresentation(""),
     };
   }
 
-  const legacy = meta.role || person.primary_role || "";
-
   return {
-    roleLabel: legacy ? getRoleDisplayName(legacy) : "Sin rol",
-    rolePresentation: getRolePresentation(legacy),
+    roleLabel: person.functions.map(getFunctionDisplayName).join(", "),
+    rolePresentation: getRolePresentation(person.functions[0]),
   };
 }
 

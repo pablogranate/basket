@@ -27,7 +27,7 @@ export function PeopleWorkspaceClient({
     () => derivePeopleFilterOptions(allPeople),
     [allPeople],
   );
-  // One pass over the visible rows, reading the role each row already carries,
+  // One pass over the visible rows, reading the funciones each person carries,
   // instead of three passes each re-parsing every person's notes.
   const stats = useMemo(() => {
     let activeCount = 0;
@@ -42,13 +42,17 @@ export function PeopleWorkspaceClient({
 
       activeCount += 1;
 
-      if (row.role === "Relator") {
+      const functions = row.person.functions;
+
+      if (functions.includes("Relator")) {
         relatorCount += 1;
-      } else if (row.role === "Productor") {
+      }
+
+      if (functions.includes("Productor")) {
         producerCount += 1;
       }
 
-      if (row.role.startsWith("Camara")) {
+      if (functions.includes("Camara")) {
         cameraCount += 1;
       }
     }

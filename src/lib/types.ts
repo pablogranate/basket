@@ -47,7 +47,6 @@ export type PersonTeamLink = {
 };
 
 export type PersonListItem = PersonRow & {
-  primary_role: string | null;
   assignment_state: "En asignacion" | "Disponible" | "Inactivo";
   current_assignment_count: number;
   functions: PersonFunctionKey[];

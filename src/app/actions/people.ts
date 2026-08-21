@@ -26,7 +26,7 @@ import {
   profiles as profilesTable,
 } from "@/lib/db/schema";
 import { sendCollaboratorInviteEmail } from "@/lib/email/mailer";
-import { isPersonFunctionKey, resolveFunctionKey } from "@/lib/functions";
+import { isPersonFunctionKey } from "@/lib/functions";
 import { appEnv } from "@/lib/env";
 import { buildPersonNotesMeta } from "@/lib/people-notes";
 import {
@@ -203,14 +203,11 @@ export async function upsertPersonAction(formData: FormData) {
     ? requestedAccessRole
     : "collaborator";
 
-  const roleNameInput = maybeNull(String(formData.get("roleName") ?? ""));
-
   const payload = {
     full_name: String(formData.get("fullName") ?? "").trim(),
     phone: maybeNull(String(formData.get("phone") ?? "")),
     email: maybeNull(String(formData.get("email") ?? "")),
     notes: buildPersonNotesMeta({
-      role: roleNameInput,
       city: maybeNull(String(formData.get("city") ?? "")),
       coverage: maybeNull(String(formData.get("coverageTeams") ?? "")),
       notes: maybeNull(String(formData.get("notes") ?? "")),
@@ -218,9 +215,10 @@ export async function upsertPersonAction(formData: FormData) {
     active: resolveCheckboxFlag(formData, "active", true),
   };
 
-  // Canonical capabilities: validate at the boundary, dedupe, and fall back to
-  // the legacy free-text role only when no functions were submitted.
-  let selectedFunctions = Array.from(
+  // Canonical capabilities: the only role source. Validate at the boundary and
+  // dedupe; an empty selection is allowed and simply leaves the person out of
+  // every assignment dropdown.
+  const selectedFunctions = Array.from(
     new Set(
       formData
         .getAll("functions")
@@ -228,13 +226,6 @@ export async function upsertPersonAction(formData: FormData) {
         .filter(isPersonFunctionKey),
     ),
   );
-
-  if (selectedFunctions.length === 0) {
-    const legacy = resolveFunctionKey(roleNameInput);
-    if (legacy) {
-      selectedFunctions = [legacy];
-    }
-  }
 
   // "Club" links: the person's team FKs, submitted as repeated teamIds fields.
   const selectedTeamIds = Array.from(

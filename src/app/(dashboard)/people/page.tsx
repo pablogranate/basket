@@ -23,7 +23,6 @@ import { PersonAccessRoleForm } from "@/components/people/person-access-role-for
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageMessage } from "@/components/ui/page-message";
-import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { requireUserContext, type UserContext } from "@/lib/auth";
 import {
@@ -31,7 +30,6 @@ import {
   isAccessManagerRole,
 } from "@/lib/auth-access";
 import { SECTION_COPY } from "@/lib/copy";
-import { ROLE_SEED } from "@/lib/constants";
 import type { AppRole } from "@/lib/database.types";
 import { getPeopleData } from "@/lib/data/dashboard";
 import { getLastPeopleSync } from "@/lib/people/sync";
@@ -48,10 +46,6 @@ import { cn } from "@/lib/utils";
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
-
-const ROLE_OPTIONS = Array.from(
-  new Map(ROLE_SEED.map((role) => [role.name, role])).values(),
-).map((role) => role.name);
 
 // The "Club" multi-select is name-driven downstream (responsible lookups match
 // by team name), so collapse the directory's per-category team rows to one
@@ -223,7 +217,6 @@ async function PeopleCreateSlot({
       canEdit
       canManageAccess={canManageAccess}
       canSelectAccessTier={canSelectAccessTier}
-      roleOptions={ROLE_OPTIONS}
       teamOptions={teamOptions}
     />
   );
@@ -389,24 +382,6 @@ async function PeopleEditModal({
                         disabled={!user.canEdit}
                         className="h-12 rounded-[var(--panel-radius)] border-[var(--n-200)] bg-[var(--n-50)] text-[15px] font-medium text-[var(--n-800)] placeholder:text-[var(--n-400)] shadow-[inset_0_2px_4px_rgba(28,13,16,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(227,27,35,0.08)]"
                       />
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-sm font-semibold text-[var(--n-700)]">
-                        Rol principal
-                      </span>
-                      <Select
-                        name="roleName"
-                        defaultValue={selectedMeta.role}
-                        disabled={!user.canEdit}
-                        className="h-12 rounded-[var(--panel-radius)] border-[var(--n-200)] bg-[var(--n-50)] text-[15px] font-medium text-[var(--n-800)] shadow-[inset_0_2px_4px_rgba(28,13,16,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(227,27,35,0.08)]"
-                      >
-                        <option value="">Seleccionar rol...</option>
-                        {ROLE_OPTIONS.map((roleName) => (
-                          <option key={roleName} value={roleName}>
-                            {getRoleDisplayName(roleName)}
-                          </option>
-                        ))}
-                      </Select>
                     </label>
                     <div className="md:col-span-2">
                       <PersonFunctionsField
