@@ -51,6 +51,8 @@ export async function getMatchCardSectionsAction(
     .select({
       person_id: assignmentsTable.personId,
       attendance_response: assignmentsTable.attendanceResponse,
+      encoder_number_1: assignmentsTable.encoderNumber1,
+      encoder_number_2: assignmentsTable.encoderNumber2,
       role: {
         name: rolesTable.name,
         category: rolesTable.category,
@@ -71,6 +73,8 @@ export async function getMatchCardSectionsAction(
     assignments: assignmentRows.map((row) => ({
       person_id: row.person_id,
       attendance_response: row.attendance_response,
+      encoder_number_1: row.encoder_number_1,
+      encoder_number_2: row.encoder_number_2,
       role: row.role,
       person: row.person?.full_name ? row.person : null,
     })),

@@ -26,7 +26,14 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 
-import { setAttendanceConfirmationAction } from "@/app/actions/matches";
+import {
+  setAttendanceConfirmationAction,
+  setEncoderNumbersAction,
+} from "@/app/actions/matches";
+import {
+  formatEncoderNumbers,
+  roleTracksEncoderNumber,
+} from "@/lib/attendance";
 import { LeagueLogoMarkClient } from "@/components/league-logo-mark-client";
 import { ClientTeamLogoMark } from "@/components/team-logo-mark-client";
 import dynamic from "next/dynamic";
@@ -1058,6 +1065,24 @@ function AttendanceSubmitButton() {
   );
 }
 
+function EncoderSubmitButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className={cn(
+        "inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-[var(--panel-radius)] bg-[#178a56] px-5 text-sm font-black text-white transition hover:bg-[#13744a]",
+        pending && "opacity-70",
+      )}
+    >
+      <Hash className="size-4" />
+      {pending ? "Guardando…" : "Guardar"}
+    </button>
+  );
+}
+
 // Inline "accept assignment" by the assigned person (PRD #7). Accepting persists
 // the same attendance confirmation (response "attending") the server already
 // records — no new state. Every assignment in this panel belongs to the
@@ -1071,6 +1096,16 @@ function AttendanceInlineControl({
   const [expanding, setExpanding] = useState(false);
   const [previewAccepted, setPreviewAccepted] = useState(false);
   const [note, setNote] = useState(assignment.attendanceNote ?? "");
+  // Encoder number(s), asked only of the roles standing next to the rack. Kept
+  // as strings so an emptied field round-trips as "clear it".
+  const [encoderOne, setEncoderOne] = useState(
+    assignment.encoderNumber1 ? String(assignment.encoderNumber1) : "",
+  );
+  const [encoderTwo, setEncoderTwo] = useState(
+    assignment.encoderNumber2 ? String(assignment.encoderNumber2) : "",
+  );
+  const [editingEncoder, setEditingEncoder] = useState(false);
+  const tracksEncoder = roleTracksEncoderNumber(assignment.roleName);
 
   // Demo/guest rows carry a non-uuid id: there is no real assignment to update,
   // so the accept flow runs client-side (preview) to mirror the real experience.
@@ -1080,6 +1115,128 @@ function AttendanceInlineControl({
   const ended =
     addMinutes(parseISO(assignment.kickoffAt), assignment.durationMinutes) <
     new Date();
+
+  const storedEncoderLabel = formatEncoderNumbers(
+    assignment.encoderNumber1,
+    assignment.encoderNumber2,
+  );
+  const encoderLabel = isPreview
+    ? formatEncoderNumbers(
+        Number.parseInt(encoderOne, 10) || null,
+        Number.parseInt(encoderTwo, 10) || null,
+      )
+    : storedEncoderLabel;
+
+  const encoderInputClassName =
+    "h-11 w-20 rounded-[var(--panel-radius)] border border-[var(--border)] bg-white px-3 text-center text-sm font-bold text-[var(--foreground)] outline-none placeholder:text-[var(--n-400)] focus:border-[#178a56]";
+
+  const encoderFields = (
+    <div className="mt-3">
+      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--n-600)]">
+        Nº de encoder
+      </p>
+      <div className="mt-2 flex items-center gap-2">
+        <input
+          name="encoderNumber1"
+          value={encoderOne}
+          onChange={(event) => setEncoderOne(event.currentTarget.value)}
+          inputMode="numeric"
+          pattern="[0-9]*"
+          maxLength={4}
+          placeholder="1º"
+          aria-label="Número del primer encoder"
+          className={encoderInputClassName}
+        />
+        <input
+          name="encoderNumber2"
+          value={encoderTwo}
+          onChange={(event) => setEncoderTwo(event.currentTarget.value)}
+          inputMode="numeric"
+          pattern="[0-9]*"
+          maxLength={4}
+          placeholder="2º"
+          aria-label="Número del segundo encoder (opcional)"
+          className={encoderInputClassName}
+        />
+        <span className="text-xs font-semibold text-[var(--n-500)]">
+          2º solo si hay dos
+        </span>
+      </div>
+    </div>
+  );
+
+  // Read-only echo of what was reported, used on frozen (past) rows.
+  const encoderSummary = tracksEncoder ? (
+    <p className="mt-2 text-xs font-semibold text-[var(--n-600)]">
+      Nº de encoder: {encoderLabel ?? "sin informar"}
+    </p>
+  ) : null;
+
+  // Post-confirmation editor: the number is often only known once the person is
+  // at the venue, so it stays editable after accepting the match.
+  const encoderPanel = tracksEncoder ? (
+    <div className="panel-radius mt-2 border border-[var(--n-200)] bg-[var(--n-50)] px-4 py-3">
+      {editingEncoder ? (
+        isPreview ? (
+          <div>
+            {encoderFields}
+            <div className="mt-2.5 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setEditingEncoder(false)}
+                className="inline-flex h-11 items-center justify-center rounded-[var(--panel-radius)] px-4 text-sm font-bold text-[var(--n-500)] transition hover:text-[var(--n-700)]"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditingEncoder(false)}
+                className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-[var(--panel-radius)] bg-[#178a56] px-5 text-sm font-black text-white transition hover:bg-[#13744a]"
+              >
+                <Hash className="size-4" />
+                Guardar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form action={setEncoderNumbersAction}>
+            <input type="hidden" name="assignmentId" value={assignment.assignmentId} />
+            <input type="hidden" name="redirectTo" value="/mi-jornada" />
+            {encoderFields}
+            <div className="mt-2.5 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setEditingEncoder(false)}
+                className="inline-flex h-11 items-center justify-center rounded-[var(--panel-radius)] px-4 text-sm font-bold text-[var(--n-500)] transition hover:text-[var(--n-700)]"
+              >
+                Cancelar
+              </button>
+              <EncoderSubmitButton />
+            </div>
+          </form>
+        )
+      ) : (
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--n-600)]">
+              Nº de encoder
+            </p>
+            <p className="mt-1.5 truncate text-sm font-bold text-[var(--foreground)]">
+              {encoderLabel ?? "Sin informar"}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setEditingEncoder(true)}
+            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-[var(--panel-radius)] border border-[var(--border)] bg-white px-3 text-xs font-black text-[var(--foreground)] transition hover:border-[#178a56] hover:text-[#178a56]"
+          >
+            <Hash className="size-3.5" />
+            {encoderLabel ? "Editar" : "Agregar"}
+          </button>
+        </div>
+      )}
+    </div>
+  ) : null;
 
   // Past matches: frozen read-only state, no toggle.
   if (ended) {
@@ -1112,6 +1269,7 @@ function AttendanceInlineControl({
             “{assignment.attendanceNote.trim()}”
           </p>
         ) : null}
+        {encoderSummary}
       </div>
     );
   }
@@ -1121,6 +1279,7 @@ function AttendanceInlineControl({
   const acceptedNote = isPreview ? note.trim() : assignment.attendanceNote?.trim();
   if (accepted) {
     return (
+      <>
       <div className="panel-radius flex items-start gap-3 border border-[#d7eadf] bg-[#f3fcf6] px-4 py-3">
         <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[#dcfce7] text-[#12b76a]">
           <CheckCircle2 className="size-5" />
@@ -1137,6 +1296,8 @@ function AttendanceInlineControl({
           ) : null}
         </div>
       </div>
+      {encoderPanel}
+      </>
     );
   }
 
@@ -1185,6 +1346,7 @@ function AttendanceInlineControl({
     return (
       <div className="panel-radius border border-[var(--n-200)] bg-[var(--n-50)] px-4 py-3">
         {noteField}
+        {tracksEncoder ? encoderFields : null}
         <div className="mt-2.5 flex items-center gap-2">
           {cancelButton}
           <button
@@ -1209,6 +1371,7 @@ function AttendanceInlineControl({
       <input type="hidden" name="redirectTo" value="/mi-jornada" />
       <input type="hidden" name="response" value="attending" />
       {noteField}
+      {tracksEncoder ? encoderFields : null}
       <div className="mt-2.5 flex items-center gap-2">
         {cancelButton}
         <AttendanceSubmitButton />

@@ -84,6 +84,9 @@ function Section({
               >
                 {displayValue}
               </p>
+              {row.hint ? (
+                <p className="text-[11px] font-bold text-[var(--accent)]">{row.hint}</p>
+              ) : null}
             </div>
           );
         })}

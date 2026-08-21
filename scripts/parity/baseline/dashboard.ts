@@ -322,6 +322,8 @@ export async function getMatchDetailData(ctx: UserContext, matchId: string) {
       attendance_confirmed_at: null,
       attendance_response: null,
       attendance_note: null,
+      encoder_number_1: null,
+      encoder_number_2: null,
       notes: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
