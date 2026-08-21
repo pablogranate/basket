@@ -18,7 +18,7 @@ export function PersonRevokeAccessButton({
       action={revokePersonAccessAction}
       onSubmit={(event) => {
         const confirmed = window.confirm(
-          "Vas a revocar el acceso de este colaborador a la plataforma. ¿Quieres continuar?",
+          "Vas a deshabilitar el acceso de este colaborador a la plataforma. No lo recuperará al editarlo ni en la próxima sincronización. ¿Quieres continuar?",
         );
 
         if (!confirmed) {
@@ -36,7 +36,7 @@ export function PersonRevokeAccessButton({
         )}
       >
         <Power className="size-4" />
-        Revocar acceso
+        Deshabilitar acceso
       </button>
     </form>
   );

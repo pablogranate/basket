@@ -33,6 +33,7 @@ export const people = pgTable("people", {
 	category: text(),
 	roleId: uuid("role_id"),
 	deletedAt: timestamptz("deleted_at"),
+	accessRevokedAt: timestamptz("access_revoked_at"),
 }, (table) => [
 	index("people_category_idx").using("btree", table.category.asc().nullsLast()),
 	index("people_role_id_idx").using("btree", table.roleId.asc().nullsLast()),

@@ -6,7 +6,6 @@ import {
   ChevronDown,
   FileText,
   ImagePlus,
-  Power,
   Save,
   ShieldCheck,
   Trash2,
@@ -94,7 +93,6 @@ export function CreatePersonModal({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [createPlatformAccess, setCreatePlatformAccess] = useState(false);
   const [accessRole, setAccessRole] = useState<AccessTierValue>("collaborator");
   const [fullNameValue, setFullNameValue] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -187,11 +185,6 @@ export function CreatePersonModal({
 
             <form action={upsertPersonAction} className="flex min-h-0 flex-1 flex-col">
               <PeopleRedirectToInput />
-              <input
-                type="hidden"
-                name="createPlatformAccess"
-                value={createPlatformAccess ? "on" : "off"}
-              />
               <input
                 type="hidden"
                 name="accessRole"
@@ -395,46 +388,26 @@ export function CreatePersonModal({
                               Acceso a la plataforma
                             </h4>
                             <p className="max-w-xl text-sm text-[var(--n-500)]">
-                              Permite que este colaborador inicie sesión con su correo y entre directo a Mi jornada.
+                              El acceso queda habilitado al guardar: este colaborador inicia sesión con su correo y entra directo a Mi jornada. Para quitarlo, usá &quot;Deshabilitar acceso&quot; en el modal de edición.
                             </p>
                           </div>
                         </div>
 
                         <div className="flex flex-col items-start gap-2 lg:items-end">
-                          <button
-                            type="button"
-                            role="switch"
-                            aria-checked={createPlatformAccess}
-                            onClick={() =>
-                              setCreatePlatformAccess((currentValue) => !currentValue)
-                            }
-                            disabled={!canEdit}
-                            className={cn(
-                              "relative inline-flex h-7 w-14 items-center rounded-full transition",
-                              createPlatformAccess ? "bg-[var(--accent)]" : "bg-[var(--n-200)]",
-                              !canEdit && "cursor-not-allowed opacity-60",
-                            )}
+                          <span
+                            className="relative inline-flex h-7 w-14 items-center rounded-full bg-[var(--accent)]"
+                            aria-hidden="true"
                           >
-                            <span
-                              className={cn(
-                                "inline-block size-6 rounded-full border border-white bg-white transition",
-                                createPlatformAccess
-                                  ? "translate-x-7"
-                                  : "translate-x-0.5",
-                              )}
-                            />
-                          </button>
+                            <span className="inline-block size-6 translate-x-7 rounded-full border border-white bg-white" />
+                          </span>
 
                           <span className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--accent)]">
-                            {createPlatformAccess
-                              ? "Acceso habilitado"
-                              : "Acceso desactivado"}
+                            Acceso habilitado
                           </span>
                         </div>
                       </div>
 
-                      {createPlatformAccess ? (
-                        <div className="mt-5 space-y-4">
+                      <div className="mt-5 space-y-4">
                           <label className="space-y-2">
                             <ModalFieldLabel required>Nivel de acceso</ModalFieldLabel>
                             {canSelectAccessTier ? (
@@ -474,24 +447,13 @@ export function CreatePersonModal({
                               Correo de ingreso
                             </p>
                             <p className="mt-1 text-sm font-medium text-[var(--n-700)]">
-                              Se enviará una invitación al correo del formulario. El
-                              colaborador ingresa con un enlace de acceso (o Google);
-                              no se define contraseña.
+                              El colaborador ingresa con el correo del formulario
+                              mediante un enlace de acceso (o Google); no se define
+                              contraseña. La invitación se envía sólo cuando un
+                              responsable habilita o cambia el nivel de acceso desde
+                              el modal de edición.
                             </p>
                           </div>
-                        </div>
-                      ) : null}
-
-                      <div className="mt-4 flex justify-end">
-                        <button
-                          type="button"
-                          onClick={() => setCreatePlatformAccess(false)}
-                          disabled={!createPlatformAccess || !canEdit}
-                          className="inline-flex h-10 items-center gap-2 rounded-[var(--panel-radius)] px-4 text-sm font-semibold text-[var(--accent)] transition hover:bg-[var(--accent-border)] disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          <Power className="size-4" />
-                          Revocar acceso
-                        </button>
                       </div>
                     </div>
                   </section>

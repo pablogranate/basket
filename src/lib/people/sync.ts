@@ -80,6 +80,7 @@ type PersonRow = {
   phone: string | null;
   email: string | null;
   deleted_at: string | null;
+  access_revoked_at: string | null;
 };
 
 type PlannedUpdate = {
@@ -95,6 +96,9 @@ type PlannedUpdate = {
 type PeopleSyncPlan = {
   creates: SheetPerson[];
   updates: PlannedUpdate[];
+  // People the sheet did not change. Carried (not just counted) so the sync can
+  // still hand them the default login when they never got one.
+  untouched: { existing: PersonRow; sheet: SheetPerson }[];
   deletes: PersonRow[];
   protectedFromDelete: PersonRow[];
   unchanged: number;
@@ -341,6 +345,7 @@ async function buildPeopleSyncPlan(
       phone: peopleTable.phone,
       email: peopleTable.email,
       deleted_at: peopleTable.deletedAt,
+      access_revoked_at: peopleTable.accessRevokedAt,
     })
     .from(peopleTable);
 
@@ -393,7 +398,7 @@ async function buildPeopleSyncPlan(
   // 4. Diff sheet rows against the roster.
   const creates: SheetPerson[] = [];
   const updates: PlannedUpdate[] = [];
-  let unchanged = 0;
+  const untouched: { existing: PersonRow; sheet: SheetPerson }[] = [];
 
   for (const sheetPerson of sheet.people) {
     const existing = personByName.get(normalizeText(sheetPerson.fullName));
@@ -440,7 +445,7 @@ async function buildPeopleSyncPlan(
       !isRestore &&
       !changeLabels.length
     ) {
-      unchanged += 1;
+      untouched.push({ existing, sheet: sheetPerson });
       continue;
     }
 
@@ -468,11 +473,12 @@ async function buildPeopleSyncPlan(
   return {
     creates,
     updates,
+    untouched,
     deletes: missing.filter((person) => !isProtectedFromSyncDelete(person.email)),
     protectedFromDelete: missing.filter((person) =>
       isProtectedFromSyncDelete(person.email),
     ),
-    unchanged,
+    unchanged: untouched.length,
     warnings: sheet.warnings,
     skippedRows: sheet.skippedRows,
     profileByEmail,
@@ -591,8 +597,10 @@ export async function runPeopleSync(
     };
 
     // Revoke platform access on soft delete (any tier — per the roster-owns-
-    // access decision). Internal staff never reach this path: they are filtered
-    // out of the plan's delete list.
+    // access decision): leaving the sheet is an intentional roster action.
+    // people.access_revoked_at is left untouched, so a later restore re-grants.
+    // Internal staff never reach this path: they are filtered out of the plan's
+    // delete list.
     const revokeAccess = async (email: string) => {
       const key = email.toLowerCase();
       const profile = profileByEmail.get(key);
@@ -688,23 +696,37 @@ export async function runPeopleSync(
         }
       }
 
-      if (isRestore) {
-        // Re-grant Externo on resurrection (the profile was revoked on the
-        // earlier soft delete); a live person's existing tier is left alone.
-        if (sheetPerson.email) {
+      // Access is default-on for every synced contact — created, restored or
+      // merely updated. grantExternoSilent is a no-op when a profile already
+      // exists, so an admin/Productor tier is never downgraded. The only
+      // opt-out is an explicit revoke from the people modal.
+      if (sheetPerson.email) {
+        if (!existing.access_revoked_at) {
           await grantExternoSilent(sheetPerson.email, sheetPerson.fullName);
-        } else {
-          result.warnings.push(
-            `"${sheetPerson.fullName}" restaurado sin correo: sin acceso a la plataforma.`,
-          );
         }
+      } else if (isRestore) {
+        result.warnings.push(
+          `"${sheetPerson.fullName}" restaurado sin correo: sin acceso a la plataforma.`,
+        );
+      }
+
+      if (isRestore) {
         result.restored += 1;
       } else {
         result.updated += 1;
       }
     }
 
-    // 3. Soft-delete live people no longer in the tab + revoke their access.
+    // 3. Same default-on rule for people this run did not change: a synced
+    //    contact who never got a login (added before access was default-on, or
+    //    whose email arrived later) gets one now.
+    for (const { existing, sheet: sheetPerson } of plan.untouched) {
+      if (sheetPerson.email && !existing.access_revoked_at) {
+        await grantExternoSilent(sheetPerson.email, sheetPerson.fullName);
+      }
+    }
+
+    // 4. Soft-delete live people no longer in the tab + revoke their access.
     for (const person of plan.deletes) {
       await db
         .update(peopleTable)
