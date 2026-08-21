@@ -19,8 +19,10 @@ import {
   MessageCircleMore,
   Mic2,
   ShieldUser,
+  SlidersHorizontal,
   UserRound,
   Video,
+  Wrench,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -330,6 +332,8 @@ function getAssignmentOperationalItems(assignment: CollaboratorAssignmentItem) {
     assignment.relatorName ?? assignment.talentLabel?.split("/")[0]?.trim() ?? null,
   );
   const producerLabel = abbreviatePersonName(assignment.producerName);
+  const operatorControlLabel = abbreviatePersonName(assignment.operatorControlName);
+  const supportTechLabel = abbreviatePersonName(assignment.supportTechName);
   const productionLabel = getProductionModeLabel(assignment.productionMode) || "Sin definir";
   const roleLabel = getRoleDisplayName(assignment.roleName) || "Por definir";
   const cameraLabel =
@@ -357,6 +361,20 @@ function getAssignmentOperationalItems(assignment: CollaboratorAssignmentItem) {
       icon: UserRound,
       label: "Productor",
       value: producerLabel,
+      variant: "person" as const,
+    },
+    {
+      key: "control",
+      icon: SlidersHorizontal,
+      label: "Control",
+      value: operatorControlLabel,
+      variant: "person" as const,
+    },
+    {
+      key: "soporte",
+      icon: Wrench,
+      label: "Soporte",
+      value: supportTechLabel,
       variant: "person" as const,
     },
     {
@@ -448,21 +466,22 @@ function AssignmentCard({
           className="-mx-4 -mt-px px-4 py-2.5"
           style={{ backgroundColor: leagueAccent }}
         >
-          <div className="relative flex items-center justify-between gap-4">
-            <div className="flex justify-start">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex shrink-0 justify-start">
               <LeagueLogoMarkClient
                 league={leagueLabel}
                 className="size-9 rounded-full ring-2 ring-white/20"
               />
             </div>
 
-            <div className="pointer-events-none absolute inset-x-0 top-1/2 flex -translate-y-1/2 justify-center px-14">
-              <span className="max-w-[10rem] text-center text-[10px] font-black uppercase tracking-[0.16em] text-white">
-                {leagueLabel}
-              </span>
-            </div>
+            <span className="min-w-0 flex-1 truncate text-center text-[10px] font-black uppercase tracking-[0.16em] text-white">
+              {leagueLabel}
+            </span>
 
-            <div className="ml-auto min-w-[64px] text-right">
+            <div className="flex shrink-0 items-baseline gap-2 text-right">
+              <p className="text-[10px] font-black uppercase leading-none tracking-[0.12em] text-white/80">
+                {assignment.dateLabel}
+              </p>
               <p className="text-[20px] font-black leading-none text-white">
                 {assignment.timeLabel}
               </p>
