@@ -528,7 +528,7 @@ export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]>
     .select({ id: peopleTable.id })
     .from(peopleTable)
     .where(isNull(peopleTable.deletedAt));
-  const [peopleData, assignmentsData, functionsData, rolesData, teamsData] =
+  const [peopleData, assignmentsData, functionsData, teamsData] =
     await Promise.all([
       db
         .select(peopleColumns)
@@ -559,9 +559,6 @@ export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]>
         .from(personFunctionsTable)
         .where(inArray(personFunctionsTable.personId, listedPeopleIds)),
       db
-        .select({ id: rolesTable.id, name: rolesTable.name })
-        .from(rolesTable),
-      db
         .select({
           person_id: peopleTeamsTable.personId,
           team_id: peopleTeamsTable.teamId,
@@ -582,12 +579,6 @@ export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]>
     const bucket = functionsByPerson.get(row.person_id) ?? [];
     bucket.push(row.function_key);
     functionsByPerson.set(row.person_id, bucket);
-  }
-
-  const roleNameById = new Map<string, string>();
-
-  for (const role of rolesData) {
-    roleNameById.set(role.id, role.name);
   }
 
   const teamsByPerson = new Map<string, { id: string; name: string }[]>();
@@ -621,9 +612,6 @@ export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]>
 
   return (peopleData as PersonRow[]).map((person) => {
     const currentAssignmentCount = currentCountByPerson.get(person.id) ?? 0;
-    const primaryRole = person.role_id
-      ? roleNameById.get(person.role_id) ?? null
-      : null;
 
     const assignmentState = !person.active
       ? "Inactivo"
@@ -633,7 +621,6 @@ export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]>
 
     return {
       ...person,
-      primary_role: primaryRole,
       assignment_state: assignmentState,
       current_assignment_count: currentAssignmentCount,
       functions: functionsByPerson.get(person.id) ?? [],

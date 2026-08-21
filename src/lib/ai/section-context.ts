@@ -24,6 +24,7 @@ import { formatMatchDate } from "@/lib/date";
 import { appEnv } from "@/lib/env";
 import {
   getAssignmentStateDisplayName,
+  getFunctionDisplayName,
   getRoleCategoryDisplayName,
   getRoleDisplayName,
 } from "@/lib/display";
@@ -69,7 +70,7 @@ export function toPeopleAiContext(
 
     return {
       fullName: person.full_name,
-      role: meta.role || person.primary_role || "",
+      role: person.functions.map(getFunctionDisplayName).join(", "),
       city: meta.city || "",
       coverage: personCoverageNames(person).join(", "),
       phone: person.phone ?? "",

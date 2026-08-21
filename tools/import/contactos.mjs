@@ -175,16 +175,9 @@ function buildRecords(sections) {
     if (!rec.phone && responsablePhones.has(key)) rec.phone = responsablePhones.get(key);
   }
 
-  // Store role where the app reads it: a "Rol principal:" line in notes.
-  // Keep any free notes (Tag/Días) below it. Mirrors buildPersonNotesMeta in the app.
-  const finalPeople = Array.from(people.values()).map((p) => {
-    const primary = p.category ? p.category.split("/")[0].trim() : "";
-    if (!primary) return p;
-    const free = p.notes && !p.notes.startsWith("Rol principal:") ? `\n\n${p.notes}` : "";
-    return { ...p, notes: `Rol principal: ${primary}${free}` };
-  });
-
-  return { people: finalPeople, clubs };
+  // Roles live in person_functions, not in notes: `category` is carried on the
+  // row and mapped to funciones downstream. Notes keep only free text.
+  return { people: Array.from(people.values()), clubs };
 }
 
 async function applyPeople(sql, people) {

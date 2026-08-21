@@ -23,7 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { PersonFunctionsField } from "@/components/people/person-functions-field";
 import { PersonTeamsField } from "@/components/people/person-teams-field";
 import type { PersonTeamLink } from "@/lib/types";
-import { APP_ROLE_DISPLAY_NAMES, getRoleDisplayName } from "@/lib/display";
+import { APP_ROLE_DISPLAY_NAMES } from "@/lib/display";
 import { cn } from "@/lib/utils";
 import { PeopleRedirectToInput } from "@/components/people/people-redirect-to";
 
@@ -82,13 +82,11 @@ export function CreatePersonModal({
   canEdit,
   canManageAccess,
   canSelectAccessTier,
-  roleOptions,
   teamOptions,
 }: {
   canEdit: boolean;
   canManageAccess: boolean;
   canSelectAccessTier: boolean;
-  roleOptions: string[];
   teamOptions: PersonTeamLink[];
 }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -319,26 +317,6 @@ export function CreatePersonModal({
                             disabled={!canEdit}
                             className={fieldClassName}
                           />
-                        </label>
-
-                        <label className="space-y-2 md:col-span-2">
-                          <ModalFieldLabel required>Rol principal</ModalFieldLabel>
-                          <div className="relative">
-                            <Select
-                              name="roleName"
-                              defaultValue=""
-                              disabled={!canEdit}
-                              className={cn(fieldClassName, "appearance-none pr-10")}
-                            >
-                              <option value="">Seleccionar rol</option>
-                              {roleOptions.map((roleName) => (
-                                <option key={roleName} value={roleName}>
-                                  {getRoleDisplayName(roleName)}
-                                </option>
-                              ))}
-                            </Select>
-                            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-[var(--n-400)]" />
-                          </div>
                         </label>
 
                         <div className="md:col-span-2">
