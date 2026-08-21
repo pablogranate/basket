@@ -26,7 +26,10 @@ import {
 import { type PersonFunctionKey, roleNameToFunctionKey } from "@/lib/functions";
 import { requireEditor, requireUserContext } from "@/lib/auth";
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
-import { recordAttendanceConfirmation } from "@/lib/data/attendance";
+import {
+  recordAttendanceConfirmation,
+  recordEncoderNumbers,
+} from "@/lib/data/attendance";
 import { shouldResetAttendance } from "@/lib/attendance";
 import { ensureErrorMessage, maybeNull, pickFirstString } from "@/lib/utils";
 
@@ -784,11 +787,21 @@ export async function setAttendanceConfirmationAction(formData: FormData) {
         ? rawResponse
         : null;
     const note = maybeNull(String(formData.get("note") ?? ""));
+    // Present only on the two roles that report the encoder (Responsable de
+    // cancha / Soporte tecnico); absent fields leave stored numbers untouched.
+    const hasEncoderFields =
+      formData.has("encoderNumber1") || formData.has("encoderNumber2");
 
     const outcome = await recordAttendanceConfirmation(ctx, {
       assignmentId,
       response,
       note,
+      ...(hasEncoderFields
+        ? {
+            encoderNumber1: String(formData.get("encoderNumber1") ?? ""),
+            encoderNumber2: String(formData.get("encoderNumber2") ?? ""),
+          }
+        : {}),
     });
 
     if (!outcome.ok) {
@@ -809,6 +822,44 @@ export async function setAttendanceConfirmationAction(formData: FormData) {
           : response === "declined"
             ? "Avisaste que no asistirás."
             : "Marcaste tu asistencia como pendiente.",
+    });
+  } catch (error) {
+    rethrowNavigationError(error);
+    redirectWithNotice({
+      redirectTo,
+      intent: "error",
+      notice: ensureErrorMessage(error),
+    });
+  }
+}
+
+// Encoder number(s) reported from /mi-jornada after the match was already
+// accepted. Auth-only like the attendance action: ownership, the match window and
+// the role gate all live in recordEncoderNumbers.
+export async function setEncoderNumbersAction(formData: FormData) {
+  const redirectTo = getRedirectTarget(formData, "/mi-jornada");
+  const ctx = await requireUserContext();
+
+  try {
+    const outcome = await recordEncoderNumbers(ctx, {
+      assignmentId: String(formData.get("assignmentId") ?? ""),
+      encoderNumber1: String(formData.get("encoderNumber1") ?? ""),
+      encoderNumber2: String(formData.get("encoderNumber2") ?? ""),
+    });
+
+    if (!outcome.ok) {
+      redirectWithNotice({
+        redirectTo,
+        intent: "error",
+        notice: "No pudimos guardar el número de encoder.",
+      });
+    }
+
+    revalidatePath(redirectTo);
+    redirectWithNotice({
+      redirectTo,
+      intent: "success",
+      notice: "Número de encoder guardado.",
     });
   } catch (error) {
     rethrowNavigationError(error);

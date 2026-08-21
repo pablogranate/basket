@@ -119,6 +119,8 @@ export const assignmentColumns = {
   attendance_confirmed_at: assignments.attendanceConfirmedAt,
   attendance_response: assignments.attendanceResponse,
   attendance_note: assignments.attendanceNote,
+  encoder_number_1: assignments.encoderNumber1,
+  encoder_number_2: assignments.encoderNumber2,
 } as const;
 
 export const auditLogColumns = {

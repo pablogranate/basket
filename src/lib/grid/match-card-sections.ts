@@ -1,3 +1,4 @@
+import { formatEncoderNumbers } from "@/lib/attendance";
 import { RESPONSIBLE_DISPLAY_LABEL } from "@/lib/constants";
 import { getAttendanceState, type AttendanceState } from "@/lib/grid/attendance";
 import type { PersonRow, RoleRow } from "@/lib/database.types";
@@ -5,6 +6,9 @@ import type { PersonRow, RoleRow } from "@/lib/database.types";
 export type SectionRow = {
   label: string;
   value: string;
+  // Secondary line under the value. Today only the encoder number reported from
+  // /mi-jornada by Responsable de cancha / Soporte tecnico.
+  hint?: string;
   muted?: boolean;
   compactValue?: boolean;
   multiline?: boolean;
@@ -29,6 +33,8 @@ export type MatchCardSection = {
 type LookupAssignment = {
   person_id: string | null;
   attendance_response: string | null;
+  encoder_number_1?: number | null;
+  encoder_number_2?: number | null;
   role: Pick<RoleRow, "name">;
   person: Pick<PersonRow, "full_name"> | null;
 };
@@ -61,6 +67,10 @@ export function getAssignmentValue(
     (item) => item.role.name === roleName,
   );
   const value = assignment?.person?.full_name ?? fallback ?? "TBD";
+  const encoderNumbers = formatEncoderNumbers(
+    assignment?.encoder_number_1,
+    assignment?.encoder_number_2,
+  );
 
   return {
     value,
@@ -69,6 +79,7 @@ export function getAssignmentValue(
       assignment?.attendance_response ?? null,
       assignment?.person_id ?? null,
     ),
+    encoderHint: encoderNumbers ? `Encoder ${encoderNumbers}` : undefined,
   };
 }
 
@@ -89,6 +100,7 @@ function buildProductionRows(match: SectionMatchInput): SectionRow[] {
       muted: responsible.muted,
       compactValue: true,
       attendanceState: responsible.attendanceState,
+      hint: responsible.encoderHint,
     },
     {
       label: "Realizador",
@@ -110,6 +122,7 @@ function buildProductionRows(match: SectionMatchInput): SectionRow[] {
       muted: support.muted,
       compactValue: true,
       attendanceState: support.attendanceState,
+      hint: support.encoderHint,
     },
   ];
 }

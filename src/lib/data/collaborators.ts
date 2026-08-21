@@ -30,6 +30,8 @@ type AssignmentRow = {
   attendance_confirmed_at: string | null;
   attendance_response: string | null;
   attendance_note: string | null;
+  encoder_number_1: number | null;
+  encoder_number_2: number | null;
   notes: string | null;
   role: {
     id: string;
@@ -89,6 +91,8 @@ export type CollaboratorAssignmentItem = {
   attendanceConfirmedAt: string | null;
   attendanceResponse: "attending" | "declined" | null;
   attendanceNote: string | null;
+  encoderNumber1: number | null;
+  encoderNumber2: number | null;
   notes: string | null;
   roleName: string | null;
   roleCategory: string | null;
@@ -176,6 +180,8 @@ function mapAssignmentRow(assignment: AssignmentRow): CollaboratorAssignmentItem
     attendanceConfirmedAt: assignment.attendance_confirmed_at,
     attendanceResponse: normalizeAttendanceResponse(assignment.attendance_response),
     attendanceNote: assignment.attendance_note,
+    encoderNumber1: assignment.encoder_number_1,
+    encoderNumber2: assignment.encoder_number_2,
     notes: assignment.notes,
     roleName: assignment.role?.name ?? null,
     roleCategory: assignment.role?.category ?? null,
@@ -189,6 +195,8 @@ function buildAssignmentItem(params: {
   attendanceConfirmedAt?: string | null;
   attendanceResponse?: "attending" | "declined" | null;
   attendanceNote?: string | null;
+  encoderNumber1?: number | null;
+  encoderNumber2?: number | null;
   notes?: string | null;
   roleName?: string | null;
   roleCategory?: string | null;
@@ -212,6 +220,8 @@ function buildAssignmentItem(params: {
     attendanceConfirmedAt: params.attendanceConfirmedAt ?? null,
     attendanceResponse: params.attendanceResponse ?? null,
     attendanceNote: params.attendanceNote ?? null,
+    encoderNumber1: params.encoderNumber1 ?? null,
+    encoderNumber2: params.encoderNumber2 ?? null,
     notes: params.notes ?? null,
     roleName: params.roleName ?? null,
     roleCategory: params.roleCategory ?? null,
@@ -491,6 +501,8 @@ async function selectAssignmentsForLinkedPerson(params: {
       attendance_confirmed_at: assignmentsTable.attendanceConfirmedAt,
       attendance_response: assignmentsTable.attendanceResponse,
       attendance_note: assignmentsTable.attendanceNote,
+      encoder_number_1: assignmentsTable.encoderNumber1,
+      encoder_number_2: assignmentsTable.encoderNumber2,
       notes: assignmentsTable.notes,
       role: {
         id: rolesTable.id,
@@ -553,6 +565,8 @@ function mapAssignmentRows(rows: LinkedPersonAssignmentRow[]) {
       attendance_confirmed_at: row.attendance_confirmed_at,
       attendance_response: row.attendance_response,
       attendance_note: row.attendance_note,
+      encoder_number_1: row.encoder_number_1,
+      encoder_number_2: row.encoder_number_2,
       notes: row.notes,
       role: row.role,
       match: {

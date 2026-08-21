@@ -213,6 +213,8 @@ export const assignments = pgTable("assignments", {
 	attendanceConfirmedAt: timestamptz("attendance_confirmed_at"),
 	attendanceResponse: text("attendance_response"),
 	attendanceNote: text("attendance_note"),
+	encoderNumber1: integer("encoder_number_1"),
+	encoderNumber2: integer("encoder_number_2"),
 }, (table) => [
 	index("assignments_match_idx").using("btree", table.matchId.asc().nullsLast()),
 	index("assignments_person_idx").using("btree", table.personId.asc().nullsLast()),
@@ -245,6 +247,8 @@ export const assignments = pgTable("assignments", {
 		}).onDelete("set null"),
 	unique("assignments_match_role_unique").on(table.matchId, table.roleId),
 	check("assignments_attendance_response_check", sql`attendance_response = ANY (ARRAY['attending'::text, 'declined'::text])`),
+	check("assignments_encoder_number_1_check", sql`(encoder_number_1 >= 1) AND (encoder_number_1 <= 9999)`),
+	check("assignments_encoder_number_2_check", sql`(encoder_number_2 >= 1) AND (encoder_number_2 <= 9999)`),
 ]);
 
 export const matches = pgTable("matches", {

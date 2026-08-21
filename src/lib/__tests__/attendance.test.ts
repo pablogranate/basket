@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   canConfirmAttendance,
+  formatEncoderNumbers,
+  normalizeEncoderNumber,
+  normalizeEncoderNumberPair,
+  roleTracksEncoderNumber,
   shouldResetAttendance,
   summarizeAttendance,
 } from "@/lib/attendance";
@@ -87,5 +91,80 @@ describe("summarizeAttendance", () => {
 
   it("returns zeroes for an empty roster", () => {
     expect(summarizeAttendance([])).toEqual({ confirmed: 0, total: 0 });
+  });
+});
+
+describe("roleTracksEncoderNumber", () => {
+  it("accepts the two on-site roles that see the encoder rack", () => {
+    expect(roleTracksEncoderNumber("Responsable")).toBe(true);
+    expect(roleTracksEncoderNumber("Soporte tecnico")).toBe(true);
+  });
+
+  it("is case and whitespace tolerant", () => {
+    expect(roleTracksEncoderNumber("  soporte tecnico ")).toBe(true);
+  });
+
+  it("rejects every other role and empty values", () => {
+    expect(roleTracksEncoderNumber("Realizador")).toBe(false);
+    expect(roleTracksEncoderNumber("Encoder")).toBe(false);
+    expect(roleTracksEncoderNumber(null)).toBe(false);
+    expect(roleTracksEncoderNumber("")).toBe(false);
+  });
+});
+
+describe("normalizeEncoderNumber", () => {
+  it("accepts 1..9999 integers", () => {
+    expect(normalizeEncoderNumber("12")).toBe(12);
+    expect(normalizeEncoderNumber(" 9999 ")).toBe(9999);
+    expect(normalizeEncoderNumber(7)).toBe(7);
+  });
+
+  it("rejects blanks, zero, decimals and junk", () => {
+    expect(normalizeEncoderNumber("")).toBeNull();
+    expect(normalizeEncoderNumber("   ")).toBeNull();
+    expect(normalizeEncoderNumber("0")).toBeNull();
+    expect(normalizeEncoderNumber("12.5")).toBeNull();
+    expect(normalizeEncoderNumber("10000")).toBeNull();
+    expect(normalizeEncoderNumber("-3")).toBeNull();
+    expect(normalizeEncoderNumber("abc")).toBeNull();
+    expect(normalizeEncoderNumber(null)).toBeNull();
+  });
+});
+
+describe("normalizeEncoderNumberPair", () => {
+  it("keeps both slots when both are valid", () => {
+    expect(normalizeEncoderNumberPair("12", "34")).toEqual({
+      encoderNumber1: 12,
+      encoderNumber2: 34,
+    });
+  });
+
+  it("collapses a lone second encoder into the first slot", () => {
+    expect(normalizeEncoderNumberPair("", "34")).toEqual({
+      encoderNumber1: 34,
+      encoderNumber2: null,
+    });
+  });
+
+  it("drops a duplicated second encoder", () => {
+    expect(normalizeEncoderNumberPair("12", "12")).toEqual({
+      encoderNumber1: 12,
+      encoderNumber2: null,
+    });
+  });
+
+  it("clears both slots when nothing usable was reported", () => {
+    expect(normalizeEncoderNumberPair("", "")).toEqual({
+      encoderNumber1: null,
+      encoderNumber2: null,
+    });
+  });
+});
+
+describe("formatEncoderNumbers", () => {
+  it("joins the reported numbers and skips the empty slot", () => {
+    expect(formatEncoderNumbers(12, 34)).toBe("12 · 34");
+    expect(formatEncoderNumbers(12, null)).toBe("12");
+    expect(formatEncoderNumbers(null, null)).toBeNull();
   });
 });

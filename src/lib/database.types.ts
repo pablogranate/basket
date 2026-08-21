@@ -113,6 +113,8 @@ export type Database = {
           confirmed: boolean
           created_at: string
           created_by: string | null
+          encoder_number_1: number | null
+          encoder_number_2: number | null
           id: string
           match_id: string
           notes: string | null
@@ -128,6 +130,8 @@ export type Database = {
           confirmed?: boolean
           created_at?: string
           created_by?: string | null
+          encoder_number_1?: number | null
+          encoder_number_2?: number | null
           id?: string
           match_id: string
           notes?: string | null
@@ -143,6 +147,8 @@ export type Database = {
           confirmed?: boolean
           created_at?: string
           created_by?: string | null
+          encoder_number_1?: number | null
+          encoder_number_2?: number | null
           id?: string
           match_id?: string
           notes?: string | null

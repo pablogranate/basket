@@ -9,6 +9,7 @@ import {
   ChevronRight,
   CircleAlert,
   Clock3,
+  Hash,
   Home,
   MapPin,
   Megaphone,
@@ -54,7 +55,11 @@ import {
   PRODUCTION_SHORT_LABEL,
 } from "@/lib/constants";
 import { getMatchDetailData } from "@/lib/data/dashboard";
-import { summarizeAttendance } from "@/lib/attendance";
+import {
+  formatEncoderNumbers,
+  roleTracksEncoderNumber,
+  summarizeAttendance,
+} from "@/lib/attendance";
 import { formatMatchDate, formatMatchTime } from "@/lib/date";
 import { getRoleDisplayName } from "@/lib/display";
 import type { PersonRow } from "@/lib/database.types";
@@ -262,6 +267,30 @@ function AttendanceBadge({
   );
 }
 
+// Encoder number(s) reported by the person on the ground (0031). Only the two
+// roles that stand next to the rack report it, so the chip is absent elsewhere.
+function EncoderNumberBadge({ assignment }: { assignment: AssignmentDetail }) {
+  if (!roleTracksEncoderNumber(assignment.role.name)) {
+    return null;
+  }
+
+  const label = formatEncoderNumbers(
+    assignment.encoder_number_1,
+    assignment.encoder_number_2,
+  );
+
+  if (!label) {
+    return null;
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 rounded-md bg-[var(--accent-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--accent)]">
+      <Hash className="size-3" />
+      Encoder {label}
+    </span>
+  );
+}
+
 function PrincipalAssignmentCard({
   assignment,
   people,
@@ -327,8 +356,9 @@ function PrincipalAssignmentCard({
           ) : assignment.notes ? (
             <p className="mt-1 text-xs text-[var(--muted)]">{assignment.notes}</p>
           ) : null}
-          <div className="mt-2">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <AttendanceBadge assignment={assignment} timezone={timezone} />
+            <EncoderNumberBadge assignment={assignment} />
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -410,8 +440,9 @@ function CameraAssignmentCard({
         <p className="mt-1 text-xs text-[var(--muted)]">
           {assignment.notes ?? (assignment.confirmed ? "Confirmado" : "Sin confirmación")}
         </p>
-        <div className="mt-2">
+        <div className="mt-2 flex flex-wrap items-center gap-2">
           <AttendanceBadge assignment={assignment} timezone={timezone} />
+          <EncoderNumberBadge assignment={assignment} />
         </div>
         <div className="mt-3 flex items-center justify-end gap-2 text-xs font-semibold text-[var(--muted)]">
           Editar
@@ -466,8 +497,9 @@ function TransmissionAssignmentRow({
               {assignment.person?.full_name ?? "Pendiente asignar"}
               {assignment.notes ? ` · ${assignment.notes}` : ""}
             </p>
-            <div className="mt-2">
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               <AttendanceBadge assignment={assignment} timezone={timezone} />
+              <EncoderNumberBadge assignment={assignment} />
             </div>
           </div>
           <div className="flex items-center gap-3">
