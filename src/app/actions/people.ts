@@ -93,8 +93,57 @@ async function revokePlatformAccessByEmail(
   return true;
 }
 
+// Access is granted by default everywhere (create, edit, sync). people.access_revoked_at
+// is the single opt-out: stamped by an explicit revoke from the people modal,
+// cleared by an explicit grant. Nothing else writes it.
+async function getAccessRevokedAt(personId: string): Promise<string | null> {
+  const rows = await db
+    .select({ accessRevokedAt: peopleTable.accessRevokedAt })
+    .from(peopleTable)
+    .where(eq(peopleTable.id, personId))
+    .limit(1);
+
+  return rows[0]?.accessRevokedAt ?? null;
+}
+
+async function setAccessRevokedAt(personId: string, value: string | null) {
+  await db
+    .update(peopleTable)
+    .set({ accessRevokedAt: value })
+    .where(eq(peopleTable.id, personId));
+}
+
+// Default-on access: create the Externo login only when the person has none.
+// Never re-tiers and never emails, so saving a person cannot downgrade an admin
+// nor spam an invite (mirrors grantExternoSilent in src/lib/people/sync.ts).
+async function ensurePlatformAccess({
+  email,
+  fullName,
+  role,
+}: {
+  email: string;
+  fullName: string;
+  role: AccessTierRole;
+}): Promise<boolean> {
+  if (await findProfileByEmail(email)) {
+    return false;
+  }
+
+  await db.insert(profilesTable).values({
+    id: globalThis.crypto.randomUUID(),
+    email,
+    fullName,
+    role: role satisfies AppRole,
+    authUserId: null,
+  });
+
+  clearProfileCache();
+
+  return true;
+}
+
 // Provision (or re-tier) platform login for a person and send the invite email.
-// Shared by the create/edit upsert flow and the standalone grant action.
+// Only an explicit manager grant reaches this path.
 async function grantPlatformAccess({
   email,
   fullName,
@@ -142,8 +191,6 @@ async function grantPlatformAccess({
 export async function upsertPersonAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData, "/people");
   const ctx = await requireEditor();
-  const createPlatformAccess =
-    String(formData.get("createPlatformAccess") ?? "off") === "on";
   const requestedAccessRole = normalizeAccessTier(
     String(formData.get("accessRole") ?? "collaborator"),
   );
@@ -200,15 +247,10 @@ export async function upsertPersonAction(formData: FormData) {
   );
 
   try {
-    if (createPlatformAccess) {
-      await requireAccessManager();
-
-      if (!payload.email) {
-        throw new Error("Ingresa un correo electrónico antes de crear acceso.");
-      }
-    }
-
     const personId = String(formData.get("personId") ?? "");
+    // Read the opt-out before writing: a save must never resurrect access a
+    // manager revoked, and must never skip it for anyone else.
+    const accessRevokedAt = personId ? await getAccessRevokedAt(personId) : null;
     let rows: { id: string }[];
 
     if (personId) {
@@ -295,16 +337,15 @@ export async function upsertPersonAction(formData: FormData) {
     });
 
     let accessNotice: string | null = null;
-    let accessEmailSent = false;
+    let accessGranted = false;
 
-    if (createPlatformAccess && payload.email) {
+    if (payload.email && !accessRevokedAt) {
       try {
-        const granted = await grantPlatformAccess({
+        accessGranted = await ensurePlatformAccess({
           email: payload.email,
           fullName: payload.full_name,
           role: accessRole,
         });
-        accessEmailSent = granted.emailSent;
       } catch (error) {
         console.error("[people] failed to create platform access", error);
         accessNotice = ensureErrorMessage(error);
@@ -319,14 +360,10 @@ export async function upsertPersonAction(formData: FormData) {
         ? personId
           ? `Registro actualizado, pero no se pudo habilitar el acceso: ${accessNotice}`
           : `Registro creado, pero no se pudo habilitar el acceso: ${accessNotice}`
-        : createPlatformAccess
+        : accessGranted
           ? personId
-            ? accessEmailSent
-              ? "Registro actualizado, acceso de colaborador habilitado y correo enviado."
-              : "Registro actualizado y acceso de colaborador creado."
-            : accessEmailSent
-              ? "Registro creado, acceso de colaborador habilitado y correo enviado."
-              : "Registro creado y acceso de colaborador habilitado."
+            ? "Registro actualizado y acceso a la plataforma habilitado."
+            : "Registro creado y acceso a la plataforma habilitado."
           : personId
             ? "Registro de personal actualizado."
             : "Registro de personal creado.",
@@ -426,6 +463,9 @@ export async function revokePersonAccessAction(formData: FormData) {
     if (!revoked) {
       throw new Error("No se encontró acceso de plataforma para revocar.");
     }
+
+    // Stamp the opt-out so no later save or sync re-grants this login.
+    await setAccessRevokedAt(person.id, new Date().toISOString());
 
     revalidatePath("/people");
     redirectWithNotice({
@@ -573,6 +613,8 @@ export async function grantPersonAccessAction(formData: FormData) {
       fullName: person.full_name,
       role: accessRole,
     });
+
+    await setAccessRevokedAt(person.id, null);
 
     revalidatePath("/people");
     redirectWithNotice({

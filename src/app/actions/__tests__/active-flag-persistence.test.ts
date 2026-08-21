@@ -47,7 +47,16 @@ vi.mock("@/lib/email/mailer", () => ({
 
 vi.mock("@/lib/db/client", () => ({
   db: {
-    select: () => ({ from: async () => [] }),
+    // from() resolves for the whole-table profile scan; where().limit() serves
+    // the access_revoked_at lookup upsertPersonAction now does first.
+    select: () => ({
+      from: () => {
+        const rows: unknown[] = [];
+        return Object.assign(Promise.resolve(rows), {
+          where: () => ({ limit: async () => rows }),
+        });
+      },
+    }),
     update: () => ({
       set: (payload: Record<string, unknown>) => {
         h.updates.push(payload);
