@@ -19,6 +19,7 @@ import { PersonFunctionsField } from "@/components/people/person-functions-field
 import { PersonDeleteButton } from "@/components/people/person-delete-button";
 import { PersonGrantAccessButton } from "@/components/people/person-grant-access-button";
 import { PersonRevokeAccessButton } from "@/components/people/person-revoke-access-button";
+import { PersonAccessRoleForm } from "@/components/people/person-access-role-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageMessage } from "@/components/ui/page-message";
@@ -302,6 +303,13 @@ async function PeopleEditModal({
   }
 
   const selectedPersonHasPlatformAccess = selectedPersonAccessRole !== null;
+  // Narrow to the three grantable tiers so the re-tier form can be typed.
+  const selectedPersonAccessTier =
+    selectedPersonAccessRole === "admin" ||
+    selectedPersonAccessRole === "editor" ||
+    selectedPersonAccessRole === "collaborator"
+      ? selectedPersonAccessRole
+      : null;
   // Productores may revoke only Externo logins; admins may revoke any tier.
   const canRevokeSelectedAccess =
     selectedPersonAccessRole !== null &&
@@ -496,14 +504,28 @@ async function PeopleEditModal({
                 {selectedPerson.email ? (
                   selectedPersonHasPlatformAccess ? (
                     canRevokeSelectedAccess ? (
-                      <div className="mt-4 flex justify-end">
-                        <PersonRevokeAccessButton
-                          personId={selectedPerson.id}
-                        />
+                      <div className="mt-5 flex flex-col gap-4 border-t border-[var(--n-100)] pt-5 lg:flex-row lg:items-start lg:justify-between">
+                        {canSelectAccessTier && selectedPersonAccessTier ? (
+                          <PersonAccessRoleForm
+                            personId={selectedPerson.id}
+                            currentAccessRole={selectedPersonAccessTier}
+                          />
+                        ) : (
+                          <p className="text-sm text-[var(--n-500)]">
+                            Nivel de acceso actual:{" "}
+                            {getRoleDisplayName(selectedPersonAccessRole ?? "")}
+                          </p>
+                        )}
+
+                        <div className="flex justify-end lg:pt-8">
+                          <PersonRevokeAccessButton
+                            personId={selectedPerson.id}
+                          />
+                        </div>
                       </div>
                     ) : (
                       <p className="mt-4 text-sm text-[var(--n-500)]">
-                        Solo un admin puede revocar este acceso.
+                        Solo un admin puede revocar o cambiar este acceso.
                       </p>
                     )
                   ) : (
