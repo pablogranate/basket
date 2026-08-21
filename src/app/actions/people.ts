@@ -443,6 +443,92 @@ export async function revokePersonAccessAction(formData: FormData) {
   }
 }
 
+// Re-tier an existing platform login without revoking it first: only the
+// profiles.role changes, so no invite email is re-sent.
+export async function updatePersonAccessRoleAction(formData: FormData) {
+  const redirectTo = getRedirectTarget(formData, "/people");
+  const personId = String(formData.get("personId") ?? "").trim();
+  const requestedAccessRole = normalizeAccessTier(
+    String(formData.get("accessRole") ?? "collaborator"),
+  );
+
+  try {
+    const ctx = await requireAccessManager();
+
+    const personRows = await db
+      .select({
+        id: peopleTable.id,
+        email: peopleTable.email,
+        full_name: peopleTable.fullName,
+      })
+      .from(peopleTable)
+      .where(eq(peopleTable.id, personId))
+      .limit(1);
+
+    const person = personRows[0];
+
+    if (!person) {
+      throw new Error("No se encontró el usuario.");
+    }
+
+    if (!person.email) {
+      throw new Error("Este usuario no tiene correo asociado.");
+    }
+
+    const profile = await findProfileByEmail(person.email);
+
+    if (
+      !profile ||
+      !(PLATFORM_ACCESS_ROLES as readonly string[]).includes(profile.role)
+    ) {
+      throw new Error("Este usuario no tiene acceso activo a la plataforma.");
+    }
+
+    // Both the current and the target tier must be within reach of the manager,
+    // so a productor cannot promote an Externo nor touch an admin/Productor.
+    if (
+      !canManageAccessTier(ctx.role, profile.role) ||
+      !canManageAccessTier(ctx.role, requestedAccessRole)
+    ) {
+      throw new Error("Solo un admin puede cambiar este nivel de acceso.");
+    }
+
+    // Self-demotion would lock the current admin out on the next request.
+    if (profile.id === ctx.profileId && requestedAccessRole !== profile.role) {
+      throw new Error("No podés cambiar tu propio nivel de acceso.");
+    }
+
+    if (profile.role === requestedAccessRole) {
+      redirectWithNotice({
+        redirectTo,
+        intent: "success",
+        notice: "El nivel de acceso ya estaba actualizado.",
+      });
+    }
+
+    await db
+      .update(profilesTable)
+      .set({ role: requestedAccessRole satisfies AppRole })
+      .where(eq(profilesTable.id, profile.id));
+
+    clearProfileCache();
+
+    revalidatePath("/people");
+    redirectWithNotice({
+      redirectTo,
+      intent: "success",
+      notice: "Nivel de acceso actualizado.",
+    });
+  } catch (error) {
+    rethrowNavigationError(error);
+    redirectWithNotice({
+      redirectTo,
+      intent: "error",
+      notice: ensureErrorMessage(error),
+    });
+  }
+}
+
 export async function grantPersonAccessAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData, "/people");
   const personId = String(formData.get("personId") ?? "").trim();
