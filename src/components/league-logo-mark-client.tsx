@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 const LEAGUE_LOGO_BASE_PATH = "/LogosPNG/Logos%20Ligas%20500x500";
 
 const LEAGUE_LOGO_MAP: Record<string, string> = {
+  "3x3": "Liga 3x3.png",
   acb: "Liga Endesa.png",
   euroliga: "Euroliga.png",
   euroleague: "Euroliga.png",
@@ -18,9 +19,14 @@ const LEAGUE_LOGO_MAP: Record<string, string> = {
   "liga chery": "Liga Chery.png",
   "liga chery chile": "Liga Chery.png",
   "liga endesa": "Liga Endesa.png",
+  "liga endesa acb": "Liga Endesa.png",
   "liga federal": "Liga Federal.png",
   "liga femenina": "Liga Femenina.png",
+  "liga italiana lba": "LBA SeriE A.png",
+  "liga metropolitana": "Liga Metro.png",
+  metropolitana: "Liga Metro.png",
   "liga nacional": "Liga Nacional.png",
+  "liga nacional liga proximo": "Liga Nacional.png",
   "liga proximo": "Liga Proximo.png",
   "lba serie a": "LBA SeriE A.png",
   lba: "LBA SeriE A.png",

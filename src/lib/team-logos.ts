@@ -72,7 +72,55 @@ const COMPETITION_FOLDER_HINTS: Array<{
     match: ["liga femenina", "liga metropolitana fem"],
     folders: ["logos liga femenina 500 x 500"],
   },
+  {
+    match: ["lpb ecuador", "lpb fem ecuador"],
+    folders: ["logos liga ecuador 500 x 500"],
+  },
+  {
+    match: ["liga chery", "liga dos"],
+    folders: ["logos liga chery chile 500 x 500", "logos liga dos chile 500 x 500"],
+  },
+  {
+    match: ["liga italiana", "lba"],
+    folders: ["logos liga italia 500 x 500"],
+  },
+  {
+    match: ["liga endesa", "acb"],
+    folders: ["logos liga endesa 500 x 500"],
+  },
+  {
+    match: ["euroliga", "euroleague"],
+    folders: ["logos euroliga 500 x 500"],
+  },
+  {
+    match: ["nbb"],
+    folders: ["logos liga brasil nbb 500 x 500"],
+  },
+  {
+    match: ["interligas ldb", "ldb"],
+    folders: ["logos liga brasil ldb 500 x 500"],
+  },
 ];
+
+// Free-typed grid entries that either name no club at all (regional
+// placeholders, bracket slots) or name a club with no crest on disk. Without
+// this the scorer hands them a neighbouring club's crest instead of the
+// fallback initials.
+const UNRESOLVABLE_QUERIES = new Set([
+  "9 de julio salta",
+  "a a conf",
+  "argentina",
+  "asociacion vecinal de pilar",
+  "belgrano tuc",
+  "este",
+  "italiano",
+  "nolting",
+  "norte",
+  "oeste",
+  "recreativo parana",
+  "santa fe",
+  "sur",
+]);
 
 const TEAM_QUERY_ALIASES: Record<string, string[]> = {
   "argentino de junin": ["argentino"],
@@ -84,9 +132,15 @@ const TEAM_QUERY_ALIASES: Record<string, string[]> = {
   "obera tenis club": ["obera"],
   "racing de chivilcoy": ["racing ch", "racing"],
   "regatas corrientes": ["regatas"],
+  "regatas rcia": ["regatas resistencia"],
+  "regatas sn": ["regatas san nicolas"],
   "san lorenzo de almagro": ["san lorenzo"],
   "san martin de corrientes": ["san martin de corrientes"],
   "union de santa fe": ["union sf", "union santa fe"],
+  "argentino de castelar": ["argentino castelar"],
+  "argentino de marcos juarez": ["argentino mj"],
+  "atenas de la plata": ["atenas la plata"],
+  "atletico de rafaela": ["atl rafaela"],
   "atletico san isidro": ["atletico san isidro"],
   "central entrerriano": ["central entriano", "central enterriano"],
   "club atletico estudiantes de tucuman": ["estudiantes tuc", "estudiantes tucuman"],
@@ -120,6 +174,8 @@ const TEAM_QUERY_ALIASES: Record<string, string[]> = {
   "atletico sastre": ["atl sastre"],
   "atletico tostado": ["atl tostado"],
   "banda norte": ["banda norte rio iv", "banda norte"],
+  "belgrano de san nicolas": ["belgrano san nicolas"],
+  "belgrano sn": ["belgrano san nicolas"],
   "capri de posadas": ["capri posadas", "capri"],
   "casa de padua": ["casa padua", "padua"],
   "centro espanol de plottier": ["centro espanol plottier", "centro español plottier"],
@@ -129,6 +185,7 @@ const TEAM_QUERY_ALIASES: Record<string, string[]> = {
   "deportivo roca": ["dep roca"],
   "don bosco de resistencia": ["don bosco resistencia"],
   "el ceibo": ["el ceibo san francisco", "el ceibo"],
+  "defensores de hurlingham": ["defensores hurligham"],
   "estudiantes de la plata": ["estudiantes la plata"],
   "estudiantes de olavarria": ["estudiantes olavarria"],
   "estudiantil porteño": ["estudiantil porteno", "estudiantil porteño"],
@@ -177,9 +234,45 @@ const TEAM_QUERY_ALIASES: Record<string, string[]> = {
   "club tres de febrero": ["3 de febrero", "tres de febrero"],
   "union de oncativo": ["union oncativo"],
   "union central de villa maria": ["union central villa maria"],
+  "universidad nacional de la matanza": ["universidad la matanza"],
   "union vecinal de munro": ["union vecinal munro"],
   "union y juventud de bandera": ["union y juventud bandera"],
+  "urquiza se": ["urquiza santa elena"],
+  "urquiza sj": ["urquiza san juan"],
+  "olimpia vt": ["olimpia de venado tuerto"],
+  "hindu rcia": ["hindu club resistencia"],
+  "hindu resistencia": ["hindu club resistencia"],
+  "independiente nqn": ["independiente neuquen"],
+  "gimnasia sf": ["gimnasia santa fe"],
+  "gimnasia r": ["gimnasia rosario"],
+  "san lorenzo mc": ["san lorenzo monte caseros"],
+  "petrolero argentino": ["petrolero argentino plaza huincul"],
+  "a korn": ["alejandro korn"],
+  "all boys sr": ["all boys santa rosa"],
+  "all boys sta rosa": ["all boys santa rosa"],
+  barca: ["barcelona"],
+  "cd valdivia": ["club deportivo valdivia"],
+  "cuidad campana": ["ciudad campana"],
+  "cultural ss": ["cultural santa sylvina"],
+  "dolomiti energia trentino": ["trento"],
+  "don bosco rcia": ["don bosco resistencia"],
+  "el ceibo sf": ["el ceibo san francisco"],
+  "ferrocaril oeste arg": ["ferro"],
+  "hapoel ibi tel aviv": ["hapoel tel aviv"],
+  "pacifico nqn": ["pacifico neuquen"],
+  "perfora ph": ["perfora plaza huincul"],
+  "san martin mj": ["san martin marcos juarez"],
+  "sanjustino sj": ["sanjustino san justo"],
+  "santa paula g": ["santa paula de galvez"],
+  "somisa sn": ["somisa san nicolas"],
+  "sparta vm": ["sparta villa maria"],
+  "union central vm": ["union central villa maria"],
 };
+
+// Scheduling noise the grid carries inside free-typed team names. Stripped
+// before scoring so "Almagro (E) (DE SER NECESARIO)" still matches its crest
+// instead of scraping past the threshold on a partial token overlap.
+const QUERY_NOISE = /\b(de ser necesario|back up|backup|a conf|conf)\b/g;
 
 function normalizeText(value: string) {
   return value
@@ -188,6 +281,7 @@ function normalizeText(value: string) {
     .toLowerCase()
     .replace(/&/g, " y ")
     .replace(/[^a-z0-9]+/g, " ")
+    .replace(QUERY_NOISE, " ")
     .trim()
     .replace(/\s+/g, " ");
 }
@@ -347,6 +441,12 @@ export function resolveTeamLogoMap(
 // it, a logo-dense render (196 teams) burns ~1s of main-thread CPU and stalls
 // every concurrent request. The cap guards against unbounded growth from
 // free-typed team names on grid/match screens.
+// Minimum score for a crest to paint. Below it the query is either scheduling
+// filler ("A CONF", "Ganador P1", event descriptions) or a club with no asset
+// on disk — both used to scrape past the old 180 floor and paint a neighbouring
+// club's crest. Every real club sits well above this once aliased.
+const MIN_LOGO_MATCH_SCORE = 600;
+
 const logoPathCache = new Map<string, string | null>();
 const LOGO_PATH_CACHE_MAX = 4000;
 
@@ -361,6 +461,12 @@ export function getTeamLogoPath(params: {
 
   if (cached !== undefined) {
     return cached;
+  }
+
+  if (UNRESOLVABLE_QUERIES.has(normalizedTeam)) {
+    logoPathCache.set(cacheKey, null);
+
+    return null;
   }
 
   const aliases = TEAM_QUERY_ALIASES[normalizedTeam] ?? [];
@@ -385,7 +491,8 @@ export function getTeamLogoPath(params: {
     }
   }
 
-  const result = !bestEntry || bestScore < 180 ? null : bestEntry.src;
+  const result =
+    !bestEntry || bestScore < MIN_LOGO_MATCH_SCORE ? null : bestEntry.src;
 
   if (logoPathCache.size >= LOGO_PATH_CACHE_MAX) {
     logoPathCache.clear();
