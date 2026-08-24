@@ -746,7 +746,7 @@ function MetricCard({
   return (
     <article
       className={cn(
-        "panel-surface min-w-0 overflow-hidden border p-5 xl:p-6",
+        "panel-surface min-w-0 overflow-hidden border p-4 sm:p-5 xl:p-6",
         highlight
           ? "border-[#f2c7d0] bg-[#fff5f7] ring-1 ring-[#f2c7d0]"
           : "border-[var(--border)] bg-[var(--surface)]",
@@ -2314,7 +2314,7 @@ export function ReportsWorkspace({
 
   const controlWorkspaceContent = (
     <div className="flex min-w-0 flex-col gap-8">
-      <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-4">
         <MetricCard
           title="Total partidos"
           value={controlMetrics.totalMatches}
@@ -2725,8 +2725,8 @@ export function ReportsWorkspace({
           {tabsNavigation}
         <div className="space-y-8">
           <section className="grid gap-8 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,1fr)]">
-            <div className="space-y-8">
-              <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 [&>*]:h-full">
+            <div className="min-w-0 space-y-8">
+              <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4 [&>*]:h-full">
                 <MetricCard
                   title="Total partidos"
                   value={summaryMetrics.totalReports}
@@ -2972,7 +2972,7 @@ export function ReportsWorkspace({
               </article>
             </div>
 
-            <article className="panel-surface border border-[var(--border)] bg-[var(--surface)] px-8 pb-8 pt-6">
+            <article className="panel-surface min-w-0 border border-[var(--border)] bg-[var(--surface)] px-5 pb-8 pt-6 sm:px-8">
               <h3 className="text-2xl font-black text-[var(--foreground)]">
                 Resumen de reportes
               </h3>
@@ -3156,7 +3156,7 @@ export function ReportsWorkspace({
           </section>
 
           <section className="grid gap-8 xl:grid-cols-[minmax(0,1.7fr)_minmax(340px,1fr)]">
-            <article className="panel-surface border border-[var(--border)] bg-[var(--surface)] p-8">
+            <article className="panel-surface min-w-0 border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-8">
               <div className="mb-6 flex items-center justify-between">
                 <h3 className="text-2xl font-black text-[var(--foreground)]">
                   Reportes por personal
@@ -3188,7 +3188,7 @@ export function ReportsWorkspace({
               </div>
             </article>
 
-            <div>
+            <div className="min-w-0">
               <article className="rounded-[var(--panel-radius)] bg-[var(--accent)] p-6 text-white shadow-[0_18px_40px_rgba(230,18,56,0.18)]">
                 <div className="flex items-center gap-2">
                   <Bot className="size-5" />

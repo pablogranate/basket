@@ -205,7 +205,7 @@ function FilterSidebar({
   onClearAll: () => void;
 }) {
   return (
-    <aside className="flex w-[248px] flex-none flex-col border-r border-[var(--border)] bg-[var(--surface-muted)]">
+    <aside className="flex max-h-[35vh] w-full flex-none flex-col overflow-y-auto border-b border-[var(--border)] bg-[var(--surface-muted)] lg:max-h-none lg:w-[248px] lg:overflow-visible lg:border-b-0 lg:border-r">
       <div className="sticky top-0 z-[2] flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface-muted)] px-4 pb-3 pt-4">
         <span className="flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[var(--n-700)]">
           <Filter className="size-[15px]" />
@@ -1187,7 +1187,7 @@ export function GridStatsModal({
           </label>
         </div>
 
-        <div className="flex min-h-0 flex-1">
+        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
           <FilterSidebar
             facets={facets}
             filters={filters}

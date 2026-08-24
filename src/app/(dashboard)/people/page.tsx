@@ -125,7 +125,7 @@ export default async function PeoplePage({ searchParams }: PageProps) {
           description={SECTION_COPY.people.description}
           actions={
             <>
-              <PeopleSearchField />
+              <PeopleSearchField className="hidden sm:flex" />
               <PeopleHeaderExtras />
               {lastPeopleSyncPromise ? (
                 <Suspense fallback={null}>
@@ -311,7 +311,7 @@ async function PeopleEditModal({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[rgba(28,13,16,0.48)] p-4 backdrop-blur-sm">
       <div className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-[1000px] flex-col overflow-hidden rounded-[var(--panel-radius)] border border-[var(--n-100)] bg-white shadow-[var(--shadow-lift)]">
-        <div className="flex items-center justify-between border-b border-[var(--n-100)] px-8 py-6">
+        <div className="flex items-center justify-between border-b border-[var(--n-100)] px-5 py-6 sm:px-8">
           <div className="space-y-1">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--accent)]">
               Personal
@@ -335,7 +335,7 @@ async function PeopleEditModal({
             <input type="hidden" name="personId" value={selectedPerson.id} />
             <input type="hidden" name="active" value="off" />
 
-            <section className="bg-white px-8 py-8">
+            <section className="bg-white px-5 py-8 sm:px-8">
               <div className="grid gap-8 lg:grid-cols-3">
                 <div className="space-y-6 lg:col-span-2">
                   <div className="grid gap-6 md:grid-cols-2">
@@ -426,7 +426,7 @@ async function PeopleEditModal({
           </form>
 
           {canManageAccess ? (
-            <section className="border-t border-[var(--n-100)] bg-[var(--n-50)] px-8 py-8">
+            <section className="border-t border-[var(--n-100)] bg-[var(--n-50)] px-5 py-8 sm:px-8">
               <div className="rounded-[var(--panel-radius)] border-2 border-[var(--accent-border)] bg-white p-6 shadow-sm">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                   <div className="flex gap-4">
@@ -515,7 +515,7 @@ async function PeopleEditModal({
           ) : null}
         </div>
 
-        <div className="flex items-center justify-between gap-4 border-t border-[var(--n-100)] bg-white px-8 py-5">
+        <div className="flex flex-col-reverse gap-3 border-t border-[var(--n-100)] bg-white px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-8">
           <div>
             {user.canEdit ? (
               <PersonDeleteButton
@@ -527,10 +527,10 @@ async function PeopleEditModal({
             ) : null}
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center justify-end gap-2 sm:gap-4">
             <Link
               href={currentPeopleHref}
-              className="inline-flex h-11 items-center justify-center rounded-[var(--panel-radius)] px-6 text-sm font-bold text-[var(--n-500)] transition hover:bg-[var(--n-100)]"
+              className="inline-flex h-11 items-center justify-center rounded-[var(--panel-radius)] px-4 text-sm font-bold text-[var(--n-500)] transition hover:bg-[var(--n-100)] sm:px-6"
             >
               Cancelar
             </Link>
@@ -539,7 +539,7 @@ async function PeopleEditModal({
               <Button
                 type="submit"
                 form="edit-person-form"
-                className="h-11 rounded-[var(--panel-radius)] px-8 text-sm font-bold shadow-[0_14px_32px_rgba(227,27,35,0.18)]"
+                className="h-11 rounded-[var(--panel-radius)] px-5 text-sm font-bold shadow-[0_14px_32px_rgba(227,27,35,0.18)] sm:px-8"
               >
                 Guardar cambios
               </Button>

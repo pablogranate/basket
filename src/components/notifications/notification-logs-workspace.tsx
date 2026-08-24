@@ -97,7 +97,60 @@ export function NotificationLogsWorkspace({
 
   return (
     <div className="space-y-4">
-      <div className="overflow-x-auto rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)]">
+      <ul className="divide-y divide-[var(--border)] overflow-hidden rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] md:hidden">
+        {data.rows.map((row) => {
+          const failed = row.status === "failed";
+
+          return (
+            <li
+              key={row.id}
+              className={cn("space-y-2 p-4", failed && "bg-[var(--accent-soft)]")}
+            >
+              <div className="flex items-baseline justify-between gap-3 text-xs">
+                <span className="text-[var(--muted)]">
+                  {formatTimestamp(row.created_at)}
+                </span>
+                <span
+                  className={cn(
+                    "shrink-0 font-bold",
+                    failed && "text-[var(--accent-strong)]",
+                  )}
+                >
+                  {label(STATUS_LABELS, row.status)}
+                </span>
+              </div>
+
+              <p className="text-sm font-extrabold text-[var(--foreground)]">
+                <MatchCell row={row} />
+              </p>
+
+              <p className="text-sm">
+                <RecipientCell row={row} />
+                {row.role_names.length ? (
+                  <span className="text-[var(--muted)]">
+                    {" · "}
+                    {row.role_names.join(", ")}
+                  </span>
+                ) : null}
+              </p>
+
+              <p className="break-words text-xs text-[var(--muted)]">
+                {label(CHANNEL_LABELS, row.channel)}
+                {row.destination ? ` · ${row.destination}` : ""}
+                {` · ${label(TRIGGER_LABELS, row.trigger)}`}
+              </p>
+
+              {failed && row.error ? (
+                <p className="break-words text-xs font-semibold text-[var(--accent-strong)]">
+                  {row.error}
+                </p>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="hidden overflow-x-auto rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] md:block">
         <table className="w-full min-w-[64rem] border-collapse text-sm">
           <thead>
             <tr className="border-b border-[var(--border)] text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--muted)]">
@@ -181,7 +234,7 @@ function Pagination({
   const hasNext = data.page < data.pageCount;
 
   return (
-    <div className="flex items-center justify-between text-sm text-[var(--muted)]">
+    <div className="flex flex-col gap-3 text-sm text-[var(--muted)] sm:flex-row sm:items-center sm:justify-between">
       <span>
         Página {data.page} de {data.pageCount} · {data.total} registro(s)
       </span>

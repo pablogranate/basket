@@ -456,3 +456,13 @@ select option {
     box-shadow: var(--panel-shadow) !important;
   }
 }
+
+/* iOS Safari auto-zooms on focus when a field renders below 16px and never zooms
+   back out. Force 16px on phones for every field, including the ~105 raw ones. */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

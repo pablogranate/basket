@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "paths": {
+      "@/*": ["./src/*"],
+      "server-only": ["./src/test/stubs/server-only.ts"]
+    }
+  },
+  "include": ["scripts/**/*.mts", "src/**/*.ts"]
+}

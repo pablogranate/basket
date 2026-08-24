@@ -83,7 +83,10 @@ export function PeopleFilterBar({
   return (
     <div
       className={cn(
-        "flex flex-wrap items-end gap-3 transition-opacity",
+        // Four full-width selects stacked into a ~260px wall at phone width, so
+        // the filters pair up two-per-row there and only go back to the flex
+        // toolbar from sm up.
+        "grid grid-cols-2 items-end gap-2 transition-opacity sm:flex sm:flex-wrap sm:gap-3",
         isPending && "opacity-60",
       )}
       aria-busy={isPending}
@@ -126,7 +129,7 @@ export function PeopleFilterBar({
           onClick={() =>
             navigate(buildHref({ role: "", state: "", city: "", team: "" }))
           }
-          className="inline-flex h-11 items-center gap-1.5 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-semibold text-[var(--n-500)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
+          className="col-span-2 inline-flex h-11 items-center justify-center gap-1.5 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-semibold text-[var(--n-500)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)] sm:col-span-1 sm:justify-start"
         >
           <X className="size-4" />
           Limpiar filtros
@@ -150,14 +153,14 @@ function FilterSelect({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="flex min-w-[180px] flex-1 flex-col gap-1.5">
-      <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--n-400)]">
+    <label className="flex min-w-0 flex-col gap-1 sm:min-w-[180px] sm:flex-1 sm:gap-1.5">
+      <span className="truncate text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--n-400)] sm:text-[11px] sm:tracking-[0.14em]">
         {label}
       </span>
       <Select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-11"
+        className="h-11 w-full min-w-0"
       >
         <option value="">Todos</option>
         {options.map((option) => {

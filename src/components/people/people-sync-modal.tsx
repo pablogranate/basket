@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   AlertTriangle,
   ArrowUpRight,
+  MailX,
   Minus,
   Pencil,
   Plus,
@@ -291,18 +292,18 @@ export function PeopleSyncModal({
                 onClick={() => setIsOpen(false)}
               />
               <div className="relative z-[1] flex max-h-[calc(100vh-4rem)] w-full max-w-[640px] flex-col overflow-hidden rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-lift)]">
-                <div className="flex items-start justify-between gap-6 border-b border-[var(--border)] px-7 py-6">
+                <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] px-5 py-5 sm:gap-6 sm:px-7 sm:py-6">
                   <div className="min-w-0 space-y-1">
                     <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--n-400)]">
                       Sincronizar contactos
                     </p>
-                    <h2 className="truncate text-xl font-extrabold tracking-tight text-[var(--foreground)]">
+                    <h2 className="text-lg font-extrabold tracking-tight text-[var(--foreground)] sm:text-xl">
                       Esto va a cambiar en Personas
                     </h2>
                   </div>
                   <button
                     type="button"
-                    className="inline-flex size-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--background-soft)] text-[var(--muted)] transition hover:text-[var(--foreground)]"
+                    className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--background-soft)] text-[var(--muted)] transition hover:text-[var(--foreground)] sm:size-11"
                     onClick={() => setIsOpen(false)}
                     aria-label="Cerrar"
                   >
@@ -391,6 +392,35 @@ export function PeopleSyncModal({
                           detail: "@basquetpass.tv, solo se elimina desde el portal",
                         }))}
                       />
+                      <PreviewGroup
+                        title="Filas sin correo (no se sincronizan)"
+                        tone="keep"
+                        icon={<MailX className="size-3.5" />}
+                        items={preview.skippedNoEmail.map((name) => ({
+                          key: `norow-${name}`,
+                          label: name,
+                          detail: "cargá el correo en la planilla",
+                        }))}
+                      />
+                      <PreviewGroup
+                        title="No se tocan (sin correo)"
+                        tone="keep"
+                        icon={<MailX className="size-3.5" />}
+                        items={preview.withoutEmail.map((name) => ({
+                          key: `noemail-${name}`,
+                          label: name,
+                          detail: "sin correo, la planilla no lo elimina",
+                        }))}
+                      />
+
+                      {preview.skippedNoEmail.length || preview.withoutEmail.length ? (
+                        <p className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3 text-xs font-semibold leading-relaxed text-[var(--muted)]">
+                          El correo es lo que vincula un contacto con la planilla:
+                          las filas sin correo no se sincronizan, y las personas
+                          del portal sin correo nunca se eliminan desde acá (solo
+                          desde Personas).
+                        </p>
+                      ) : null}
 
                       {!hasChanges ? (
                         <p className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-5 py-5 text-sm font-semibold text-[var(--muted)]">

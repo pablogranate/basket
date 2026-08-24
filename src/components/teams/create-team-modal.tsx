@@ -209,10 +209,10 @@ export function CreateTeamModal({
           onClick={closeModal}
         >
           <div
-            className="panel-surface relative flex w-full max-w-3xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--surface)] shadow-[0_24px_64px_rgba(28,13,16,0.22)]"
+            className="panel-surface relative flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--surface)] shadow-[0_24px_64px_rgba(28,13,16,0.22)]"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="border-b border-[var(--border)] px-6 py-5">
+            <div className="shrink-0 border-b border-[var(--border)] px-5 py-5 sm:px-6">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3">
                   <span className="inline-flex size-11 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent)]">
@@ -243,162 +243,165 @@ export function CreateTeamModal({
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6 p-6">
-              <section className="rounded-[var(--panel-radius)] border border-[var(--n-100)] bg-[#fbfbfb] p-5">
-                <div className="flex flex-col gap-5 md:flex-row md:items-center">
-                  <div className="flex items-center gap-4">
-                    <div className="relative flex size-24 items-center justify-center overflow-hidden rounded-[var(--panel-radius)] border border-[var(--n-200)] bg-white shadow-sm">
-                      {logoPreview ? (
-                        <Image
-                          src={logoPreview}
-                          alt="Preview del escudo"
-                          fill
-                          unoptimized
-                          sizes="96px"
-                          className="object-contain p-2"
-                        />
-                      ) : (
-                        <div className="flex size-full items-center justify-center bg-[#f3f4f6] text-[var(--n-400)]">
-                          <Shield className="size-9" />
-                        </div>
-                      )}
+            <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+              <div className="custom-scrollbar min-h-0 flex-1 space-y-6 overflow-y-auto p-5 sm:p-6">
+                <section className="rounded-[var(--panel-radius)] border border-[var(--n-100)] bg-[#fbfbfb] p-5">
+                  <div className="flex flex-col gap-5 md:flex-row md:items-center">
+                    <div className="flex items-center gap-4">
+                      <div className="relative flex size-24 items-center justify-center overflow-hidden rounded-[var(--panel-radius)] border border-[var(--n-200)] bg-white shadow-sm">
+                        {logoPreview ? (
+                          <Image
+                            src={logoPreview}
+                            alt="Preview del escudo"
+                            fill
+                            unoptimized
+                            sizes="96px"
+                            className="object-contain p-2"
+                          />
+                        ) : (
+                          <div className="flex size-full items-center justify-center bg-[#f3f4f6] text-[var(--n-400)]">
+                            <Shield className="size-9" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold text-[var(--n-700)]">
+                          Escudo del equipo
+                        </p>
+                        <p className="max-w-[18rem] text-sm leading-6 text-[var(--n-500)]">
+                          Sube el escudo en PNG 500 x 500, idealmente sin fondo.
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="space-y-1">
-                      <p className="text-sm font-semibold text-[var(--n-700)]">
-                        Escudo del equipo
-                      </p>
-                      <p className="max-w-[18rem] text-sm leading-6 text-[var(--n-500)]">
-                        Sube el escudo en PNG 500 x 500, idealmente sin fondo.
-                      </p>
+                    <div className="flex flex-wrap gap-3 md:ml-auto">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={!canEdit}
+                        className="inline-flex h-11 items-center gap-2 rounded-[var(--panel-radius)] border border-[var(--n-200)] bg-white px-4 text-sm font-semibold text-[var(--n-700)] transition hover:bg-[var(--n-50)] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <ImagePlus className="size-4 text-[var(--accent)]" />
+                        Subir escudo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={clearLogo}
+                        disabled={!logoPreview || !canEdit}
+                        className="inline-flex h-11 items-center gap-2 rounded-[var(--panel-radius)] border border-[var(--accent-border)] bg-[var(--accent-soft)] px-4 text-sm font-semibold text-[var(--accent-strong)] transition hover:bg-[var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <Trash2 className="size-4" />
+                        Quitar
+                      </button>
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-3 md:ml-auto">
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={!canEdit}
-                      className="inline-flex h-11 items-center gap-2 rounded-[var(--panel-radius)] border border-[var(--n-200)] bg-white px-4 text-sm font-semibold text-[var(--n-700)] transition hover:bg-[var(--n-50)] disabled:cursor-not-allowed disabled:opacity-60"
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/webp,image/svg+xml,image/*"
+                    onChange={handleLogoChange}
+                    className="hidden"
+                  />
+                </section>
+
+                <div className="grid gap-6 md:grid-cols-2">
+                  <label className="space-y-2">
+                    <span className="text-sm font-bold text-[var(--n-700)]">
+                      Nombre oficial
+                    </span>
+                    <Input
+                      value={officialName}
+                      onChange={(event) => setOfficialName(event.target.value)}
+                      placeholder="Ej. 9 de Julio de Morteros"
+                      className="h-11 rounded-xl bg-[var(--background-soft)]"
+                    />
+                  </label>
+                  <label className="space-y-2">
+                    <span className="text-sm font-bold text-[var(--n-700)]">
+                      Liga
+                    </span>
+                    <Select
+                      value={competition}
+                      onChange={(event) => setCompetition(event.target.value)}
+                      className="h-11 rounded-xl bg-[var(--background-soft)]"
                     >
-                      <ImagePlus className="size-4 text-[var(--accent)]" />
-                      Subir escudo
-                    </button>
-                    <button
-                      type="button"
-                      onClick={clearLogo}
-                      disabled={!logoPreview || !canEdit}
-                      className="inline-flex h-11 items-center gap-2 rounded-[var(--panel-radius)] border border-[var(--accent-border)] bg-[var(--accent-soft)] px-4 text-sm font-semibold text-[var(--accent-strong)] transition hover:bg-[var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <Trash2 className="size-4" />
-                      Quitar
-                    </button>
-                  </div>
+                      <option value="">Seleccionar liga...</option>
+                      {competitionOptions.map((competitionOption) => (
+                        <option key={competitionOption} value={competitionOption}>
+                          {competitionOption}
+                        </option>
+                      ))}
+                    </Select>
+                  </label>
+                  <label className="space-y-2">
+                    <span className="text-sm font-bold text-[var(--n-700)]">
+                      Estadio
+                    </span>
+                    <Input
+                      value={stadium}
+                      onChange={(event) => setStadium(event.target.value)}
+                      placeholder="Ej. Ángel Sandrín"
+                      className="h-11 rounded-xl bg-[var(--background-soft)]"
+                    />
+                  </label>
+                  <label className="space-y-2">
+                    <span className="text-sm font-bold text-[var(--n-700)]">
+                      Responsable de cancha
+                    </span>
+                    <Input
+                      value={manager}
+                      onChange={(event) => setManager(event.target.value)}
+                      placeholder="Nombre del responsable"
+                      className="h-11 rounded-xl bg-[var(--background-soft)]"
+                    />
+                  </label>
+                  <label className="space-y-2">
+                    <span className="text-sm font-bold text-[var(--n-700)]">
+                      Sitio web
+                    </span>
+                    <Input
+                      value={website}
+                      onChange={(event) => setWebsite(event.target.value)}
+                      placeholder="https://..."
+                      className="h-11 rounded-xl bg-[var(--background-soft)]"
+                    />
+                  </label>
+                  <label className="space-y-2">
+                    <span className="text-sm font-bold text-[var(--n-700)]">
+                      Instagram
+                    </span>
+                    <Input
+                      value={instagram}
+                      onChange={(event) => setInstagram(event.target.value)}
+                      placeholder="https://instagram.com/..."
+                      className="h-11 rounded-xl bg-[var(--background-soft)]"
+                    />
+                  </label>
                 </div>
 
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/png,image/webp,image/svg+xml,image/*"
-                  onChange={handleLogoChange}
-                  className="hidden"
-                />
-              </section>
-
-              <div className="grid gap-6 md:grid-cols-2">
                 <label className="space-y-2">
                   <span className="text-sm font-bold text-[var(--n-700)]">
-                    Nombre oficial
+                    Enlace oficial
                   </span>
                   <Input
-                    value={officialName}
-                    onChange={(event) => setOfficialName(event.target.value)}
-                    placeholder="Ej. 9 de Julio de Morteros"
-                    className="h-11 rounded-xl bg-[var(--background-soft)]"
-                  />
-                </label>
-                <label className="space-y-2">
-                  <span className="text-sm font-bold text-[var(--n-700)]">
-                    Liga
-                  </span>
-                  <Select
-                    value={competition}
-                    onChange={(event) => setCompetition(event.target.value)}
-                    className="h-11 rounded-xl bg-[var(--background-soft)]"
-                  >
-                    <option value="">Seleccionar liga...</option>
-                    {competitionOptions.map((competitionOption) => (
-                      <option key={competitionOption} value={competitionOption}>
-                        {competitionOption}
-                      </option>
-                    ))}
-                  </Select>
-                </label>
-                <label className="space-y-2">
-                  <span className="text-sm font-bold text-[var(--n-700)]">
-                    Estadio
-                  </span>
-                  <Input
-                    value={stadium}
-                    onChange={(event) => setStadium(event.target.value)}
-                    placeholder="Ej. Ángel Sandrín"
-                    className="h-11 rounded-xl bg-[var(--background-soft)]"
-                  />
-                </label>
-                <label className="space-y-2">
-                  <span className="text-sm font-bold text-[var(--n-700)]">
-                    Responsable de cancha
-                  </span>
-                  <Input
-                    value={manager}
-                    onChange={(event) => setManager(event.target.value)}
-                    placeholder="Nombre del responsable"
-                    className="h-11 rounded-xl bg-[var(--background-soft)]"
-                  />
-                </label>
-                <label className="space-y-2">
-                  <span className="text-sm font-bold text-[var(--n-700)]">
-                    Sitio web
-                  </span>
-                  <Input
-                    value={website}
-                    onChange={(event) => setWebsite(event.target.value)}
+                    value={officialUrl}
+                    onChange={(event) => setOfficialUrl(event.target.value)}
                     placeholder="https://..."
                     className="h-11 rounded-xl bg-[var(--background-soft)]"
                   />
                 </label>
-                <label className="space-y-2">
-                  <span className="text-sm font-bold text-[var(--n-700)]">
-                    Instagram
-                  </span>
-                  <Input
-                    value={instagram}
-                    onChange={(event) => setInstagram(event.target.value)}
-                    placeholder="https://instagram.com/..."
-                    className="h-11 rounded-xl bg-[var(--background-soft)]"
-                  />
-                </label>
-              </div>
 
-              <label className="space-y-2">
-                <span className="text-sm font-bold text-[var(--n-700)]">
-                  Enlace oficial
-                </span>
-                <Input
-                  value={officialUrl}
-                  onChange={(event) => setOfficialUrl(event.target.value)}
-                  placeholder="https://..."
-                  className="h-11 rounded-xl bg-[var(--background-soft)]"
-                />
-              </label>
-
-              {errorMessage ? (
-                <div className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-soft)] px-4 py-3 text-sm font-semibold text-[var(--accent-strong)]">
+                {errorMessage ? (
+                  <div className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-soft)] px-4 py-3 text-sm font-semibold text-[var(--accent-strong)]">
                   {errorMessage}
                 </div>
               ) : null}
 
-              <div className="flex items-center justify-end gap-3 border-t border-[var(--border)] pt-5">
+              </div>
+
+              <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-[var(--border)] px-5 py-4 sm:px-6">
                 <Button
                   type="button"
                   variant="secondary"

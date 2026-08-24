@@ -1490,7 +1490,7 @@ export function IncidentsWorkspace({
       {embedded && !headerActionsPortal ? workspaceActions : null}
       <section
         className={cn(
-          "grid gap-4 sm:grid-cols-2",
+          "grid grid-cols-2 gap-3 sm:gap-4",
           selectedIncident ? "2xl:grid-cols-4" : "xl:grid-cols-4",
         )}
       >
@@ -1598,7 +1598,55 @@ export function IncidentsWorkspace({
           }
           className="flex h-full min-h-0 min-w-0 flex-col"
         >
-          <div className="min-w-0 flex-1 overflow-auto">
+          <ul className="min-w-0 flex-1 divide-y divide-[#edf1f6] overflow-auto md:hidden">
+            {sortedIncidents.map((incident) => (
+              <li key={incident.id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedId(incident.id);
+                    setDrawerTab("details");
+                  }}
+                  className="flex w-full flex-col gap-3 px-4 py-4 text-left"
+                >
+                  <div className="flex items-center gap-2">
+                    <LeagueLogoMarkClient
+                      league={getIncidentLeagueLabel(incident.competition)}
+                      className="h-8 w-12 shrink-0"
+                    />
+                    <span className="inline-flex rounded-full border border-[#f3cfd8] bg-[#fff3f6] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--accent)]">
+                      {incident.id}
+                    </span>
+                    <span className="ml-auto text-[11px] font-black uppercase tracking-[0.12em] text-[#617187]">
+                      {formatCompactIncidentDate(incident.eventDate)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="min-w-0 flex-1 text-sm font-extrabold leading-snug text-[var(--foreground)]">
+                      {incident.matchLabel}
+                    </p>
+                    <SeverityBadge
+                      severity={incident.severity}
+                      className="shrink-0 rounded-full text-[10px]"
+                    />
+                  </div>
+
+                  <div className="text-xs font-medium text-[#4b5c74]">
+                    <ActiveProblemSummary problems={incident.problems} />
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-[#70819b]">
+                    <span className="truncate">Op. {incident.operatorControl}</span>
+                    <span className="truncate">Str. {incident.streamer}</span>
+                    <span className="ml-auto">{incident.updatedRelative}</span>
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          <div className="hidden min-w-0 flex-1 overflow-auto md:block">
             <table className="min-w-full table-fixed text-left">
               <colgroup>
                 {columnOrder.map((column) => (

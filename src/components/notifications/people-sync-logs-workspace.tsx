@@ -34,6 +34,15 @@ function formatCount(value: number) {
   return value > 0 ? String(value) : "—";
 }
 
+function SyncStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2">
+      <dt className="text-[var(--muted)]">{label}</dt>
+      <dd className="font-semibold tabular-nums">{value}</dd>
+    </div>
+  );
+}
+
 export function PeopleSyncLogsWorkspace({
   data,
   filters,
@@ -52,7 +61,62 @@ export function PeopleSyncLogsWorkspace({
 
   return (
     <div className="space-y-4">
-      <div className="overflow-x-auto rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)]">
+      <ul className="divide-y divide-[var(--border)] overflow-hidden rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] md:hidden">
+        {data.rows.map((row: PeopleSyncLogEntry) => {
+          const failed = row.status === "error";
+          const warnings = Array.isArray(row.warnings) ? row.warnings : [];
+
+          return (
+            <li
+              key={row.id}
+              className={cn("space-y-2 p-4", failed && "bg-[var(--accent-soft)]")}
+            >
+              <div className="flex items-baseline justify-between gap-3 text-xs">
+                <span className="text-[var(--muted)]">
+                  {formatTimestamp(row.started_at)}
+                </span>
+                <span
+                  className={cn(
+                    "shrink-0 font-bold",
+                    failed && "text-[var(--accent-strong)]",
+                  )}
+                >
+                  {STATUS_LABELS[row.status] ?? row.status}
+                </span>
+              </div>
+
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                <SyncStat label="Creados" value={formatCount(row.created_count)} />
+                <SyncStat label="Actualizados" value={formatCount(row.updated_count)} />
+                <SyncStat label="Restaurados" value={formatCount(row.restored_count)} />
+                <SyncStat label="Eliminados" value={formatCount(row.deleted_count)} />
+                <SyncStat label="Omitidos" value={formatCount(row.skipped_count)} />
+              </dl>
+
+              {warnings.length ? (
+                <details className="text-xs text-[var(--muted)]">
+                  <summary className="cursor-pointer font-semibold">
+                    {warnings.length} aviso(s)
+                  </summary>
+                  <ul className="mt-2 list-disc space-y-1 pl-4">
+                    {warnings.map((warning, index) => (
+                      <li key={index}>{warning}</li>
+                    ))}
+                  </ul>
+                </details>
+              ) : null}
+
+              {failed && row.error ? (
+                <p className="break-words text-xs font-semibold text-[var(--accent-strong)]">
+                  {row.error}
+                </p>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="hidden overflow-x-auto rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] md:block">
         <table className="w-full min-w-[64rem] border-collapse text-sm">
           <thead>
             <tr className="border-b border-[var(--border)] text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--muted)]">
@@ -152,7 +216,7 @@ function Pagination({
   const hasNext = data.page < data.pageCount;
 
   return (
-    <div className="flex items-center justify-between text-sm text-[var(--muted)]">
+    <div className="flex flex-col gap-3 text-sm text-[var(--muted)] sm:flex-row sm:items-center sm:justify-between">
       <span>
         Página {data.page} de {data.pageCount} · {data.total} registro(s)
       </span>

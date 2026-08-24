@@ -142,8 +142,8 @@ async function FixturesTable({ category }: { category: string }) {
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
               {date === "Sin fecha" ? "Sin fecha" : formatFixtureDate(date)}
             </h2>
-            <div className="rounded-lg border overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto rounded-lg border">
+              <table className="w-full min-w-[44rem] text-sm">
                 <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
                   <tr>
                     <th className="px-4 py-2 text-left">Hora</th>

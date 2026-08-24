@@ -30,18 +30,20 @@ export function StatCard({
           : "bg-[var(--background-soft)] text-[var(--n-500)]";
 
   return (
-    <div className={`rounded-[var(--panel-radius)] border px-5 py-4 ${toneClassName}`}>
-      <div className="flex items-start justify-between gap-4">
+    <div className={`rounded-[var(--panel-radius)] border px-4 py-3 sm:px-5 sm:py-4 ${toneClassName}`}>
+      <div className="flex items-start justify-between gap-3 sm:gap-4">
         <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--n-400)]">
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--n-400)] sm:text-[11px] sm:tracking-[0.2em]">
             {label}
           </p>
-          <p className="mt-3 font-[family-name:var(--font-oswald)] text-[2rem] font-bold leading-none">{value}</p>
+          <p className="mt-2 font-[family-name:var(--font-oswald)] text-[1.5rem] font-bold leading-none sm:mt-3 sm:text-[2rem]">
+            {value}
+          </p>
         </div>
         <span
-          className={`inline-flex size-11 items-center justify-center rounded-2xl ${iconToneClassName}`}
+          className={`inline-flex size-9 shrink-0 items-center justify-center rounded-2xl sm:size-11 ${iconToneClassName}`}
         >
-          <Icon className="size-5" />
+          <Icon className="size-4 sm:size-5" />
         </span>
       </div>
     </div>
