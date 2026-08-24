@@ -5,6 +5,7 @@ import { Camera, Mic2, UserRoundX, Users, Video } from "lucide-react";
 
 import { PeopleCardList } from "@/components/people/people-card-list";
 import { PeopleFilterBar } from "@/components/people/people-filter-bar";
+import { PeopleSearchField } from "@/components/people/people-search-field";
 import { PeopleTable } from "@/components/people/people-table";
 import { usePeopleView } from "@/components/people/people-view-context";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -82,33 +83,44 @@ export function PeopleWorkspaceClient({
           icon={UserRoundX}
           tone="danger"
         />
-        <StatCard
-          label="Relatores activos"
-          value={stats.relatorCount}
-          icon={Mic2}
-          tone="info"
-        />
-        <StatCard
-          label="Productores activos"
-          value={stats.producerCount}
-          icon={Video}
-          tone="neutral"
-        />
-        <StatCard
-          label="Cámaras activas"
-          value={stats.cameraCount}
-          icon={Camera}
-          tone="neutral"
-        />
+        <div className="hidden sm:block">
+          <StatCard
+            label="Relatores activos"
+            value={stats.relatorCount}
+            icon={Mic2}
+            tone="info"
+          />
+        </div>
+        <div className="hidden sm:block">
+          <StatCard
+            label="Productores activos"
+            value={stats.producerCount}
+            icon={Video}
+            tone="neutral"
+          />
+        </div>
+        <div className="hidden sm:block">
+          <StatCard
+            label="Cámaras activas"
+            value={stats.cameraCount}
+            icon={Camera}
+            tone="neutral"
+          />
+        </div>
       </div>
 
-      {allPeople.length ? (
-        <PeopleFilterBar
-          filters={filters}
-          options={filterOptions}
-          query={query}
-        />
-      ) : null}
+      <div className="space-y-3">
+        {/* The header keeps the search field from sm up; at phone width it sits
+            here instead, right above the filters it feeds. */}
+        <PeopleSearchField className="sm:hidden" />
+        {allPeople.length ? (
+          <PeopleFilterBar
+            filters={filters}
+            options={filterOptions}
+            query={query}
+          />
+        ) : null}
+      </div>
 
       <SectionTableCard
         title={SECTION_COPY.people.tableTitle}

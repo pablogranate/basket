@@ -125,7 +125,7 @@ export default async function PeoplePage({ searchParams }: PageProps) {
           description={SECTION_COPY.people.description}
           actions={
             <>
-              <PeopleSearchField />
+              <PeopleSearchField className="hidden sm:flex" />
               <PeopleHeaderExtras />
               {lastPeopleSyncPromise ? (
                 <Suspense fallback={null}>
