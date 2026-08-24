@@ -19,9 +19,8 @@ export function DashboardShell(props: {
   user: UserContext | null;
   announcement: AnnouncementSummary | null;
   landingUrl?: string | null;
-  generatorUrl?: string | null;
 }) {
-  const { children, user, landingUrl, generatorUrl } = props;
+  const { children, user, landingUrl } = props;
   const displayName =
     user?.profile?.full_name?.trim() ||
     user?.email?.split("@")[0] ||
@@ -45,7 +44,7 @@ export function DashboardShell(props: {
     <div className="min-h-screen bg-[var(--page-canvas)]">
       <div className="flex min-h-screen">
         <DashboardSidebar brand={brand}>
-          <DashboardNav role={user?.role ?? null} generatorUrl={generatorUrl} />
+          <DashboardNav role={user?.role ?? null} />
         </DashboardSidebar>
 
         <div className="flex min-w-0 flex-1 flex-col">
@@ -56,7 +55,6 @@ export function DashboardShell(props: {
                   <DashboardMobileNav
                     brand={brand}
                     role={user?.role ?? null}
-                    generatorUrl={generatorUrl}
                   />
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img

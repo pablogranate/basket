@@ -8,7 +8,6 @@ import { NavLatencyReporter } from "@/components/perf/nav-latency-reporter";
 import { PwaInstallBanner } from "@/components/pwa/pwa-install-banner";
 import {
   buildApexUrl,
-  buildSiblingAppUrl,
   isAdminDashboardRole,
   isCollaboratorLimitedRole,
   isDashboardPathAllowedForRole,
@@ -70,18 +69,12 @@ export default async function DashboardLayout({
   const landingUrl = isAdminDashboardRole(user?.role)
     ? buildApexUrl(host)
     : null;
-  // Only full-access roles reach DashboardShell, which matches the generator's
-  // app gate — no extra role check needed. Null on unrecognized hosts.
-  const generatorUrl = buildApexUrl(host)
-    ? buildSiblingAppUrl(host, "generator")
-    : null;
 
   return (
     <DashboardShell
       user={user}
       announcement={announcement}
       landingUrl={landingUrl}
-      generatorUrl={generatorUrl}
     >
       {children}
       <PwaInstallBanner />
