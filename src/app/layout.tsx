@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Oswald, Poppins } from "next/font/google";
 
 import { APP_NAME } from "@/lib/constants";
@@ -42,6 +42,15 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "BasquetPass",
   },
+};
+
+// `viewport-fit=cover` is what makes env(safe-area-inset-*) resolve to a real
+// value on notched iPhones; without it the collaborator bottom nav sits under
+// the home indicator in installed-PWA mode.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

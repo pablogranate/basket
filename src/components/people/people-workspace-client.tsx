@@ -3,6 +3,7 @@
 import { useMemo, type ReactNode } from "react";
 import { Camera, Mic2, UserRoundX, Users, Video } from "lucide-react";
 
+import { PeopleCardList } from "@/components/people/people-card-list";
 import { PeopleFilterBar } from "@/components/people/people-filter-bar";
 import { PeopleTable } from "@/components/people/people-table";
 import { usePeopleView } from "@/components/people/people-view-context";
@@ -68,7 +69,7 @@ export function PeopleWorkspaceClient({
 
   return (
     <>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
         <StatCard
           label="Personal activo"
           value={stats.activeCount}
@@ -122,7 +123,14 @@ export function PeopleWorkspaceClient({
         }
       >
         {rows.length ? (
-          <PeopleTable rows={rows} canEdit={canEdit} />
+          <>
+            <div className="hidden sm:block">
+              <PeopleTable rows={rows} canEdit={canEdit} />
+            </div>
+            <div className="sm:hidden">
+              <PeopleCardList rows={rows} canEdit={canEdit} />
+            </div>
+          </>
         ) : (
           <div className="p-6">
             <EmptyState

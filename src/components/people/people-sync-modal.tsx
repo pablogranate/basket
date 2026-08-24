@@ -292,18 +292,18 @@ export function PeopleSyncModal({
                 onClick={() => setIsOpen(false)}
               />
               <div className="relative z-[1] flex max-h-[calc(100vh-4rem)] w-full max-w-[640px] flex-col overflow-hidden rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-lift)]">
-                <div className="flex items-start justify-between gap-6 border-b border-[var(--border)] px-7 py-6">
+                <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] px-5 py-5 sm:gap-6 sm:px-7 sm:py-6">
                   <div className="min-w-0 space-y-1">
                     <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--n-400)]">
                       Sincronizar contactos
                     </p>
-                    <h2 className="truncate text-xl font-extrabold tracking-tight text-[var(--foreground)]">
+                    <h2 className="text-lg font-extrabold tracking-tight text-[var(--foreground)] sm:text-xl">
                       Esto va a cambiar en Personas
                     </h2>
                   </div>
                   <button
                     type="button"
-                    className="inline-flex size-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--background-soft)] text-[var(--muted)] transition hover:text-[var(--foreground)]"
+                    className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--background-soft)] text-[var(--muted)] transition hover:text-[var(--foreground)] sm:size-11"
                     onClick={() => setIsOpen(false)}
                     aria-label="Cerrar"
                   >

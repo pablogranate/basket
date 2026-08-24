@@ -83,7 +83,7 @@ export function CollaboratorShell({
         </div>
       </header>
 
-      <main className="min-w-0 px-4 py-5 pb-28 sm:px-6 lg:px-8 lg:pb-8">
+      <main className="min-w-0 px-4 py-5 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pb-8">
         {children}
       </main>
 
@@ -91,7 +91,7 @@ export function CollaboratorShell({
         <DashboardFooterMeta userName={displayName} />
       </footer>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border)] bg-[rgba(255,255,255,0.96)] px-4 py-3 backdrop-blur-md lg:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border)] bg-[rgba(255,255,255,0.96)] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-md lg:hidden">
         <CollaboratorNav mobile />
       </div>
     </div>
