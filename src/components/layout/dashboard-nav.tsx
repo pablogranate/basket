@@ -7,7 +7,6 @@ import {
   CalendarDays,
   CircleHelp,
   ClipboardList,
-  Image as ImageIcon,
   ListOrdered,
   ScrollText,
   Settings2,
@@ -52,11 +51,9 @@ function getNavPrefix(item: NavItem) {
 export function DashboardNav({
   mobile = false,
   role,
-  generatorUrl,
 }: {
   mobile?: boolean;
   role?: AppRole | null;
-  generatorUrl?: string | null;
 }) {
   const pathname = usePathname();
   const allowedItems = navItems.filter((item) =>
@@ -115,15 +112,6 @@ export function DashboardNav({
           </Link>
         );
       })}
-      {generatorUrl ? (
-        <a
-          href={generatorUrl}
-          className="flex items-center gap-3 rounded-[var(--panel-radius)] bg-[#0d1731] px-4 py-3.5 text-[15px] font-semibold text-white transition hover:bg-[#132347]"
-        >
-          <ImageIcon className="size-5" strokeWidth={2.2} />
-          <span>Generador</span>
-        </a>
-      ) : null}
     </nav>
   );
 }
