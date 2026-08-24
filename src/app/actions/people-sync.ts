@@ -56,6 +56,7 @@ function buildSyncNotice(result: Awaited<ReturnType<typeof runPeopleSync>>) {
     `${result.restored} restaurados`,
     `${result.deleted} eliminados`,
     `${result.unchanged} sin cambios`,
+    ...(result.skippedRows ? [`${result.skippedRows} filas descartadas`] : []),
   ];
 
   return `Sincronización de contactos lista — ${parts.join(", ")}.`;

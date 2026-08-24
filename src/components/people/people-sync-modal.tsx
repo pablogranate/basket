@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   AlertTriangle,
   ArrowUpRight,
+  MailX,
   Minus,
   Pencil,
   Plus,
@@ -391,6 +392,35 @@ export function PeopleSyncModal({
                           detail: "@basquetpass.tv, solo se elimina desde el portal",
                         }))}
                       />
+                      <PreviewGroup
+                        title="Filas sin correo (no se sincronizan)"
+                        tone="keep"
+                        icon={<MailX className="size-3.5" />}
+                        items={preview.skippedNoEmail.map((name) => ({
+                          key: `norow-${name}`,
+                          label: name,
+                          detail: "cargá el correo en la planilla",
+                        }))}
+                      />
+                      <PreviewGroup
+                        title="No se tocan (sin correo)"
+                        tone="keep"
+                        icon={<MailX className="size-3.5" />}
+                        items={preview.withoutEmail.map((name) => ({
+                          key: `noemail-${name}`,
+                          label: name,
+                          detail: "sin correo, la planilla no lo elimina",
+                        }))}
+                      />
+
+                      {preview.skippedNoEmail.length || preview.withoutEmail.length ? (
+                        <p className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3 text-xs font-semibold leading-relaxed text-[var(--muted)]">
+                          El correo es lo que vincula un contacto con la planilla:
+                          las filas sin correo no se sincronizan, y las personas
+                          del portal sin correo nunca se eliminan desde acá (solo
+                          desde Personas).
+                        </p>
+                      ) : null}
 
                       {!hasChanges ? (
                         <p className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-5 py-5 text-sm font-semibold text-[var(--muted)]">

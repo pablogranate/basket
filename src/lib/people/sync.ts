@@ -45,6 +45,15 @@ export function isProtectedFromSyncDelete(email: string | null | undefined) {
   return (email ?? "").trim().toLowerCase().endsWith(PROTECTED_EMAIL_DOMAIN);
 }
 
+// Correo is what makes a contact sheet-managed: it is the only field that ties a
+// row to a login, and the roster holds hundreds of people imported by phone
+// alone (CSV seed, grilla auto-create) that the tab never listed. Both
+// directions honour it — a row without correo is not synced, and a portal person
+// without correo is never removed by a sync.
+export function isSyncableEmail(email: string | null | undefined): email is string {
+  return Boolean((email ?? "").trim());
+}
+
 // Externo tier for sheet-provisioned logins; admins re-tier from the people UI.
 const EXTERNO_ROLE: AppRole = "collaborator";
 
@@ -69,7 +78,7 @@ export type PeopleSyncResult = {
 type SheetPerson = {
   fullName: string;
   phone: string | null;
-  email: string | null;
+  email: string;
   functions: PersonFunctionKey[];
   teamIds: string[];
 };
@@ -101,9 +110,11 @@ type PeopleSyncPlan = {
   untouched: { existing: PersonRow; sheet: SheetPerson }[];
   deletes: PersonRow[];
   protectedFromDelete: PersonRow[];
+  withoutEmail: PersonRow[];
   unchanged: number;
   warnings: string[];
   skippedRows: number;
+  skippedNoEmail: string[];
   profileByEmail: Map<string, { id: string; role: string }>;
 };
 
@@ -161,20 +172,28 @@ async function fetchTabCsv(tabName: string) {
   return response.text();
 }
 
-// Parses the Contactos tab into deduped people plus per-row warnings. Team names
-// resolve against `teamIdByName`; unknown función/club values are skipped with a
-// warning rather than failing the row. Duplicate normalized names are dropped
-// (both rows) because the sheet cannot say which one is authoritative.
+// Parses the Contactos tab into deduped people plus per-row warnings. Rows with
+// an empty "Correo" are dropped before anything else (see `isSyncableEmail`).
+// Team names resolve against `teamIdByName`; unknown función/club values are
+// skipped with a warning rather than failing the row. Duplicate normalized names
+// are dropped (both rows) because the sheet cannot say which one is
+// authoritative.
 function parseContactsTab(
   csvSource: string,
   teamIdByName: Map<string, string>,
-): { people: SheetPerson[]; warnings: string[]; skippedRows: number } {
+): {
+  people: SheetPerson[];
+  warnings: string[];
+  skippedRows: number;
+  skippedNoEmail: string[];
+} {
   const rows = parse(csvSource, { relax_column_count: true }) as string[][];
   const warnings: string[] = [];
+  const skippedNoEmail: string[] = [];
   let skippedRows = 0;
 
   if (!rows.length) {
-    return { people: [], warnings, skippedRows };
+    return { people: [], warnings, skippedRows, skippedNoEmail };
   }
 
   const headers = rows[0].map(normalizeHeader);
@@ -191,6 +210,15 @@ function parseContactsTab(
   if (!columnIndex.has("nombre")) {
     throw new Error(
       `La pestaña "${CONTACTS_TAB}" no tiene una columna "Nombre" legible (encabezados: ${headers.join(" | ")}).`,
+    );
+  }
+
+  // Correo drives the whole diff now: without that column every row would be
+  // dropped and the tab would look empty. Same reasoning as "Nombre" — abort
+  // loudly instead of syncing nothing.
+  if (!["correo", "email", "mail"].some((alias) => columnIndex.has(alias))) {
+    throw new Error(
+      `La pestaña "${CONTACTS_TAB}" no tiene una columna "Correo" legible (encabezados: ${headers.join(" | ")}).`,
     );
   }
 
@@ -211,6 +239,13 @@ function parseContactsTab(
     const fullName = readCell(row, "nombre");
     if (!fullName) {
       continue; // blank Nombre → skipped silently (spacer/empty rows).
+    }
+
+    const email = nullableText(readCell(row, "correo", "email", "mail"));
+    if (!isSyncableEmail(email)) {
+      skippedNoEmail.push(fullName);
+      skippedRows += 1;
+      continue;
     }
 
     const key = normalizeText(fullName);
@@ -239,7 +274,7 @@ function parseContactsTab(
     parsed.push({
       fullName,
       phone: nullableText(readCell(row, "telefono", "celular", "movil")),
-      email: nullableText(readCell(row, "correo", "email", "mail")),
+      email,
       functions: Array.from(functions),
       teamIds: Array.from(teamIds),
     });
@@ -270,7 +305,7 @@ function parseContactsTab(
     }
   }
 
-  return { people: deduped, warnings, skippedRows };
+  return { people: deduped, warnings, skippedRows, skippedNoEmail };
 }
 
 function sameSet(a: string[], b: Set<string>): boolean {
@@ -318,6 +353,7 @@ async function buildPeopleSyncPlan(
     people: SheetPerson[];
     warnings: string[];
     skippedRows: number;
+    skippedNoEmail: string[];
   };
   try {
     const csvSource = await fetchTabCsv(CONTACTS_TAB);
@@ -460,8 +496,11 @@ async function buildPeopleSyncPlan(
     });
   }
 
-  // 5. Live people missing from the tab are removals — except internal staff,
-  //    who are only ever removed from the people UI.
+  // 5. Live people missing from the tab are removals — except internal staff
+  //    (people UI only) and anyone without a correo, who was never sheet-managed
+  //    in the first place: the roster carries hundreds of phone-only contacts
+  //    from the CSV seed and the grilla auto-create, and the tab has no row to
+  //    speak for them.
   const sheetNameKeys = new Set(
     sheet.people.map((person) => normalizeText(person.fullName)),
   );
@@ -470,17 +509,26 @@ async function buildPeopleSyncPlan(
       !person.deleted_at && !sheetNameKeys.has(normalizeText(person.full_name)),
   );
 
+  const withoutEmail = missing.filter(
+    (person) => !isSyncableEmail(person.email),
+  );
+  const removable = missing.filter((person) => isSyncableEmail(person.email));
+
   return {
     creates,
     updates,
     untouched,
-    deletes: missing.filter((person) => !isProtectedFromSyncDelete(person.email)),
-    protectedFromDelete: missing.filter((person) =>
+    deletes: removable.filter(
+      (person) => !isProtectedFromSyncDelete(person.email),
+    ),
+    protectedFromDelete: removable.filter((person) =>
       isProtectedFromSyncDelete(person.email),
     ),
+    withoutEmail,
     unchanged: untouched.length,
     warnings: sheet.warnings,
     skippedRows: sheet.skippedRows,
+    skippedNoEmail: sheet.skippedNoEmail,
     profileByEmail,
   };
 }
@@ -509,6 +557,8 @@ export async function previewPeopleSync(): Promise<PeopleSyncPreview> {
     })),
     deleted: plan.deletes.map((person) => person.full_name),
     protected: plan.protectedFromDelete.map((person) => person.full_name),
+    withoutEmail: plan.withoutEmail.map((person) => person.full_name),
+    skippedNoEmail: plan.skippedNoEmail,
     unchanged: plan.unchanged,
     skippedRows: plan.skippedRows,
     warnings: plan.warnings,
@@ -517,9 +567,14 @@ export async function previewPeopleSync(): Promise<PeopleSyncPreview> {
   };
 }
 
+// `skipDeletes` exists for the one-off roster upload
+// (scripts/one-off/people-sheet-upload.mts): it applies the sheet's creates and
+// updates while leaving every portal person in place. The modal never sets it —
+// a normal sync still removes people the tab dropped.
 export async function runPeopleSync(
   trigger: PeopleSyncTrigger,
   teamDecisions?: TeamsSyncDecisions,
+  options: { skipDeletes?: boolean } = {},
 ): Promise<PeopleSyncResult> {
   const result: PeopleSyncResult = {
     trigger,
@@ -639,13 +694,7 @@ export async function runPeopleSync(
         );
       }
 
-      if (sheetPerson.email) {
-        await grantExternoSilent(sheetPerson.email, sheetPerson.fullName);
-      } else {
-        result.warnings.push(
-          `"${sheetPerson.fullName}" sin correo: se creó sin acceso a la plataforma.`,
-        );
-      }
+      await grantExternoSilent(sheetPerson.email, sheetPerson.fullName);
 
       result.created += 1;
     }
@@ -700,14 +749,8 @@ export async function runPeopleSync(
       // merely updated. grantExternoSilent is a no-op when a profile already
       // exists, so an admin/Productor tier is never downgraded. The only
       // opt-out is an explicit revoke from the people modal.
-      if (sheetPerson.email) {
-        if (!existing.access_revoked_at) {
-          await grantExternoSilent(sheetPerson.email, sheetPerson.fullName);
-        }
-      } else if (isRestore) {
-        result.warnings.push(
-          `"${sheetPerson.fullName}" restaurado sin correo: sin acceso a la plataforma.`,
-        );
+      if (!existing.access_revoked_at) {
+        await grantExternoSilent(sheetPerson.email, sheetPerson.fullName);
       }
 
       if (isRestore) {
@@ -721,18 +764,20 @@ export async function runPeopleSync(
     //    contact who never got a login (added before access was default-on, or
     //    whose email arrived later) gets one now.
     for (const { existing, sheet: sheetPerson } of plan.untouched) {
-      if (sheetPerson.email && !existing.access_revoked_at) {
+      if (!existing.access_revoked_at) {
         await grantExternoSilent(sheetPerson.email, sheetPerson.fullName);
       }
     }
 
     // 4. Soft-delete live people no longer in the tab + revoke their access.
-    for (const person of plan.deletes) {
+    for (const person of options.skipDeletes ? [] : plan.deletes) {
       await db
         .update(peopleTable)
         .set({ deletedAt: nowIso, updatedAt: nowIso })
         .where(eq(peopleTable.id, person.id));
-      if (person.email) {
+      // Guaranteed by the plan (email-less people are never removable), but
+      // narrowing here keeps revokeAccess honest about its input.
+      if (isSyncableEmail(person.email)) {
         await revokeAccess(person.email);
       }
       result.deleted += 1;

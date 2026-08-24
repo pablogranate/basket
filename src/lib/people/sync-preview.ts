@@ -24,6 +24,11 @@ export type PeopleSyncPreview = {
   updated: { name: string; changes: string[]; restored: boolean }[];
   deleted: string[];
   protected: string[];
+  // Portal people the tab does not list but the sync will not remove: without a
+  // correo they were never sheet-managed, so the tab cannot speak for them.
+  withoutEmail: string[];
+  // Rows the tab does list but the sync ignores, because "Correo" is empty.
+  skippedNoEmail: string[];
   unchanged: number;
   skippedRows: number;
   warnings: string[];
