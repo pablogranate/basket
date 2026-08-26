@@ -4,6 +4,7 @@ import { asc, eq } from "drizzle-orm";
 
 import { resolveApprovalTarget } from "@/lib/access-requests/approval";
 import {
+  ACCESS_REQUEST_FUNCIONES,
   FUNCION_ROLE_NAME,
   isAccessRequestFuncion,
 } from "@/lib/access-requests/constants";
@@ -28,16 +29,31 @@ export async function getActiveRoleOptions(ctx: UserContext) {
   return rows;
 }
 
+// The approver picks a función, not a grilla slot: "Comentario 1"/"Camara 2"
+// are per-match assignments, so the modal offers the same vocabulary the
+// applicant saw and stores the role each función defaults to.
+function toFuncionOptions(roleOptions: { id: string; name: string }[]) {
+  const roleIdByName = new Map(
+    roleOptions.map((role) => [normalizeText(role.name), role.id]),
+  );
+
+  return ACCESS_REQUEST_FUNCIONES.flatMap((funcion) => {
+    const id = roleIdByName.get(normalizeText(FUNCION_ROLE_NAME[funcion]));
+
+    return id ? [{ id, name: funcion }] : [];
+  });
+}
+
 // Everything the approve modal needs, resolved server-side: the pending list,
 // the target each request would land on, and the pre-selected grid role.
 export async function getAccessRequestReview(ctx: UserContext): Promise<{
   items: AccessRequestReviewItem[];
-  roleOptions: { id: string; name: string }[];
+  funcionOptions: { id: string; name: string }[];
 }> {
   const requests = await getPendingAccessRequests(ctx);
 
   if (!requests.length) {
-    return { items: [], roleOptions: [] };
+    return { items: [], funcionOptions: [] };
   }
 
   const [candidates, roleOptions] = await Promise.all([
@@ -82,5 +98,5 @@ export async function getAccessRequestReview(ctx: UserContext): Promise<{
     } satisfies AccessRequestReviewItem;
   });
 
-  return { items, roleOptions };
+  return { items, funcionOptions: toFuncionOptions(roleOptions) };
 }

@@ -24,7 +24,7 @@ export function DashboardShell(props: {
   landingUrl?: string | null;
   accessRequests: {
     items: AccessRequestReviewItem[];
-    roleOptions: { id: string; name: string }[];
+    funcionOptions: { id: string; name: string }[];
   } | null;
 }) {
   const { children, user, landingUrl, accessRequests } = props;
@@ -76,7 +76,7 @@ export function DashboardShell(props: {
                 {accessRequests ? (
                   <AccessRequestsBellClient
                     items={accessRequests.items}
-                    roleOptions={accessRequests.roleOptions}
+                    funcionOptions={accessRequests.funcionOptions}
                     canSelectAccessTier={
                       user ? canManageAccessTier(user.role, "admin") : false
                     }
