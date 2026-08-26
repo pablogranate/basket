@@ -31,7 +31,7 @@ function getTransport(): Transporter {
   return transport;
 }
 
-const APP_NAME = "Basket-App";
+const APP_NAME = "BasquetPass";
 
 export async function sendMagicLinkEmail({
   to,
