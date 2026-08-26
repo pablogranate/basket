@@ -47,10 +47,13 @@ export async function getAccessRequestForOwnUser(ctx: UserContext) {
     return null;
   }
 
+  // An email may hold several rows once a resolved request no longer blocks a
+  // new one; only the newest describes where the applicant stands.
   const rows = await db
     .select(requestColumns)
     .from(accessRequestsTable)
     .where(eq(accessRequestsTable.authUserId, ctx.userId))
+    .orderBy(desc(accessRequestsTable.createdAt))
     .limit(1);
 
   return (rows[0] as Omit<AccessRequestSummary, "decided_by_name"> | undefined) ?? null;

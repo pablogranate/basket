@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { UserPlus, X } from "lucide-react";
 
 import { AccessRequestDecisionForm } from "@/components/access-requests/access-request-decision-form";
@@ -22,6 +23,7 @@ export function AccessRequestsBellClient({
   canSelectAccessTier: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+
   const [expandedId, setExpandedId] = useState<string | null>(
     items[0]?.request.id ?? null,
   );
@@ -104,7 +106,12 @@ export function AccessRequestsBellClient({
         ) : null}
       </button>
 
-      {isOpen ? (
+      {/* The dashboard header sets backdrop-blur, which makes it a containing
+          block for fixed-position descendants — an overlay rendered in place is
+          clipped to the header strip. Portalled to the body so `fixed inset-0`
+          means the viewport. Only reachable once open, which is client-only. */}
+      {isOpen
+        ? createPortal(
         <div
           className="fixed inset-0 z-[90] flex items-start justify-center overflow-y-auto bg-[var(--n-900)]/60 p-4 backdrop-blur-sm"
           onClick={() => setIsOpen(false)}
@@ -185,8 +192,10 @@ export function AccessRequestsBellClient({
               )}
             </div>
           </div>
-        </div>
-      ) : null}
+        </div>,
+        document.body,
+          )
+        : null}
     </>
   );
 }

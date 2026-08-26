@@ -66,6 +66,23 @@ alter table public.people
 -- not history, so it is deleted with the row; the four real referrers block.
 -- The predicate is repeated rather than staged in a temp table so the migration
 -- runs statement-by-statement under psql without a wrapping transaction.
+-- Snapshot first: the delete below is irreversible and the row counts differ per
+-- environment. people_purged_0034 is the only way back if the predicate turns
+-- out to be wrong in production.
+create table if not exists public.people_purged_0034 as
+select p.*
+from public.people p
+where coalesce(p.email, '') = ''
+  and not exists (select 1 from public.assignments a where a.person_id = p.id)
+  and not exists (select 1 from public.matches m where m.owner_id = p.id)
+  and not exists (select 1 from public.notification_logs n where n.person_id = p.id)
+  and not exists (select 1 from public.people_teams t where t.person_id = p.id);
+
+create table if not exists public.person_functions_purged_0034 as
+select f.*
+from public.person_functions f
+where f.person_id in (select id from public.people_purged_0034);
+
 delete from public.person_functions
 where person_id in (
   select p.id

@@ -2,18 +2,19 @@ import type { AccessRequestStatus } from "@/lib/access-requests/constants";
 
 export type AccessRequestDecision = "aprobar" | "rechazar";
 
-// One request per email, ever. A rejection is terminal: only an admin reopening
-// it (out of scope for now) can free the address.
+// One PENDING request per email. A resolved one never blocks: an approved email
+// standing here again means its access was revoked, and self-signup is the only
+// door back in — so a resolved request must not become a lockout.
 export function canSubmitAccessRequest(
   existing: { status: AccessRequestStatus } | null,
 ):
   | { ok: true }
   | { ok: false; reason: AccessRequestStatus } {
-  if (!existing) {
-    return { ok: true };
+  if (existing?.status === "pendiente") {
+    return { ok: false, reason: "pendiente" };
   }
 
-  return { ok: false, reason: existing.status };
+  return { ok: true };
 }
 
 // First decision wins: a request that already carries a decision cannot be

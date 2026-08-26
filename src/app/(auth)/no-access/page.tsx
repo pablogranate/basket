@@ -27,9 +27,11 @@ export default async function NoAccessPage({ searchParams }: PageProps) {
 
   const { intent, notice } = parseNotice(await searchParams);
   const request = await getAccessRequestForOwnUser(context);
-  // A rejection reads as "pendiente" on purpose: the decision is communicated by
-  // a person, not by this screen (D-16/D-17).
-  const isPending = request !== null;
+  // Only a pending row is a pending request. A resolved one (approved access
+  // later revoked, or rejected) means the applicant is back at the start and
+  // gets the form again — a resolved request must never read as "in review",
+  // which is how a revoked user ended up staring at a screen no approver saw.
+  const isPending = request?.status === "pendiente";
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[var(--background)] px-6 py-8">

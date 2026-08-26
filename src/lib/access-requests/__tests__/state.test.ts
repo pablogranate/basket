@@ -17,15 +17,14 @@ describe("canSubmitAccessRequest", () => {
     expect(result.ok === false && result.reason).toBe("pendiente");
   });
 
-  it("blocks re-submitting after a rejection", () => {
-    const result = canSubmitAccessRequest({ status: "rechazada" });
-
-    expect(result.ok).toBe(false);
-    expect(result.ok === false && result.reason).toBe("rechazada");
+  it("allows re-requesting after a rejection", () => {
+    expect(canSubmitAccessRequest({ status: "rechazada" }).ok).toBe(true);
   });
 
-  it("blocks re-submitting after approval", () => {
-    expect(canSubmitAccessRequest({ status: "aprobada" }).ok).toBe(false);
+  // Being on the request form with an approved row means the access it granted
+  // was revoked; blocking here would make revoke a permanent ban.
+  it("allows re-requesting after an approval whose access was revoked", () => {
+    expect(canSubmitAccessRequest({ status: "aprobada" }).ok).toBe(true);
   });
 });
 

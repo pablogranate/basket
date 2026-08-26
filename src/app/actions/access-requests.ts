@@ -14,6 +14,7 @@ import {
   type AccessRequestStatus,
 } from "@/lib/access-requests/constants";
 import { notifyAccessRequest } from "@/lib/access-requests/notify";
+import { isE164Phone } from "@/lib/access-requests/phone";
 import {
   canSubmitAccessRequest,
   resolveDecision,
@@ -54,10 +55,6 @@ function normalizeAccessTier(value: string): AccessTierRole {
     : "collaborator";
 }
 
-// E.164 as produced by the flags input: "+" then 8-15 digits. Stored verbatim;
-// sanitizePhone strips it to digits wherever WhatsApp needs them.
-const PHONE_PATTERN = /^\+\d{8,15}$/;
-
 const REQUEST_REVALIDATE_PATHS = [
   "/no-access",
   "/notifications/solicitudes",
@@ -88,7 +85,7 @@ export async function submitAccessRequestAction(formData: FormData) {
       throw new Error("Escribí tu nombre completo.");
     }
 
-    if (!PHONE_PATTERN.test(phone)) {
+    if (!isE164Phone(phone)) {
       throw new Error("Revisá el teléfono: falta el país o tiene caracteres.");
     }
 
@@ -97,23 +94,23 @@ export async function submitAccessRequestAction(formData: FormData) {
     }
 
     const email = ctx.email.trim().toLowerCase();
-    const existingRows = await db
+    const pendingRows = await db
       .select({ status: accessRequestsTable.status })
       .from(accessRequestsTable)
-      .where(sql`lower(${accessRequestsTable.email}) = ${email}`)
+      .where(
+        and(
+          sql`lower(${accessRequestsTable.email}) = ${email}`,
+          eq(accessRequestsTable.status, "pendiente"),
+        ),
+      )
       .limit(1);
 
-    const existing = existingRows[0]
-      ? { status: existingRows[0].status as AccessRequestStatus }
+    const existing = pendingRows[0]
+      ? { status: pendingRows[0].status as AccessRequestStatus }
       : null;
-    const gate = canSubmitAccessRequest(existing);
 
-    if (!gate.ok) {
-      throw new Error(
-        gate.reason === "pendiente"
-          ? "Ya tenés una solicitud pendiente."
-          : "Ya hay una solicitud registrada con este correo.",
-      );
+    if (!canSubmitAccessRequest(existing).ok) {
+      throw new Error("Ya tenés una solicitud pendiente.");
     }
 
     await db.insert(accessRequestsTable).values({
@@ -329,7 +326,7 @@ export async function approveAccessRequestAction(formData: FormData) {
       throw new Error("El nombre completo no puede quedar vacío.");
     }
 
-    if (!PHONE_PATTERN.test(phone)) {
+    if (!isE164Phone(phone)) {
       throw new Error("Revisá el teléfono antes de aprobar.");
     }
 

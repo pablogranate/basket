@@ -79,7 +79,7 @@ export function AccessRequestForm({ email }: { email: string }) {
           name="mensaje"
           rows={3}
           maxLength={500}
-          placeholder="Quién te recomendó, con qué equipo trabajás…"
+          placeholder="Con qué equipo trabajas…"
         />
       </div>
 

@@ -600,8 +600,10 @@ export const accessRequests = pgTable("access_requests", {
 	profileId: uuid("profile_id"),
 	personId: uuid("person_id"),
 }, (table) => [
-	uniqueIndex("access_requests_auth_user_id_key").using("btree", table.authUserId.asc().nullsLast()),
-	uniqueIndex("access_requests_email_lower_key").using("btree", sql`lower(email)`),
+	uniqueIndex("access_requests_pending_auth_user_key").using("btree", table.authUserId.asc().nullsLast()).where(sql`status = 'pendiente'`),
+	uniqueIndex("access_requests_pending_email_key").using("btree", sql`lower(email)`).where(sql`status = 'pendiente'`),
+	index("access_requests_auth_user_id_idx").using("btree", table.authUserId.asc().nullsLast()),
+	index("access_requests_email_lower_idx").using("btree", sql`lower(email)`),
 	index("access_requests_status_created_idx").using("btree", table.status.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
 	foreignKey({
 			columns: [table.decidedBy],
