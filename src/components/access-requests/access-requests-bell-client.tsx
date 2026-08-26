@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { UserPlus, X } from "lucide-react";
 
 import { AccessRequestDecisionForm } from "@/components/access-requests/access-request-decision-form";
-import type { AccessRequestReviewItem } from "@/components/access-requests/review-item";
+import type { AccessRequestReviewItem } from "@/lib/access-requests/review-item";
 import { cn } from "@/lib/utils";
 
 // Auto-open once per approver per pending set. Dismissing is local and never

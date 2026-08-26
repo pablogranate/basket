@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 
 import { resolveApprovalTarget } from "@/lib/access-requests/approval";
 import {
@@ -8,7 +8,7 @@ import {
   isAccessRequestFuncion,
 } from "@/lib/access-requests/constants";
 import type { UserContext } from "@/lib/auth";
-import type { AccessRequestReviewItem } from "@/components/access-requests/review-item";
+import type { AccessRequestReviewItem } from "@/lib/access-requests/review-item";
 import { db } from "@/lib/db/client";
 import { roles as rolesTable } from "@/lib/db/schema";
 import {
@@ -22,7 +22,7 @@ export async function getActiveRoleOptions(ctx: UserContext) {
   const rows = await db
     .select({ id: rolesTable.id, name: rolesTable.name })
     .from(rolesTable)
-    .where(and(eq(rolesTable.active, true)))
+    .where(eq(rolesTable.active, true))
     .orderBy(asc(rolesTable.sortOrder), asc(rolesTable.name));
 
   return rows;

@@ -8,6 +8,7 @@ The format is based on Keep a Changelog, adapted to the current workflow of this
 
 ### Changed
 
+- Replaced the manual access grant with self-signup: an authenticated user with no profile now fills a request form (nombre completo, teléfono with country selector, función, mensaje) on `/no-access`, the funciones routing table in Configuración decides who is emailed, and admins/productores approve or reject from a Solicitudes badge and auto-opening modal that can also fusionar a duplicate `people` row. Adds an explicit `people.profile_id` link in place of the fuzzy name match, moves the request history into `Registros`, and retires the spreadsheet contact sync together with the manual invite path (migration `0034`).
 - Redesigned the dashboard shell to a light editorial system with Manrope typography, refined header/sidebar navigation, quick-create drawer, and a consistent surface/token palette across grid, login, people, roles, match detail, group actions, and history panels.
 - Reworked the login page into a two-column editorial access screen and added a production sheet documenting typography, colors, surfaces, and component rules.
 - Added a structured basketball club catalog and wired suggestions for competition, local team, and away team in match creation and editing flows.

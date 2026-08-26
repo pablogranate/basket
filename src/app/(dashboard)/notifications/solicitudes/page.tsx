@@ -3,10 +3,12 @@ import { SetupPanel } from "@/components/layout/setup-panel";
 import { LogsSectionTabs } from "@/components/notifications/logs-section-tabs";
 import { Card } from "@/components/ui/card";
 import { requireAdmin } from "@/lib/auth-access";
+import { linkProfileToPersonAction } from "@/app/actions/access-requests";
+import { SubmitButton } from "@/components/ui/submit-button";
 import {
   getDecidedAccessRequests,
   getPendingAccessRequests,
-  getUnlinkedProfiles,
+  getProfileLinkReview,
 } from "@/lib/data/access-requests";
 import type { AccessRequestSummary } from "@/lib/data/access-requests";
 import { formatMatchDateTime } from "@/lib/date";
@@ -18,10 +20,10 @@ export default async function AccessRequestsLogPage() {
   }
 
   const ctx = await requireAdmin();
-  const [pending, decided, unlinked] = await Promise.all([
+  const [pending, decided, linkReview] = await Promise.all([
     getPendingAccessRequests(ctx),
     getDecidedAccessRequests(ctx),
-    getUnlinkedProfiles(ctx),
+    getProfileLinkReview(ctx),
   ]);
 
   return (
@@ -60,31 +62,69 @@ export default async function AccessRequestsLogPage() {
 
       <Card className="space-y-4">
         <h3 className="text-lg font-extrabold text-[var(--foreground)]">
-          Perfiles sin ficha vinculada ({unlinked.length})
+          Cuentas por vincular ({linkReview.length})
         </h3>
         <p className="text-sm text-[var(--n-500)]">
-          Cuentas con acceso que no tienen una ficha de personal vinculada. Es
-          normal para quien nunca aparece en la grilla; el resto quedó así porque
-          la migración solo vincula por correo exacto.
+          La migración vincula cuentas y fichas solo por correo exacto. Estas
+          quedaron sin vincular, pero hay una ficha con un nombre que parece ser
+          la misma persona. Vincular es lo que hace que Mi jornada le muestre sus
+          partidos.
         </p>
-        {unlinked.length ? (
-          <ul className="space-y-1 text-sm">
-            {unlinked.map((profile) => (
-              <li key={profile.id} className="flex flex-wrap gap-x-3">
-                <span className="font-semibold text-[var(--foreground)]">
-                  {profile.full_name ?? "Sin nombre"}
-                </span>
-                <span className="text-[var(--n-500)]">{profile.email}</span>
-                <span className="text-[var(--n-400)]">{profile.role}</span>
+        {linkReview.length ? (
+          <ul className="space-y-3">
+            {linkReview.map((row) => (
+              <li
+                key={row.profile.id}
+                className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3"
+              >
+                <p className="text-sm font-bold text-[var(--foreground)]">
+                  {row.profile.full_name ?? "Sin nombre"}{" "}
+                  <span className="font-medium text-[var(--n-500)]">
+                    {row.profile.email}
+                  </span>
+                </p>
+                <ul className="mt-2 space-y-2">
+                  {row.candidates.map((candidate) => (
+                    <li
+                      key={candidate.id}
+                      className="flex flex-wrap items-center gap-3 text-sm"
+                    >
+                      <span className="text-[var(--n-600)]">
+                        {candidate.full_name}
+                        {candidate.email ? ` · ${candidate.email}` : ""}
+                      </span>
+                      <form action={linkProfileToPersonAction}>
+                        <input
+                          type="hidden"
+                          name="profileId"
+                          value={row.profile.id}
+                        />
+                        <input
+                          type="hidden"
+                          name="personId"
+                          value={candidate.id}
+                        />
+                        <SubmitButton
+                          variant="ghost"
+                          pendingLabel="Vinculando..."
+                          className="h-9 px-3 text-xs"
+                        >
+                          Vincular
+                        </SubmitButton>
+                      </form>
+                    </li>
+                  ))}
+                </ul>
               </li>
             ))}
           </ul>
         ) : (
           <p className="text-sm text-[var(--n-500)]">
-            Todos los perfiles tienen ficha vinculada.
+            No quedan cuentas con una ficha parecida sin vincular.
           </p>
         )}
       </Card>
+
     </div>
   );
 }

@@ -3,7 +3,7 @@ import {
   rejectAccessRequestAction,
 } from "@/app/actions/access-requests";
 import { PhoneFieldClient } from "@/components/access-requests/phone-field-client";
-import type { AccessRequestReviewItem } from "@/components/access-requests/review-item";
+import type { AccessRequestReviewItem } from "@/lib/access-requests/review-item";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { SubmitButton } from "@/components/ui/submit-button";

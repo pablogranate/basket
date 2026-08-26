@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import {
   getRedirectTarget,
@@ -22,6 +22,7 @@ import { clearProfileCache, requireUserContext } from "@/lib/auth";
 import {
   canManageAccessTier,
   requireAccessRequestApprover,
+  requireAdmin,
 } from "@/lib/auth-access";
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
 import type { AppRole } from "@/lib/database.types";
@@ -177,14 +178,26 @@ export async function rejectAccessRequestAction(formData: FormData) {
       throw new Error("Esta solicitud ya fue resuelta.");
     }
 
-    await db
+    // Compare-and-set: the status predicate is what actually serializes two
+    // approvers clicking at once, not the read above (D-06, first decision wins).
+    const decided = await db
       .update(accessRequestsTable)
       .set({
         status: decision.status,
         decidedAt: new Date().toISOString(),
         decidedBy: ctx.profileId,
       })
-      .where(eq(accessRequestsTable.id, requestId));
+      .where(
+        and(
+          eq(accessRequestsTable.id, requestId),
+          eq(accessRequestsTable.status, "pendiente"),
+        ),
+      )
+      .returning({ id: accessRequestsTable.id });
+
+    if (!decided[0]) {
+      throw new Error("Esta solicitud ya fue resuelta.");
+    }
 
     await writeAudit(ctx, {
       table: "access_requests",
@@ -301,30 +314,6 @@ export async function approveAccessRequestAction(formData: FormData) {
     // Inside the try so a permission error surfaces as a notice instead of an
     // unhandled action rejection (mirrors revokePersonAccessAction).
     const ctx = await requireAccessRequestApprover();
-    const requestRows = await db
-      .select({
-        id: accessRequestsTable.id,
-        email: accessRequestsTable.email,
-        status: accessRequestsTable.status,
-      })
-      .from(accessRequestsTable)
-      .where(eq(accessRequestsTable.id, requestId))
-      .limit(1);
-
-    const request = requestRows[0];
-
-    if (!request) {
-      throw new Error("No se encontró la solicitud.");
-    }
-
-    const decision = resolveDecision(
-      { status: request.status as AccessRequestStatus },
-      "aprobar",
-    );
-
-    if (!decision.ok) {
-      throw new Error("Esta solicitud ya fue resuelta.");
-    }
 
     // What the approver submitted is what persists (D-10).
     const fullName = String(formData.get("fullName") ?? "").trim();
@@ -365,9 +354,30 @@ export async function approveAccessRequestAction(formData: FormData) {
       }
     }
 
-    const email = request.email.trim().toLowerCase();
-
     const result = await db.transaction(async (tx) => {
+      // Claim the request first, inside the transaction: the status predicate is
+      // the compare-and-set that makes the first decision the only one (D-06).
+      // Everything below runs only for the approver that won the claim.
+      const claimed = await tx
+        .update(accessRequestsTable)
+        .set({
+          status: "aprobada",
+          decidedAt: new Date().toISOString(),
+          decidedBy: ctx.profileId,
+        })
+        .where(
+          and(
+            eq(accessRequestsTable.id, requestId),
+            eq(accessRequestsTable.status, "pendiente"),
+          ),
+        )
+        .returning({ email: accessRequestsTable.email });
+
+      if (!claimed[0]) {
+        throw new Error("Esta solicitud ya fue resuelta.");
+      }
+
+      const email = claimed[0].email.trim().toLowerCase();
       const profileRows = (await tx
         .select({ id: profilesTable.id, role: profilesTable.role })
         .from(profilesTable)
@@ -445,16 +455,10 @@ export async function approveAccessRequestAction(formData: FormData) {
 
       await tx
         .update(accessRequestsTable)
-        .set({
-          status: decision.status,
-          decidedAt: new Date().toISOString(),
-          decidedBy: ctx.profileId,
-          profileId,
-          personId: savedPersonId,
-        })
+        .set({ profileId, personId: savedPersonId })
         .where(eq(accessRequestsTable.id, requestId));
 
-      return { profileId, personId: savedPersonId };
+      return { profileId, personId: savedPersonId, email };
     });
 
     clearProfileCache();
@@ -465,8 +469,8 @@ export async function approveAccessRequestAction(formData: FormData) {
       action: "UPDATE",
       before: { status: "pendiente" },
       after: {
-        status: decision.status,
-        email,
+        status: "aprobada",
+        email: result.email,
         full_name: fullName,
         phone,
         role_id: roleId,
@@ -481,7 +485,7 @@ export async function approveAccessRequestAction(formData: FormData) {
     let emailNotice = "";
     try {
       await sendCollaboratorInviteEmail({
-        to: email,
+        to: result.email,
         loginUrl: `${appEnv.portalBaseUrl}/login`,
       });
     } catch (error) {
@@ -494,6 +498,62 @@ export async function approveAccessRequestAction(formData: FormData) {
       redirectTo,
       intent: "success",
       notice: `Solicitud aprobada.${emailNotice}`,
+    });
+  } catch (error) {
+    rethrowNavigationError(error);
+    redirectWithNotice({
+      redirectTo,
+      intent: "error",
+      notice: ensureErrorMessage(error),
+    });
+  }
+}
+
+// Resolves one row of the 0034 backfill review list: link an account to the
+// ficha an admin confirms is the same person (D-09). Admin-only — the review
+// list lives on an admin-only page.
+export async function linkProfileToPersonAction(formData: FormData) {
+  const redirectTo = getRedirectTarget(formData, "/notifications/solicitudes");
+  const profileId = String(formData.get("profileId") ?? "").trim();
+  const personId = String(formData.get("personId") ?? "").trim();
+
+  try {
+    const ctx = await requireAdmin();
+
+    if (!profileId || !personId) {
+      throw new Error("Faltan datos para vincular.");
+    }
+
+    // Only an unlinked ficha may be claimed, so this can never steal a link
+    // another account already owns.
+    const linked = await db
+      .update(peopleTable)
+      .set({
+        profileId,
+        updatedBy: ctx.profileId,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(and(eq(peopleTable.id, personId), isNull(peopleTable.profileId)))
+      .returning({ id: peopleTable.id });
+
+    if (!linked[0]) {
+      throw new Error("Esa ficha ya está vinculada a otra cuenta.");
+    }
+
+    await writeAudit(ctx, {
+      table: "people",
+      recordId: personId,
+      action: "UPDATE",
+      before: null,
+      after: { id: personId, profile_id: profileId },
+    });
+
+    clearProfileCache();
+    revalidateRequestSurfaces();
+    redirectWithNotice({
+      redirectTo,
+      intent: "success",
+      notice: "Cuenta vinculada a la ficha.",
     });
   } catch (error) {
     rethrowNavigationError(error);

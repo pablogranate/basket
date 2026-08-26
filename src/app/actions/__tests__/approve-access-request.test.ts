@@ -87,11 +87,28 @@ function makeClient() {
       return {
         set(payload: Record<string, unknown>) {
           h.state.writes.push({ table: name, kind: "update", payload });
+          // Stands in for the compare-and-set: the claim UPDATE on
+          // access_requests only returns a row while the request is pendiente.
+          const isClaim =
+            name === "access_requests" && typeof payload.status === "string";
+          const claimWon =
+            !isClaim || h.state.request?.status === "pendiente";
+
+          if (isClaim && claimWon && h.state.request) {
+            h.state.request.status = payload.status;
+          }
+
+          const rows = claimWon
+            ? [{ id: "row-1", email: String(h.state.request?.email ?? "") }]
+            : [];
+          // Awaitable on its own (`await ...set().where()`) and chainable into
+          // `.returning()`, which is how the action reads the claim result.
           const chain = {
-            where: async () => undefined,
-            returning: async () => [{ id: "row-1" }],
+            returning: async () => rows,
+            then: (resolve: (value: unknown[]) => unknown) => resolve(rows),
           };
-          return chain;
+
+          return { where: () => chain };
         },
       };
     },
@@ -254,10 +271,12 @@ describe("approveAccessRequestAction", () => {
     expect(personInsert?.payload?.roleId).toBe("role-relator");
     expect(personInsert?.payload?.profileId).toBe(profileInsert?.payload?.id);
 
-    const requestUpdate = writesFor("access_requests", "update")[0];
-    expect(requestUpdate?.payload?.status).toBe("aprobada");
-    expect(requestUpdate?.payload?.decidedBy).toBe("profile-approver");
-    expect(requestUpdate?.payload?.personId).toBe("person-new");
+    // Two writes: the claim that wins the race, then the resolved links.
+    const [claim, links] = writesFor("access_requests", "update");
+    expect(claim?.payload?.status).toBe("aprobada");
+    expect(claim?.payload?.decidedBy).toBe("profile-approver");
+    expect(links?.payload?.personId).toBe("person-new");
+    expect(links?.payload?.profileId).toBe(profileInsert?.payload?.id);
     expect(h.state.invites).toEqual(["ana@basquetpass.tv"]);
   });
 
@@ -323,6 +342,7 @@ describe("approveAccessRequestAction", () => {
     expect(writesFor("access_requests", "update")[0]?.payload?.status).toBe(
       "aprobada",
     );
+    expect(h.state.request?.status).toBe("aprobada");
   });
 
   it("refuses to re-decide a request that is already resolved", async () => {
@@ -335,7 +355,26 @@ describe("approveAccessRequestAction", () => {
     const { notice } = await run(form());
 
     expect(notice?.intent).toBe("error");
-    expect(h.state.writes).toHaveLength(0);
+    // The losing approver may attempt the claim, but nothing else is written:
+    // no profile, no person, no invite.
+    expect(writesFor("profiles")).toHaveLength(0);
+    expect(writesFor("people")).toHaveLength(0);
+    expect(h.state.invites).toEqual([]);
+  });
+
+  it("writes nothing beyond the failed claim when another approver won the race", async () => {
+    // The row flipped between rendering the modal and submitting it.
+    h.state.request = {
+      id: "request-1",
+      email: "ana@basquetpass.tv",
+      status: "rechazada",
+    };
+
+    const { notice } = await run(form());
+
+    expect(notice?.intent).toBe("error");
+    expect(writesFor("people", "insert")).toHaveLength(0);
+    expect(h.state.invites).toEqual([]);
   });
 
   it("rejects a malformed phone before writing anything", async () => {

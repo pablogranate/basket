@@ -45,7 +45,7 @@ export function AccessRequestForm({ email }: { email: string }) {
         >
           Teléfono
         </label>
-        <PhoneFieldClient name="phone" />
+        <PhoneFieldClient id="access-request-phone" name="phone" />
       </div>
 
       <div className="space-y-1.5">

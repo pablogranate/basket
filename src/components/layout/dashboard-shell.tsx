@@ -2,13 +2,14 @@ import { ArrowLeft, LogOut } from "lucide-react";
 
 import { signOutAction } from "@/app/actions/auth";
 import { AccessRequestsBellClient } from "@/components/access-requests/access-requests-bell-client";
-import type { AccessRequestReviewItem } from "@/components/access-requests/review-item";
+import type { AccessRequestReviewItem } from "@/lib/access-requests/review-item";
 import { DashboardFooterMeta } from "@/components/layout/dashboard-footer-meta";
 import { DashboardMobileNav } from "@/components/layout/dashboard-mobile-nav";
 import { DashboardNav } from "@/components/layout/dashboard-nav";
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
 import { UserProfileChip } from "@/components/layout/user-profile-chip";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { canManageAccessTier } from "@/lib/auth-access";
 import {
   APP_PORTAL_LABEL,
 } from "@/lib/constants";
@@ -76,7 +77,9 @@ export function DashboardShell(props: {
                   <AccessRequestsBellClient
                     items={accessRequests.items}
                     roleOptions={accessRequests.roleOptions}
-                    canSelectAccessTier={user?.role === "admin"}
+                    canSelectAccessTier={
+                      user ? canManageAccessTier(user.role, "admin") : false
+                    }
                   />
                 ) : null}
                 {landingUrl ? (

@@ -8,10 +8,12 @@ import "react-phone-number-input/style.css";
 // The stored value is whatever the input produces: E.164 ("+5491122334455").
 // sanitizePhone strips it to digits wherever WhatsApp needs them.
 export function PhoneFieldClient({
+  id,
   name,
   defaultValue,
   required = true,
 }: {
+  id?: string;
   name: string;
   defaultValue?: string | null;
   required?: boolean;
@@ -30,6 +32,7 @@ export function PhoneFieldClient({
       required={required}
       placeholder="11 2233 4455"
       numberInputProps={{
+        id,
         className:
           "w-full rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-[var(--accent)] focus:bg-[var(--surface)] focus:ring-4 focus:ring-[rgba(230,18,56,0.08)]",
       }}

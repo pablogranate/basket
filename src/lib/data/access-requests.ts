@@ -1,13 +1,13 @@
 import "server-only";
 
-import { and, desc, eq, isNull, ne, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, ne } from "drizzle-orm";
 
-import type {
-  AccessRequestFuncion,
-  AccessRequestStatus,
-} from "@/lib/access-requests/constants";
+import type { AccessRequestStatus } from "@/lib/access-requests/constants";
 import type { UserContext } from "@/lib/auth";
-import type { ApprovalCandidate } from "@/lib/access-requests/approval";
+import {
+  resolveApprovalTarget,
+  type ApprovalCandidate,
+} from "@/lib/access-requests/approval";
 import { db } from "@/lib/db/client";
 import {
   accessRequests as accessRequestsTable,
@@ -58,19 +58,6 @@ export async function getAccessRequestForOwnUser(ctx: UserContext) {
 
 // Case-insensitive so a second login with a differently-cased address still
 // finds the request the first one created.
-export async function getAccessRequestByEmail(ctx: UserContext, email: string) {
-  void ctx;
-  const rows = await db
-    .select(requestColumns)
-    .from(accessRequestsTable)
-    .where(sql`lower(${accessRequestsTable.email}) = ${email.trim().toLowerCase()}`)
-    .limit(1);
-
-  return (rows[0] as Omit<AccessRequestSummary, "decided_by_name"> | undefined) ?? null;
-}
-
-// Approver-facing reads. The route/action guards (requireApprover, requireAdmin)
-// decide who may call these; the queries themselves are unscoped by design.
 export async function getPendingAccessRequests(
   ctx: UserContext,
 ): Promise<AccessRequestSummary[]> {
@@ -83,16 +70,6 @@ export async function getPendingAccessRequests(
     .orderBy(desc(accessRequestsTable.createdAt));
 
   return rows as AccessRequestSummary[];
-}
-
-export async function getPendingAccessRequestCount(ctx: UserContext) {
-  void ctx;
-  const rows = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(accessRequestsTable)
-    .where(eq(accessRequestsTable.status, "pendiente"));
-
-  return rows[0]?.count ?? 0;
 }
 
 export async function getDecidedAccessRequests(
@@ -136,56 +113,69 @@ export async function getApprovalCandidates(
   return rows as ApprovalCandidateRow[];
 }
 
-// Profiles the 0034 backfill could not link by email — the one-time admin review
-// list (D-09). A profile with no `people` row is normal for admins who never
-// appear in the grilla, so this is a review queue, not an error list.
-export async function getUnlinkedProfiles(ctx: UserContext) {
-  void ctx;
-  const rows = await db
-    .select({
-      id: profilesTable.id,
-      full_name: profilesTable.fullName,
-      email: profilesTable.email,
-      role: profilesTable.role,
-    })
-    .from(profilesTable)
-    .leftJoin(peopleTable, eq(peopleTable.profileId, profilesTable.id))
-    .where(isNull(peopleTable.id))
-    .orderBy(profilesTable.email);
-
-  return rows;
-}
-
-export type AccessRequestRow = {
-  id: string;
-  authUserId: string;
-  email: string;
-  fullName: string;
-  phone: string;
-  funcion: AccessRequestFuncion | string;
-  mensaje: string | null;
-  status: AccessRequestStatus;
+export type LinkReviewRow = {
+  profile: { id: string; full_name: string | null; email: string; role: string };
+  candidates: { id: string; full_name: string; email: string | null }[];
 };
 
-export async function getAccessRequestById(
+// The one-time review list the 0034 backfill leaves behind (D-09): accounts with
+// access that no `people` row claims, paired with the unlinked fichas whose name
+// looks like the same human. Profiles with no name match are left out — an admin
+// who never appears in the grilla is normal, not a leftover.
+export async function getProfileLinkReview(
   ctx: UserContext,
-  id: string,
-): Promise<AccessRequestRow | null> {
+): Promise<LinkReviewRow[]> {
   void ctx;
-  const rows = await db
-    .select({
-      id: accessRequestsTable.id,
-      authUserId: accessRequestsTable.authUserId,
-      email: accessRequestsTable.email,
-      fullName: accessRequestsTable.fullName,
-      phone: accessRequestsTable.phone,
-      funcion: accessRequestsTable.funcion,
-      mensaje: accessRequestsTable.mensaje,
-      status: accessRequestsTable.status,
-    })
-    .from(accessRequestsTable)
-    .where(and(eq(accessRequestsTable.id, id)))
-    .limit(1);
+  const [profiles, candidates] = await Promise.all([
+    db
+      .select({
+        id: profilesTable.id,
+        full_name: profilesTable.fullName,
+        email: profilesTable.email,
+        role: profilesTable.role,
+      })
+      .from(profilesTable)
+      .leftJoin(peopleTable, eq(peopleTable.profileId, profilesTable.id))
+      .where(isNull(peopleTable.id))
+      .orderBy(profilesTable.email),
+    db
+      .select({
+        id: peopleTable.id,
+        fullName: peopleTable.fullName,
+        email: peopleTable.email,
+        profileId: peopleTable.profileId,
+      })
+      .from(peopleTable)
+      .where(and(isNull(peopleTable.deletedAt), isNull(peopleTable.profileId))),
+  ]);
 
-  return (rows[0] as AccessRequestRow | undefined) ?? null;
+  return profiles.flatMap((profile) => {
+    const target = resolveApprovalTarget({
+      email: profile.email,
+      fullName: profile.full_name ?? "",
+      candidates,
+    });
+
+    const matches =
+      target.kind === "link"
+        ? [target.person]
+        : target.kind === "suggest"
+          ? target.suggestions
+          : [];
+
+    if (!matches.length) {
+      return [];
+    }
+
+    return [
+      {
+        profile,
+        candidates: matches.map((match) => ({
+          id: match.id,
+          full_name: match.fullName,
+          email: match.email,
+        })),
+      },
+    ];
+  });
 }
