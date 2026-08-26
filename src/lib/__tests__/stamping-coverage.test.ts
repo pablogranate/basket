@@ -47,8 +47,18 @@ const DOMAIN_TABLES = [
 //   created_by/updated_by columns — stampInsert/stampUpdate would be rejected by
 //   the generated types — and are reference data mutated only through the
 //   requireEditor-gated upsertTeamAction.
+// - "access_requests": the signup request itself. It carries no
+//   created_by/updated_by columns by design — the applicant is not an actor, and
+//   the approver is recorded in decided_by — so stampInsert/stampUpdate do not
+//   apply. Every decision still writes a writeAudit row (access-requests.ts).
+// - "notification_logs": the notification sink, appended by the scheduler. The
+//   only action-side write is the merge repointing person_id onto the surviving
+//   person inside the audited approval (access-requests.ts); the table has no
+//   actor columns.
 const ALLOWLISTED_TABLES = [
   "profiles",
+  "access_requests",
+  "notification_logs",
   "audit_log",
   "person_functions",
   "people_teams",
@@ -59,11 +69,14 @@ const ALLOWLISTED_TABLES = [
   "club_aliases",
 ];
 
-// Drizzle mutation opener: db.insert(table) / db.update(table). The captured
-// identifier is the local alias for a schema table (e.g. matchesTable); it is
-// resolved to a snake_case table name via the file's schema import.
+// Drizzle mutation opener: db.insert(table) / db.update(table), and the same
+// through a transaction handle (tx.insert/tx.update) — writes inside a
+// db.transaction callback are domain writes too and were invisible here before.
+// The captured identifier is the local alias for a schema table (e.g.
+// matchesTable); it is resolved to a snake_case table name via the file's schema
+// import.
 const MUTATION_RE =
-  /\bdb\s*\.\s*(insert|update)\s*\(\s*([A-Za-z0-9_]+)\s*\)/g;
+  /\b(?:db|tx)\s*\.\s*(insert|update)\s*\(\s*([A-Za-z0-9_]+)\s*\)/g;
 
 // camelCase Drizzle export name -> snake_case Postgres table name.
 function camelToSnake(name: string): string {
@@ -129,6 +142,17 @@ describe("stamping-coverage predicate self-check", () => {
     const found = findMutations(sample, "sample");
     expect(found.length).toBe(2);
     expect(found.every((finding) => finding.table === "people")).toBe(true);
+  });
+
+  it("detects mutations made through a transaction handle", () => {
+    const src = [
+      'import { people as peopleTable } from "@/lib/db/schema";',
+      "await tx.update(peopleTable).set(y);",
+    ].join("\n");
+
+    const found = findMutations(src, "sample");
+    expect(found).toHaveLength(1);
+    expect(found[0].table).toBe("people");
   });
 
   it("resolves multi-word table aliases to snake_case", () => {

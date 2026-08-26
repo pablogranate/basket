@@ -1,7 +1,5 @@
 import { Suspense } from "react";
 
-import { formatInTimeZone } from "date-fns-tz";
-import { es } from "date-fns/locale";
 import Link from "next/link";
 import { ShieldCheck, X } from "lucide-react";
 
@@ -12,12 +10,10 @@ import { CreatePersonModal } from "@/components/people/create-person-modal-lazy"
 import { PeopleHeaderExtras } from "@/components/people/people-header-extras";
 import { PeopleRedirectToInput } from "@/components/people/people-redirect-to";
 import { PeopleSearchField } from "@/components/people/people-search-field";
-import { PeopleSyncButton } from "@/components/people/people-sync-button";
 import { PeopleViewProvider } from "@/components/people/people-view-context";
 import { PeopleWorkspaceClient } from "@/components/people/people-workspace-client";
 import { PersonFunctionsField } from "@/components/people/person-functions-field";
 import { PersonDeleteButton } from "@/components/people/person-delete-button";
-import { PersonGrantAccessButton } from "@/components/people/person-grant-access-button";
 import { PersonRevokeAccessButton } from "@/components/people/person-revoke-access-button";
 import { PersonAccessRoleForm } from "@/components/people/person-access-role-form";
 import { Button } from "@/components/ui/button";
@@ -32,7 +28,6 @@ import {
 import { SECTION_COPY } from "@/lib/copy";
 import type { AppRole } from "@/lib/database.types";
 import { getPeopleData } from "@/lib/data/dashboard";
-import { getLastPeopleSync } from "@/lib/people/sync";
 import { getTeamDirectory } from "@/lib/data/teams";
 import { PersonTeamsField } from "@/components/people/person-teams-field";
 import { getPlatformAccessRole } from "@/lib/data/platform-access";
@@ -115,7 +110,6 @@ export default async function PeoplePage({ searchParams }: PageProps) {
   const currentPeopleHref = buildPeopleHref(resolvedSearchParams, {
     edit: undefined,
   });
-  const lastPeopleSyncPromise = canManageAccess ? getLastPeopleSync() : null;
 
   return (
     <PeopleViewProvider peoplePromise={peoplePromise}>
@@ -127,13 +121,6 @@ export default async function PeoplePage({ searchParams }: PageProps) {
             <>
               <PeopleSearchField className="hidden sm:flex" />
               <PeopleHeaderExtras />
-              {lastPeopleSyncPromise ? (
-                <Suspense fallback={null}>
-                  <PeopleSyncSlot
-                    lastPeopleSyncPromise={lastPeopleSyncPromise}
-                  />
-                </Suspense>
-              ) : null}
               {user.canEdit ? (
                 <Suspense fallback={null}>
                   <PeopleCreateSlot
@@ -181,24 +168,6 @@ export default async function PeoplePage({ searchParams }: PageProps) {
       </div>
     </PeopleViewProvider>
   );
-}
-
-async function PeopleSyncSlot({
-  lastPeopleSyncPromise,
-}: {
-  lastPeopleSyncPromise: ReturnType<typeof getLastPeopleSync>;
-}) {
-  const lastPeopleSync = await lastPeopleSyncPromise;
-  const lastSyncedLabel = lastPeopleSync
-    ? formatInTimeZone(
-        lastPeopleSync.started_at,
-        "America/Argentina/Buenos_Aires",
-        "d MMM · HH:mm",
-        { locale: es },
-      )
-    : undefined;
-
-  return <PeopleSyncButton lastSyncedLabel={lastSyncedLabel} />;
 }
 
 async function PeopleCreateSlot({
@@ -504,10 +473,10 @@ async function PeopleEditModal({
                       </p>
                     )
                   ) : (
-                    <PersonGrantAccessButton
-                      personId={selectedPerson.id}
-                      canSelectAccessTier={canSelectAccessTier}
-                    />
+                    <p className="mt-4 text-sm text-[var(--n-500)]">
+                      El acceso se habilita cuando la persona se registra y un
+                      admin o productor aprueba su solicitud.
+                    </p>
                   )
                 ) : null}
               </div>

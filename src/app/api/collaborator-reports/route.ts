@@ -94,6 +94,7 @@ export const POST = withAuth({}, async (request, ctx) => {
 
   try {
     const access = await getCollaboratorMatchData(ctx, {
+      profileId: ctx.profileId,
       email: ctx.email,
       profileName: ctx.profile?.full_name ?? null,
       matchId,

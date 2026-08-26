@@ -23,6 +23,7 @@ export default async function CollaboratorReportPage({ params }: PageProps) {
   const user = await requireUserContext();
   const canViewGrid = isDashboardPathAllowedForRole("/grid", user.role);
   const data = await getCollaboratorMatchData(user, {
+    profileId: user.profileId,
     email: user.email,
     profileName: user.profile?.full_name ?? null,
     matchId,

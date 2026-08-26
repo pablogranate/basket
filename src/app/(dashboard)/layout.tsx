@@ -13,6 +13,8 @@ import {
   isDashboardPathAllowedForRole,
 } from "@/lib/constants";
 import { getUserContext } from "@/lib/auth";
+import { getAccessRequestReview } from "@/lib/access-requests/review";
+import { isAccessRequestApproverRole } from "@/lib/auth-access";
 import { getActiveAnnouncement } from "@/lib/data/announcements";
 import { appEnv, isSupabaseConfigured } from "@/lib/env";
 
@@ -65,6 +67,13 @@ export default async function DashboardLayout({
     );
   }
 
+  // Approvers get the Solicitudes badge and the auto-opening modal on every
+  // dashboard page; nobody else pays for the read (D-15).
+  const accessRequests =
+    user && isAccessRequestApproverRole(user.role)
+      ? await getAccessRequestReview(user)
+      : null;
+
   const host = requestHeaders.get("host") ?? "";
   const landingUrl = isAdminDashboardRole(user?.role)
     ? buildApexUrl(host)
@@ -75,6 +84,7 @@ export default async function DashboardLayout({
       user={user}
       announcement={announcement}
       landingUrl={landingUrl}
+      accessRequests={accessRequests}
     >
       {children}
       <PwaInstallBanner />

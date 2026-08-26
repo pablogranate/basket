@@ -1,6 +1,7 @@
-import { Bot, KeyRound, Megaphone, Settings2, UserRound } from "lucide-react";
+import { Bot, KeyRound, Megaphone, Settings2, UserPlus, UserRound } from "lucide-react";
 
 import {
+  saveAccessRequestRecipientsAction,
   saveAnnouncementAction,
   saveGeminiSettingsAction,
   savePreferencesAction,
@@ -14,6 +15,8 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { Textarea } from "@/components/ui/textarea";
 import { requireUserContext } from "@/lib/auth";
 import { SECTION_COPY } from "@/lib/copy";
+import { getAccessRequestRecipientConfig } from "@/lib/access-requests/config";
+import { ACCESS_REQUEST_FUNCIONES } from "@/lib/access-requests/constants";
 import { getLatestAnnouncement } from "@/lib/data/announcements";
 import { isSupabaseConfigured } from "@/lib/env";
 import { ProfileAvatarSettings } from "@/components/settings/profile-avatar-settings";
@@ -35,9 +38,12 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const user = await requireUserContext();
   // Settings and the latest announcement are independent — resolve both
   // concurrently.
-  const [settings, latestAnnouncement] = await Promise.all([
+  const [settings, latestAnnouncement, recipientConfig] = await Promise.all([
     getSettingsSnapshot(),
     user.role === "admin" ? getLatestAnnouncement(user) : Promise.resolve(null),
+    user.role === "admin"
+      ? getAccessRequestRecipientConfig()
+      : Promise.resolve(null),
   ]);
   const displayName =
     user.profile?.full_name?.trim() || user.email?.split("@")[0] || "Usuario";
@@ -282,6 +288,65 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                 className="h-11 rounded-xl px-5 text-sm font-bold"
               >
                 Guardar comunicado
+              </SubmitButton>
+            </div>
+          </form>
+        </Card>
+      ) : null}
+      {user.role === "admin" && recipientConfig ? (
+        <Card className="space-y-5">
+          <div className="flex items-center gap-3">
+            <div className="inline-flex size-11 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent)]">
+              <UserPlus className="size-5" />
+            </div>
+            <div>
+              <h3 className="text-lg font-extrabold text-[var(--foreground)]">
+                Avisos de solicitudes de acceso
+              </h3>
+              <p className="text-sm text-[var(--n-600)]">
+                A quién se le avisa por correo cuando alguien se registra. Varias
+                direcciones separadas por coma. Los admin y productores ven la
+                solicitud en el portal, no por correo.
+              </p>
+            </div>
+          </div>
+
+          <form action={saveAccessRequestRecipientsAction} className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {ACCESS_REQUEST_FUNCIONES.map((funcion) => (
+                <label key={funcion} className="space-y-2">
+                  <span className="text-sm font-bold text-[var(--n-700)]">
+                    {funcion}
+                  </span>
+                  <input type="hidden" name="funcion" value={funcion} />
+                  <Input
+                    name="recipients"
+                    defaultValue={(recipientConfig.byFuncion[funcion] ?? []).join(", ")}
+                    placeholder="nombre@basquetpass.tv"
+                    className="h-11 rounded-xl bg-[var(--background-soft)]"
+                  />
+                </label>
+              ))}
+            </div>
+
+            <label className="space-y-2">
+              <span className="text-sm font-bold text-[var(--n-700)]">
+                Siempre notificar a
+              </span>
+              <Input
+                name="alwaysRecipients"
+                defaultValue={recipientConfig.always.join(", ")}
+                placeholder="produccion@basquetpass.tv"
+                className="h-11 rounded-xl bg-[var(--background-soft)]"
+              />
+            </label>
+
+            <div className="flex justify-end">
+              <SubmitButton
+                pendingLabel="Guardando..."
+                className="h-11 rounded-xl px-5 text-sm font-bold"
+              >
+                Guardar destinatarios
               </SubmitButton>
             </div>
           </form>
