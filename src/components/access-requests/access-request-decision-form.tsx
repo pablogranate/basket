@@ -16,11 +16,11 @@ const ACCESS_TIER_OPTIONS = [
 
 export function AccessRequestDecisionForm({
   item,
-  roleOptions,
+  funcionOptions,
   canSelectAccessTier,
 }: {
   item: AccessRequestReviewItem;
-  roleOptions: { id: string; name: string }[];
+  funcionOptions: { id: string; name: string }[];
   canSelectAccessTier: boolean;
 }) {
   const { request, target, linkedPerson, defaultRoleId } = item;
@@ -29,6 +29,13 @@ export function AccessRequestDecisionForm({
   const defaultFullName = linkedPerson?.fullName ?? request.full_name;
   const defaultPhone = linkedPerson?.phone ?? request.phone;
   const suggestions = target.kind === "suggest" ? target.suggestions : [];
+  // The person's stored role can be a grilla slot outside this list (Comentario
+  // 2, Camara 3); fall back to the función the applicant declared.
+  const linkedFuncionId = funcionOptions.some(
+    (option) => option.id === linkedPerson?.roleId,
+  )
+    ? linkedPerson?.roleId
+    : null;
 
   return (
     <div className="space-y-4 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] p-4">
@@ -72,16 +79,16 @@ export function AccessRequestDecisionForm({
 
           <label className="space-y-1.5">
             <span className="text-xs font-black uppercase tracking-[0.16em] text-[var(--n-500)]">
-              Rol en la grilla
+              Función
             </span>
             <Select
               name="roleId"
-              defaultValue={linkedPerson?.roleId ?? defaultRoleId ?? ""}
+              defaultValue={linkedFuncionId ?? defaultRoleId ?? ""}
             >
-              <option value="">Sin rol</option>
-              {roleOptions.map((role) => (
-                <option key={role.id} value={role.id}>
-                  {role.name}
+              <option value="">Sin función</option>
+              {funcionOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.name}
                 </option>
               ))}
             </Select>

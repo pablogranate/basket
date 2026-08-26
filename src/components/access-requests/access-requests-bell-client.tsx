@@ -15,11 +15,11 @@ const AUTO_OPEN_STORAGE_PREFIX = "bp_access_requests_auto_opened:";
 
 export function AccessRequestsBellClient({
   items,
-  roleOptions,
+  funcionOptions,
   canSelectAccessTier,
 }: {
   items: AccessRequestReviewItem[];
-  roleOptions: { id: string; name: string }[];
+  funcionOptions: { id: string; name: string }[];
   canSelectAccessTier: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -178,7 +178,7 @@ export function AccessRequestsBellClient({
                       <div className="mt-4">
                         <AccessRequestDecisionForm
                           item={item}
-                          roleOptions={roleOptions}
+                          funcionOptions={funcionOptions}
                           canSelectAccessTier={canSelectAccessTier}
                         />
                       </div>
