@@ -11,7 +11,7 @@ import {
 } from "@/lib/db/schema";
 import { slugifyTeamValue } from "@/lib/teams/slug";
 import { normalizeText } from "@/lib/utils";
-import type { TeamsSyncDecisions, TeamsSyncPlanPreview } from "@/lib/people/sync-preview";
+import type { TeamsSyncDecisions, TeamsSyncPlanPreview } from "@/lib/teams/sync-preview";
 
 // Column B of the "Listas" tab in the production spreadsheet — the same tab that
 // feeds the sheet's own `ClubesValidos` dropdown. It is the roster of club

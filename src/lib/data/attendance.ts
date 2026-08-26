@@ -40,8 +40,8 @@ async function loadOwnedAssignment(
   | { ok: false; reason: "not-linked" | "not-found" | "forbidden" }
 > {
   const { person } = await findLinkedPerson({
+    profileId: ctx.profileId,
     email: ctx.email,
-    profileName: ctx.profile?.full_name ?? null,
   });
 
   if (!person) {

@@ -31,7 +31,7 @@ function getTransport(): Transporter {
   return transport;
 }
 
-const APP_NAME = "Basket-App";
+const APP_NAME = "BasquetPass";
 
 export async function sendMagicLinkEmail({
   to,
@@ -101,6 +101,45 @@ export async function sendMatchNotificationEmail({
     });
   } catch (error) {
     console.error("[mailer] failed to send match notification", error);
+    throw error;
+  }
+}
+
+export async function sendAccessRequestEmail({
+  to,
+  request,
+  portalUrl,
+}: {
+  to: string;
+  request: {
+    fullName: string;
+    email: string;
+    phone: string;
+    funcion: string;
+    mensaje: string | null;
+  };
+  portalUrl: string;
+}) {
+  const lines = [
+    `${request.fullName} pidió acceso a ${APP_NAME}.`,
+    "",
+    `Función: ${request.funcion}`,
+    `Correo: ${request.email}`,
+    `Teléfono: ${request.phone}`,
+    request.mensaje ? `Mensaje: ${request.mensaje}` : null,
+    "",
+    `Aprobá o rechazá la solicitud desde el portal: ${portalUrl}`,
+  ].filter((line) => line !== null);
+
+  try {
+    await getTransport().sendMail({
+      from: appEnv.mailFrom,
+      to,
+      subject: `Nueva solicitud de acceso: ${request.fullName} (${request.funcion})`,
+      text: lines.join("\n"),
+    });
+  } catch (error) {
+    console.error("[mailer] failed to send access request notice", error);
     throw error;
   }
 }

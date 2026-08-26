@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import type { UserContext } from "@/lib/auth";
 import { getCollaboratorDayData } from "@/lib/data/collaborators";
-import { testSql, truncateAll } from "@/test/integration/db";
+import { seedActor, testSql, truncateAll } from "@/test/integration/db";
 
 // The collaborator read is one statement: a CTE resolves the `people` row behind
 // the user, the assignments LEFT JOIN off it, and each match's crew is aggregated
@@ -114,6 +114,7 @@ describe("getCollaboratorDayData (integration)", () => {
     await seedAssignment(sql, { match_id: match, role_id: camara, person_id: camOperator });
 
     const data = await getCollaboratorDayData(ctx, {
+      profileId: null,
       email: "santiago@basquetpass.tv",
       profileName: "Santiago Colaborador",
     });
@@ -135,29 +136,35 @@ describe("getCollaboratorDayData (integration)", () => {
     ]);
   });
 
-  it("falls back to a normalized full-name match when no people row carries the email", async () => {
+  it("falls back to the explicit profile link when no people row carries the email", async () => {
     const role = await seedRole(sql, "Realizador", "Produccion", 20);
+    const { profileId } = await seedActor(sql, {
+      email: "santiago@basquetpass.tv",
+    });
     const me = await seedPerson(sql, {
-      full_name: "Santiago Colaborador",
+      full_name: "Nombre Escrito Distinto",
       email: "otro-correo@basquetpass.tv",
     });
+    await sql`UPDATE people SET profile_id = ${profileId} WHERE id = ${me}`;
     const match = await seedMatch(sql, { kickoff_at: currentMonthKickoff(15) });
     await seedAssignment(sql, { match_id: match, role_id: role, person_id: me });
 
     const data = await getCollaboratorDayData(ctx, {
+      profileId,
       email: "no-esta-en-people@basquetpass.tv",
-      profileName: "Santiago Colaborador",
+      profileName: "Nombre Que Ya No Se Usa",
     });
 
     expect(data.person?.id).toBe(me);
-    expect(data.linkedBy).toBe("name");
+    expect(data.linkedBy).toBe("profile");
     expect(data.allAssignments).toHaveLength(1);
   });
 
-  it("returns a null person when neither the email nor the name matches", async () => {
+  it("returns a null person when neither the link nor the email matches", async () => {
     await seedPerson(sql, { full_name: "Alguien Mas", email: "otro@basquetpass.tv" });
 
     const data = await getCollaboratorDayData(ctx, {
+      profileId: null,
       email: "nadie@basquetpass.tv",
       profileName: "Nadie Aqui",
     });
@@ -174,6 +181,7 @@ describe("getCollaboratorDayData (integration)", () => {
     });
 
     const data = await getCollaboratorDayData(ctx, {
+      profileId: null,
       email: "santiago@basquetpass.tv",
       profileName: "Santiago Colaborador",
     });
@@ -202,6 +210,7 @@ describe("getCollaboratorDayData (integration)", () => {
     await seedAssignment(sql, { match_id: match, role_id: role, person_id: me });
 
     const data = await getCollaboratorDayData(ctx, {
+      profileId: null,
       email: "santiago@basquetpass.tv",
       profileName: "Santiago Colaborador",
     });
@@ -239,6 +248,7 @@ describe("getCollaboratorDayData (integration)", () => {
     await seedAssignment(sql, { match_id: later, role_id: role, person_id: me });
 
     const data = await getCollaboratorDayData(ctx, {
+      profileId: null,
       email: "santiago@basquetpass.tv",
       profileName: "Santiago Colaborador",
     });
@@ -265,6 +275,7 @@ describe("getCollaboratorDayData (integration)", () => {
     await seedAssignment(sql, { match_id: match, role_id: role, person_id: inactive });
 
     const inactiveResult = await getCollaboratorDayData(ctx, {
+      profileId: null,
       email: "inactivo@basquetpass.tv",
       profileName: "Santiago Inactivo",
     });
@@ -277,6 +288,7 @@ describe("getCollaboratorDayData (integration)", () => {
     });
 
     const deletedResult = await getCollaboratorDayData(ctx, {
+      profileId: null,
       email: "borrado@basquetpass.tv",
       profileName: "Santiago Borrado",
     });

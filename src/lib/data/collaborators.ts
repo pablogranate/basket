@@ -137,7 +137,7 @@ export type CollaboratorGroupContact = {
 
 export type CollaboratorDayData = {
   person: LinkedPerson | null;
-  linkedBy: "email" | "name" | null;
+  linkedBy: "email" | "profile" | null;
   allAssignments: CollaboratorAssignmentItem[];
   // From today's date onward (date-based, ascending). Primary list in Mi jornada.
   upcomingAssignments: CollaboratorAssignmentItem[];
@@ -152,7 +152,7 @@ export type CollaboratorDayData = {
 
 export type CollaboratorMatchData = {
   person: LinkedPerson | null;
-  linkedBy: "email" | "name" | null;
+  linkedBy: "email" | "profile" | null;
   assignment: CollaboratorAssignmentItem | null;
   assignmentsForMatch: CollaboratorAssignmentItem[];
   trialAccess: boolean;
@@ -784,6 +784,7 @@ async function getFallbackAssignmentForMatch(params: {
 export async function getCollaboratorDayData(
   ctx: UserContext,
   params: {
+    profileId: string | null;
     email: string | null;
     profileName: string | null;
   },
@@ -806,22 +807,22 @@ export async function getCollaboratorDayData(
     : [];
 
   let person: LinkedPerson | null = emailRows[0]?.person ?? null;
-  let linkedBy: "email" | "name" | null = person ? "email" : null;
+  let linkedBy: "email" | "profile" | null = person ? "email" : null;
   let assignments = person ? mapAssignmentRows(emailRows) : [];
 
-  // Fallback for users whose profile email is not on their `people` row: match by
-  // normalized full name, then read the assignments separately. Rare enough that
-  // its extra round-trips are not worth folding away.
+  // Fallback for users whose profile email is not on their `people` row: the
+  // explicit people.profile_id link, then read the assignments separately. Rare
+  // enough that its extra round-trips are not worth folding away.
   if (!person) {
-    const byName = await findLinkedPerson({
+    const byProfile = await findLinkedPerson({
+      profileId: params.profileId,
       email: null,
-      profileName: params.profileName,
     });
 
-    if (byName.person) {
-      person = byName.person;
-      linkedBy = byName.linkedBy;
-      assignments = await getAssignmentsForPerson(byName.person.id, {
+    if (byProfile.person) {
+      person = byProfile.person;
+      linkedBy = byProfile.linkedBy;
+      assignments = await getAssignmentsForPerson(byProfile.person.id, {
         sinceIso: monthStartIso,
       });
     }
@@ -876,6 +877,7 @@ export async function getCollaboratorDayData(
 export async function getCollaboratorMatchData(
   ctx: UserContext,
   params: {
+    profileId: string | null;
     email: string | null;
     profileName: string | null;
     matchId: string;
@@ -883,8 +885,8 @@ export async function getCollaboratorMatchData(
 ): Promise<CollaboratorMatchData> {
   void ctx;
   const { person, linkedBy } = await findLinkedPerson({
+    profileId: params.profileId,
     email: params.email,
-    profileName: params.profileName,
   });
 
   // Real matches are UUID-scoped straight in the query; demo/trial match ids

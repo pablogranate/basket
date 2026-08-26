@@ -10,6 +10,15 @@ import {
 } from "@/app/actions/helpers";
 import { and, eq, ne } from "drizzle-orm";
 
+import {
+  ACCESS_REQUEST_RECIPIENTS_SETTING_KEY,
+  serializeRecipientConfig,
+} from "@/lib/access-requests/config";
+import { isAccessRequestFuncion } from "@/lib/access-requests/constants";
+import {
+  isValidRecipientAddress,
+  parseRecipientList,
+} from "@/lib/access-requests/recipients";
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth-access";
 import { clearAnnouncementCache } from "@/lib/data/announcements";
@@ -18,6 +27,7 @@ import {
   announcements as announcementsTable,
   appSettings as appSettingsTable,
 } from "@/lib/db/schema";
+import { ensureErrorMessage } from "@/lib/utils";
 import {
   GEMINI_API_KEY_COOKIE,
   GEMINI_GLOBAL_SETTING_KEY,
@@ -353,6 +363,98 @@ export async function saveAnnouncementAction(formData: FormData) {
       redirectTo,
       intent: "error",
       notice: "No pudimos guardar el comunicado general.",
+    });
+  }
+}
+
+export async function saveAccessRequestRecipientsAction(formData: FormData) {
+  const redirectTo = getRedirectTarget(formData, "/settings");
+  const user = await requireAdmin();
+
+  try {
+    // Repeated fields keep DOM order, so funcion[i] pairs with recipients[i].
+    const funciones = formData.getAll("funcion").map((value) => String(value));
+    const lists = formData.getAll("recipients").map((value) => String(value));
+    const byFuncion: Record<string, string[]> = {};
+    const invalid: string[] = [];
+
+    funciones.forEach((funcion, index) => {
+      if (!isAccessRequestFuncion(funcion)) {
+        return;
+      }
+
+      const addresses = parseRecipientList(lists[index] ?? "");
+      addresses
+        .filter((address) => !isValidRecipientAddress(address))
+        .forEach((address) => invalid.push(address));
+      byFuncion[funcion] = addresses;
+    });
+
+    const always = parseRecipientList(
+      String(formData.get("alwaysRecipients") ?? ""),
+    );
+    always
+      .filter((address) => !isValidRecipientAddress(address))
+      .forEach((address) => invalid.push(address));
+
+    if (invalid.length) {
+      throw new Error(
+        `Revisá estas direcciones: ${Array.from(new Set(invalid)).join(", ")}`,
+      );
+    }
+
+    const publicValue = serializeRecipientConfig({ byFuncion, always });
+    const stamped = stampInsert(user, {
+      setting_key: ACCESS_REQUEST_RECIPIENTS_SETTING_KEY,
+      public_value: publicValue,
+    });
+
+    const rows = await db
+      .insert(appSettingsTable)
+      .values({
+        settingKey: stamped.setting_key,
+        publicValue: stamped.public_value,
+        createdBy: stamped.created_by,
+        updatedBy: stamped.updated_by,
+        createdAt: stamped.created_at,
+        updatedAt: stamped.updated_at,
+      })
+      .onConflictDoUpdate({
+        target: appSettingsTable.settingKey,
+        set: {
+          publicValue: stamped.public_value,
+          updatedBy: stamped.updated_by,
+          updatedAt: stamped.updated_at,
+        },
+      })
+      .returning({ id: appSettingsTable.id });
+
+    const upsertId = rows[0]?.id;
+    if (upsertId) {
+      await writeAudit(user, {
+        table: "app_settings",
+        recordId: upsertId,
+        action: "UPDATE",
+        before: null,
+        after: {
+          setting_key: ACCESS_REQUEST_RECIPIENTS_SETTING_KEY,
+          public_value: publicValue,
+        },
+      });
+    }
+
+    revalidatePath("/settings");
+    redirectWithNotice({
+      redirectTo,
+      intent: "success",
+      notice: "Destinatarios de solicitudes actualizados.",
+    });
+  } catch (error) {
+    rethrowNavigationError(error);
+    redirectWithNotice({
+      redirectTo,
+      intent: "error",
+      notice: ensureErrorMessage(error),
     });
   }
 }

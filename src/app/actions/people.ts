@@ -25,7 +25,6 @@ import {
   personFunctions as personFunctionsTable,
   profiles as profilesTable,
 } from "@/lib/db/schema";
-import { sendCollaboratorInviteEmail } from "@/lib/email/mailer";
 import { isPersonFunctionKey } from "@/lib/functions";
 import { appEnv } from "@/lib/env";
 import { buildPersonNotesMeta } from "@/lib/people-notes";
@@ -85,7 +84,13 @@ async function revokePlatformAccessByEmail(
   }
 
   // Deleting the profiles row removes authorization: getUserContext now returns
-  // hasAccess:false and any live Better Auth session lands on /no-access.
+  // hasAccess:false and any live Better Auth session lands on /no-access. The
+  // people row and its whole history stay; only the link is cut (D-13).
+  await db
+    .update(peopleTable)
+    .set({ profileId: null })
+    .where(eq(peopleTable.profileId, profile.id));
+
   await db.delete(profilesTable).where(eq(profilesTable.id, profile.id));
 
   clearProfileCache();
@@ -93,115 +98,9 @@ async function revokePlatformAccessByEmail(
   return true;
 }
 
-// Access is granted by default everywhere (create, edit, sync). people.access_revoked_at
-// is the single opt-out: stamped by an explicit revoke from the people modal,
-// cleared by an explicit grant. Nothing else writes it.
-async function getAccessRevokedAt(personId: string): Promise<string | null> {
-  const rows = await db
-    .select({ accessRevokedAt: peopleTable.accessRevokedAt })
-    .from(peopleTable)
-    .where(eq(peopleTable.id, personId))
-    .limit(1);
-
-  return rows[0]?.accessRevokedAt ?? null;
-}
-
-async function setAccessRevokedAt(personId: string, value: string | null) {
-  await db
-    .update(peopleTable)
-    .set({ accessRevokedAt: value })
-    .where(eq(peopleTable.id, personId));
-}
-
-// Default-on access: create the Externo login only when the person has none.
-// Never re-tiers and never emails, so saving a person cannot downgrade an admin
-// nor spam an invite (mirrors grantExternoSilent in src/lib/people/sync.ts).
-async function ensurePlatformAccess({
-  email,
-  fullName,
-  role,
-}: {
-  email: string;
-  fullName: string;
-  role: AccessTierRole;
-}): Promise<boolean> {
-  if (await findProfileByEmail(email)) {
-    return false;
-  }
-
-  await db.insert(profilesTable).values({
-    id: globalThis.crypto.randomUUID(),
-    email,
-    fullName,
-    role: role satisfies AppRole,
-    authUserId: null,
-  });
-
-  clearProfileCache();
-
-  return true;
-}
-
-// Provision (or re-tier) platform login for a person and send the invite email.
-// Only an explicit manager grant reaches this path.
-async function grantPlatformAccess({
-  email,
-  fullName,
-  role,
-}: {
-  email: string;
-  fullName: string;
-  role: AccessTierRole;
-}): Promise<{ emailSent: boolean }> {
-  const existingProfile = await findProfileByEmail(email);
-
-  if (existingProfile) {
-    // Change-tier: granting access to an already-provisioned user moves them to
-    // the selected tier. Keep id/auth_user_id so a later first login auto-links.
-    await db
-      .update(profilesTable)
-      .set({
-        role: role satisfies AppRole,
-        fullName,
-      })
-      .where(eq(profilesTable.id, existingProfile.id));
-  } else {
-    // No auth user created: a fresh profiles row keyed by a new uuid with
-    // auth_user_id NULL. First login (Google/magic link) auto-links by email
-    // and stamps auth_user_id (see getUserContext).
-    await db.insert(profilesTable).values({
-      id: globalThis.crypto.randomUUID(),
-      email,
-      fullName,
-      role: role satisfies AppRole,
-      authUserId: null,
-    });
-  }
-
-  clearProfileCache();
-
-  await sendCollaboratorInviteEmail({
-    to: email,
-    loginUrl: `${appEnv.portalBaseUrl}/login`,
-  });
-
-  return { emailSent: true };
-}
-
 export async function upsertPersonAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData, "/people");
   const ctx = await requireEditor();
-  const requestedAccessRole = normalizeAccessTier(
-    String(formData.get("accessRole") ?? "collaborator"),
-  );
-  // Productores can only mint Externo logins; downgrade any higher tier they
-  // request rather than trusting the submitted value.
-  const accessRole: AccessTierRole = canManageAccessTier(
-    ctx.role,
-    requestedAccessRole,
-  )
-    ? requestedAccessRole
-    : "collaborator";
 
   const payload = {
     full_name: String(formData.get("fullName") ?? "").trim(),
@@ -239,9 +138,6 @@ export async function upsertPersonAction(formData: FormData) {
 
   try {
     const personId = String(formData.get("personId") ?? "");
-    // Read the opt-out before writing: a save must never resurrect access a
-    // manager revoked, and must never skip it for anyone else.
-    const accessRevokedAt = personId ? await getAccessRevokedAt(personId) : null;
     let rows: { id: string }[];
 
     if (personId) {
@@ -327,37 +223,13 @@ export async function upsertPersonAction(formData: FormData) {
       },
     });
 
-    let accessNotice: string | null = null;
-    let accessGranted = false;
-
-    if (payload.email && !accessRevokedAt) {
-      try {
-        accessGranted = await ensurePlatformAccess({
-          email: payload.email,
-          fullName: payload.full_name,
-          role: accessRole,
-        });
-      } catch (error) {
-        console.error("[people] failed to create platform access", error);
-        accessNotice = ensureErrorMessage(error);
-      }
-    }
-
     revalidatePath("/people");
     redirectWithNotice({
       redirectTo,
-      intent: accessNotice ? "error" : "success",
-      notice: accessNotice
-        ? personId
-          ? `Registro actualizado, pero no se pudo habilitar el acceso: ${accessNotice}`
-          : `Registro creado, pero no se pudo habilitar el acceso: ${accessNotice}`
-        : accessGranted
-          ? personId
-            ? "Registro actualizado y acceso a la plataforma habilitado."
-            : "Registro creado y acceso a la plataforma habilitado."
-          : personId
-            ? "Registro de personal actualizado."
-            : "Registro de personal creado.",
+      intent: "success",
+      notice: personId
+        ? "Registro de personal actualizado."
+        : "Registro de personal creado.",
     });
   } catch (error) {
     console.error("[people] upsert failed", error);
@@ -455,9 +327,6 @@ export async function revokePersonAccessAction(formData: FormData) {
       throw new Error("No se encontró acceso de plataforma para revocar.");
     }
 
-    // Stamp the opt-out so no later save or sync re-grants this login.
-    await setAccessRevokedAt(person.id, new Date().toISOString());
-
     revalidatePath("/people");
     redirectWithNotice({
       redirectTo,
@@ -549,71 +418,6 @@ export async function updatePersonAccessRoleAction(formData: FormData) {
       redirectTo,
       intent: "success",
       notice: "Nivel de acceso actualizado.",
-    });
-  } catch (error) {
-    rethrowNavigationError(error);
-    redirectWithNotice({
-      redirectTo,
-      intent: "error",
-      notice: ensureErrorMessage(error),
-    });
-  }
-}
-
-export async function grantPersonAccessAction(formData: FormData) {
-  const redirectTo = getRedirectTarget(formData, "/people");
-  const personId = String(formData.get("personId") ?? "").trim();
-  const requestedAccessRole = normalizeAccessTier(
-    String(formData.get("accessRole") ?? "collaborator"),
-  );
-
-  try {
-    const ctx = await requireAccessManager();
-    // Productores can only mint Externo logins; downgrade higher tiers.
-    const accessRole: AccessTierRole = canManageAccessTier(
-      ctx.role,
-      requestedAccessRole,
-    )
-      ? requestedAccessRole
-      : "collaborator";
-
-    const personRows = await db
-      .select({
-        id: peopleTable.id,
-        email: peopleTable.email,
-        full_name: peopleTable.fullName,
-      })
-      .from(peopleTable)
-      .where(eq(peopleTable.id, personId))
-      .limit(1);
-
-    const person = personRows[0];
-
-    if (!person) {
-      throw new Error("No se encontró el usuario.");
-    }
-
-    if (!person.email) {
-      throw new Error(
-        "Primero debes guardar un correo electrónico para poder gestionar acceso.",
-      );
-    }
-
-    const { emailSent } = await grantPlatformAccess({
-      email: person.email,
-      fullName: person.full_name,
-      role: accessRole,
-    });
-
-    await setAccessRevokedAt(person.id, null);
-
-    revalidatePath("/people");
-    redirectWithNotice({
-      redirectTo,
-      intent: "success",
-      notice: emailSent
-        ? "Acceso a la plataforma habilitado y correo enviado."
-        : "Acceso a la plataforma habilitado.",
     });
   } catch (error) {
     rethrowNavigationError(error);

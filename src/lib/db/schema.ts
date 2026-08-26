@@ -33,8 +33,9 @@ export const people = pgTable("people", {
 	category: text(),
 	roleId: uuid("role_id"),
 	deletedAt: timestamptz("deleted_at"),
-	accessRevokedAt: timestamptz("access_revoked_at"),
+	profileId: uuid("profile_id"),
 }, (table) => [
+	uniqueIndex("people_profile_id_key").using("btree", table.profileId.asc().nullsLast()),
 	index("people_category_idx").using("btree", table.category.asc().nullsLast()),
 	index("people_role_id_idx").using("btree", table.roleId.asc().nullsLast()),
 	foreignKey({
@@ -51,6 +52,11 @@ export const people = pgTable("people", {
 			columns: [table.updatedBy],
 			foreignColumns: [profiles.id],
 			name: "people_updated_by_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.profileId],
+			foreignColumns: [profiles.id],
+			name: "people_profile_id_fkey"
 		}).onDelete("set null"),
 ]);
 
@@ -577,4 +583,42 @@ export const teamLeagueMemberships = pgTable("team_league_memberships", {
 			name: "team_league_memberships_team_id_fkey"
 		}).onDelete("cascade"),
 	primaryKey({ columns: [table.teamId, table.leagueId, table.season], name: "team_league_memberships_pkey"}),
+]);
+
+export const accessRequests = pgTable("access_requests", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	authUserId: text("auth_user_id").notNull(),
+	email: text().notNull(),
+	fullName: text("full_name").notNull(),
+	phone: text().notNull(),
+	funcion: text().notNull(),
+	mensaje: text(),
+	status: text().default('pendiente').notNull(),
+	createdAt: timestamptz("created_at").default(sql`timezone('utc'::text, now())`).notNull(),
+	decidedAt: timestamptz("decided_at"),
+	decidedBy: uuid("decided_by"),
+	profileId: uuid("profile_id"),
+	personId: uuid("person_id"),
+}, (table) => [
+	uniqueIndex("access_requests_pending_auth_user_key").using("btree", table.authUserId.asc().nullsLast()).where(sql`status = 'pendiente'`),
+	uniqueIndex("access_requests_pending_email_key").using("btree", sql`lower(email)`).where(sql`status = 'pendiente'`),
+	index("access_requests_auth_user_id_idx").using("btree", table.authUserId.asc().nullsLast()),
+	index("access_requests_email_lower_idx").using("btree", sql`lower(email)`),
+	index("access_requests_status_created_idx").using("btree", table.status.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
+	foreignKey({
+			columns: [table.decidedBy],
+			foreignColumns: [profiles.id],
+			name: "access_requests_decided_by_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.profileId],
+			foreignColumns: [profiles.id],
+			name: "access_requests_profile_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.personId],
+			foreignColumns: [people.id],
+			name: "access_requests_person_id_fkey"
+		}).onDelete("set null"),
+	check("access_requests_status_check", sql`status = ANY (ARRAY['pendiente'::text, 'aprobada'::text, 'rechazada'::text])`),
 ]);

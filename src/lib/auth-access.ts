@@ -51,3 +51,19 @@ export async function requireAccessManager() {
 
   return context;
 }
+
+// Access requests are decided by admins and productores (editor). Coordinador is
+// deliberately out: the popup is not their job (D-06).
+export function isAccessRequestApproverRole(role: AppRole): boolean {
+  return role === "admin" || role === "editor";
+}
+
+export async function requireAccessRequestApprover() {
+  const context = await requireUserContext();
+
+  if (!isAccessRequestApproverRole(context.role)) {
+    throw new Error("No tenes permisos para aprobar solicitudes de acceso.");
+  }
+
+  return context;
+}

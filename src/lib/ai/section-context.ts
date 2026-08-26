@@ -216,6 +216,7 @@ export async function resolveSectionAiContext(
     }
     case "mi-jornada": {
       const data = await getCollaboratorDayData(ctx, {
+        profileId: ctx.profileId,
         email: ctx.email,
         profileName: ctx.profile?.full_name ?? null,
       });

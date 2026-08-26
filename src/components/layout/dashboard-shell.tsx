@@ -1,12 +1,15 @@
 import { ArrowLeft, LogOut } from "lucide-react";
 
 import { signOutAction } from "@/app/actions/auth";
+import { AccessRequestsBellClient } from "@/components/access-requests/access-requests-bell-client";
+import type { AccessRequestReviewItem } from "@/lib/access-requests/review-item";
 import { DashboardFooterMeta } from "@/components/layout/dashboard-footer-meta";
 import { DashboardMobileNav } from "@/components/layout/dashboard-mobile-nav";
 import { DashboardNav } from "@/components/layout/dashboard-nav";
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
 import { UserProfileChip } from "@/components/layout/user-profile-chip";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { canManageAccessTier } from "@/lib/auth-access";
 import {
   APP_PORTAL_LABEL,
 } from "@/lib/constants";
@@ -19,8 +22,12 @@ export function DashboardShell(props: {
   user: UserContext | null;
   announcement: AnnouncementSummary | null;
   landingUrl?: string | null;
+  accessRequests: {
+    items: AccessRequestReviewItem[];
+    roleOptions: { id: string; name: string }[];
+  } | null;
 }) {
-  const { children, user, landingUrl } = props;
+  const { children, user, landingUrl, accessRequests } = props;
   const displayName =
     user?.profile?.full_name?.trim() ||
     user?.email?.split("@")[0] ||
@@ -66,6 +73,15 @@ export function DashboardShell(props: {
               </div>
 
               <div className="ml-auto flex items-center gap-4 sm:gap-5">
+                {accessRequests ? (
+                  <AccessRequestsBellClient
+                    items={accessRequests.items}
+                    roleOptions={accessRequests.roleOptions}
+                    canSelectAccessTier={
+                      user ? canManageAccessTier(user.role, "admin") : false
+                    }
+                  />
+                ) : null}
                 {landingUrl ? (
                   <a
                     href={landingUrl}

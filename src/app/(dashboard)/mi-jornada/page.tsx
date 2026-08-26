@@ -203,6 +203,7 @@ export default async function CollaboratorDayPage() {
   const dataPromise = guestMode
     ? Promise.resolve<CollaboratorDayData>(EMPTY_DAY_DATA)
     : getCollaboratorDayData(user, {
+      profileId: user.profileId,
       email: user.email,
       profileName: user.profile?.full_name ?? null,
     }).catch((error) => {
