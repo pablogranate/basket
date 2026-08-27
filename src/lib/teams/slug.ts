@@ -1,5 +1,4 @@
-// Shared with the sheet-driven team creation in `src/lib/people/teams-from-listas.ts`
-// so both paths mint the same slug for the same name.
+// Shared slug logic so every team-creation path mints the same slug for the same name.
 export function slugifyTeamValue(value: string) {
   return value
     .normalize("NFD")
