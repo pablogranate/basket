@@ -8,8 +8,56 @@ import {
   rethrowNavigationError,
 } from "@/app/actions/helpers";
 import { requireEditor } from "@/lib/auth";
-import { runGridSync } from "@/lib/grid/sync";
+import { previewGridSync, runGridSync } from "@/lib/grid/sync";
+import { updateChangesMatchRow } from "@/lib/grid/sync-plan";
+import type { SyncDeletePassSkipReason } from "@/lib/grid/sync-plan";
 import { ensureErrorMessage } from "@/lib/utils";
+
+export type GridSyncPreview = {
+  creates: number;
+  updates: number;
+  unchanged: number;
+  deletes: Array<{ id: string; label: string }>;
+  assignmentUpserts: number;
+  assignmentDeletes: number;
+  peopleToCreate: string[];
+  peopleToResurrect: string[];
+  errors: string[];
+  warnings: string[];
+  tabsSynced: string[];
+  tabsMissing: string[];
+  deletePassSkipped: SyncDeletePassSkipReason | null;
+};
+
+// Plan-only preview for the manual sync: fetch → parse → snapshots → plan,
+// nothing written. Confirming re-runs the full sync fresh — the previewed plan
+// is informative and never applied as-is.
+export async function previewGridSyncAction(): Promise<GridSyncPreview> {
+  await requireEditor();
+
+  const plan = await previewGridSync();
+
+  return {
+    creates: plan.creates.length,
+    updates: plan.updates.filter(updateChangesMatchRow).length,
+    unchanged: plan.unchanged,
+    deletes: plan.deletes,
+    assignmentUpserts:
+      plan.creates.reduce((sum, item) => sum + item.assignments.length, 0) +
+      plan.updates.reduce((sum, item) => sum + item.assignmentUpserts.length, 0),
+    assignmentDeletes: plan.updates.reduce(
+      (sum, item) => sum + item.assignmentDeletes.length,
+      0,
+    ),
+    peopleToCreate: plan.peopleToCreate.map((person) => person.name),
+    peopleToResurrect: plan.peopleToResurrect.map((person) => person.name),
+    errors: plan.errors,
+    warnings: plan.warnings,
+    tabsSynced: plan.tabsSynced,
+    tabsMissing: plan.tabsMissing,
+    deletePassSkipped: plan.deletePassSkipped,
+  };
+}
 
 function buildSyncNotice(result: Awaited<ReturnType<typeof runGridSync>>) {
   const parts = [
