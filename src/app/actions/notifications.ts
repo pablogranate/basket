@@ -1,13 +1,13 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
-import {
-  redirectWithNotice,
-  rethrowNavigationError,
-} from "@/app/actions/helpers";
 import { and, eq, inArray } from "drizzle-orm";
 
+import { defineAction } from "@/lib/actions/define-action";
+import {
+  parseSendAllMatchNotifications,
+  parseSendAssignmentNotifications,
+  resolveMatchRedirect,
+} from "@/lib/actions/parse/notifications";
 import { requireEditor } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import {
@@ -28,7 +28,6 @@ import {
   notifyMatch,
   type NotifyMatchRow,
 } from "@/lib/notifications/send-match-day";
-import { ensureErrorMessage } from "@/lib/utils";
 
 type Recipient = {
   personId: string | null;
@@ -48,20 +47,20 @@ type AssignmentNotifyRow = {
 // so the automatic schedule treats the match as handled. Reuses the same send
 // core as the cron via notifyMatch. Admin client is justified here — it mirrors
 // the cron's privileged send and authorization is enforced by requireEditor.
-export async function sendAllMatchNotificationsAction(formData: FormData) {
-  const matchId = String(formData.get("matchId") ?? "");
-  const redirectTo = `/match/${matchId}`;
-
-  try {
-    await requireEditor();
-
+const sendAllMatchNotifications = defineAction({
+  fallbackRedirect: "/grid",
+  resolveRedirect: resolveMatchRedirect,
+  authz: requireEditor,
+  // A permission error surfaces as a notice instead of an unhandled action
+  // rejection.
+  authzFailureNotice: true,
+  parse: parseSendAllMatchNotifications,
+  async run(_ctx, { matchId }, meta) {
     if (!matchId) {
-      redirectWithNotice({
+      return {
+        error: "No se indicó el partido a notificar.",
         redirectTo: "/grid",
-        intent: "error",
-        notice: "No se indicó el partido a notificar.",
-      });
-      return;
+      };
     }
 
     const matchRows = await db
@@ -86,44 +85,31 @@ export async function sendAllMatchNotificationsAction(formData: FormData) {
 
     const summary = await notifyMatch(matchRow as NotifyMatchRow, "manual");
 
-    revalidatePath(redirectTo);
-    redirectWithNotice({
-      redirectTo,
-      intent: summary.recipients === 0 ? "error" : "success",
+    return {
+      intent: summary.recipients === 0 ? ("error" as const) : ("success" as const),
       notice:
         summary.recipients === 0
           ? "No hay personas asignadas para notificar."
           : `Notificación enviada — WhatsApp ${summary.waSent}/${summary.waSent + summary.waSkipped}, ` +
             `correo ${summary.emailSent}/${summary.emailSent + summary.emailSkipped}, ` +
             `${summary.recipients} convocados.`,
-    });
-  } catch (error) {
-    rethrowNavigationError(error);
-    redirectWithNotice({
-      redirectTo,
-      intent: "error",
-      notice: ensureErrorMessage(error),
-    });
-  }
+      revalidate: [meta.redirectTo],
+    };
+  },
+});
+
+export async function sendAllMatchNotificationsAction(formData: FormData) {
+  await sendAllMatchNotifications(formData);
 }
 
-export async function sendAssignmentNotificationsAction(formData: FormData) {
-  const matchId = String(formData.get("matchId") ?? "");
-  const redirectTo = `/match/${matchId}`;
-  await requireEditor();
-
-  try {
-    const assignmentIds = String(formData.get("assignmentIds") ?? "")
-      .split(",")
-      .map((id) => id.trim())
-      .filter(Boolean);
-
+const sendAssignmentNotifications = defineAction({
+  fallbackRedirect: "/grid",
+  resolveRedirect: resolveMatchRedirect,
+  authz: requireEditor,
+  parse: parseSendAssignmentNotifications,
+  async run(_ctx, { matchId, assignmentIds }, meta) {
     if (!matchId || !assignmentIds.length) {
-      redirectWithNotice({
-        redirectTo,
-        intent: "error",
-        notice: "No hay asignaciones para notificar.",
-      });
+      return { error: "No hay asignaciones para notificar." };
     }
 
     const matchRows = await db
@@ -245,18 +231,14 @@ export async function sendAssignmentNotificationsAction(formData: FormData) {
 
     await insertNotificationLogs(logRows);
 
-    revalidatePath(redirectTo);
-    redirectWithNotice({
-      redirectTo,
-      intent: skipped && !sent ? "error" : "success",
+    return {
+      intent: skipped && !sent ? ("error" as const) : ("success" as const),
       notice: `Notificaciones por WhatsApp: enviadas ${sent}, omitidas ${skipped}.`,
-    });
-  } catch (error) {
-    rethrowNavigationError(error);
-    redirectWithNotice({
-      redirectTo,
-      intent: "error",
-      notice: ensureErrorMessage(error),
-    });
-  }
+      revalidate: [meta.redirectTo],
+    };
+  },
+});
+
+export async function sendAssignmentNotificationsAction(formData: FormData) {
+  await sendAssignmentNotifications(formData);
 }

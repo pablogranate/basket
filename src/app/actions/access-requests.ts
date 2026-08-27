@@ -1,14 +1,14 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
+import { defineAction } from "@/lib/actions/define-action";
 import {
-  getRedirectTarget,
-  redirectWithNotice,
-  rethrowNavigationError,
-} from "@/app/actions/helpers";
+  parseApproveAccessRequest,
+  parseLinkProfileToPerson,
+  parseRejectAccessRequest,
+  parseSubmitAccessRequest,
+} from "@/lib/actions/parse/access-requests";
 import {
   isAccessRequestFuncion,
   type AccessRequestStatus,
@@ -24,6 +24,7 @@ import {
   canManageAccessTier,
   requireAccessRequestApprover,
   requireAdmin,
+  type AccessTierRole,
 } from "@/lib/auth-access";
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
 import type { AppRole } from "@/lib/database.types";
@@ -41,19 +42,6 @@ import {
 } from "@/lib/db/schema";
 import { sendCollaboratorInviteEmail } from "@/lib/email/mailer";
 import { appEnv } from "@/lib/env";
-import { ensureErrorMessage, maybeNull } from "@/lib/utils";
-
-const ACCESS_TIER_ROLES = ["admin", "editor", "collaborator"] as const;
-
-type AccessTierRole = (typeof ACCESS_TIER_ROLES)[number];
-
-function normalizeAccessTier(value: string): AccessTierRole {
-  const normalized = value.trim().toLowerCase();
-
-  return (ACCESS_TIER_ROLES as readonly string[]).includes(normalized)
-    ? (normalized as AccessTierRole)
-    : "collaborator";
-}
 
 const REQUEST_REVALIDATE_PATHS = [
   "/no-access",
@@ -61,25 +49,15 @@ const REQUEST_REVALIDATE_PATHS = [
   "/people",
 ];
 
-function revalidateRequestSurfaces() {
-  REQUEST_REVALIDATE_PATHS.forEach((path) => {
-    revalidatePath(path);
-  });
-}
-
-export async function submitAccessRequestAction(formData: FormData) {
-  const redirectTo = getRedirectTarget(formData, "/no-access");
-  const ctx = await requireUserContext();
-
-  try {
+const submitAccessRequest = defineAction({
+  fallbackRedirect: "/no-access",
+  authz: requireUserContext,
+  parse: parseSubmitAccessRequest,
+  revalidate: REQUEST_REVALIDATE_PATHS,
+  async run(ctx, { fullName, phone, funcion, mensaje }) {
     if (!ctx.userId || !ctx.email) {
       throw new Error("Necesitás iniciar sesión para pedir acceso.");
     }
-
-    const fullName = String(formData.get("fullName") ?? "").trim();
-    const phone = String(formData.get("phone") ?? "").trim();
-    const funcion = String(formData.get("funcion") ?? "").trim();
-    const mensaje = maybeNull(String(formData.get("mensaje") ?? ""));
 
     if (fullName.length < 3) {
       throw new Error("Escribí tu nombre completo.");
@@ -130,30 +108,25 @@ export async function submitAccessRequestAction(formData: FormData) {
       console.error("[access-requests] notification failed", error);
     }
 
-    revalidateRequestSurfaces();
-    redirectWithNotice({
-      redirectTo,
-      intent: "success",
+    return {
       notice: "Solicitud enviada. Te avisamos por correo cuando se apruebe.",
-    });
-  } catch (error) {
-    rethrowNavigationError(error);
-    redirectWithNotice({
-      redirectTo,
-      intent: "error",
-      notice: ensureErrorMessage(error),
-    });
-  }
+    };
+  },
+});
+
+export async function submitAccessRequestAction(formData: FormData) {
+  await submitAccessRequest(formData);
 }
 
-export async function rejectAccessRequestAction(formData: FormData) {
-  const redirectTo = getRedirectTarget(formData, "/grid");
-  const requestId = String(formData.get("requestId") ?? "").trim();
-
-  try {
-    // Inside the try so a permission error surfaces as a notice instead of an
-    // unhandled action rejection (mirrors revokePersonAccessAction).
-    const ctx = await requireAccessRequestApprover();
+const rejectAccessRequest = defineAction({
+  fallbackRedirect: "/grid",
+  authz: requireAccessRequestApprover,
+  // A permission error surfaces as a notice instead of an unhandled action
+  // rejection (mirrors revokePersonAccessAction).
+  authzFailureNotice: true,
+  parse: parseRejectAccessRequest,
+  revalidate: REQUEST_REVALIDATE_PATHS,
+  async run(ctx, { requestId }) {
     const rows = await db
       .select({ id: accessRequestsTable.id, status: accessRequestsTable.status })
       .from(accessRequestsTable)
@@ -204,20 +177,12 @@ export async function rejectAccessRequestAction(formData: FormData) {
       after: { status: decision.status },
     });
 
-    revalidateRequestSurfaces();
-    redirectWithNotice({
-      redirectTo,
-      intent: "success",
-      notice: "Solicitud rechazada.",
-    });
-  } catch (error) {
-    rethrowNavigationError(error);
-    redirectWithNotice({
-      redirectTo,
-      intent: "error",
-      notice: ensureErrorMessage(error),
-    });
-  }
+    return { notice: "Solicitud rechazada." };
+  },
+});
+
+export async function rejectAccessRequestAction(formData: FormData) {
+  await rejectAccessRequest(formData);
 }
 
 // Repoint every referrer of the duplicate onto the survivor, then soft-delete it.
@@ -303,33 +268,18 @@ async function mergePersonInto(
     .where(eq(peopleTable.id, fromPersonId));
 }
 
-export async function approveAccessRequestAction(formData: FormData) {
-  const redirectTo = getRedirectTarget(formData, "/grid");
-  const requestId = String(formData.get("requestId") ?? "").trim();
-
-  try {
-    // Inside the try so a permission error surfaces as a notice instead of an
-    // unhandled action rejection (mirrors revokePersonAccessAction).
-    const ctx = await requireAccessRequestApprover();
-
-    // What the approver submitted is what persists (D-10).
-    const fullName = String(formData.get("fullName") ?? "").trim();
-    const phone = String(formData.get("phone") ?? "").trim();
-    const roleId = maybeNull(String(formData.get("roleId") ?? ""));
-    const personId = maybeNull(String(formData.get("personId") ?? ""));
-    const mergePersonId = maybeNull(String(formData.get("mergePersonId") ?? ""));
-    const requestedTier = normalizeAccessTier(
-      String(formData.get("accessRole") ?? "collaborator"),
-    );
-
-    if (fullName.length < 3) {
-      throw new Error("El nombre completo no puede quedar vacío.");
-    }
-
-    if (!isE164Phone(phone)) {
-      throw new Error("Revisá el teléfono antes de aprobar.");
-    }
-
+const approveAccessRequest = defineAction({
+  fallbackRedirect: "/grid",
+  authz: requireAccessRequestApprover,
+  // A permission error surfaces as a notice instead of an unhandled action
+  // rejection (mirrors revokePersonAccessAction).
+  authzFailureNotice: true,
+  parse: parseApproveAccessRequest,
+  revalidate: REQUEST_REVALIDATE_PATHS,
+  async run(
+    ctx,
+    { requestId, fullName, phone, roleId, personId, mergePersonId, requestedTier },
+  ) {
     // Productores can only mint Externo logins; downgrade anything higher rather
     // than trusting the submitted tier.
     const accessRole: AccessTierRole = canManageAccessTier(
@@ -490,37 +440,24 @@ export async function approveAccessRequestAction(formData: FormData) {
       emailNotice = " No pudimos enviarle el correo de aviso.";
     }
 
-    revalidateRequestSurfaces();
-    redirectWithNotice({
-      redirectTo,
-      intent: "success",
-      notice: `Solicitud aprobada.${emailNotice}`,
-    });
-  } catch (error) {
-    rethrowNavigationError(error);
-    redirectWithNotice({
-      redirectTo,
-      intent: "error",
-      notice: ensureErrorMessage(error),
-    });
-  }
+    return { notice: `Solicitud aprobada.${emailNotice}` };
+  },
+});
+
+export async function approveAccessRequestAction(formData: FormData) {
+  await approveAccessRequest(formData);
 }
 
 // Resolves one row of the 0034 backfill review list: link an account to the
 // ficha an admin confirms is the same person (D-09). Admin-only — the review
 // list lives on an admin-only page.
-export async function linkProfileToPersonAction(formData: FormData) {
-  const redirectTo = getRedirectTarget(formData, "/notifications/solicitudes");
-  const profileId = String(formData.get("profileId") ?? "").trim();
-  const personId = String(formData.get("personId") ?? "").trim();
-
-  try {
-    const ctx = await requireAdmin();
-
-    if (!profileId || !personId) {
-      throw new Error("Faltan datos para vincular.");
-    }
-
+const linkProfileToPerson = defineAction({
+  fallbackRedirect: "/notifications/solicitudes",
+  authz: requireAdmin,
+  authzFailureNotice: true,
+  parse: parseLinkProfileToPerson,
+  revalidate: REQUEST_REVALIDATE_PATHS,
+  async run(ctx, { profileId, personId }) {
     // Only an unlinked ficha may be claimed, so this can never steal a link
     // another account already owns.
     const linked = await db
@@ -546,18 +483,11 @@ export async function linkProfileToPersonAction(formData: FormData) {
     });
 
     clearProfileCache();
-    revalidateRequestSurfaces();
-    redirectWithNotice({
-      redirectTo,
-      intent: "success",
-      notice: "Cuenta vinculada a la ficha.",
-    });
-  } catch (error) {
-    rethrowNavigationError(error);
-    redirectWithNotice({
-      redirectTo,
-      intent: "error",
-      notice: ensureErrorMessage(error),
-    });
-  }
+
+    return { notice: "Cuenta vinculada a la ficha." };
+  },
+});
+
+export async function linkProfileToPersonAction(formData: FormData) {
+  await linkProfileToPerson(formData);
 }

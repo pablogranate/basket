@@ -1,36 +1,23 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
-import {
-  getRedirectTarget,
-  redirectWithNotice,
-  rethrowNavigationError,
-} from "@/app/actions/helpers";
 import { eq } from "drizzle-orm";
 
+import { defineAction } from "@/lib/actions/define-action";
+import {
+  parseDeleteRole,
+  parseUpsertRole,
+} from "@/lib/actions/parse/roles";
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth-access";
 import { db } from "@/lib/db/client";
 import { roles as rolesTable } from "@/lib/db/schema";
-import { normalizeRoleCategoryInput, normalizeRoleNameInput } from "@/lib/display";
-import { ensureErrorMessage, resolveCheckboxFlag } from "@/lib/utils";
 
-export async function upsertRoleAction(formData: FormData) {
-  const redirectTo = getRedirectTarget(formData, "/roles");
-  const ctx = await requireAdmin();
-
-  const payload = {
-    name: normalizeRoleNameInput(String(formData.get("name") ?? "")),
-    category: normalizeRoleCategoryInput(
-      String(formData.get("category") ?? "Produccion"),
-    ),
-    sort_order: Number(formData.get("sortOrder") ?? 0),
-    active: resolveCheckboxFlag(formData, "active", true),
-  };
-
-  try {
-    const roleId = String(formData.get("roleId") ?? "");
+const upsertRole = defineAction({
+  fallbackRedirect: "/roles",
+  authz: requireAdmin,
+  parse: parseUpsertRole,
+  revalidate: ["/roles", "/grid"],
+  async run(ctx, { roleId, payload }) {
     let rows: { id: string }[];
 
     if (roleId) {
@@ -77,29 +64,20 @@ export async function upsertRoleAction(formData: FormData) {
       after: { id: row.id, ...payload },
     });
 
-    revalidatePath("/roles");
-    revalidatePath("/grid");
-    redirectWithNotice({
-      redirectTo,
-      intent: "success",
-      notice: roleId ? "Rol actualizado." : "Rol creado.",
-    });
-  } catch (error) {
-    rethrowNavigationError(error);
-    redirectWithNotice({
-      redirectTo,
-      intent: "error",
-      notice: ensureErrorMessage(error),
-    });
-  }
+    return { notice: roleId ? "Rol actualizado." : "Rol creado." };
+  },
+});
+
+export async function upsertRoleAction(formData: FormData) {
+  await upsertRole(formData);
 }
 
-export async function deleteRoleAction(formData: FormData) {
-  const redirectTo = getRedirectTarget(formData, "/roles");
-  const ctx = await requireAdmin();
-
-  try {
-    const roleId = String(formData.get("roleId") ?? "");
+const deleteRole = defineAction({
+  fallbackRedirect: "/roles",
+  authz: requireAdmin,
+  parse: parseDeleteRole,
+  revalidate: ["/roles", "/grid"],
+  async run(ctx, { roleId }) {
     await db.delete(rolesTable).where(eq(rolesTable.id, roleId));
 
     await writeAudit(ctx, {
@@ -110,19 +88,10 @@ export async function deleteRoleAction(formData: FormData) {
       after: null,
     });
 
-    revalidatePath("/roles");
-    revalidatePath("/grid");
-    redirectWithNotice({
-      redirectTo,
-      intent: "success",
-      notice: "Rol eliminado.",
-    });
-  } catch (error) {
-    rethrowNavigationError(error);
-    redirectWithNotice({
-      redirectTo,
-      intent: "error",
-      notice: ensureErrorMessage(error),
-    });
-  }
+    return { notice: "Rol eliminado." };
+  },
+});
+
+export async function deleteRoleAction(formData: FormData) {
+  await deleteRole(formData);
 }

@@ -1,24 +1,20 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { revalidatePath } from "next/cache";
 
-import {
-  getRedirectTarget,
-  redirectWithNotice,
-  rethrowNavigationError,
-} from "@/app/actions/helpers";
 import { and, eq, ne } from "drizzle-orm";
 
 import {
   ACCESS_REQUEST_RECIPIENTS_SETTING_KEY,
   serializeRecipientConfig,
 } from "@/lib/access-requests/config";
-import { isAccessRequestFuncion } from "@/lib/access-requests/constants";
+import { defineAction } from "@/lib/actions/define-action";
 import {
-  isValidRecipientAddress,
-  parseRecipientList,
-} from "@/lib/access-requests/recipients";
+  parseSaveAccessRequestRecipients,
+  parseSaveAnnouncement,
+  parseSaveGeminiSettings,
+  parseSavePreferences,
+} from "@/lib/actions/parse/settings";
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth-access";
 import { clearAnnouncementCache } from "@/lib/data/announcements";
@@ -27,7 +23,6 @@ import {
   announcements as announcementsTable,
   appSettings as appSettingsTable,
 } from "@/lib/db/schema";
-import { ensureErrorMessage } from "@/lib/utils";
 import {
   GEMINI_API_KEY_COOKIE,
   GEMINI_GLOBAL_SETTING_KEY,
@@ -65,13 +60,19 @@ const ANNOUNCEMENT_REVALIDATE_PATHS = [
   "/incidents",
 ];
 
-export async function saveGeminiSettingsAction(formData: FormData) {
-  const redirectTo = getRedirectTarget(formData, "/settings");
-  const user = await requireAdmin();
-
-  try {
-    const apiKey = String(formData.get("geminiApiKey") ?? "").trim();
-    const model = String(formData.get("geminiModel") ?? "gemini-2.5-flash").trim();
+const saveGeminiSettings = defineAction({
+  fallbackRedirect: "/settings",
+  authz: requireAdmin,
+  parse: parseSaveGeminiSettings,
+  errorNotice: "No pudimos guardar la configuración de Gemini.",
+  // Scope revalidation to where the Gemini key is actually read. The AI
+  // gating on grid/mi-jornada/reports/incidents/people/teams reads the settings
+  // snapshot fresh on every real navigation (those routes are dynamic and
+  // prefetch only warms their shell, not the data loaders), so re-rendering
+  // them here just made an unrelated settings tweak slow. No layout/header
+  // surfaces the flag app-wide, so /settings is the only path that needs it.
+  revalidate: ["/settings"],
+  async run(user, { apiKey, model }) {
     const store = await cookies();
     const resolvedModel = isGeminiModel(model) ? model : "gemini-2.5-flash";
 
@@ -188,34 +189,22 @@ export async function saveGeminiSettingsAction(formData: FormData) {
     }
 
     clearPortalGeminiConfigCache();
-    // Scope revalidation to where the Gemini key is actually read. The AI
-    // gating on grid/mi-jornada/reports/incidents/people/teams reads the settings
-    // snapshot fresh on every real navigation (those routes are dynamic and
-    // prefetch only warms their shell, not the data loaders), so re-rendering
-    // them here just made an unrelated settings tweak slow. No layout/header
-    // surfaces the flag app-wide, so /settings is the only path that needs it.
-    revalidatePath("/settings");
-    redirectWithNotice({
-      redirectTo,
-      intent: "success",
-      notice,
-    });
-  } catch (error) {
-    rethrowNavigationError(error);
-    redirectWithNotice({
-      redirectTo,
-      intent: "error",
-      notice: "No pudimos guardar la configuración de Gemini.",
-    });
-  }
+
+    return { notice };
+  },
+});
+
+export async function saveGeminiSettingsAction(formData: FormData) {
+  await saveGeminiSettings(formData);
 }
 
-export async function savePreferencesAction(formData: FormData) {
-  const redirectTo = getRedirectTarget(formData, "/settings");
-  await requireAdmin();
-
-  try {
-    const density = String(formData.get("uiDensity") ?? "comoda").trim();
+const savePreferences = defineAction({
+  fallbackRedirect: "/settings",
+  authz: requireAdmin,
+  parse: parseSavePreferences,
+  errorNotice: "No pudimos guardar tus preferencias.",
+  revalidate: ["/settings"],
+  async run(_user, { density }) {
     const store = await cookies();
 
     if (isAllowedValue(density, UI_DENSITY_OPTIONS)) {
@@ -227,40 +216,21 @@ export async function savePreferencesAction(formData: FormData) {
       });
     }
 
-    revalidatePath("/settings");
-    redirectWithNotice({
-      redirectTo,
-      intent: "success",
-      notice: "Preferencias de interfaz actualizadas.",
-    });
-  } catch (error) {
-    rethrowNavigationError(error);
-    redirectWithNotice({
-      redirectTo,
-      intent: "error",
-      notice: "No pudimos guardar tus preferencias.",
-    });
-  }
+    return { notice: "Preferencias de interfaz actualizadas." };
+  },
+});
+
+export async function savePreferencesAction(formData: FormData) {
+  await savePreferences(formData);
 }
 
-export async function saveAnnouncementAction(formData: FormData) {
-  const redirectTo = getRedirectTarget(formData, "/settings");
-  const user = await requireAdmin();
-
-  try {
-    const announcementId = String(formData.get("announcementId") ?? "").trim();
-    const title = String(formData.get("announcementTitle") ?? "").trim();
-    const body = String(formData.get("announcementBody") ?? "").trim();
-    const active = formData.get("announcementActive") === "on";
-
-    if (!title || !body) {
-      redirectWithNotice({
-        redirectTo,
-        intent: "error",
-        notice: "El comunicado necesita título y mensaje.",
-      });
-    }
-
+const saveAnnouncement = defineAction({
+  fallbackRedirect: "/settings",
+  authz: requireAdmin,
+  parse: parseSaveAnnouncement,
+  errorNotice: "No pudimos guardar el comunicado general.",
+  revalidate: ANNOUNCEMENT_REVALIDATE_PATHS,
+  async run(user, { announcementId, title, body, active }) {
     let persistedAnnouncementId = announcementId;
 
     if (announcementId) {
@@ -346,63 +316,25 @@ export async function saveAnnouncementAction(formData: FormData) {
     }
 
     clearAnnouncementCache();
-    ANNOUNCEMENT_REVALIDATE_PATHS.forEach((path) => {
-      revalidatePath(path);
-    });
 
-    redirectWithNotice({
-      redirectTo,
-      intent: "success",
+    return {
       notice: active
         ? "Comunicado general publicado."
         : "Comunicado guardado sin publicar.",
-    });
-  } catch (error) {
-    rethrowNavigationError(error);
-    redirectWithNotice({
-      redirectTo,
-      intent: "error",
-      notice: "No pudimos guardar el comunicado general.",
-    });
-  }
+    };
+  },
+});
+
+export async function saveAnnouncementAction(formData: FormData) {
+  await saveAnnouncement(formData);
 }
 
-export async function saveAccessRequestRecipientsAction(formData: FormData) {
-  const redirectTo = getRedirectTarget(formData, "/settings");
-  const user = await requireAdmin();
-
-  try {
-    // Repeated fields keep DOM order, so funcion[i] pairs with recipients[i].
-    const funciones = formData.getAll("funcion").map((value) => String(value));
-    const lists = formData.getAll("recipients").map((value) => String(value));
-    const byFuncion: Record<string, string[]> = {};
-    const invalid: string[] = [];
-
-    funciones.forEach((funcion, index) => {
-      if (!isAccessRequestFuncion(funcion)) {
-        return;
-      }
-
-      const addresses = parseRecipientList(lists[index] ?? "");
-      addresses
-        .filter((address) => !isValidRecipientAddress(address))
-        .forEach((address) => invalid.push(address));
-      byFuncion[funcion] = addresses;
-    });
-
-    const always = parseRecipientList(
-      String(formData.get("alwaysRecipients") ?? ""),
-    );
-    always
-      .filter((address) => !isValidRecipientAddress(address))
-      .forEach((address) => invalid.push(address));
-
-    if (invalid.length) {
-      throw new Error(
-        `Revisá estas direcciones: ${Array.from(new Set(invalid)).join(", ")}`,
-      );
-    }
-
+const saveAccessRequestRecipients = defineAction({
+  fallbackRedirect: "/settings",
+  authz: requireAdmin,
+  parse: parseSaveAccessRequestRecipients,
+  revalidate: ["/settings"],
+  async run(user, { byFuncion, always }) {
     const publicValue = serializeRecipientConfig({ byFuncion, always });
     const stamped = stampInsert(user, {
       setting_key: ACCESS_REQUEST_RECIPIENTS_SETTING_KEY,
@@ -443,18 +375,10 @@ export async function saveAccessRequestRecipientsAction(formData: FormData) {
       });
     }
 
-    revalidatePath("/settings");
-    redirectWithNotice({
-      redirectTo,
-      intent: "success",
-      notice: "Destinatarios de solicitudes actualizados.",
-    });
-  } catch (error) {
-    rethrowNavigationError(error);
-    redirectWithNotice({
-      redirectTo,
-      intent: "error",
-      notice: ensureErrorMessage(error),
-    });
-  }
+    return { notice: "Destinatarios de solicitudes actualizados." };
+  },
+});
+
+export async function saveAccessRequestRecipientsAction(formData: FormData) {
+  await saveAccessRequestRecipients(formData);
 }

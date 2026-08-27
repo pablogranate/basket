@@ -1,20 +1,24 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
-import {
-  getRedirectTarget,
-  redirectWithNotice,
-  rethrowNavigationError,
-} from "@/app/actions/helpers";
 import { and, eq, inArray, ne, sql } from "drizzle-orm";
 
-import type { Database } from "@/lib/database.types";
+import { defineAction } from "@/lib/actions/define-action";
 import {
-  MATCH_STATUS_OPTIONS,
-  normalizeCommentaryPlan,
-  normalizeProductionMode,
-} from "@/lib/constants";
+  STAFF_ROLE_FIELD_MAP,
+  assertMatchStatus,
+  assertProductionMode,
+  getGridRedirectForCreatedMatch,
+  parseCreateMatch,
+  parseDeleteMatch,
+  parseQuickUpdateMatchField,
+  parseSetAttendanceConfirmation,
+  parseSetEncoderNumbers,
+  parseUpdateMatch,
+  parseUpsertAssignment,
+  type StaffSelection,
+} from "@/lib/actions/parse/matches";
+import type { Database } from "@/lib/database.types";
+import { normalizeCommentaryPlan } from "@/lib/constants";
 import { buildKickoffAt, formatMatchDate } from "@/lib/date";
 import { db } from "@/lib/db/client";
 import {
@@ -31,7 +35,7 @@ import {
   recordEncoderNumbers,
 } from "@/lib/data/attendance";
 import { shouldResetAttendance } from "@/lib/attendance";
-import { ensureErrorMessage, maybeNull, pickFirstString } from "@/lib/utils";
+import { maybeNull } from "@/lib/utils";
 
 // stampInsert/stampUpdate return snake_case payloads; Drizzle .values()/.set()
 // take camelCase. These mappers translate, copying only keys actually present
@@ -96,93 +100,14 @@ function toAssignmentColumns(payload: Record<string, unknown>): AssignmentColumn
   return out as AssignmentColumns;
 }
 
-const STAFF_ROLE_FIELD_MAP = [
-  {
-    fields: ["responsableId", "responsableEnCanchaId", "ownerId"],
-    roleName: "Responsable",
-  },
-  { fields: ["realizadorId"], roleName: "Realizador" },
-  {
-    fields: ["graphicsOperatorId", "graficaId"],
-    roleName: "Operador de Grafica",
-  },
-  {
-    fields: ["controlOperatorId", "controlId"],
-    roleName: "Operador de Control",
-  },
-  { fields: ["supportTechId", "soporteId"], roleName: "Soporte tecnico" },
-  { fields: ["camera1Id", "camara1Id"], roleName: "Camara 1" },
-  { fields: ["camera2Id", "camara2Id"], roleName: "Camara 2" },
-  { fields: ["camera3Id", "camara3Id"], roleName: "Camara 3" },
-  { fields: ["camera4Id", "camara4Id"], roleName: "Camara 4" },
-  { fields: ["camera5Id", "camara5Id"], roleName: "Camara 5" },
-  { fields: ["relatorId"], roleName: "Relator" },
-  {
-    fields: ["commentator1Id", "comentario1Id"],
-    roleName: "Comentario 1",
-  },
-  {
-    fields: ["commentator2Id", "comentario2Id"],
-    roleName: "Comentario 2",
-  },
-] as const;
-
 type MatchUpdate = Database["public"]["Tables"]["matches"]["Update"];
-
-function assertMatchStatus(value: string) {
-  if (!MATCH_STATUS_OPTIONS.includes(value as (typeof MATCH_STATUS_OPTIONS)[number])) {
-    return "Pendiente";
-  }
-
-  return value as (typeof MATCH_STATUS_OPTIONS)[number];
-}
-
-function assertProductionMode(value: string) {
-  return normalizeProductionMode(value);
-}
-
-function getGridRedirectForCreatedMatch(formData: FormData, fallback: string) {
-  const url = new URL(fallback, "http://localhost");
-  const createdDate = String(formData.get("date") ?? "").trim();
-  const timezone = String(formData.get("timezone") ?? "").trim();
-
-  url.pathname = "/grid";
-  url.searchParams.set("view", "day");
-
-  if (createdDate) {
-    url.searchParams.set("date", createdDate);
-  }
-
-  if (timezone) {
-    url.searchParams.set("timezone", timezone);
-  }
-
-  for (const key of ["q", "league", "mode", "status", "owner", "intent", "notice"]) {
-    url.searchParams.delete(key);
-  }
-
-  return `${url.pathname}${url.search}`;
-}
-
-function getCreateOwnerId(formData: FormData) {
-  return maybeNull(
-    pickFirstString([
-      formData.get("responsableId"),
-      formData.get("responsableEnCanchaId"),
-      formData.get("ownerId"),
-    ]),
-  );
-}
 
 function buildStaffAssignments(params: {
   matchId: string;
-  formData: FormData;
+  staffSelections: StaffSelection[];
   roleIdsByName: Map<string, string>;
 }) {
-  return STAFF_ROLE_FIELD_MAP.flatMap(({ fields, roleName }) => {
-    const personId = maybeNull(
-      pickFirstString(fields.map((field) => params.formData.get(field))),
-    );
+  return params.staffSelections.flatMap(({ personId, roleName }) => {
     const roleId = params.roleIdsByName.get(roleName);
 
     if (!personId || !roleId) {
@@ -242,13 +167,6 @@ async function findUnqualifiedAssignment(
   );
 }
 
-function collectStaffAssignmentChecks(formData: FormData) {
-  return STAFF_ROLE_FIELD_MAP.map(({ fields, roleName }) => ({
-    personId: maybeNull(pickFirstString(fields.map((field) => formData.get(field)))),
-    roleName,
-  }));
-}
-
 // Postgres unique_violation; surfaced by the postgres driver on the error `code`.
 function isUniqueViolation(error: unknown): boolean {
   return Boolean(error) && (error as { code?: string }).code === "23505";
@@ -276,57 +194,59 @@ async function productionCodeExists(
   return rows.length > 0;
 }
 
-export async function createMatchAction(formData: FormData) {
-  const redirectTo = getRedirectTarget(formData, "/grid");
-  const createdMatchGridRedirect = getGridRedirectForCreatedMatch(formData, redirectTo);
-  const ctx = await requireEditor();
+async function loadStaffRoleIdsByName() {
+  const roleNames = STAFF_ROLE_FIELD_MAP.map((item) => item.roleName);
+  const roleRows = await db
+    .select({ id: rolesTable.id, name: rolesTable.name })
+    .from(rolesTable)
+    .where(inArray(rolesTable.name, roleNames));
 
-  try {
+  return new Map(roleRows.map((role) => [role.name, role.id]));
+}
+
+const createMatch = defineAction({
+  fallbackRedirect: "/grid",
+  authz: requireEditor,
+  parse: parseCreateMatch,
+  async run(ctx, input, meta) {
     const kickoffAt = buildKickoffAt({
-      date: String(formData.get("date") ?? ""),
-      time: String(formData.get("time") ?? ""),
-      timezone: String(formData.get("timezone") ?? ""),
+      date: input.date,
+      time: input.time,
+      timezone: input.timezone,
     });
 
-    const productionCode = maybeNull(String(formData.get("productionCode") ?? ""));
+    const productionCode = input.productionCode;
 
     if (productionCode && (await productionCodeExists(productionCode))) {
-      redirectWithNotice({
-        redirectTo,
-        intent: "error",
-        notice: duplicateProductionCodeMessage(productionCode),
-      });
+      return { error: duplicateProductionCodeMessage(productionCode) };
     }
 
-    const unqualified = await findUnqualifiedAssignment(
-      collectStaffAssignmentChecks(formData),
-    );
+    const unqualified = await findUnqualifiedAssignment(input.staffSelections);
 
     if (unqualified) {
-      redirectWithNotice({
-        redirectTo,
-        intent: "error",
-        notice: unqualifiedAssignmentNotice(unqualified.roleName, unqualified.functionKey),
-      });
+      return {
+        error: unqualifiedAssignmentNotice(
+          unqualified.roleName,
+          unqualified.functionKey,
+        ),
+      };
     }
 
     const stampedMatch = stampInsert(ctx, {
-      competition: maybeNull(String(formData.get("competition") ?? "")),
+      competition: input.competition,
       production_code: productionCode,
-      production_mode: assertProductionMode(
-        String(formData.get("productionMode") ?? ""),
-      ),
-      status: assertMatchStatus(String(formData.get("status") ?? "Pendiente")),
-      home_team: String(formData.get("homeTeam") ?? "").trim(),
-      away_team: String(formData.get("awayTeam") ?? "").trim(),
-      venue: maybeNull(String(formData.get("venue") ?? "")),
-      commentary_plan: maybeNull(String(formData.get("commentaryPlan") ?? "")),
-      transport: maybeNull(String(formData.get("transport") ?? "")),
+      production_mode: input.productionMode,
+      status: input.status,
+      home_team: input.homeTeam,
+      away_team: input.awayTeam,
+      venue: input.venue,
+      commentary_plan: input.commentaryPlan,
+      transport: input.transport,
       kickoff_at: kickoffAt,
-      duration_minutes: Number(formData.get("durationMinutes") ?? 150),
-      timezone: String(formData.get("timezone") ?? ""),
-      owner_id: getCreateOwnerId(formData),
-      notes: maybeNull(String(formData.get("notes") ?? "")),
+      duration_minutes: input.durationMinutes,
+      timezone: input.timezone,
+      owner_id: input.ownerId,
+      notes: input.notes,
     });
 
     let createdMatchId: string | undefined;
@@ -338,11 +258,7 @@ export async function createMatchAction(formData: FormData) {
       createdMatchId = rows[0]?.id;
     } catch (error) {
       if (isUniqueViolation(error) && productionCode) {
-        redirectWithNotice({
-          redirectTo,
-          intent: "error",
-          notice: duplicateProductionCodeMessage(productionCode),
-        });
+        return { error: duplicateProductionCodeMessage(productionCode) };
       }
       throw error;
     }
@@ -359,17 +275,11 @@ export async function createMatchAction(formData: FormData) {
       after: { id: createdMatchId },
     });
 
-    const roleNames = STAFF_ROLE_FIELD_MAP.map((item) => item.roleName);
-    const roleRows = await db
-      .select({ id: rolesTable.id, name: rolesTable.name })
-      .from(rolesTable)
-      .where(inArray(rolesTable.name, roleNames));
-
-    const roleIdsByName = new Map(roleRows.map((role) => [role.name, role.id]));
+    const roleIdsByName = await loadStaffRoleIdsByName();
 
     const assignments = buildStaffAssignments({
       matchId: createdMatchId,
-      formData,
+      staffSelections: input.staffSelections,
       roleIdsByName,
     });
 
@@ -417,90 +327,85 @@ export async function createMatchAction(formData: FormData) {
       });
     }
 
-    revalidatePath("/grid");
-    revalidatePath(`/match/${createdMatchId}`);
-    revalidatePath(`/match/${createdMatchId}/notificar`);
-    redirectWithNotice({
-      redirectTo: notify.length
-        ? `/match/${createdMatchId}`
-        : createdMatchGridRedirect,
-      intent: "success",
+    return {
       notice: "Partido creado.",
       notify,
-    });
-  } catch (error) {
-    rethrowNavigationError(error);
-    redirectWithNotice({
-      redirectTo,
-      intent: "error",
-      notice: ensureErrorMessage(error),
-    });
-  }
+      redirectTo: notify.length
+        ? `/match/${createdMatchId}`
+        : getGridRedirectForCreatedMatch({
+            fallback: meta.redirectTo,
+            date: input.date,
+            timezone: input.timezone,
+          }),
+      revalidate: [
+        "/grid",
+        `/match/${createdMatchId}`,
+        `/match/${createdMatchId}/notificar`,
+      ],
+    };
+  },
+});
+
+export async function createMatchAction(formData: FormData) {
+  await createMatch(formData);
 }
 
-export async function updateMatchAction(formData: FormData) {
-  const redirectTo = getRedirectTarget(formData, "/grid");
-  const ctx = await requireEditor();
+const updateMatch = defineAction({
+  fallbackRedirect: "/grid",
+  authz: requireEditor,
+  parse: parseUpdateMatch,
+  async run(ctx, input, meta) {
+    const matchId = input.matchId;
 
-  const matchId = String(formData.get("matchId") ?? "");
-
-  try {
-    const unqualified = await findUnqualifiedAssignment(
-      collectStaffAssignmentChecks(formData),
-    );
+    const unqualified = await findUnqualifiedAssignment(input.staffSelections);
 
     if (unqualified) {
-      redirectWithNotice({
-        redirectTo,
-        intent: "error",
-        notice: unqualifiedAssignmentNotice(unqualified.roleName, unqualified.functionKey),
-      });
+      return {
+        error: unqualifiedAssignmentNotice(
+          unqualified.roleName,
+          unqualified.functionKey,
+        ),
+      };
     }
 
     const kickoffAt = buildKickoffAt({
-      date: String(formData.get("date") ?? ""),
-      time: String(formData.get("time") ?? ""),
-      timezone: String(formData.get("timezone") ?? ""),
+      date: input.date,
+      time: input.time,
+      timezone: input.timezone,
     });
     const payload: MatchUpdate = {
-      competition: maybeNull(String(formData.get("competition") ?? "")),
-      production_mode: assertProductionMode(
-        String(formData.get("productionMode") ?? ""),
-      ),
-      status: assertMatchStatus(String(formData.get("status") ?? "Pendiente")),
-      home_team: String(formData.get("homeTeam") ?? "").trim(),
-      away_team: String(formData.get("awayTeam") ?? "").trim(),
-      venue: maybeNull(String(formData.get("venue") ?? "")),
+      competition: input.competition,
+      production_mode: input.productionMode,
+      status: input.status,
+      home_team: input.homeTeam,
+      away_team: input.awayTeam,
+      venue: input.venue,
       kickoff_at: kickoffAt,
-      duration_minutes: Number(formData.get("durationMinutes") ?? 150),
-      timezone: String(formData.get("timezone") ?? ""),
-      owner_id: getCreateOwnerId(formData),
-      notes: maybeNull(String(formData.get("notes") ?? "")),
+      duration_minutes: input.durationMinutes,
+      timezone: input.timezone,
+      owner_id: input.ownerId,
+      notes: input.notes,
     };
 
-    if (formData.has("productionCode")) {
-      const productionCode = maybeNull(String(formData.get("productionCode") ?? ""));
+    if (input.hasProductionCode) {
+      const productionCode = input.productionCode;
 
       if (
         productionCode &&
         (await productionCodeExists(productionCode, matchId))
       ) {
-        redirectWithNotice({
-          redirectTo,
-          intent: "error",
-          notice: duplicateProductionCodeMessage(productionCode),
-        });
+        return { error: duplicateProductionCodeMessage(productionCode) };
       }
 
       payload.production_code = productionCode;
     }
 
-    if (formData.has("commentaryPlan")) {
-      payload.commentary_plan = maybeNull(String(formData.get("commentaryPlan") ?? ""));
+    if (input.hasCommentaryPlan) {
+      payload.commentary_plan = input.commentaryPlan;
     }
 
-    if (formData.has("transport")) {
-      payload.transport = maybeNull(String(formData.get("transport") ?? ""));
+    if (input.hasTransport) {
+      payload.transport = input.transport;
     }
 
     try {
@@ -510,11 +415,7 @@ export async function updateMatchAction(formData: FormData) {
         .where(eq(matchesTable.id, matchId));
     } catch (error) {
       if (isUniqueViolation(error) && payload.production_code) {
-        redirectWithNotice({
-          redirectTo,
-          intent: "error",
-          notice: duplicateProductionCodeMessage(payload.production_code),
-        });
+        return { error: duplicateProductionCodeMessage(payload.production_code) };
       }
       throw error;
     }
@@ -527,13 +428,7 @@ export async function updateMatchAction(formData: FormData) {
       after: { id: matchId, ...payload },
     });
 
-    const roleNames = STAFF_ROLE_FIELD_MAP.map((item) => item.roleName);
-    const roleRows = await db
-      .select({ id: rolesTable.id, name: rolesTable.name })
-      .from(rolesTable)
-      .where(inArray(rolesTable.name, roleNames));
-
-    const roleIdsByName = new Map(roleRows.map((role) => [role.name, role.id]));
+    const roleIdsByName = await loadStaffRoleIdsByName();
     const roleIds = [...roleIdsByName.values()];
     const priorAssignmentKeys = new Set<string>();
 
@@ -569,7 +464,7 @@ export async function updateMatchAction(formData: FormData) {
 
     const assignments = buildStaffAssignments({
       matchId,
-      formData,
+      staffSelections: input.staffSelections,
       roleIdsByName,
     });
 
@@ -618,33 +513,24 @@ export async function updateMatchAction(formData: FormData) {
       });
     }
 
-    revalidatePath("/grid");
-    revalidatePath(`/match/${matchId}`);
-    redirectWithNotice({
-      redirectTo: notify.length ? `/match/${matchId}` : redirectTo,
-      intent: "success",
+    return {
       notice: "Partido actualizado.",
       notify,
-    });
-  } catch (error) {
-    rethrowNavigationError(error);
-    redirectWithNotice({
-      redirectTo,
-      intent: "error",
-      notice: ensureErrorMessage(error),
-    });
-  }
+      redirectTo: notify.length ? `/match/${matchId}` : meta.redirectTo,
+      revalidate: ["/grid", `/match/${matchId}`],
+    };
+  },
+});
+
+export async function updateMatchAction(formData: FormData) {
+  await updateMatch(formData);
 }
 
-export async function quickUpdateMatchFieldAction(formData: FormData) {
-  const redirectTo = getRedirectTarget(formData, "/grid");
-  const ctx = await requireEditor();
-
-  const matchId = String(formData.get("matchId") ?? "");
-  const field = String(formData.get("field") ?? "");
-  const rawValue = String(formData.get("value") ?? "").trim();
-
-  try {
+const quickUpdateMatchField = defineAction({
+  fallbackRedirect: "/grid",
+  authz: requireEditor,
+  parse: parseQuickUpdateMatchField,
+  async run(ctx, { matchId, field, rawValue }) {
     const payload: MatchUpdate = {};
 
     switch (field) {
@@ -722,29 +608,23 @@ export async function quickUpdateMatchFieldAction(formData: FormData) {
       after: { id: matchId, ...payload },
     });
 
-    revalidatePath("/grid");
-    revalidatePath(`/match/${matchId}`);
-    redirectWithNotice({
-      redirectTo,
-      intent: "success",
+    return {
       notice: "Partido actualizado.",
-    });
-  } catch (error) {
-    rethrowNavigationError(error);
-    redirectWithNotice({
-      redirectTo,
-      intent: "error",
-      notice: ensureErrorMessage(error),
-    });
-  }
+      revalidate: ["/grid", `/match/${matchId}`],
+    };
+  },
+});
+
+export async function quickUpdateMatchFieldAction(formData: FormData) {
+  await quickUpdateMatchField(formData);
 }
 
-export async function deleteMatchAction(formData: FormData) {
-  const redirectTo = getRedirectTarget(formData, "/grid");
-  const ctx = await requireEditor();
-  const matchId = String(formData.get("matchId") ?? "");
-
-  try {
+const deleteMatch = defineAction({
+  fallbackRedirect: "/grid",
+  authz: requireEditor,
+  parse: parseDeleteMatch,
+  revalidate: ["/grid"],
+  async run(ctx, { matchId }) {
     await db.delete(matchesTable).where(eq(matchesTable.id, matchId));
 
     await writeAudit(ctx, {
@@ -755,130 +635,88 @@ export async function deleteMatchAction(formData: FormData) {
       after: null,
     });
 
-    revalidatePath("/grid");
-    redirectWithNotice({
-      redirectTo,
-      intent: "success",
-      notice: "Partido eliminado.",
-    });
-  } catch (error) {
-    rethrowNavigationError(error);
-    redirectWithNotice({
-      redirectTo,
-      intent: "error",
-      notice: ensureErrorMessage(error),
-    });
-  }
+    return { notice: "Partido eliminado." };
+  },
+});
+
+export async function deleteMatchAction(formData: FormData) {
+  await deleteMatch(formData);
 }
 
 // Attendance confirmation by the assigned person themselves (PRD #7). Auth-only
 // (NOT requireEditor): a collaborator must pass. Ownership + match-window are
 // enforced inside recordAttendanceConfirmation; this wrapper only surfaces the
 // outcome as a notice. Lives in /mi-jornada, never the editor match view.
-export async function setAttendanceConfirmationAction(formData: FormData) {
-  const redirectTo = getRedirectTarget(formData, "/mi-jornada");
-  const ctx = await requireUserContext();
-
-  try {
-    const assignmentId = String(formData.get("assignmentId") ?? "");
-    const rawResponse = String(formData.get("response") ?? "");
-    const response =
-      rawResponse === "attending" || rawResponse === "declined"
-        ? rawResponse
-        : null;
-    const note = maybeNull(String(formData.get("note") ?? ""));
-    // Present only on the two roles that report the encoder (Responsable de
-    // cancha / Soporte tecnico); absent fields leave stored numbers untouched.
-    const hasEncoderFields =
-      formData.has("encoderNumber1") || formData.has("encoderNumber2");
-
+const setAttendanceConfirmation = defineAction({
+  fallbackRedirect: "/mi-jornada",
+  authz: requireUserContext,
+  parse: parseSetAttendanceConfirmation,
+  async run(ctx, { assignmentId, response, note, encoder }, meta) {
     const outcome = await recordAttendanceConfirmation(ctx, {
       assignmentId,
       response,
       note,
-      ...(hasEncoderFields
+      ...(encoder
         ? {
-            encoderNumber1: String(formData.get("encoderNumber1") ?? ""),
-            encoderNumber2: String(formData.get("encoderNumber2") ?? ""),
+            encoderNumber1: encoder.encoderNumber1,
+            encoderNumber2: encoder.encoderNumber2,
           }
         : {}),
     });
 
     if (!outcome.ok) {
-      redirectWithNotice({
-        redirectTo,
-        intent: "error",
-        notice: "No pudimos actualizar tu confirmación de asistencia.",
-      });
+      return { error: "No pudimos actualizar tu confirmación de asistencia." };
     }
 
-    revalidatePath(redirectTo);
-    redirectWithNotice({
-      redirectTo,
-      intent: "success",
+    return {
       notice:
         response === "attending"
           ? "Confirmaste tu asistencia."
           : response === "declined"
             ? "Avisaste que no asistirás."
             : "Marcaste tu asistencia como pendiente.",
-    });
-  } catch (error) {
-    rethrowNavigationError(error);
-    redirectWithNotice({
-      redirectTo,
-      intent: "error",
-      notice: ensureErrorMessage(error),
-    });
-  }
+      revalidate: [meta.redirectTo],
+    };
+  },
+});
+
+export async function setAttendanceConfirmationAction(formData: FormData) {
+  await setAttendanceConfirmation(formData);
 }
 
 // Encoder number(s) reported from /mi-jornada after the match was already
 // accepted. Auth-only like the attendance action: ownership, the match window and
 // the role gate all live in recordEncoderNumbers.
-export async function setEncoderNumbersAction(formData: FormData) {
-  const redirectTo = getRedirectTarget(formData, "/mi-jornada");
-  const ctx = await requireUserContext();
-
-  try {
-    const outcome = await recordEncoderNumbers(ctx, {
-      assignmentId: String(formData.get("assignmentId") ?? ""),
-      encoderNumber1: String(formData.get("encoderNumber1") ?? ""),
-      encoderNumber2: String(formData.get("encoderNumber2") ?? ""),
-    });
+const setEncoderNumbers = defineAction({
+  fallbackRedirect: "/mi-jornada",
+  authz: requireUserContext,
+  parse: parseSetEncoderNumbers,
+  async run(ctx, input, meta) {
+    const outcome = await recordEncoderNumbers(ctx, input);
 
     if (!outcome.ok) {
-      redirectWithNotice({
-        redirectTo,
-        intent: "error",
-        notice: "No pudimos guardar el número de encoder.",
-      });
+      return { error: "No pudimos guardar el número de encoder." };
     }
 
-    revalidatePath(redirectTo);
-    redirectWithNotice({
-      redirectTo,
-      intent: "success",
+    return {
       notice: "Número de encoder guardado.",
-    });
-  } catch (error) {
-    rethrowNavigationError(error);
-    redirectWithNotice({
-      redirectTo,
-      intent: "error",
-      notice: ensureErrorMessage(error),
-    });
-  }
+      revalidate: [meta.redirectTo],
+    };
+  },
+});
+
+export async function setEncoderNumbersAction(formData: FormData) {
+  await setEncoderNumbers(formData);
 }
 
-export async function upsertAssignmentAction(formData: FormData) {
-  const redirectTo = getRedirectTarget(formData, "/grid");
-  const ctx = await requireEditor();
-
-  try {
-    const assignmentMatchId = String(formData.get("matchId") ?? "");
-    const assignmentRoleId = String(formData.get("roleId") ?? "");
-    const incomingPersonId = maybeNull(String(formData.get("personId") ?? ""));
+const upsertAssignment = defineAction({
+  fallbackRedirect: "/grid",
+  authz: requireEditor,
+  parse: parseUpsertAssignment,
+  async run(ctx, input, meta) {
+    const assignmentMatchId = input.matchId;
+    const assignmentRoleId = input.roleId;
+    const incomingPersonId = input.personId;
 
     if (incomingPersonId) {
       const roleRows = await db
@@ -895,11 +733,12 @@ export async function upsertAssignmentAction(formData: FormData) {
         : null;
 
       if (unqualified) {
-        redirectWithNotice({
-          redirectTo,
-          intent: "error",
-          notice: unqualifiedAssignmentNotice(unqualified.roleName, unqualified.functionKey),
-        });
+        return {
+          error: unqualifiedAssignmentNotice(
+            unqualified.roleName,
+            unqualified.functionKey,
+          ),
+        };
       }
     }
 
@@ -924,8 +763,8 @@ export async function upsertAssignmentAction(formData: FormData) {
         match_id: assignmentMatchId,
         role_id: assignmentRoleId,
         person_id: incomingPersonId,
-        confirmed: String(formData.get("confirmed") ?? "") === "on",
-        notes: maybeNull(String(formData.get("notes") ?? "")),
+        confirmed: input.confirmed,
+        notes: input.notes,
       };
 
     if (shouldResetAttendance(priorPersonId, incomingPersonId)) {
@@ -969,19 +808,17 @@ export async function upsertAssignmentAction(formData: FormData) {
     const notify =
       incomingPersonId && incomingPersonId !== priorPersonId ? [row.id] : [];
 
-    revalidatePath(redirectTo);
-    redirectWithNotice({
-      redirectTo: notify.length ? `/match/${assignmentMatchId}` : redirectTo,
-      intent: "success",
+    return {
       notice: "Asignación actualizada.",
       notify,
-    });
-  } catch (error) {
-    rethrowNavigationError(error);
-    redirectWithNotice({
-      redirectTo,
-      intent: "error",
-      notice: ensureErrorMessage(error),
-    });
-  }
+      redirectTo: notify.length
+        ? `/match/${assignmentMatchId}`
+        : meta.redirectTo,
+      revalidate: [meta.redirectTo],
+    };
+  },
+});
+
+export async function upsertAssignmentAction(formData: FormData) {
+  await upsertAssignment(formData);
 }
