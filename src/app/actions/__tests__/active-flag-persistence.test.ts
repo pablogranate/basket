@@ -29,11 +29,16 @@ vi.mock("@/lib/auth", () => ({
   clearProfileCache: vi.fn(),
 }));
 
-vi.mock("@/lib/auth-access", () => ({
-  requireAdmin: vi.fn(async () => ({ profileId: "profile-1", role: "admin" })),
-  requireAccessManager: vi.fn(),
-  canManageAccessTier: () => true,
-}));
+vi.mock(import("@/lib/auth-access"), async (importOriginal) => {
+  const actual = await importOriginal();
+
+  return {
+    ...actual,
+    requireAdmin: vi.fn(async () => ({ profileId: "profile-1", role: "admin" })) as never,
+    requireAccessManager: vi.fn(),
+    canManageAccessTier: () => true,
+  };
+});
 
 vi.mock("@/lib/audit", () => ({
   stampInsert: (_ctx: unknown, payload: Record<string, unknown>) => payload,

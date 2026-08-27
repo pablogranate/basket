@@ -1,6 +1,9 @@
 import { requireUserContext } from "@/lib/auth";
 import type { AppRole } from "@/lib/database.types";
 
+export { ACCESS_TIER_ROLES, normalizeAccessTier } from "@/lib/access-tier";
+export type { AccessTierRole } from "@/lib/access-tier";
+
 export async function requireAdmin() {
   const context = await requireUserContext();
 

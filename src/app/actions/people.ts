@@ -2,16 +2,23 @@
 
 import { revalidatePath } from "next/cache";
 
+import { eq } from "drizzle-orm";
+
 import {
   getRedirectTarget,
   redirectWithNotice,
   rethrowNavigationError,
 } from "@/app/actions/helpers";
-import { eq } from "drizzle-orm";
-
+import { defineAction } from "@/lib/actions/define-action";
+import {
+  parsePersonId,
+  parseUpdatePersonAccessRole,
+  parseUpsertPerson,
+} from "@/lib/actions/parse/people";
 import { clearProfileCache, requireEditor } from "@/lib/auth";
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
 import {
+  ACCESS_TIER_ROLES,
   canManageAccessTier,
   requireAccessManager,
   requireAdmin,
@@ -25,28 +32,7 @@ import {
   personFunctions as personFunctionsTable,
   profiles as profilesTable,
 } from "@/lib/db/schema";
-import { isPersonFunctionKey } from "@/lib/functions";
-import { appEnv } from "@/lib/env";
-import { buildPersonNotesMeta } from "@/lib/people-notes";
-import {
-  ensureErrorMessage,
-  maybeNull,
-  resolveCheckboxFlag,
-} from "@/lib/utils";
-
-// Access-grant tiers map onto the profiles.role enum: Admin/Productor/Externo.
-// Unknown or missing input falls back to the least-privileged tier (Externo).
-const ACCESS_TIER_ROLES = ["admin", "editor", "collaborator"] as const;
-
-type AccessTierRole = (typeof ACCESS_TIER_ROLES)[number];
-
-function normalizeAccessTier(value: string): AccessTierRole {
-  const normalized = value.trim().toLowerCase();
-
-  return (ACCESS_TIER_ROLES as readonly string[]).includes(normalized)
-    ? (normalized as AccessTierRole)
-    : "collaborator";
-}
+import { ensureErrorMessage, resolveCheckboxFlag } from "@/lib/utils";
 
 // profiles is the single authorization table now (no Supabase Auth users).
 // Match email case-insensitively in JS over the small profiles set to avoid
@@ -98,46 +84,27 @@ async function revokePlatformAccessByEmail(
   return true;
 }
 
-export async function upsertPersonAction(formData: FormData) {
-  const redirectTo = getRedirectTarget(formData, "/people");
-  const ctx = await requireEditor();
+async function findPersonSummaryById(personId: string) {
+  const rows = await db
+    .select({
+      id: peopleTable.id,
+      email: peopleTable.email,
+      full_name: peopleTable.fullName,
+    })
+    .from(peopleTable)
+    .where(eq(peopleTable.id, personId))
+    .limit(1);
 
-  const payload = {
-    full_name: String(formData.get("fullName") ?? "").trim(),
-    phone: maybeNull(String(formData.get("phone") ?? "")),
-    email: maybeNull(String(formData.get("email") ?? "")),
-    notes: buildPersonNotesMeta({
-      city: maybeNull(String(formData.get("city") ?? "")),
-      coverage: maybeNull(String(formData.get("coverageTeams") ?? "")),
-      notes: maybeNull(String(formData.get("notes") ?? "")),
-    }),
-    active: resolveCheckboxFlag(formData, "active", true),
-  };
+  return rows[0] ?? null;
+}
 
-  // Canonical capabilities: the only role source. Validate at the boundary and
-  // dedupe; an empty selection is allowed and simply leaves the person out of
-  // every assignment dropdown.
-  const selectedFunctions = Array.from(
-    new Set(
-      formData
-        .getAll("functions")
-        .map((value) => String(value))
-        .filter(isPersonFunctionKey),
-    ),
-  );
-
-  // "Club" links: the person's team FKs, submitted as repeated teamIds fields.
-  const selectedTeamIds = Array.from(
-    new Set(
-      formData
-        .getAll("teamIds")
-        .map((value) => String(value).trim())
-        .filter(Boolean),
-    ),
-  );
-
-  try {
-    const personId = String(formData.get("personId") ?? "");
+const upsertPerson = defineAction({
+  fallbackRedirect: "/people",
+  authz: requireEditor,
+  parse: parseUpsertPerson,
+  revalidate: ["/people"],
+  onError: (error) => console.error("[people] upsert failed", error),
+  async run(ctx, { personId, payload, selectedFunctions, selectedTeamIds }) {
     let rows: { id: string }[];
 
     if (personId) {
@@ -223,42 +190,25 @@ export async function upsertPersonAction(formData: FormData) {
       },
     });
 
-    revalidatePath("/people");
-    redirectWithNotice({
-      redirectTo,
-      intent: "success",
+    return {
       notice: personId
         ? "Registro de personal actualizado."
         : "Registro de personal creado.",
-    });
-  } catch (error) {
-    console.error("[people] upsert failed", error);
-    rethrowNavigationError(error);
-    redirectWithNotice({
-      redirectTo,
-      intent: "error",
-      notice: ensureErrorMessage(error),
-    });
-  }
+    };
+  },
+});
+
+export async function upsertPersonAction(formData: FormData) {
+  await upsertPerson(formData);
 }
 
-export async function deletePersonAction(formData: FormData) {
-  const redirectTo = getRedirectTarget(formData, "/people");
-  const context = await requireAdmin();
-  const personId = String(formData.get("personId") ?? "").trim();
-
-  try {
-    const personRows = await db
-      .select({
-        id: peopleTable.id,
-        email: peopleTable.email,
-        full_name: peopleTable.fullName,
-      })
-      .from(peopleTable)
-      .where(eq(peopleTable.id, personId))
-      .limit(1);
-
-    const person = personRows[0];
+const deletePerson = defineAction({
+  fallbackRedirect: "/people",
+  authz: requireAdmin,
+  parse: parsePersonId,
+  revalidate: ["/people"],
+  async run(context, { personId }) {
+    const person = await findPersonSummaryById(personId);
 
     if (!person) {
       throw new Error("No se encontró el usuario a eliminar.");
@@ -278,40 +228,24 @@ export async function deletePersonAction(formData: FormData) {
       after: null,
     });
 
-    revalidatePath("/people");
-    redirectWithNotice({
-      redirectTo,
-      intent: "success",
-      notice: "Usuario eliminado.",
-    });
-  } catch (error) {
-    rethrowNavigationError(error);
-    redirectWithNotice({
-      redirectTo,
-      intent: "error",
-      notice: ensureErrorMessage(error),
-    });
-  }
+    return { notice: "Usuario eliminado." };
+  },
+});
+
+export async function deletePersonAction(formData: FormData) {
+  await deletePerson(formData);
 }
 
-export async function revokePersonAccessAction(formData: FormData) {
-  const redirectTo = getRedirectTarget(formData, "/people");
-  const personId = String(formData.get("personId") ?? "").trim();
-
-  try {
-    const ctx = await requireAccessManager();
-
-    const personRows = await db
-      .select({
-        id: peopleTable.id,
-        email: peopleTable.email,
-        full_name: peopleTable.fullName,
-      })
-      .from(peopleTable)
-      .where(eq(peopleTable.id, personId))
-      .limit(1);
-
-    const person = personRows[0];
+const revokePersonAccess = defineAction({
+  fallbackRedirect: "/people",
+  authz: requireAccessManager,
+  // A permission error surfaces as a notice instead of an unhandled action
+  // rejection.
+  authzFailureNotice: true,
+  parse: parsePersonId,
+  revalidate: ["/people"],
+  async run(ctx, { personId }) {
+    const person = await findPersonSummaryById(personId);
 
     if (!person) {
       throw new Error("No se encontró el usuario.");
@@ -327,45 +261,23 @@ export async function revokePersonAccessAction(formData: FormData) {
       throw new Error("No se encontró acceso de plataforma para revocar.");
     }
 
-    revalidatePath("/people");
-    redirectWithNotice({
-      redirectTo,
-      intent: "success",
-      notice: "Acceso a la plataforma revocado.",
-    });
-  } catch (error) {
-    rethrowNavigationError(error);
-    redirectWithNotice({
-      redirectTo,
-      intent: "error",
-      notice: ensureErrorMessage(error),
-    });
-  }
+    return { notice: "Acceso a la plataforma revocado." };
+  },
+});
+
+export async function revokePersonAccessAction(formData: FormData) {
+  await revokePersonAccess(formData);
 }
 
 // Re-tier an existing platform login without revoking it first: only the
 // profiles.role changes, so no invite email is re-sent.
-export async function updatePersonAccessRoleAction(formData: FormData) {
-  const redirectTo = getRedirectTarget(formData, "/people");
-  const personId = String(formData.get("personId") ?? "").trim();
-  const requestedAccessRole = normalizeAccessTier(
-    String(formData.get("accessRole") ?? "collaborator"),
-  );
-
-  try {
-    const ctx = await requireAccessManager();
-
-    const personRows = await db
-      .select({
-        id: peopleTable.id,
-        email: peopleTable.email,
-        full_name: peopleTable.fullName,
-      })
-      .from(peopleTable)
-      .where(eq(peopleTable.id, personId))
-      .limit(1);
-
-    const person = personRows[0];
+const updatePersonAccessRole = defineAction({
+  fallbackRedirect: "/people",
+  authz: requireAccessManager,
+  authzFailureNotice: true,
+  parse: parseUpdatePersonAccessRole,
+  async run(ctx, { personId, requestedAccessRole }) {
+    const person = await findPersonSummaryById(personId);
 
     if (!person) {
       throw new Error("No se encontró el usuario.");
@@ -399,11 +311,7 @@ export async function updatePersonAccessRoleAction(formData: FormData) {
     }
 
     if (profile.role === requestedAccessRole) {
-      redirectWithNotice({
-        redirectTo,
-        intent: "success",
-        notice: "El nivel de acceso ya estaba actualizado.",
-      });
+      return { notice: "El nivel de acceso ya estaba actualizado." };
     }
 
     await db
@@ -413,22 +321,19 @@ export async function updatePersonAccessRoleAction(formData: FormData) {
 
     clearProfileCache();
 
-    revalidatePath("/people");
-    redirectWithNotice({
-      redirectTo,
-      intent: "success",
+    return {
       notice: "Nivel de acceso actualizado.",
-    });
-  } catch (error) {
-    rethrowNavigationError(error);
-    redirectWithNotice({
-      redirectTo,
-      intent: "error",
-      notice: ensureErrorMessage(error),
-    });
-  }
+      revalidate: ["/people"],
+    };
+  },
+});
+
+export async function updatePersonAccessRoleAction(formData: FormData) {
+  await updatePersonAccessRole(formData);
 }
 
+// Holdout from defineAction: the success path stays on the page (revalidate
+// only, no redirect); only failures redirect with a notice.
 export async function togglePersonActiveAction(formData: FormData) {
   const ctx = await requireEditor();
 
