@@ -69,6 +69,25 @@ export function AccessRequestForm({ email }: { email: string }) {
 
       <div className="space-y-1.5">
         <label
+          htmlFor="access-request-ciudad"
+          className="text-xs font-black uppercase tracking-[0.18em] text-[var(--n-500)]"
+        >
+          Ciudad
+        </label>
+        <Input
+          id="access-request-ciudad"
+          name="ciudad"
+          type="text"
+          required
+          minLength={2}
+          maxLength={80}
+          autoComplete="address-level2"
+          placeholder="Buenos Aires"
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <label
           htmlFor="access-request-mensaje"
           className="text-xs font-black uppercase tracking-[0.18em] text-[var(--n-500)]"
         >

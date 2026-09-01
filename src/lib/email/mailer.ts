@@ -116,6 +116,7 @@ export async function sendAccessRequestEmail({
     email: string;
     phone: string;
     funcion: string;
+    ciudad: string | null;
     mensaje: string | null;
   };
   portalUrl: string;
@@ -126,6 +127,7 @@ export async function sendAccessRequestEmail({
     `Función: ${request.funcion}`,
     `Correo: ${request.email}`,
     `Teléfono: ${request.phone}`,
+    request.ciudad ? `Ciudad: ${request.ciudad}` : null,
     request.mensaje ? `Mensaje: ${request.mensaje}` : null,
     "",
     `Aprobá o rechazá la solicitud desde el portal: ${portalUrl}`,

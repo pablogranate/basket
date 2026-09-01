@@ -12,6 +12,7 @@ export async function notifyAccessRequest(request: {
   email: string;
   phone: string;
   funcion: string;
+  ciudad: string | null;
   mensaje: string | null;
 }) {
   const config = await getAccessRequestRecipientConfig();

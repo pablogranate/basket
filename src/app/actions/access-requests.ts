@@ -54,7 +54,7 @@ const submitAccessRequest = defineAction({
   authz: requireUserContext,
   parse: parseSubmitAccessRequest,
   revalidate: REQUEST_REVALIDATE_PATHS,
-  async run(ctx, { fullName, phone, funcion, mensaje }) {
+  async run(ctx, { fullName, phone, funcion, ciudad, mensaje }) {
     if (!ctx.userId || !ctx.email) {
       throw new Error("Necesitás iniciar sesión para pedir acceso.");
     }
@@ -69,6 +69,10 @@ const submitAccessRequest = defineAction({
 
     if (!isAccessRequestFuncion(funcion)) {
       throw new Error("Elegí una función de la lista.");
+    }
+
+    if (ciudad.length < 2) {
+      throw new Error("Escribí tu ciudad.");
     }
 
     const email = ctx.email.trim().toLowerCase();
@@ -97,13 +101,21 @@ const submitAccessRequest = defineAction({
       fullName,
       phone,
       funcion,
+      ciudad,
       mensaje,
       status: "pendiente",
     });
 
     // The request is persisted; the notification is best-effort on purpose.
     try {
-      await notifyAccessRequest({ fullName, email, phone, funcion, mensaje });
+      await notifyAccessRequest({
+        fullName,
+        email,
+        phone,
+        funcion,
+        ciudad,
+        mensaje,
+      });
     } catch (error) {
       console.error("[access-requests] notification failed", error);
     }
