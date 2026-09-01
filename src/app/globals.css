@@ -315,7 +315,7 @@ select option {
   }
 
   .tc-card {
-    @apply overflow-hidden border border-[var(--border)] bg-white transition duration-300 hover:-translate-y-0.5 sm:flex;
+    @apply overflow-hidden border border-[var(--border)] bg-white transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(28,13,16,0.10)] sm:flex;
   }
 
   .tc-logo-col {
@@ -343,7 +343,7 @@ select option {
   }
 
   .tc-body {
-    @apply flex flex-1 flex-col justify-between p-5;
+    @apply flex min-w-0 flex-1 flex-col justify-between p-5;
   }
 
   .tc-head-row {
@@ -351,11 +351,15 @@ select option {
   }
 
   .tc-league-row {
-    @apply flex flex-wrap items-center gap-2;
+    @apply flex min-w-0 flex-1 flex-wrap items-center gap-2;
   }
 
   .tc-league-badge {
-    @apply inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em];
+    @apply inline-flex max-w-full rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em];
+  }
+
+  .tc-league-badge > span {
+    @apply truncate;
   }
 
   /* One class per incident palette, so the badge never repeats a colour tail. */
@@ -372,7 +376,11 @@ select option {
   }
 
   .tc-team-name {
-    @apply text-[15px] font-bold tracking-tight text-[var(--foreground)] transition group-hover:text-[var(--team-league-accent)];
+    @apply line-clamp-2 text-[15px] font-bold tracking-tight text-[var(--foreground)] transition group-hover:text-[var(--team-league-accent)];
+  }
+
+  .tc-team-siglas {
+    @apply ml-2 align-middle text-[10px] font-black uppercase tracking-[0.16em] text-[var(--n-400)];
   }
 
   .tc-meta {

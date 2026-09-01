@@ -57,7 +57,10 @@ export default async function TeamsPage() {
       />
 
       <Suspense fallback={<TeamsLeagueTabsSkeleton />}>
-        <TeamsLeagueTabsRegion teamsPromise={teamsPromise} />
+        <TeamsLeagueTabsRegion
+          teamsPromise={teamsPromise}
+          canManageTeams={canManageTeams}
+        />
       </Suspense>
 
       <Suspense fallback={<TeamsDirectorySkeleton />}>
@@ -74,8 +77,10 @@ export default async function TeamsPage() {
 
 async function TeamsLeagueTabsRegion({
   teamsPromise,
+  canManageTeams,
 }: {
   teamsPromise: Promise<TeamDirectoryItem[]>;
+  canManageTeams: boolean;
 }) {
   const teams = await teamsPromise;
 
@@ -83,6 +88,7 @@ async function TeamsLeagueTabsRegion({
     <TeamsLeagueTabs
       tabs={buildTeamDirectoryTabs(teams)}
       totalCount={teams.length}
+      canManageTeams={canManageTeams}
     />
   );
 }

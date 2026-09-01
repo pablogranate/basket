@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import type { UserContext } from "@/lib/auth";
+import { EXTERNAL_TEAM_LEAGUES } from "@/lib/club-catalog";
 import { db } from "@/lib/db/client";
 import { teams } from "@/lib/db/schema";
 import type { TeamDirectoryItem, TeamDirectoryTab } from "@/lib/team-directory";
@@ -22,6 +23,14 @@ const TEAM_DIRECTORY_QUERY = {
         instagram: true,
         logoUrl: true,
         officialUrl: true,
+        shortName: true,
+        city: true,
+        province: true,
+        managerPhone: true,
+        managerEmail: true,
+        pressManager: true,
+        pressPhone: true,
+        pressEmail: true,
       },
     },
     teamLeagueMemberships: {
@@ -46,6 +55,14 @@ type TeamDirectoryRow = {
     instagram: string | null;
     logoUrl: string | null;
     officialUrl: string | null;
+    shortName: string | null;
+    city: string | null;
+    province: string | null;
+    managerPhone: string | null;
+    managerEmail: string | null;
+    pressManager: string | null;
+    pressPhone: string | null;
+    pressEmail: string | null;
   } | null;
   teamLeagueMemberships: Array<{
     season: string;
@@ -74,6 +91,14 @@ function toQueryRow(row: TeamDirectoryRow): TeamDirectoryQueryRow {
           instagram: row.club.instagram,
           logo_url: row.club.logoUrl,
           official_url: row.club.officialUrl,
+          short_name: row.club.shortName,
+          city: row.club.city,
+          province: row.club.province,
+          manager_phone: row.club.managerPhone,
+          manager_email: row.club.managerEmail,
+          press_manager: row.club.pressManager,
+          press_phone: row.club.pressPhone,
+          press_email: row.club.pressEmail,
         }
       : null,
     team_league_memberships: row.teamLeagueMemberships.map((entry) => ({
@@ -102,6 +127,14 @@ type TeamDirectoryQueryRow = {
     instagram: string | null;
     logo_url: string | null;
     official_url: string | null;
+    short_name: string | null;
+    city: string | null;
+    province: string | null;
+    manager_phone: string | null;
+    manager_email: string | null;
+    press_manager: string | null;
+    press_phone: string | null;
+    press_email: string | null;
   } | null;
   team_league_memberships: Array<{
     season: string;
@@ -153,6 +186,14 @@ function mapTeamRow(row: TeamDirectoryQueryRow): TeamDirectoryItem & {
     official_url: club?.official_url ?? DEFAULT_LEAGUE_URL,
     incident_count: 0,
     logo_data_url: club?.logo_url ?? null,
+    short_name: club?.short_name ?? null,
+    city: club?.city ?? null,
+    province: club?.province ?? null,
+    manager_phone: club?.manager_phone ?? null,
+    manager_email: club?.manager_email ?? null,
+    press_manager: club?.press_manager ?? null,
+    press_phone: club?.press_phone ?? null,
+    press_email: club?.press_email ?? null,
     leagueSortOrder: leagues[0]?.sort_order ?? Number.MAX_SAFE_INTEGER,
   };
 }
@@ -229,6 +270,15 @@ export function buildTeamDirectoryTabs(
       }
       counts.set(league, (counts.get(league) ?? 0) + 1);
     });
+  });
+
+  // External leagues always get a tab, even while empty, so teams can be
+  // dragged into them from day one.
+  EXTERNAL_TEAM_LEAGUES.forEach((league) => {
+    if (!counts.has(league)) {
+      firstSeen.push(league);
+      counts.set(league, 0);
+    }
   });
 
   return firstSeen.map((league) => ({

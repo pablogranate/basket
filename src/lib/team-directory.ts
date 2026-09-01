@@ -18,6 +18,16 @@ export type TeamDirectoryItem = {
   official_url: string | null;
   incident_count: number;
   logo_data_url?: string | null;
+  // Extended directory fields (clubs table); optional so the static
+  // TEAM_DIRECTORY catalog keeps compiling without them.
+  short_name?: string | null;
+  city?: string | null;
+  province?: string | null;
+  manager_phone?: string | null;
+  manager_email?: string | null;
+  press_manager?: string | null;
+  press_phone?: string | null;
+  press_email?: string | null;
 };
 
 const LEAGUE_URL = "https://www.laliganacional.com.ar/";

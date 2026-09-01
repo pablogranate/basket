@@ -1,4 +1,6 @@
-import type { CSSProperties } from "react";
+"use client";
+
+import { useRef, type CSSProperties } from "react";
 import Image from "next/image";
 import { Mail, MessageCircle } from "lucide-react";
 
@@ -9,9 +11,11 @@ import type { TeamResponsibleContact } from "@/lib/team-responsibles";
 import {
   getTeamLeagueAccentColor,
   getTeamLeagueColorSet,
+  getTeamLeagueLabel,
   splitTeamCompetitions,
   type TeamDirectoryItem,
 } from "@/lib/team-directory";
+import { beginTeamCardDrag, TEAM_DRAG_MIME } from "@/lib/team-drag";
 import { buildWhatsAppUrl } from "@/lib/utils";
 
 function getLeagueBadgeStyle(competition: string): CSSProperties {
@@ -73,6 +77,8 @@ export function TeamCard({
   responsibleContact?: TeamResponsibleContact | null;
   canEdit?: boolean;
 }) {
+  const cardRef = useRef<HTMLElement | null>(null);
+  const endDragRef = useRef<(() => void) | null>(null);
   const leagueBadges = splitTeamCompetitions(team.competition);
   const primaryLeague = activeLeague || leagueBadges[0] || team.competition;
   const hoverAccent = getTeamLeagueAccentColor(primaryLeague);
@@ -87,6 +93,35 @@ export function TeamCard({
         } as CSSProperties
       }
       className="panel-surface group tc-card"
+      ref={cardRef}
+      draggable={canEdit}
+      onDragStart={
+        canEdit
+          ? (event) => {
+              event.dataTransfer.setData(
+                TEAM_DRAG_MIME,
+                JSON.stringify({
+                  id: team.id,
+                  name: team.official_name,
+                  competition: team.competition,
+                }),
+              );
+              event.dataTransfer.effectAllowed = "copyMove";
+
+              if (cardRef.current) {
+                endDragRef.current = beginTeamCardDrag(event, cardRef.current);
+              }
+            }
+          : undefined
+      }
+      onDragEnd={
+        canEdit
+          ? () => {
+              endDragRef.current?.();
+              endDragRef.current = null;
+            }
+          : undefined
+      }
     >
       <div className="tc-logo-col">
         {team.logo_data_url ? (
@@ -117,9 +152,6 @@ export function TeamCard({
           <TeamLinkIcon href={team.instagram}>
             <TeamCardIcon name="instagram" className="size-4" />
           </TeamLinkIcon>
-          <TeamLinkIcon href={team.official_url}>
-            <TeamCardIcon name="external-link" className="size-4" />
-          </TeamLinkIcon>
         </div>
       </div>
 
@@ -132,8 +164,9 @@ export function TeamCard({
                   key={`${team.id}-${league}`}
                   style={getLeagueBadgeStyle(league)}
                   className="tc-league-badge"
+                  title={league}
                 >
-                  {league}
+                  <span>{getTeamLeagueLabel(league)}</span>
                 </span>
               ))}
             </div>
@@ -158,13 +191,20 @@ export function TeamCard({
 
           <h3 className="tc-team-name">
             {team.official_name}
+            {team.short_name ? (
+              <span className="tc-team-siglas">{team.short_name}</span>
+            ) : null}
           </h3>
 
           <div className="tc-meta">
-            <div className="tc-row">
-              <TeamCardIcon name="map-pinned" className="size-4 shrink-0" />
-              <span>{team.stadium ?? "Sin estadio cargado"}</span>
-            </div>
+            {team.city || team.province ? (
+              <div className="tc-row">
+                <TeamCardIcon name="map-pinned" className="size-4 shrink-0" />
+                <span className="min-w-0 truncate">
+                  {[team.city, team.province].filter(Boolean).join(", ")}
+                </span>
+              </div>
+            ) : null}
             <div className="tc-row">
               <TeamCardIcon name="user-round" className="size-4 shrink-0" />
               <span className="min-w-0 truncate">{responsibleLabel}</span>

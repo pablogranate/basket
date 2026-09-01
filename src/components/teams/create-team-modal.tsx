@@ -6,12 +6,18 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { ImagePlus, Pencil, Plus, Save, Shield, Trash2, X } from "lucide-react";
 
-import { upsertTeamAction } from "@/app/actions/teams";
+import {
+  removeTeamFromLeaguesAction,
+  upsertTeamAction,
+} from "@/app/actions/teams";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { CLUB_COMPETITIONS } from "@/lib/club-catalog";
-import type { TeamDirectoryItem } from "@/lib/team-directory";
+import { CLUB_COMPETITIONS, EXTERNAL_TEAM_LEAGUES } from "@/lib/club-catalog";
+import {
+  splitTeamCompetitions,
+  type TeamDirectoryItem,
+} from "@/lib/team-directory";
 import { cn } from "@/lib/utils";
 
 function defaultLeagueUrl(competition: string) {
@@ -38,20 +44,38 @@ export function CreateTeamModal({
   const [isOpen, setIsOpen] = useState(false);
   const [officialName, setOfficialName] = useState("");
   const [competition, setCompetition] = useState(defaultCompetition);
+  const [shortName, setShortName] = useState("");
   const [stadium, setStadium] = useState("");
+  const [city, setCity] = useState("");
+  const [province, setProvince] = useState("");
   const [manager, setManager] = useState("");
+  const [managerPhone, setManagerPhone] = useState("");
+  const [managerEmail, setManagerEmail] = useState("");
+  const [pressManager, setPressManager] = useState("");
+  const [pressPhone, setPressPhone] = useState("");
+  const [pressEmail, setPressEmail] = useState("");
   const [website, setWebsite] = useState("");
   const [instagram, setInstagram] = useState("");
   const [officialUrl, setOfficialUrl] = useState("");
   const [logoPreview, setLogoPreview] = useState<string | null>(initialTeam?.logo_data_url ?? null);
   const [errorMessage, setErrorMessage] = useState("");
   const [isSaving, startSaving] = useTransition();
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [leaguesToRemove, setLeaguesToRemove] = useState<string[]>([]);
+  const [isDeleting, startDeleting] = useTransition();
   const isEditMode = Boolean(initialTeam);
+  const teamLeagues = useMemo(
+    () => splitTeamCompetitions(initialTeam?.competition ?? ""),
+    [initialTeam?.competition],
+  );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const router = useRouter();
 
   const competitionOptions = useMemo(() => {
-    const options = new Set<string>(CLUB_COMPETITIONS);
+    const options = new Set<string>([
+      ...CLUB_COMPETITIONS,
+      ...EXTERNAL_TEAM_LEAGUES,
+    ]);
     const current = (initialTeam?.competition ?? "").trim();
 
     if (current) {
@@ -86,13 +110,59 @@ export function CreateTeamModal({
   function resetForm() {
     setOfficialName(initialTeam?.official_name ?? "");
     setCompetition(initialTeam?.competition ?? defaultCompetition);
+    setShortName(initialTeam?.short_name ?? "");
     setStadium(initialTeam?.stadium ?? "");
+    setCity(initialTeam?.city ?? "");
+    setProvince(initialTeam?.province ?? "");
     setManager(initialTeam?.manager ?? "");
+    setManagerPhone(initialTeam?.manager_phone ?? "");
+    setManagerEmail(initialTeam?.manager_email ?? "");
+    setPressManager(initialTeam?.press_manager ?? "");
+    setPressPhone(initialTeam?.press_phone ?? "");
+    setPressEmail(initialTeam?.press_email ?? "");
     setWebsite(initialTeam?.website ?? "");
     setInstagram(initialTeam?.instagram ?? "");
     setOfficialUrl(initialTeam?.official_url ?? "");
     setLogoPreview(initialTeam?.logo_data_url ?? null);
     setErrorMessage("");
+    setIsDeleteOpen(false);
+    setLeaguesToRemove([]);
+  }
+
+  function toggleLeagueToRemove(league: string) {
+    setLeaguesToRemove((current) =>
+      current.includes(league)
+        ? current.filter((entry) => entry !== league)
+        : [...current, league],
+    );
+  }
+
+  function handleDelete() {
+    if (!canEdit || isDeleting || !initialTeam?.id) {
+      return;
+    }
+
+    const leagues = teamLeagues.length > 1 ? leaguesToRemove : teamLeagues;
+
+    if (!leagues.length) {
+      setErrorMessage("Seleccioná al menos una liga para quitar el equipo.");
+      return;
+    }
+
+    startDeleting(async () => {
+      const result = await removeTeamFromLeaguesAction({
+        teamId: initialTeam.id,
+        leagueNames: leagues,
+      });
+
+      if (!result.ok) {
+        setErrorMessage(result.error ?? "No se pudo eliminar el equipo.");
+        return;
+      }
+
+      closeModal();
+      router.refresh();
+    });
   }
 
   function closeModal() {
@@ -145,8 +215,16 @@ export function CreateTeamModal({
     }
     payload.set("officialName", trimmedName);
     payload.set("competition", trimmedCompetition);
+    payload.set("shortName", shortName.trim());
     payload.set("stadium", stadium.trim());
+    payload.set("city", city.trim());
+    payload.set("province", province.trim());
     payload.set("manager", manager.trim());
+    payload.set("managerPhone", managerPhone.trim());
+    payload.set("managerEmail", managerEmail.trim());
+    payload.set("pressManager", pressManager.trim());
+    payload.set("pressPhone", pressPhone.trim());
+    payload.set("pressEmail", pressEmail.trim());
     payload.set("website", website.trim());
     payload.set("instagram", instagram.trim());
     payload.set(
@@ -309,12 +387,23 @@ export function CreateTeamModal({
                 <div className="grid gap-6 md:grid-cols-2">
                   <label className="space-y-2">
                     <span className="text-sm font-bold text-[var(--n-700)]">
-                      Nombre oficial
+                      Nombre oficial (Nombre Largo BP)
                     </span>
                     <Input
                       value={officialName}
                       onChange={(event) => setOfficialName(event.target.value)}
                       placeholder="Ej. 9 de Julio de Morteros"
+                      className="h-11 rounded-xl bg-[var(--background-soft)]"
+                    />
+                  </label>
+                  <label className="space-y-2">
+                    <span className="text-sm font-bold text-[var(--n-700)]">
+                      Siglas
+                    </span>
+                    <Input
+                      value={shortName}
+                      onChange={(event) => setShortName(event.target.value)}
+                      placeholder="Ej. 9JM"
                       className="h-11 rounded-xl bg-[var(--background-soft)]"
                     />
                   </label>
@@ -337,23 +426,34 @@ export function CreateTeamModal({
                   </label>
                   <label className="space-y-2">
                     <span className="text-sm font-bold text-[var(--n-700)]">
-                      Estadio
+                      Estadio / Dirección
                     </span>
                     <Input
                       value={stadium}
                       onChange={(event) => setStadium(event.target.value)}
-                      placeholder="Ej. Ángel Sandrín"
+                      placeholder="Ej. Ángel Sandrín, Av. Siempreviva 742"
                       className="h-11 rounded-xl bg-[var(--background-soft)]"
                     />
                   </label>
                   <label className="space-y-2">
                     <span className="text-sm font-bold text-[var(--n-700)]">
-                      Responsable de cancha
+                      Ciudad
                     </span>
                     <Input
-                      value={manager}
-                      onChange={(event) => setManager(event.target.value)}
-                      placeholder="Nombre del responsable"
+                      value={city}
+                      onChange={(event) => setCity(event.target.value)}
+                      placeholder="Ej. Córdoba"
+                      className="h-11 rounded-xl bg-[var(--background-soft)]"
+                    />
+                  </label>
+                  <label className="space-y-2">
+                    <span className="text-sm font-bold text-[var(--n-700)]">
+                      Provincia
+                    </span>
+                    <Input
+                      value={province}
+                      onChange={(event) => setProvince(event.target.value)}
+                      placeholder="Ej. Córdoba"
                       className="h-11 rounded-xl bg-[var(--background-soft)]"
                     />
                   </label>
@@ -381,6 +481,92 @@ export function CreateTeamModal({
                   </label>
                 </div>
 
+                <fieldset className="space-y-4">
+                  <legend className="text-sm font-bold text-[var(--n-700)]">
+                    Responsable de cancha
+                  </legend>
+                  <div className="grid gap-6 md:grid-cols-3">
+                    <label className="space-y-2">
+                      <span className="text-sm font-semibold text-[var(--n-600)]">
+                        Nombre
+                      </span>
+                      <Input
+                        value={manager}
+                        onChange={(event) => setManager(event.target.value)}
+                        placeholder="Nombre del responsable"
+                        className="h-11 rounded-xl bg-[var(--background-soft)]"
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-sm font-semibold text-[var(--n-600)]">
+                        Teléfono
+                      </span>
+                      <Input
+                        type="tel"
+                        value={managerPhone}
+                        onChange={(event) => setManagerPhone(event.target.value)}
+                        placeholder="+54 9 ..."
+                        className="h-11 rounded-xl bg-[var(--background-soft)]"
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-sm font-semibold text-[var(--n-600)]">
+                        Mail
+                      </span>
+                      <Input
+                        type="email"
+                        value={managerEmail}
+                        onChange={(event) => setManagerEmail(event.target.value)}
+                        placeholder="correo@club.com"
+                        className="h-11 rounded-xl bg-[var(--background-soft)]"
+                      />
+                    </label>
+                  </div>
+                </fieldset>
+
+                <fieldset className="space-y-4">
+                  <legend className="text-sm font-bold text-[var(--n-700)]">
+                    Jefe de prensa
+                  </legend>
+                  <div className="grid gap-6 md:grid-cols-3">
+                    <label className="space-y-2">
+                      <span className="text-sm font-semibold text-[var(--n-600)]">
+                        Nombre
+                      </span>
+                      <Input
+                        value={pressManager}
+                        onChange={(event) => setPressManager(event.target.value)}
+                        placeholder="Nombre del jefe de prensa"
+                        className="h-11 rounded-xl bg-[var(--background-soft)]"
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-sm font-semibold text-[var(--n-600)]">
+                        Teléfono
+                      </span>
+                      <Input
+                        type="tel"
+                        value={pressPhone}
+                        onChange={(event) => setPressPhone(event.target.value)}
+                        placeholder="+54 9 ..."
+                        className="h-11 rounded-xl bg-[var(--background-soft)]"
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-sm font-semibold text-[var(--n-600)]">
+                        Mail
+                      </span>
+                      <Input
+                        type="email"
+                        value={pressEmail}
+                        onChange={(event) => setPressEmail(event.target.value)}
+                        placeholder="prensa@club.com"
+                        className="h-11 rounded-xl bg-[var(--background-soft)]"
+                      />
+                    </label>
+                  </div>
+                </fieldset>
+
                 <label className="space-y-2">
                   <span className="text-sm font-bold text-[var(--n-700)]">
                     Enlace oficial
@@ -392,6 +578,92 @@ export function CreateTeamModal({
                     className="h-11 rounded-xl bg-[var(--background-soft)]"
                   />
                 </label>
+
+                {isEditMode && canEdit ? (
+                  <section className="mt-10 rounded-[var(--panel-radius)] border border-[var(--accent-border)] bg-[#fff8f8] p-4">
+                    {!isDeleteOpen ? (
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <p className="text-xs text-[var(--n-600)]">
+                          Quitar este equipo del directorio.
+                        </p>
+                        <Button
+                          type="button"
+                          variant="danger"
+                          className="h-9 rounded-xl px-4"
+                          onClick={() => {
+                            setErrorMessage("");
+                            setLeaguesToRemove(
+                              teamLeagues.length > 1 ? [] : teamLeagues,
+                            );
+                            setIsDeleteOpen(true);
+                          }}
+                        >
+                          <Trash2 className="size-4" />
+                          Eliminar equipo
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <p className="text-sm font-semibold text-[var(--foreground)]">
+                          ¿Seguro que querés eliminar{" "}
+                          {initialTeam?.official_name ?? "este equipo"}?
+                        </p>
+
+                        {teamLeagues.length > 1 ? (
+                          <div className="space-y-2">
+                            <p className="text-sm text-[var(--n-600)]">
+                              El equipo está en varias ligas. Elegí de cuáles
+                              quitarlo:
+                            </p>
+                            {teamLeagues.map((league) => (
+                              <label
+                                key={league}
+                                className="flex items-center gap-2 text-sm font-semibold text-[var(--n-700)]"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={leaguesToRemove.includes(league)}
+                                  onChange={() => toggleLeagueToRemove(league)}
+                                  className="size-4 accent-[var(--accent)]"
+                                />
+                                {league}
+                              </label>
+                            ))}
+                          </div>
+                        ) : null}
+
+                        <p className="text-xs text-[var(--n-500)]">
+                          Si lo quitás de todas sus ligas, el equipo se elimina
+                          del directorio.
+                        </p>
+
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => setIsDeleteOpen(false)}
+                            disabled={isDeleting}
+                          >
+                            Cancelar
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="danger"
+                            onClick={handleDelete}
+                            disabled={
+                              isDeleting ||
+                              (teamLeagues.length > 1 &&
+                                !leaguesToRemove.length)
+                            }
+                          >
+                            <Trash2 className="size-4" />
+                            {isDeleting ? "Eliminando..." : "Eliminar"}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </section>
+                ) : null}
 
                 {errorMessage ? (
                   <div className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-soft)] px-4 py-3 text-sm font-semibold text-[var(--accent-strong)]">
