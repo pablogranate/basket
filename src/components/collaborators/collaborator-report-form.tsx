@@ -11,7 +11,6 @@ import {
   ChevronDown,
   CheckCircle2,
   Circle,
-  CircleEllipsis,
   Clock3,
   ImageIcon,
   Images,
@@ -27,6 +26,7 @@ import {
   SquarePen,
   Type,
   Upload,
+  UserCog,
   Wifi,
   X,
 } from "lucide-react";
@@ -37,34 +37,39 @@ import { Textarea } from "@/components/ui/textarea";
 import type { CollaboratorAssignmentItem } from "@/lib/data/collaborators";
 import { cn } from "@/lib/utils";
 
-type IssueKey = "internet" | "img" | "ocr" | "overlays" | "grafica";
+type IssueKey =
+  | "internet"
+  | "img"
+  | "ocr"
+  | "overlays"
+  | "grafica"
+  | "club"
+  | "responsableCancha";
 type ToggleValue = "si" | "no";
 type IncidentLevel = "sin" | "baja" | "alta" | "critica";
 type TechnicalCaptureKind = "speedtest" | "ping" | "gpu";
 type ReadingState = "idle" | "loading" | "error" | "done";
-type SignalOption = "BP" | "BP / IMG";
+type SignalOption = (typeof SIGNAL_OPTIONS)[number];
 type CaptureSource = "camera" | "gallery";
 
 type DraftState = {
   incidentLevel: IncidentLevel;
-  paid: ToggleValue;
   feedDetected: ToggleValue;
   problems: Record<IssueKey, boolean>;
   signalLabel: SignalOption;
   aptoLineal: ToggleValue;
   testTime: string;
   testCheck: ToggleValue;
-  startCheck: ToggleValue;
+  soundCheck: ToggleValue;
   graphicsCheck: ToggleValue;
+  internetCheck: ToggleValue;
+  cameraCheck: ToggleValue;
   speedtestValue: string;
   pingValue: string;
   gpuValue: string;
   technicalObservations: string;
   buildingObservations: string;
   generalObservations: string;
-  otherObservation: string;
-  stObservation: string;
-  clubObservation: string;
   speedtestAttachmentName: string | null;
   pingAttachmentName: string | null;
   gpuAttachmentName: string | null;
@@ -77,10 +82,12 @@ const ISSUE_OPTIONS: Array<{
   icon: typeof Wifi;
 }> = [
   { key: "internet", label: "Internet", icon: Wifi },
-  { key: "img", label: "IMG", icon: ImageIcon },
-  { key: "ocr", label: "OCR", icon: Type },
+  { key: "img", label: "FDC", icon: ImageIcon },
+  { key: "ocr", label: "Overlay", icon: Type },
   { key: "overlays", label: "GES", icon: Layers3 },
   { key: "grafica", label: "Gráfica", icon: Palette },
+  { key: "club", label: "Club", icon: Building2 },
+  { key: "responsableCancha", label: "Responsable de cancha", icon: UserCog },
 ];
 
 const DEFAULT_PROBLEMS: Record<IssueKey, boolean> = {
@@ -89,6 +96,8 @@ const DEFAULT_PROBLEMS: Record<IssueKey, boolean> = {
   ocr: false,
   overlays: false,
   grafica: false,
+  club: false,
+  responsableCancha: false,
 };
 
 const YES_NO_OPTIONS: Array<{ label: string; value: ToggleValue }> = [
@@ -96,7 +105,18 @@ const YES_NO_OPTIONS: Array<{ label: string; value: ToggleValue }> = [
   { label: "NO", value: "no" },
 ];
 
-const SIGNAL_OPTIONS: SignalOption[] = ["BP", "BP / IMG"];
+const SIGNAL_OPTIONS = [
+  "BP",
+  "BP/Deport TV",
+  "BP/FDC",
+  "BP/Telemundo",
+  "BP/FDC/Telemundo",
+  "FDC/DTV",
+  "FDC/DTV/Telemundo",
+  "FDC/TYC",
+  "FDC/TYC/Telemundo",
+  "FDC/Telemundo",
+] as const;
 
 const REPORT_ICON_BUBBLE_BASE =
   "inline-flex items-center justify-center rounded-full border border-[#ece6df] bg-[#faf7f3] shadow-[0_4px_12px_rgba(43,30,17,0.06)]";
@@ -147,37 +167,40 @@ function getDraftKey(assignmentId: string) {
   return `basket-production.collaborator-report.${assignmentId}`;
 }
 
+function hasIncidentObservations(draft: DraftState) {
+  return Boolean(
+    draft.technicalObservations.trim() ||
+      draft.buildingObservations.trim() ||
+      draft.generalObservations.trim(),
+  );
+}
+
 function normalizeSignalLabel(value: string | null | undefined): SignalOption {
-  const normalized = value?.trim().toUpperCase().replace(/\s+/g, " ");
+  const normalized = value?.trim();
+  const match = SIGNAL_OPTIONS.find((option) => option === normalized);
 
-  if (normalized === "BP/IMG" || normalized === "BP / IMG") {
-    return "BP / IMG";
-  }
-
-  return "BP";
+  return match ?? "BP";
 }
 
 function buildDefaultDraft(): DraftState {
   return {
     incidentLevel: "sin",
-    paid: "si",
     feedDetected: "si",
     problems: DEFAULT_PROBLEMS,
     signalLabel: "BP",
     aptoLineal: "si",
     testTime: "",
     testCheck: "no",
-    startCheck: "no",
+    soundCheck: "no",
     graphicsCheck: "no",
+    internetCheck: "no",
+    cameraCheck: "no",
     speedtestValue: "",
     pingValue: "",
     gpuValue: "",
     technicalObservations: "",
     buildingObservations: "",
     generalObservations: "",
-    otherObservation: "",
-    stObservation: "",
-    clubObservation: "",
     speedtestAttachmentName: null,
     pingAttachmentName: null,
     gpuAttachmentName: null,
@@ -493,46 +516,6 @@ function SelectStateField({
   );
 }
 
-function ObservationFlagToggle({
-  label,
-  icon: Icon,
-  active,
-  onToggle,
-}: {
-  label: string;
-  icon: typeof CircleEllipsis;
-  active: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className={cn(
-        "flex min-h-[92px] min-w-0 flex-col items-center justify-between rounded-[var(--panel-radius)] border px-3 py-3.5 text-center transition sm:min-h-[84px] sm:items-start sm:px-3.5 sm:py-4 sm:text-left",
-        active
-          ? "border-[#f3cfd8] bg-[#fff5f7]"
-          : "border-[var(--border)] bg-[var(--background-soft)] hover:border-[#ead2d8]",
-      )}
-    >
-      <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--n-400)] sm:text-[11px] sm:tracking-[0.2em]">
-        {label}
-      </span>
-      <span
-        className={cn(
-          REPORT_ICON_BUBBLE_BASE,
-          "size-8 text-xs font-black transition sm:size-9 sm:self-end",
-          active
-            ? "border-[var(--accent)] bg-[var(--accent)] text-white"
-            : "text-[var(--n-400)]",
-        )}
-      >
-        {active ? <X className="size-4" /> : <Icon className="size-4" />}
-      </span>
-    </button>
-  );
-}
-
 export function CollaboratorReportForm({
   assignment,
   showMatchSummary = true,
@@ -606,6 +589,16 @@ export function CollaboratorReportForm({
 
   const handleSendDraft = async () => {
     if (isSending) {
+      return;
+    }
+
+    const current = latestDraftRef.current;
+
+    if (current.incidentLevel !== "sin" && !hasIncidentObservations(current)) {
+      setSaveMessage(
+        "Completa las observaciones antes de enviar una incidencia.",
+      );
+      setSaveTone("error");
       return;
     }
 
@@ -862,18 +855,7 @@ export function CollaboratorReportForm({
           }
         />
 
-        <div className="grid grid-cols-2 gap-3">
-          <BinaryStateButton
-            label="Pago"
-            icon={ReceiptText}
-            active={draft.paid === "si"}
-            onToggle={() =>
-              updateDraft((previous) => ({
-                ...previous,
-                paid: previous.paid === "si" ? "no" : "si",
-              }))
-            }
-          />
+        <div className="grid gap-3">
           <BinaryStateButton
             label="Feed detectó"
             icon={MonitorPlay}
@@ -921,7 +903,7 @@ export function CollaboratorReportForm({
 
       <Card className="space-y-5 p-5">
         <h4 className="text-sm font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
-          Pruebas de salida
+          Prueba Envío señal
         </h4>
         <div className="grid gap-4">
           <label className="space-y-2">
@@ -937,7 +919,7 @@ export function CollaboratorReportForm({
               className="h-12 w-full rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 text-sm font-medium text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:bg-[var(--surface)]"
             />
           </label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           <SegmentedToggle
             label="Prueba"
             value={draft.testCheck}
@@ -947,10 +929,10 @@ export function CollaboratorReportForm({
             options={YES_NO_OPTIONS}
           />
           <SegmentedToggle
-            label="Inicio"
-            value={draft.startCheck}
+            label="Sonido"
+            value={draft.soundCheck}
             onChange={(value) =>
-              updateDraft((previous) => ({ ...previous, startCheck: value }))
+              updateDraft((previous) => ({ ...previous, soundCheck: value }))
             }
             options={YES_NO_OPTIONS}
           />
@@ -959,6 +941,22 @@ export function CollaboratorReportForm({
             value={draft.graphicsCheck}
             onChange={(value) =>
               updateDraft((previous) => ({ ...previous, graphicsCheck: value }))
+            }
+            options={YES_NO_OPTIONS}
+          />
+          <SegmentedToggle
+            label="Internet"
+            value={draft.internetCheck}
+            onChange={(value) =>
+              updateDraft((previous) => ({ ...previous, internetCheck: value }))
+            }
+            options={YES_NO_OPTIONS}
+          />
+          <SegmentedToggle
+            label="Tiro de cámara"
+            value={draft.cameraCheck}
+            onChange={(value) =>
+              updateDraft((previous) => ({ ...previous, cameraCheck: value }))
             }
             options={YES_NO_OPTIONS}
           />
@@ -1295,11 +1293,15 @@ export function CollaboratorReportForm({
         </div>
       ) : null}
 
+      {draft.incidentLevel !== "sin" ? (
       <Card className="space-y-5 p-5">
         <div className="space-y-1">
           <h4 className="text-sm font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
             Observaciones
           </h4>
+          <p className="text-sm text-[var(--n-600)]">
+            Obligatorio: detalla la incidencia en al menos un campo antes de enviar.
+          </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
@@ -1349,47 +1351,7 @@ export function CollaboratorReportForm({
           </div>
         </div>
       </Card>
-
-      <Card className="space-y-5 p-5">
-        <h4 className="text-sm font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
-          Otras novedades
-        </h4>
-        <div className="grid grid-cols-3 gap-3">
-          <ObservationFlagToggle
-            label="OTRO"
-            icon={CircleEllipsis}
-            active={Boolean(draft.otherObservation.trim())}
-            onToggle={() =>
-              updateDraft((previous) => ({
-                ...previous,
-                otherObservation: previous.otherObservation.trim() ? "" : "X",
-              }))
-            }
-          />
-          <ObservationFlagToggle
-            label="ST"
-            icon={ShieldAlert}
-            active={Boolean(draft.stObservation.trim())}
-            onToggle={() =>
-              updateDraft((previous) => ({
-                ...previous,
-                stObservation: previous.stObservation.trim() ? "" : "X",
-              }))
-            }
-          />
-          <ObservationFlagToggle
-            label="CLUB"
-            icon={Building2}
-            active={Boolean(draft.clubObservation.trim())}
-            onToggle={() =>
-              updateDraft((previous) => ({
-                ...previous,
-                clubObservation: previous.clubObservation.trim() ? "" : "X",
-              }))
-            }
-          />
-        </div>
-      </Card>
+      ) : null}
 
       <div className="grid gap-3 rounded-[var(--panel-radius)] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-lift)]">
         <div className="flex items-center gap-2 text-sm text-[var(--n-600)]">

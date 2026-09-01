@@ -18,7 +18,6 @@ import { ensureErrorMessage } from "@/lib/utils";
 
 const reportDraftSchema = z.object({
   incidentLevel: z.enum(["sin", "baja", "alta", "critica"]),
-  paid: z.enum(["si", "no"]),
   feedDetected: z.enum(["si", "no"]),
   problems: z.object({
     internet: z.boolean(),
@@ -26,22 +25,34 @@ const reportDraftSchema = z.object({
     ocr: z.boolean(),
     overlays: z.boolean(),
     grafica: z.boolean(),
+    club: z.boolean(),
+    responsableCancha: z.boolean(),
   }),
-  signalLabel: z.enum(["BP", "BP / IMG"]),
+  signalLabel: z.enum([
+    "BP",
+    "BP/Deport TV",
+    "BP/FDC",
+    "BP/Telemundo",
+    "BP/FDC/Telemundo",
+    "FDC/DTV",
+    "FDC/DTV/Telemundo",
+    "FDC/TYC",
+    "FDC/TYC/Telemundo",
+    "FDC/Telemundo",
+  ]),
   aptoLineal: z.enum(["si", "no"]),
   testTime: z.string(),
   testCheck: z.enum(["si", "no"]),
-  startCheck: z.enum(["si", "no"]),
+  soundCheck: z.enum(["si", "no"]),
   graphicsCheck: z.enum(["si", "no"]),
+  internetCheck: z.enum(["si", "no"]),
+  cameraCheck: z.enum(["si", "no"]),
   speedtestValue: z.string(),
   pingValue: z.string(),
   gpuValue: z.string(),
   technicalObservations: z.string(),
   buildingObservations: z.string(),
   generalObservations: z.string(),
-  otherObservation: z.string(),
-  stObservation: z.string(),
-  clubObservation: z.string(),
   speedtestAttachmentName: z.string().nullable(),
   pingAttachmentName: z.string().nullable(),
   gpuAttachmentName: z.string().nullable(),
@@ -85,6 +96,19 @@ export const POST = withAuth({}, async (request, ctx) => {
 
   const { assignmentId, matchId, draft } = parsed.data;
 
+  const hasObservations = Boolean(
+    draft.technicalObservations.trim() ||
+      draft.buildingObservations.trim() ||
+      draft.generalObservations.trim(),
+  );
+
+  if (draft.incidentLevel !== "sin" && !hasObservations) {
+    return NextResponse.json(
+      { error: "Completa las observaciones antes de enviar una incidencia." },
+      { status: 400 },
+    );
+  }
+
   if (!isUuidLike(assignmentId) || !isUuidLike(matchId)) {
     return NextResponse.json(
       { error: "El envío real no está disponible en modo demo." },
@@ -120,26 +144,21 @@ export const POST = withAuth({}, async (request, ctx) => {
       matchId,
       reporterProfileId: ctx.profileId,
       incidentLevel: draft.incidentLevel,
-      paid: draft.paid === "si",
       feedDetected: draft.feedDetected === "si",
       signalLabel: draft.signalLabel,
       aptoLineal: draft.aptoLineal === "si",
       testTime: draft.testTime.trim() || null,
       testCheck: draft.testCheck === "si",
-      startCheck: draft.startCheck === "si",
+      soundCheck: draft.soundCheck === "si",
       graphicsCheck: draft.graphicsCheck === "si",
+      internetCheck: draft.internetCheck === "si",
+      cameraCheck: draft.cameraCheck === "si",
       speedtestValue: draft.speedtestValue.trim() || null,
       pingValue: draft.pingValue.trim() || null,
       gpuValue: draft.gpuValue.trim() || null,
       technicalObservations: draft.technicalObservations.trim() || null,
       buildingObservations: draft.buildingObservations.trim() || null,
       generalObservations: draft.generalObservations.trim() || null,
-      otherFlag: Boolean(draft.otherObservation.trim()),
-      stFlag: Boolean(draft.stObservation.trim()),
-      clubFlag: Boolean(draft.clubObservation.trim()),
-      otherObservation: draft.otherObservation.trim() || null,
-      stObservation: draft.stObservation.trim() || null,
-      clubObservation: draft.clubObservation.trim() || null,
       problems: {
         ...draft.problems,
         hasAny: hasEnabledProblems(draft.problems),
