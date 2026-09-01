@@ -35,6 +35,7 @@ import {
   MatchNotifyAllButton,
   type SendAllRecipient,
 } from "@/components/match/match-notify-all-button";
+import { CollaboratorReportsPanel } from "@/components/match/collaborator-reports-panel";
 import { GroupActions } from "@/components/match/group-actions";
 import { HistoryTimeline } from "@/components/match/history-timeline";
 import { TeamLogoMark } from "@/components/team-logo-mark";
@@ -590,7 +591,7 @@ async function MatchDetailContent({
     notFound();
   }
 
-  const { match, people, history, conflicts } = data;
+  const { match, people, history, conflicts, reports } = data;
   const calendarLink = buildGoogleCalendarLink(match);
   const groupName = buildGroupName(match);
   const groupMessage = buildGroupMessage(match);
@@ -1069,6 +1070,8 @@ async function MatchDetailContent({
           </div>
         </section>
       </div>
+
+      <CollaboratorReportsPanel reports={reports} timezone={match.timezone} />
 
       <HistoryTimeline
         history={history}

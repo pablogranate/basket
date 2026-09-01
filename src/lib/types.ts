@@ -123,3 +123,27 @@ export type MatchDetail = MatchRow & {
 export type AuditEntry = AuditRow & {
   actor: Pick<ProfileRow, "id" | "full_name" | "role"> | null;
 };
+
+export type MatchReportIncidentLevel = "sin" | "baja" | "alta" | "critica";
+
+export type MatchCollaboratorReport = {
+  id: string;
+  incidentLevel: MatchReportIncidentLevel;
+  roleName: string | null;
+  reporterName: string | null;
+  signalLabel: string;
+  aptoLineal: boolean;
+  feedDetected: boolean;
+  testTime: string | null;
+  testCheck: boolean;
+  soundCheck: boolean;
+  graphicsCheck: boolean;
+  internetCheck: boolean;
+  cameraCheck: boolean;
+  speedtestValue: string | null;
+  pingValue: string | null;
+  gpuValue: string | null;
+  generalObservations: string | null;
+  problems: Record<string, boolean>;
+  submittedAt: string;
+};
