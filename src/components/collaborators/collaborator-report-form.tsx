@@ -8,7 +8,6 @@ import {
   Building2,
   CalendarDays,
   Camera,
-  ChevronDown,
   CheckCircle2,
   Circle,
   Clock3,
@@ -33,6 +32,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { CollaboratorAssignmentItem } from "@/lib/data/collaborators";
 import { cn } from "@/lib/utils";
@@ -48,7 +48,6 @@ type IssueKey =
 type ToggleValue = "si" | "no";
 type IncidentLevel = "sin" | "baja" | "alta" | "critica";
 type TechnicalCaptureKind = "speedtest" | "ping" | "gpu";
-type ReadingState = "idle" | "loading" | "error" | "done";
 type SignalOption = (typeof SIGNAL_OPTIONS)[number];
 type CaptureSource = "camera" | "gallery";
 
@@ -466,13 +465,11 @@ function BinaryStateButton({
 
 function SelectStateField({
   label,
-  icon: Icon,
   value,
   options,
   onChange,
 }: {
   label: string;
-  icon: typeof MonitorPlay;
   value: string;
   options: readonly string[];
   onChange: (value: string) => void;
@@ -482,28 +479,17 @@ function SelectStateField({
       <span className={cn("block", REPORT_FIELD_LABEL_CLASS)}>
         {label}
       </span>
-      <label className="relative block">
-        <select
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className="h-[62px] w-full appearance-none rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] pl-16 pr-11 text-left text-sm font-black uppercase tracking-[0.12em] text-[#6b5d5f] outline-none transition hover:border-[#d7d0ca] focus:border-[var(--accent)]"
-        >
-          {options.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-        <span
-          className={cn(
-            REPORT_ICON_BUBBLE_BASE,
-            "pointer-events-none absolute left-4 top-1/2 size-9 shrink-0 -translate-y-1/2 text-[#6b5d5f]",
-          )}
-        >
-          <Icon className="size-4" />
-        </span>
-        <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 shrink-0 -translate-y-1/2 text-[var(--n-500)]" />
-      </label>
+      <Select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-[62px] font-semibold"
+      >
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </Select>
     </div>
   );
 }
@@ -530,13 +516,6 @@ export function CollaboratorReportForm({
       parseSavedDraft(window.localStorage.getItem(getDraftKey(assignment.assignmentId))) ??
       buildDefaultDraft()
     );
-  });
-  const [captureState, setCaptureState] = useState<
-    Record<TechnicalCaptureKind, { state: ReadingState; message: string }>
-  >({
-    speedtest: { state: "idle", message: "" },
-    ping: { state: "idle", message: "" },
-    gpu: { state: "idle", message: "" },
   });
   const [saveMessage, setSaveMessage] = useState<string>("");
   const [saveTone, setSaveTone] = useState<"neutral" | "success" | "error">(
@@ -674,17 +653,7 @@ export function CollaboratorReportForm({
   ) => {
     try {
       const normalizedFile = await normalizeCaptureFile(file, kind);
-      const formData = new FormData();
-      formData.append("image", normalizedFile);
-      formData.append("kind", kind);
 
-      setCaptureState((previous) => ({
-        ...previous,
-        [kind]: {
-          state: "loading",
-          message: "Leyendo captura con IA...",
-        },
-      }));
       updateDraft((previous) => ({
         ...previous,
         speedtestAttachmentName:
@@ -696,66 +665,9 @@ export function CollaboratorReportForm({
         gpuAttachmentName:
           kind === "gpu" ? normalizedFile.name : previous.gpuAttachmentName,
       }));
-
-      const response = await fetch("/api/ai/metric-capture", {
-        method: "POST",
-        body: formData,
-      });
-
-      const responseText = await response.text();
-      let payload:
-        | { value: string | null; note?: string | null }
-        | { error?: string }
-        | null = null;
-
-      try {
-        payload = responseText
-          ? ((JSON.parse(responseText) as
-              | { value: string | null; note?: string | null }
-              | { error?: string }))
-          : null;
-      } catch {
-        payload = null;
-      }
-
-      if (!response.ok || !payload || !("value" in payload)) {
-        setCaptureState((previous) => ({
-          ...previous,
-          [kind]: {
-            state: "error",
-            message:
-              payload && "error" in payload
-                ? (payload.error ?? "No pudimos leer la captura.")
-                : "No pudimos leer la captura. Intenta de nuevo.",
-          },
-        }));
-        return;
-      }
-
-      updateDraft((previous) => ({
-        ...previous,
-        speedtestValue:
-          kind === "speedtest" ? (payload.value ?? "") : previous.speedtestValue,
-        pingValue: kind === "ping" ? (payload.value ?? "") : previous.pingValue,
-        gpuValue: kind === "gpu" ? (payload.value ?? "") : previous.gpuValue,
-      }));
-      setCaptureState((previous) => ({
-        ...previous,
-        [kind]: {
-          state: "done",
-          message: payload.value
-            ? "Lectura lista. Puedes ajustarla manualmente si hace falta."
-            : "No se pudo leer. Completa el valor manualmente.",
-        },
-      }));
     } catch {
-      setCaptureState((previous) => ({
-        ...previous,
-        [kind]: {
-          state: "error",
-          message: "No pudimos procesar la captura en este momento.",
-        },
-      }));
+      setSaveMessage("No pudimos procesar la captura en este momento.");
+      setSaveTone("error");
     }
   };
 
@@ -892,7 +804,6 @@ export function CollaboratorReportForm({
         <div className="grid grid-cols-2 gap-3">
           <SelectStateField
             label="Señal"
-            icon={MonitorPlay}
             value={draft.signalLabel}
             options={SIGNAL_OPTIONS}
             onChange={(value) =>
@@ -1018,10 +929,15 @@ export function CollaboratorReportForm({
                 >
                   <Icon className="size-4" />
                 </span>
-                <span className="text-sm font-bold uppercase tracking-[0.12em]">
+                <span className="min-w-0 text-sm font-bold uppercase leading-tight tracking-[0.12em]">
                   {issue.key === "internet" ? (
                     <>
                       <span className="sm:hidden">Red</span>
+                      <span className="hidden sm:inline">{issue.label}</span>
+                    </>
+                  ) : issue.key === "responsableCancha" ? (
+                    <>
+                      <span className="sm:hidden">Resp. cancha</span>
                       <span className="hidden sm:inline">{issue.label}</span>
                     </>
                   ) : (
@@ -1040,7 +956,7 @@ export function CollaboratorReportForm({
             Bloque técnico
           </h4>
           <p className="text-sm text-[var(--n-600)]">
-            Sube la foto, la IA lo lee; si no, escríbelo.
+            Subí la foto y escribí el número abajo
           </p>
         </div>
 
@@ -1070,9 +986,6 @@ export function CollaboratorReportForm({
                   )}
                 </span>
               </div>
-              {captureState.speedtest.state === "loading" ? (
-                <Loader2 className="size-4 animate-spin text-[var(--accent)]" />
-              ) : null}
             </button>
           </div>
           <div className="min-w-0 space-y-2">
@@ -1100,9 +1013,6 @@ export function CollaboratorReportForm({
                   )}
                 </span>
               </div>
-              {captureState.ping.state === "loading" ? (
-                <Loader2 className="size-4 animate-spin text-[var(--accent)]" />
-              ) : null}
             </button>
           </div>
           <div className="min-w-0 space-y-2">
@@ -1130,9 +1040,6 @@ export function CollaboratorReportForm({
                   )}
                 </span>
               </div>
-              {captureState.gpu.state === "loading" ? (
-                <Loader2 className="size-4 animate-spin text-[var(--accent)]" />
-              ) : null}
             </button>
           </div>
         </div>
@@ -1154,54 +1061,6 @@ export function CollaboratorReportForm({
         />
 
         <div className="grid gap-3">
-          <section className="grid grid-cols-3 gap-x-2 gap-y-3">
-            <div className="min-w-0 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-3 py-3">
-              <p className="text-sm font-bold">{draft.speedtestValue || "?"}</p>
-              {captureState.speedtest.message ? (
-                <p
-                  className={cn(
-                    "mt-2 break-words text-[10px] leading-tight",
-                    captureState.speedtest.state === "error"
-                      ? "text-[#aa2945]"
-                      : "text-[var(--n-600)]",
-                  )}
-                >
-                  {captureState.speedtest.message}
-                </p>
-              ) : null}
-            </div>
-            <div className="min-w-0 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-3 py-3">
-              <p className="text-sm font-bold">{draft.pingValue || "?"}</p>
-              {captureState.ping.message ? (
-                <p
-                  className={cn(
-                    "mt-2 break-words text-[10px] leading-tight",
-                    captureState.ping.state === "error"
-                      ? "text-[#aa2945]"
-                      : "text-[var(--n-600)]",
-                  )}
-                >
-                  {captureState.ping.message}
-                </p>
-              ) : null}
-            </div>
-            <div className="min-w-0 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-3 py-3">
-              <p className="text-sm font-bold">{draft.gpuValue || "?"}</p>
-              {captureState.gpu.message ? (
-                <p
-                  className={cn(
-                    "mt-2 break-words text-[10px] leading-tight",
-                    captureState.gpu.state === "error"
-                      ? "text-[#aa2945]"
-                      : "text-[var(--n-600)]",
-                  )}
-                >
-                  {captureState.gpu.message}
-                </p>
-              ) : null}
-            </div>
-          </section>
-
           <section className="grid grid-cols-3 gap-x-2 gap-y-3">
             <input
               type="text"
