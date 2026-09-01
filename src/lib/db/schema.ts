@@ -607,6 +607,7 @@ export const accessRequests = pgTable("access_requests", {
 	phone: text().notNull(),
 	funcion: text().notNull(),
 	mensaje: text(),
+	ciudad: text(),
 	status: text().default('pendiente').notNull(),
 	createdAt: timestamptz("created_at").default(sql`timezone('utc'::text, now())`).notNull(),
 	decidedAt: timestamptz("decided_at"),

@@ -145,6 +145,7 @@ function RequestTable({
             <th className="py-2 pr-4">Correo</th>
             <th className="py-2 pr-4">Función</th>
             <th className="py-2 pr-4">Teléfono</th>
+            <th className="py-2 pr-4">Ciudad</th>
             <th className="py-2 pr-4">Enviada</th>
             {showDecision ? (
               <>
@@ -164,6 +165,7 @@ function RequestTable({
               <td className="py-2 pr-4 text-[var(--n-600)]">{row.email}</td>
               <td className="py-2 pr-4 text-[var(--n-600)]">{row.funcion}</td>
               <td className="py-2 pr-4 text-[var(--n-600)]">{row.phone}</td>
+              <td className="py-2 pr-4 text-[var(--n-600)]">{row.ciudad ?? "—"}</td>
               <td className="py-2 pr-4 text-[var(--n-500)]">
                 {formatMatchDateTime(row.created_at)}
               </td>

@@ -22,6 +22,7 @@ export type AccessRequestSummary = {
   phone: string;
   funcion: string;
   mensaje: string | null;
+  ciudad: string | null;
   status: AccessRequestStatus;
   created_at: string;
   decided_at: string | null;
@@ -35,6 +36,7 @@ const requestColumns = {
   phone: accessRequestsTable.phone,
   funcion: accessRequestsTable.funcion,
   mensaje: accessRequestsTable.mensaje,
+  ciudad: accessRequestsTable.ciudad,
   status: accessRequestsTable.status,
   created_at: accessRequestsTable.createdAt,
   decided_at: accessRequestsTable.decidedAt,

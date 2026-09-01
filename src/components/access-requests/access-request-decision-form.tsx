@@ -42,6 +42,7 @@ export function AccessRequestDecisionForm({
       <dl className="space-y-1 text-sm">
         <Row label="Declaró" value={`${request.full_name} · ${request.phone}`} />
         <Row label="Función" value={request.funcion} />
+        {request.ciudad ? <Row label="Ciudad" value={request.ciudad} /> : null}
         {request.mensaje ? <Row label="Mensaje" value={request.mensaje} /> : null}
         <Row
           label="Destino"

@@ -73,6 +73,9 @@ export default async function NoAccessPage({ searchParams }: PageProps) {
               <PendingRow label="Correo" value={request.email} />
               <PendingRow label="Teléfono" value={request.phone} />
               <PendingRow label="Función" value={request.funcion} />
+              {request.ciudad ? (
+                <PendingRow label="Ciudad" value={request.ciudad} />
+              ) : null}
               {request.mensaje ? (
                 <PendingRow label="Mensaje" value={request.mensaje} />
               ) : null}
