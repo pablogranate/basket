@@ -5,7 +5,11 @@ import { EXTERNAL_TEAM_LEAGUES } from "@/lib/club-catalog";
 import { db } from "@/lib/db/client";
 import { teams } from "@/lib/db/schema";
 import type { TeamDirectoryItem, TeamDirectoryTab } from "@/lib/team-directory";
-import { getTeamLeagueLabel, splitTeamCompetitions } from "@/lib/team-directory";
+import {
+  getTeamLeagueLabel,
+  splitTeamCompetitions,
+  TEAM_DIRECTORY_TAB_ORDER,
+} from "@/lib/team-directory";
 
 const DEFAULT_LEAGUE_URL = "https://www.laliganacional.com.ar/";
 
@@ -261,27 +265,34 @@ export function buildTeamDirectoryTabs(
   teams: TeamDirectoryItem[],
 ): TeamDirectoryTab[] {
   const counts = new Map<string, number>();
-  const firstSeen: string[] = [];
+  const seenWithTeams: string[] = [];
 
   teams.forEach((team) => {
     splitTeamCompetitions(team.competition).forEach((league) => {
       if (!counts.has(league)) {
-        firstSeen.push(league);
+        seenWithTeams.push(league);
       }
       counts.set(league, (counts.get(league) ?? 0) + 1);
     });
   });
 
-  // External leagues always get a tab, even while empty, so teams can be
-  // dragged into them from day one.
-  EXTERNAL_TEAM_LEAGUES.forEach((league) => {
-    if (!counts.has(league)) {
-      firstSeen.push(league);
-      counts.set(league, 0);
+  // Core and external leagues always get a tab, even while empty, so teams
+  // can be dragged into them from day one; leagues only known through team
+  // memberships slot in between.
+  const ordered: string[] = [];
+  const seen = new Set<string>();
+  const pushLeague = (league: string) => {
+    if (!seen.has(league)) {
+      seen.add(league);
+      ordered.push(league);
     }
-  });
+  };
 
-  return firstSeen.map((league) => ({
+  TEAM_DIRECTORY_TAB_ORDER.forEach(pushLeague);
+  seenWithTeams.forEach(pushLeague);
+  EXTERNAL_TEAM_LEAGUES.forEach(pushLeague);
+
+  return ordered.map((league) => ({
     value: league,
     label: getTeamLeagueLabel(league),
     count: counts.get(league) ?? 0,
