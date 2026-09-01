@@ -821,12 +821,10 @@ export function GridTable({
 
     const columnKey = key as keyof GridExportRow;
     const rawValue = exportRow[columnKey];
-    // Assignment columns: render the unassigned placeholder as a dash in the
-    // table; the picker still labels it "Sin asignar".
+    // Assignment columns: export rows leave unassigned roles blank; render a
+    // dash in the table. The picker still labels it "Sin asignar".
     const value =
-      ASSIGNMENT_ROLE_BY_KEY[columnKey] && rawValue === "Sin asignar"
-        ? "-"
-        : rawValue;
+      ASSIGNMENT_ROLE_BY_KEY[columnKey] && !rawValue ? "-" : rawValue;
     const isWide = WIDE_TEXT_KEYS.has(columnKey);
     const editor = editingEnabled ? getCellEditor(columnKey, match, roles) : null;
 

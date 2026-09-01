@@ -22,7 +22,8 @@ function buildCsv(rows: PersonView[]) {
     ],
     ...rows.map((row) => [
       row.person.full_name,
-      row.roleLabel,
+      // Blank cell when the person has no functions (table shows "Sin rol").
+      row.person.functions.length ? row.roleLabel : "",
       row.city,
       row.detailSummary,
       row.person.phone ?? "",

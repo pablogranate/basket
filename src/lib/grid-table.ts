@@ -60,10 +60,12 @@ export const GRID_EXPORT_COLUMNS: Array<{
   { key: "Observacion", label: "Observacion" },
 ] as const;
 
+// Exports (Excel/PDF) and the grid table share these rows: an unassigned role
+// stays blank so report cells are empty instead of a placeholder label.
 export function getAssignmentName(
   match: MatchListItem,
   roleName: string,
-  fallback = "Sin asignar",
+  fallback = "",
 ) {
   const assignment = match.assignments.find((item) => item.role.name === roleName);
   return assignment?.person?.full_name ?? fallback;
@@ -80,11 +82,7 @@ export function toExportRows(matches: MatchListItem[]): GridExportRow[] {
       : match.home_team,
     Hora: formatMatchTimeLabel(match.kickoff_at, match.timezone),
     Responsable:
-      getAssignmentName(
-        match,
-        "Responsable",
-        match.owner?.full_name ?? "Sin asignar",
-      ),
+      getAssignmentName(match, "Responsable", match.owner?.full_name ?? ""),
     Realizador: getAssignmentName(match, "Realizador"),
     "Operador de Grafica": getAssignmentName(match, "Operador de Grafica"),
     "Camara 1": getAssignmentName(match, "Camara 1"),
