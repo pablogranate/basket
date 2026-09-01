@@ -913,24 +913,27 @@ function AssignmentAssistantShell({
   children: ReactNode;
   onClose: () => void;
 }) {
-  return (
-    <>
-      <div
-        className="fixed inset-0 z-[90] flex items-end justify-center bg-[var(--n-900)]/55 p-3 backdrop-blur-sm xl:hidden"
-        onClick={onClose}
-      >
-        <div
-          className="max-h-[calc(100vh-1.5rem)] w-full max-w-md overflow-y-auto"
-          onClick={(event) => event.stopPropagation()}
-        >
-          {children}
-        </div>
-      </div>
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
 
-      <aside className="hidden min-w-0 self-start xl:block xl:sticky xl:top-20">
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
+  return (
+    <div
+      className="fixed inset-0 z-[90] flex items-end justify-center bg-[var(--n-900)]/55 p-3 backdrop-blur-sm xl:items-center xl:p-8"
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[calc(100vh-1.5rem)] w-full max-w-md overflow-y-auto xl:max-h-[calc(100vh-4rem)] xl:max-w-lg"
+        onClick={(event) => event.stopPropagation()}
+      >
         {children}
-      </aside>
-    </>
+      </div>
+    </div>
   );
 }
 
@@ -1413,24 +1416,6 @@ function GroupAssistantDrawer({
   const contacts = getAssignmentContacts(assignment);
   const leagueAccent = getAssignmentLeagueAccentColor(assignment.competition);
 
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const isDesktop = window.matchMedia("(min-width: 1280px)").matches;
-    if (isDesktop) {
-      return;
-    }
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, []);
-
   const drawerContent = (
     <div className="min-w-0 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] shadow-[0_18px_40px_rgba(28,13,16,0.08)]">
       <div className="relative border-b border-[var(--border)] p-6">
@@ -1902,12 +1887,7 @@ export function MyDayAssignmentsPanel({
   }
 
   return (
-    <div
-      className={cn(
-        "grid gap-6",
-        selectedPanelAssignmentId ? "xl:grid-cols-[minmax(0,1fr)_390px]" : "grid-cols-1",
-      )}
-    >
+    <div className="grid grid-cols-1 gap-6">
       <div className="space-y-8">
         {pendingAcceptCount > 0 ? (
           <div className="flex items-center gap-3 rounded-[var(--panel-radius)] border border-[var(--accent-border)] bg-[var(--accent-soft)] px-4 py-3.5 xl:hidden">

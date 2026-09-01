@@ -67,8 +67,6 @@ type DraftState = {
   speedtestValue: string;
   pingValue: string;
   gpuValue: string;
-  technicalObservations: string;
-  buildingObservations: string;
   generalObservations: string;
   speedtestAttachmentName: string | null;
   pingAttachmentName: string | null;
@@ -168,11 +166,7 @@ function getDraftKey(assignmentId: string) {
 }
 
 function hasIncidentObservations(draft: DraftState) {
-  return Boolean(
-    draft.technicalObservations.trim() ||
-      draft.buildingObservations.trim() ||
-      draft.generalObservations.trim(),
-  );
+  return Boolean(draft.generalObservations.trim());
 }
 
 function normalizeSignalLabel(value: string | null | undefined): SignalOption {
@@ -198,8 +192,6 @@ function buildDefaultDraft(): DraftState {
     speedtestValue: "",
     pingValue: "",
     gpuValue: "",
-    technicalObservations: "",
-    buildingObservations: "",
     generalObservations: "",
     speedtestAttachmentName: null,
     pingAttachmentName: null,
@@ -870,6 +862,29 @@ export function CollaboratorReportForm({
         </div>
       </Card>
 
+      {draft.incidentLevel !== "sin" ? (
+        <Card className="space-y-4 p-5">
+          <div className="space-y-1">
+            <h4 className="text-sm font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
+              Observaciones
+            </h4>
+            <p className="text-sm text-[var(--n-600)]">
+              Obligatorio: detalla la incidencia.
+            </p>
+          </div>
+          <Textarea
+            placeholder="Ej. Se cayó la cámara 1 en dos momentos y la VM tardó en responder."
+            value={draft.generalObservations}
+            onChange={(event) =>
+              updateDraft((previous) => ({
+                ...previous,
+                generalObservations: event.target.value,
+              }))
+            }
+          />
+        </Card>
+      ) : null}
+
       <Card className="space-y-5 p-5">
         <h4 className="text-sm font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
           Contexto del partido
@@ -1291,66 +1306,6 @@ export function CollaboratorReportForm({
             </div>
           </div>
         </div>
-      ) : null}
-
-      {draft.incidentLevel !== "sin" ? (
-      <Card className="space-y-5 p-5">
-        <div className="space-y-1">
-          <h4 className="text-sm font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
-            Observaciones
-          </h4>
-          <p className="text-sm text-[var(--n-600)]">
-            Obligatorio: detalla la incidencia en al menos un campo antes de enviar.
-          </p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2 sm:col-span-2">
-            <p className={REPORT_FIELD_LABEL_CLASS}>
-              Observaciones técnicas
-            </p>
-            <Textarea
-              placeholder="Ej. Se cayó la cámara 1 en dos momentos y la VM tardó en responder."
-              value={draft.technicalObservations}
-              onChange={(event) =>
-                updateDraft((previous) => ({
-                  ...previous,
-                  technicalObservations: event.target.value,
-                }))
-              }
-            />
-          </div>
-          <div className="space-y-2">
-            <p className={REPORT_FIELD_LABEL_CLASS}>
-              Observaciones edilicias
-            </p>
-            <Textarea
-              placeholder="Ej. El responsable no tenía PC ni router 4G disponible."
-              value={draft.buildingObservations}
-              onChange={(event) =>
-                updateDraft((previous) => ({
-                  ...previous,
-                  buildingObservations: event.target.value,
-                }))
-              }
-            />
-          </div>
-          <div className="space-y-2">
-            <p className={REPORT_FIELD_LABEL_CLASS}>
-              Observaciones generales
-            </p>
-            <Textarea
-              placeholder="Ej. El realizador dio señal faltando una hora para el inicio."
-              value={draft.generalObservations}
-              onChange={(event) =>
-                updateDraft((previous) => ({
-                  ...previous,
-                  generalObservations: event.target.value,
-                }))
-              }
-            />
-          </div>
-        </div>
-      </Card>
       ) : null}
 
       <div className="grid gap-3 rounded-[var(--panel-radius)] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-lift)]">

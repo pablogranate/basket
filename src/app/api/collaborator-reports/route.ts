@@ -50,8 +50,6 @@ const reportDraftSchema = z.object({
   speedtestValue: z.string(),
   pingValue: z.string(),
   gpuValue: z.string(),
-  technicalObservations: z.string(),
-  buildingObservations: z.string(),
   generalObservations: z.string(),
   speedtestAttachmentName: z.string().nullable(),
   pingAttachmentName: z.string().nullable(),
@@ -96,11 +94,7 @@ export const POST = withAuth({}, async (request, ctx) => {
 
   const { assignmentId, matchId, draft } = parsed.data;
 
-  const hasObservations = Boolean(
-    draft.technicalObservations.trim() ||
-      draft.buildingObservations.trim() ||
-      draft.generalObservations.trim(),
-  );
+  const hasObservations = Boolean(draft.generalObservations.trim());
 
   if (draft.incidentLevel !== "sin" && !hasObservations) {
     return NextResponse.json(
@@ -156,9 +150,10 @@ export const POST = withAuth({}, async (request, ctx) => {
       speedtestValue: draft.speedtestValue.trim() || null,
       pingValue: draft.pingValue.trim() || null,
       gpuValue: draft.gpuValue.trim() || null,
-      technicalObservations: draft.technicalObservations.trim() || null,
-      buildingObservations: draft.buildingObservations.trim() || null,
       generalObservations: draft.generalObservations.trim() || null,
+      // Retired form fields: null them so a re-sent report doesn't keep stale text.
+      technicalObservations: null,
+      buildingObservations: null,
       problems: {
         ...draft.problems,
         hasAny: hasEnabledProblems(draft.problems),
