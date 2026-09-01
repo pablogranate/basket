@@ -571,6 +571,9 @@ export const clubs = pgTable("clubs", {
 	pressManager: text("press_manager"),
 	pressPhone: text("press_phone"),
 	pressEmail: text("press_email"),
+	broadcastManager: text("broadcast_manager"),
+	broadcastPhone: text("broadcast_phone"),
+	bpAccount: text("bp_account"),
 }, (table) => [
 	unique("clubs_name_key").on(table.name),
 	unique("clubs_slug_key").on(table.slug),
