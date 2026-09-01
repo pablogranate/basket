@@ -15,7 +15,6 @@ export type ReportRecord = {
   event_time: string;
   venue: string;
   responsible_name: string;
-  paid: boolean;
   feed_detected: boolean;
   severity: ReportSeverity;
   problem: string;
@@ -43,7 +42,6 @@ export const REPORT_DIRECTORY: ReportRecord[] = [
     event_time: "19:00",
     venue: "Luis Conde, Buenos Aires",
     responsible_name: "S. Jenkins",
-    paid: false,
     feed_detected: true,
     severity: "Crítica",
     problem: "Corte en la detección de feed y ticket de pago sin validar",
@@ -62,7 +60,6 @@ export const REPORT_DIRECTORY: ReportRecord[] = [
     event_time: "20:45",
     venue: "WiZink Center, Madrid",
     responsible_name: "M. Alonso",
-    paid: true,
     feed_detected: true,
     severity: "Alta",
     problem: "Seguimiento por desincronía de gráfica en cierre editorial",
@@ -81,7 +78,6 @@ export const REPORT_DIRECTORY: ReportRecord[] = [
     event_time: "21:30",
     venue: "United Center, Chicago",
     responsible_name: "J. Santos",
-    paid: true,
     feed_detected: true,
     severity: "Sin incidencia",
     problem: "Sin desvíos relevantes en el cierre de la transmisión",
@@ -100,7 +96,6 @@ export const REPORT_DIRECTORY: ReportRecord[] = [
     event_time: "18:20",
     venue: "Segafredo Arena, Bologna",
     responsible_name: "System",
-    paid: true,
     feed_detected: true,
     severity: "Media",
     problem: "Cierre revisado con observaciones menores de archivo",
@@ -119,7 +114,6 @@ export const REPORT_DIRECTORY: ReportRecord[] = [
     event_time: "21:10",
     venue: "Ciudad, Santiago del Estero",
     responsible_name: "R. Sosa",
-    paid: true,
     feed_detected: false,
     severity: "Alta",
     problem: "Control validó cierre parcial por inconsistencias de retorno",
@@ -138,7 +132,6 @@ export const REPORT_DIRECTORY: ReportRecord[] = [
     event_time: "13:54",
     venue: "Bochas Sport Club, Colonia Caroya",
     responsible_name: "A. Juárez",
-    paid: false,
     feed_detected: false,
     severity: "Media",
     problem: "El cierre sigue abierto por documentación incompleta del off-tube",

@@ -68,7 +68,6 @@ type ReportSortKey =
   | "date"
   | "match"
   | "responsible"
-  | "paid"
   | "feed"
   | "severity";
 type SortDirection = "asc" | "desc";
@@ -83,7 +82,6 @@ type ReportControlColumn =
   | "date"
   | "match"
   | "responsible"
-  | "paid"
   | "feed"
   | "severity"
   | "action";
@@ -104,7 +102,6 @@ const DEFAULT_REPORT_CONTROL_COLUMNS: ReportControlColumn[] = [
   "date",
   "match",
   "responsible",
-  "paid",
   "feed",
   "severity",
   "action",
@@ -124,7 +121,6 @@ const REPORT_CONTROL_COLUMN_SORT_KEY: Partial<
   date: "date",
   match: "match",
   responsible: "responsible",
-  paid: "paid",
   feed: "feed",
   severity: "severity",
 };
@@ -135,7 +131,6 @@ const REPORT_CONTROL_COLUMN_WIDTH_WEIGHT: Record<ReportControlColumn, number> = 
   date: 1,
   match: 2.8,
   responsible: 1.8,
-  paid: 0.9,
   feed: 0.9,
   severity: 1.2,
   action: 0.5,
@@ -150,7 +145,6 @@ const REPORT_CONTROL_COMPACT_COLUMN_WIDTH_WEIGHT: Record<
   date: 0.9,
   match: 2.8,
   responsible: 1.1,
-  paid: 0.8,
   feed: 0.8,
   severity: 1,
   action: 0.45,
@@ -192,10 +186,6 @@ const REPORT_EXPORT_COLUMNS = [
   {
     label: "CONTROL",
     value: (report: ReportRecord) => report.responsible_name,
-  },
-  {
-    label: "¿SE PAGÓ?",
-    value: (report: ReportRecord) => (report.paid ? "Sí" : "No"),
   },
 ] as const;
 
@@ -813,10 +803,6 @@ function getEstimatedCycleMinutes(report: ReportRecord) {
     minutes += 18;
   }
 
-  if (!report.paid) {
-    minutes += 24;
-  }
-
   return minutes;
 }
 
@@ -1148,24 +1134,18 @@ export function ReportsWorkspace({
 
   const summaryMetrics = useMemo(() => {
     const totalReports = baseFilteredReports.length;
-    const completedReports = baseFilteredReports.filter(
-      (report) => report.paid && report.feed_detected,
-    ).length;
-    const pendingReports = totalReports - completedReports;
     const withIncident = baseFilteredReports.filter(
       (report) => report.severity !== "Sin incidencia",
     ).length;
     const criticalCount = baseFilteredReports.filter(
       (report) => report.severity === "Crítica",
     ).length;
-    const unpaidCount = baseFilteredReports.filter((report) => !report.paid).length;
     const noIncidentCount = baseFilteredReports.filter(
       (report) => report.severity === "Sin incidencia",
     ).length;
     const feedDetectedCount = baseFilteredReports.filter(
       (report) => report.feed_detected,
     ).length;
-    const paidCount = baseFilteredReports.filter((report) => report.paid).length;
     const manualCount = totalReports - feedDetectedCount;
     const averageCycle = totalReports
       ? Math.round(
@@ -1178,13 +1158,9 @@ export function ReportsWorkspace({
 
     return {
       totalReports,
-      completedReports,
-      pendingReports,
       withIncident,
       criticalCount,
-      unpaidCount,
       feedDetectedCount,
-      paidCount,
       incidentPercent: totalReports
         ? Math.round((withIncident / totalReports) * 1000) / 10
         : 0,
@@ -1193,9 +1169,6 @@ export function ReportsWorkspace({
         : 0,
       feedPercent: totalReports
         ? Math.round((feedDetectedCount / totalReports) * 1000) / 10
-        : 0,
-      paidPercent: totalReports
-        ? Math.round((paidCount / totalReports) * 1000) / 10
         : 0,
       manualPercent: totalReports
         ? Math.round((manualCount / totalReports) * 1000) / 10
@@ -1539,9 +1512,6 @@ export function ReportsWorkspace({
       leadingLeague
         ? `${leadingLeague.league} concentra ${leadingLeague.count} cierres en el periodo activo.`
         : "No hay suficientes cierres para detectar concentración por liga.",
-      summaryMetrics.unpaidCount
-        ? `${summaryMetrics.unpaidCount} reportes siguen sin pago confirmado y requieren seguimiento administrativo.`
-        : "No hay pagos pendientes en el periodo visible.",
       busiestResponsible
         ? `${busiestResponsible} lidera el volumen de cierres dentro del periodo visible.`
         : "Sin datos suficientes para calcular el ranking de responsables.",
@@ -1555,7 +1525,6 @@ export function ReportsWorkspace({
     leagueFilter,
     responsibleRanking,
     summaryMetrics.criticalCount,
-    summaryMetrics.unpaidCount,
   ]);
 
   const sortedReports = useMemo(() => {
@@ -1610,14 +1579,6 @@ export function ReportsWorkspace({
             sensitivity: "base",
           }) * directionFactor
         );
-      }
-
-      if (sortBy === "paid") {
-        const paidDiff = Number(left.paid) - Number(right.paid);
-
-        if (paidDiff !== 0) {
-          return paidDiff * directionFactor;
-        }
       }
 
       if (sortBy === "feed") {
@@ -1740,11 +1701,9 @@ export function ReportsWorkspace({
                         ? "PARTIDO"
                         : column === "responsible"
                           ? "RESPONSABLE"
-                          : column === "paid"
-                            ? "PAGO"
-                            : column === "feed"
-                              ? "FEED"
-                              : "GRAVEDAD"
+                          : column === "feed"
+                            ? "FEED"
+                            : "GRAVEDAD"
               }
               active={sortBy === sortableKey}
               direction={sortDirection}
@@ -1840,18 +1799,6 @@ export function ReportsWorkspace({
               <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--foreground)]">
                 {report.responsible_name}
               </span>
-            </div>
-          </td>
-        );
-      case "paid":
-        return (
-          <td key={column} className="px-6 py-5">
-            <div className="flex min-h-10 items-center justify-center">
-              {report.paid ? (
-                <CircleCheckBig className="size-6 text-[#10b981]" />
-              ) : (
-                <CircleX className="size-6 text-[#e44b68]" />
-              )}
             </div>
           </td>
         );
@@ -2619,23 +2566,13 @@ export function ReportsWorkspace({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="panel-radius border border-[var(--border)] bg-white p-4">
-                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#94a3b8]">
-                        Feed detectó
-                      </p>
-                      <p className="mt-2 text-sm font-bold text-[var(--foreground)]">
-                        {selectedReport.feed_detected ? "Sí" : "No"}
-                      </p>
-                    </div>
-                    <div className="panel-radius border border-[var(--border)] bg-white p-4">
-                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#94a3b8]">
-                        Estado financiero
-                      </p>
-                      <p className="mt-2 text-sm font-bold text-[var(--foreground)]">
-                        {selectedReport.paid ? "Pagado" : "No pagado"}
-                      </p>
-                    </div>
+                  <div className="panel-radius border border-[var(--border)] bg-white p-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#94a3b8]">
+                      Feed detectó
+                    </p>
+                    <p className="mt-2 text-sm font-bold text-[var(--foreground)]">
+                      {selectedReport.feed_detected ? "Sí" : "No"}
+                    </p>
                   </div>
                 </div>
               </section>
@@ -2726,7 +2663,7 @@ export function ReportsWorkspace({
         <div className="space-y-8">
           <section className="grid gap-8 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,1fr)]">
             <div className="min-w-0 space-y-8">
-              <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4 [&>*]:h-full">
+              <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3 [&>*]:h-full">
                 <MetricCard
                   title="Total partidos"
                   value={summaryMetrics.totalReports}
@@ -2750,14 +2687,6 @@ export function ReportsWorkspace({
                   chipTone="success"
                   barClassName="bg-[#10b981]"
                   barWidth={summaryMetrics.feedPercent}
-                />
-                <MetricCard
-                  title="Pago"
-                  value={summaryMetrics.paidCount}
-                  chip={`${summaryMetrics.paidPercent}% del total`}
-                  chipTone="success"
-                  barClassName="bg-[#10b981]"
-                  barWidth={summaryMetrics.paidPercent}
                 />
               </section>
 
