@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { and, desc, eq, notInArray } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, notInArray } from "drizzle-orm";
 
 import { requireEditor } from "@/lib/auth";
 import { db } from "@/lib/db/client";
@@ -68,6 +68,14 @@ type ClubFields = {
   instagram: string | null;
   official_url: string | null;
   logo_url: string | null;
+  short_name: string | null;
+  city: string | null;
+  province: string | null;
+  manager_phone: string | null;
+  manager_email: string | null;
+  press_manager: string | null;
+  press_phone: string | null;
+  press_email: string | null;
 };
 
 // Map the snake_case ClubFields to Drizzle (camelCase) column keys.
@@ -80,6 +88,14 @@ function clubFieldColumns(fields: ClubFields) {
     instagram: fields.instagram,
     officialUrl: fields.official_url,
     logoUrl: fields.logo_url,
+    shortName: fields.short_name,
+    city: fields.city,
+    province: fields.province,
+    managerPhone: fields.manager_phone,
+    managerEmail: fields.manager_email,
+    pressManager: fields.press_manager,
+    pressPhone: fields.press_phone,
+    pressEmail: fields.press_email,
   };
 }
 
@@ -177,6 +193,14 @@ export async function upsertTeamAction(
       instagram: maybeNull(String(formData.get("instagram") ?? "")),
       official_url: maybeNull(String(formData.get("officialUrl") ?? "")),
       logo_url: maybeNull(String(formData.get("logoDataUrl") ?? "")),
+      short_name: maybeNull(String(formData.get("shortName") ?? "")),
+      city: maybeNull(String(formData.get("city") ?? "")),
+      province: maybeNull(String(formData.get("province") ?? "")),
+      manager_phone: maybeNull(String(formData.get("managerPhone") ?? "")),
+      manager_email: maybeNull(String(formData.get("managerEmail") ?? "")),
+      press_manager: maybeNull(String(formData.get("pressManager") ?? "")),
+      press_phone: maybeNull(String(formData.get("pressPhone") ?? "")),
+      press_email: maybeNull(String(formData.get("pressEmail") ?? "")),
     };
 
     let clubId: string;
@@ -256,6 +280,170 @@ export async function upsertTeamAction(
     return { ok: true };
   } catch (error) {
     console.error("[teams] failed to upsert team", error);
+    return { ok: false, error: ensureErrorMessage(error) };
+  }
+}
+
+export async function assignTeamToLeagueAction({
+  teamId,
+  leagueName,
+  mode,
+  fromLeague,
+}: {
+  teamId: string;
+  leagueName: string;
+  mode: "move" | "add";
+  fromLeague?: string | null;
+}): Promise<UpsertTeamResult> {
+  try {
+    await requireEditor();
+
+    const targetName = leagueName.trim();
+    if (!teamId || !targetName) {
+      return { ok: false, error: "Equipo y liga son obligatorios." };
+    }
+
+    const team = await db
+      .select({ id: teamsTable.id })
+      .from(teamsTable)
+      .where(eq(teamsTable.id, teamId))
+      .limit(1);
+
+    if (!team[0]) {
+      return { ok: false, error: "No se encontró el equipo." };
+    }
+
+    const league = await ensureLeague(targetName);
+    const season = await resolveCurrentSeason();
+
+    await db
+      .insert(teamLeagueMembershipsTable)
+      .values({ teamId, leagueId: league.id, season })
+      .onConflictDoNothing({
+        target: [
+          teamLeagueMembershipsTable.teamId,
+          teamLeagueMembershipsTable.leagueId,
+          teamLeagueMembershipsTable.season,
+        ],
+      });
+
+    if (mode === "move") {
+      // Dragging from a league tab moves out of that league only; from the
+      // "Todos" view (no source league) the team ends up in the target alone.
+      const sourceSlug = fromLeague?.trim()
+        ? slugifyTeamValue(fromLeague.trim())
+        : null;
+
+      if (sourceSlug) {
+        const source = await db
+          .select({ id: leaguesTable.id })
+          .from(leaguesTable)
+          .where(eq(leaguesTable.slug, sourceSlug))
+          .limit(1);
+
+        if (source[0] && source[0].id !== league.id) {
+          await db
+            .delete(teamLeagueMembershipsTable)
+            .where(
+              and(
+                eq(teamLeagueMembershipsTable.teamId, teamId),
+                eq(teamLeagueMembershipsTable.leagueId, source[0].id),
+                eq(teamLeagueMembershipsTable.season, season),
+              ),
+            );
+        }
+      } else {
+        await db
+          .delete(teamLeagueMembershipsTable)
+          .where(
+            and(
+              eq(teamLeagueMembershipsTable.teamId, teamId),
+              eq(teamLeagueMembershipsTable.season, season),
+              ne(teamLeagueMembershipsTable.leagueId, league.id),
+            ),
+          );
+      }
+    }
+
+    revalidatePath("/teams");
+
+    return { ok: true };
+  } catch (error) {
+    console.error("[teams] failed to assign team to league", error);
+    return { ok: false, error: ensureErrorMessage(error) };
+  }
+}
+
+export type RemoveTeamResult = UpsertTeamResult & {
+  teamDeleted?: boolean;
+};
+
+export async function removeTeamFromLeaguesAction({
+  teamId,
+  leagueNames,
+}: {
+  teamId: string;
+  leagueNames: string[];
+}): Promise<RemoveTeamResult> {
+  try {
+    await requireEditor();
+
+    const names = leagueNames.map((name) => name.trim()).filter(Boolean);
+
+    if (!teamId || !names.length) {
+      return { ok: false, error: "Seleccioná al menos una liga." };
+    }
+
+    const team = await db
+      .select({ id: teamsTable.id })
+      .from(teamsTable)
+      .where(eq(teamsTable.id, teamId))
+      .limit(1);
+
+    if (!team[0]) {
+      return { ok: false, error: "No se encontró el equipo." };
+    }
+
+    const slugs = names.map((name) => slugifyTeamValue(name));
+    const leagues = await db
+      .select({ id: leaguesTable.id })
+      .from(leaguesTable)
+      .where(inArray(leaguesTable.slug, slugs));
+
+    if (leagues.length) {
+      // Removal spans every season on purpose: dropping only the current
+      // season would resurface the team under the previous season's leagues.
+      await db
+        .delete(teamLeagueMembershipsTable)
+        .where(
+          and(
+            eq(teamLeagueMembershipsTable.teamId, teamId),
+            inArray(
+              teamLeagueMembershipsTable.leagueId,
+              leagues.map((league) => league.id),
+            ),
+          ),
+        );
+    }
+
+    const remaining = await db
+      .select({ teamId: teamLeagueMembershipsTable.teamId })
+      .from(teamLeagueMembershipsTable)
+      .where(eq(teamLeagueMembershipsTable.teamId, teamId))
+      .limit(1);
+
+    let teamDeleted = false;
+
+    if (!remaining[0]) {
+      await db.delete(teamsTable).where(eq(teamsTable.id, teamId));
+      teamDeleted = true;
+    }
+
+    revalidatePath("/teams");
+
+    return { ok: true, teamDeleted };
+  } catch (error) {
+    console.error("[teams] failed to remove team from leagues", error);
     return { ok: false, error: ensureErrorMessage(error) };
   }
 }

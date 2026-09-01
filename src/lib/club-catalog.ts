@@ -263,6 +263,15 @@ export const CLUB_COMPETITIONS = Array.from(
   ]),
 );
 
+// External leagues offered when creating/editing a team; they exist in the
+// leagues table (0026/0037 migrations) but carry no club catalog of their own.
+export const EXTERNAL_TEAM_LEAGUES = [
+  "Liga Endesa (ACB)",
+  "Liga BasquetPro (Ecuador)",
+  "LNB Chile",
+  "LUB (Uruguay)",
+] as const;
+
 export const ALL_CLUB_OPTIONS = Array.from(
   new Set([
     ...CLUB_CATALOG.flatMap((entry) => entry.clubs),
