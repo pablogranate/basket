@@ -72,7 +72,11 @@ export function GridPageShell({ children, aside }: GridPageShellProps) {
               <PanelRightClose className="size-4" />
             </button>
           </div>
-          {aside}
+          {/* Sticky on xl, so the panel scrolls on its own instead of being
+              clipped when the summary outgrows the viewport. */}
+          <div className="xl:max-h-[calc(100vh-9rem)] xl:overflow-y-auto xl:overscroll-contain">
+            {aside}
+          </div>
         </div>
       </aside>
     </div>

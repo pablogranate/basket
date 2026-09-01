@@ -131,7 +131,7 @@ export async function GridInsightsAside({
   const { dayGroups } = await loadGrid(user, filters);
   const insightsSummary = buildProductionInsightsSummary(
     dayGroups.flatMap((group) => group.items),
-    filters.timezone,
+    { view: filters.view, date: filters.date, timezone: filters.timezone },
   );
 
   return (

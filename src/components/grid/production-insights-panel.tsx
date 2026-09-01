@@ -150,6 +150,15 @@ function getAttentionTone(emphasis: "critical" | "warning", value: number) {
   };
 }
 
+const FOCUS_SCOPE_LABEL: Record<
+  ProductionInsightsSummary["focus"]["scope"],
+  string
+> = {
+  today: "Partidos de hoy",
+  day: "Partidos del día",
+  month: "Partidos del mes",
+};
+
 function formatOperationalHourLabel(time: string) {
   if (time === "--:--") {
     return "--";
@@ -201,6 +210,9 @@ export function ProductionInsightsPanel({
   const missingHighlights = buildMissingHighlights(summary.missing);
   const startWindowLabel = formatOperationalHourLabel(summary.startWindow);
   const endWindowLabel = formatOperationalHourLabel(summary.endWindow);
+  const showMonthTotal =
+    summary.focus.scope !== "month" &&
+    summary.focus.matches !== summary.totalMatches;
   return (
     <Card className="p-4 sm:p-6">
       <section className="space-y-5">
@@ -235,11 +247,16 @@ export function ProductionInsightsPanel({
           <div className="flex min-h-[8.5rem] flex-col items-center justify-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-2 py-4 text-center sm:min-h-[10.5rem] sm:px-3 sm:py-5">
             <div className="grid h-full w-full max-w-[8.5rem] place-content-center justify-items-center gap-4">
               <p className="text-[11px] font-bold uppercase leading-[1.45] tracking-[0.24em] text-[var(--muted)]">
-                Partidos de hoy
+                {FOCUS_SCOPE_LABEL[summary.focus.scope]}
               </p>
               <p className="text-[2rem] font-black leading-none text-[var(--foreground)] sm:text-[2.6rem]">
-                {summary.totalMatches}
+                {summary.focus.matches}
               </p>
+              {showMonthTotal ? (
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--n-400)]">
+                  {summary.totalMatches} en el mes
+                </p>
+              ) : null}
             </div>
           </div>
           <div className="flex min-h-[8.5rem] flex-col items-center justify-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-2 py-4 text-center sm:min-h-[10.5rem] sm:px-3 sm:py-5">

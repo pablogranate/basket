@@ -1,4 +1,4 @@
-import { formatMatchTime } from "@/lib/date";
+import { formatMatchTime, toDateKey } from "@/lib/date";
 import { getRoleDisplayName } from "@/lib/display";
 import type { MatchListItem } from "@/lib/types";
 
@@ -10,6 +10,13 @@ export type InsightsTopPerson = {
 };
 
 export type ProductionInsightsSummary = {
+  // Count for the focus scope (today when the window contains today, else the
+  // whole window) plus the full window count, so the panel can read
+  // "2 hoy · 56 en el mes" instead of labelling the month total as today's.
+  focus: {
+    scope: "today" | "day" | "month";
+    matches: number;
+  };
   totalMatches: number;
   activeLeagues: number;
   startWindow: string;
@@ -99,30 +106,60 @@ function countAssignedPeople(matches: MatchListItem[]) {
   ).size;
 }
 
+function resolveFocusMatches(
+  matches: MatchListItem[],
+  options: { view: "day" | "month"; date: string; timezone: string },
+) {
+  const todayKey = toDateKey(new Date().toISOString(), options.timezone);
+
+  if (options.view === "day") {
+    return {
+      scope: options.date === todayKey ? ("today" as const) : ("day" as const),
+      matches,
+    };
+  }
+
+  if (!todayKey.startsWith(options.date)) {
+    return { scope: "month" as const, matches };
+  }
+
+  return {
+    scope: "today" as const,
+    matches: matches.filter(
+      (match) => toDateKey(match.kickoff_at, match.timezone || options.timezone) === todayKey,
+    ),
+  };
+}
+
 // Server-side aggregation of everything ProductionInsightsPanel renders. The
 // panel used to derive all of this from the full match list passed as a client
 // prop; computing it here keeps the assignment graph out of the RSC payload.
 export function buildProductionInsightsSummary(
   matches: MatchListItem[],
-  timezone: string,
+  options: { view: "day" | "month"; date: string; timezone: string },
 ): ProductionInsightsSummary {
+  const { timezone } = options;
+  const focus = resolveFocusMatches(matches, options);
   const activeLeagues = new Set(
     matches
       .map((match) => match.competition?.trim())
       .filter((value): value is string => Boolean(value)),
   ).size;
 
-  const startWindow = matches[0]
-    ? formatMatchTime(matches[0].kickoff_at, matches[0].timezone || timezone)
+  // Operational hours only mean something within a single day, so they follow
+  // the focus scope (today's matches in the current month, the day otherwise).
+  const windowMatches = focus.scope === "month" ? [] : focus.matches;
+  const firstMatch = windowMatches[0];
+  const lastMatch = windowMatches.at(-1);
+  const startWindow = firstMatch
+    ? formatMatchTime(firstMatch.kickoff_at, firstMatch.timezone || timezone)
     : "--:--";
-  const endWindow = matches.at(-1)
-    ? formatMatchTime(
-        matches[matches.length - 1].kickoff_at,
-        matches[matches.length - 1].timezone || timezone,
-      )
+  const endWindow = lastMatch
+    ? formatMatchTime(lastMatch.kickoff_at, lastMatch.timezone || timezone)
     : "--:--";
 
   return {
+    focus: { scope: focus.scope, matches: focus.matches.length },
     totalMatches: matches.length,
     activeLeagues,
     startWindow,
