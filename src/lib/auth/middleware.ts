@@ -7,9 +7,7 @@ import { appEnv } from "@/lib/env";
 function isGuestMiJornadaPath(pathname: string) {
   return (
     appEnv.allowGuestMiJornadaAccess &&
-    (pathname === "/mi-jornada" ||
-      pathname === "/api/ai/metric-capture" ||
-      pathname === "/api/ai/section")
+    (pathname === "/mi-jornada" || pathname === "/api/ai/section")
   );
 }
 
