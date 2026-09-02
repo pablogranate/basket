@@ -13,6 +13,7 @@ import {
   isAccessRequestFuncion,
   type AccessRequestStatus,
 } from "@/lib/access-requests/constants";
+import { composeAccessRequestCiudad } from "@/lib/access-requests/locations";
 import { notifyAccessRequest } from "@/lib/access-requests/notify";
 import { isE164Phone } from "@/lib/access-requests/phone";
 import {
@@ -54,7 +55,7 @@ const submitAccessRequest = defineAction({
   authz: requireUserContext,
   parse: parseSubmitAccessRequest,
   revalidate: REQUEST_REVALIDATE_PATHS,
-  async run(ctx, { fullName, phone, funcion, ciudad, mensaje }) {
+  async run(ctx, { fullName, phone, funcion, pais, ciudad, otraCiudad, mensaje }) {
     if (!ctx.userId || !ctx.email) {
       throw new Error("Necesitás iniciar sesión para pedir acceso.");
     }
@@ -71,8 +72,10 @@ const submitAccessRequest = defineAction({
       throw new Error("Elegí una función de la lista.");
     }
 
-    if (ciudad.length < 2) {
-      throw new Error("Escribí tu ciudad.");
+    const ciudadLabel = composeAccessRequestCiudad({ pais, ciudad, otraCiudad });
+
+    if (!ciudadLabel) {
+      throw new Error("Elegí tu país y tu ciudad de la lista.");
     }
 
     const email = ctx.email.trim().toLowerCase();
@@ -101,7 +104,7 @@ const submitAccessRequest = defineAction({
       fullName,
       phone,
       funcion,
-      ciudad,
+      ciudad: ciudadLabel,
       mensaje,
       status: "pendiente",
     });
@@ -113,7 +116,7 @@ const submitAccessRequest = defineAction({
         email,
         phone,
         funcion,
-        ciudad,
+        ciudad: ciudadLabel,
         mensaje,
       });
     } catch (error) {

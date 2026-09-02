@@ -11,7 +11,9 @@ export type SubmitAccessRequestInput = {
   fullName: string;
   phone: string;
   funcion: string;
+  pais: string;
   ciudad: string;
+  otraCiudad: string;
   mensaje: string | null;
 };
 
@@ -24,7 +26,9 @@ export function parseSubmitAccessRequest(
     fullName: String(formData.get("fullName") ?? "").trim(),
     phone: String(formData.get("phone") ?? "").trim(),
     funcion: String(formData.get("funcion") ?? "").trim(),
+    pais: String(formData.get("pais") ?? "").trim(),
     ciudad: String(formData.get("ciudad") ?? "").trim(),
+    otraCiudad: String(formData.get("otraCiudad") ?? "").trim(),
     mensaje: maybeNull(String(formData.get("mensaje") ?? "")),
   });
 }
