@@ -35,6 +35,7 @@ import {
   recordEncoderNumbers,
 } from "@/lib/data/attendance";
 import { shouldResetAttendance } from "@/lib/attendance";
+import { isUniqueViolation } from "@/lib/db/errors";
 import { maybeNull } from "@/lib/utils";
 
 // stampInsert/stampUpdate return snake_case payloads; Drizzle .values()/.set()
@@ -165,11 +166,6 @@ async function findUnqualifiedAssignment(
   return (
     checks.find((check) => !held.has(`${check.personId}:${check.functionKey}`)) ?? null
   );
-}
-
-// Postgres unique_violation; surfaced by the postgres driver on the error `code`.
-function isUniqueViolation(error: unknown): boolean {
-  return Boolean(error) && (error as { code?: string }).code === "23505";
 }
 
 function duplicateProductionCodeMessage(productionCode: string) {

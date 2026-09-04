@@ -8,18 +8,14 @@ import {
   FUNCION_ROLE_NAME,
   isAccessRequestFuncion,
 } from "@/lib/access-requests/constants";
-import type { UserContext } from "@/lib/auth";
+import { listPendingAccessRequests } from "@/lib/access-requests/requests";
 import type { AccessRequestReviewItem } from "@/lib/access-requests/review-item";
 import { db } from "@/lib/db/client";
 import { roles as rolesTable } from "@/lib/db/schema";
-import {
-  getApprovalCandidates,
-  getPendingAccessRequests,
-} from "@/lib/data/access-requests";
+import { listApprovalCandidates } from "@/lib/people/identity";
 import { normalizeText } from "@/lib/utils";
 
-export async function getActiveRoleOptions(ctx: UserContext) {
-  void ctx;
+async function getActiveRoleOptions() {
   const rows = await db
     .select({ id: rolesTable.id, name: rolesTable.name })
     .from(rolesTable)
@@ -46,19 +42,19 @@ function toFuncionOptions(roleOptions: { id: string; name: string }[]) {
 
 // Everything the approve modal needs, resolved server-side: the pending list,
 // the target each request would land on, and the pre-selected grid role.
-export async function getAccessRequestReview(ctx: UserContext): Promise<{
+export async function getAccessRequestReview(): Promise<{
   items: AccessRequestReviewItem[];
   funcionOptions: { id: string; name: string }[];
 }> {
-  const requests = await getPendingAccessRequests(ctx);
+  const requests = await listPendingAccessRequests(db);
 
   if (!requests.length) {
     return { items: [], funcionOptions: [] };
   }
 
   const [candidates, roleOptions] = await Promise.all([
-    getApprovalCandidates(ctx),
-    getActiveRoleOptions(ctx),
+    listApprovalCandidates(db),
+    getActiveRoleOptions(),
   ]);
 
   const roleIdByName = new Map(

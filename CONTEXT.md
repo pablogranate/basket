@@ -22,6 +22,24 @@ _Avoid_: staff role, elevated role
 The promotional-image generator at `generator.basket-app.com` — a static browser tool with no backend of its own. It carries no auth code; its gate is enforced in front of it, not inside it.
 _Avoid_: image generator app (when the sibling is meant)
 
+### Access requests
+
+**Solicitud de acceso**:
+A self-signup request to enter the portal. Lifecycle: `pendiente` → `aprobada` | `rechazada`. One pending request per email and per account, enforced by the database; the first decision wins when two approvers act at once; a resolved request never blocks a new one (revoked access re-enters through the same door).
+_Avoid_: pedido de acceso, signup, registro
+
+**Ficha**:
+A `people` row — the person as production staff (name, phone, funciones, equipos, assignments). A ficha may exist with no cuenta behind it. Approving a solicitud links the applicant's cuenta to a ficha, reactivating one the approver picks or creating a new one.
+_Avoid_: persona (ambiguous with the human), contacto, people row (in Spanish-facing copy)
+
+**Cuenta**:
+A `profiles` row — the login and its access tier. Distinct from the ficha it may be linked to. One cuenta per email.
+_Avoid_: perfil, usuario (when the login is meant), profile (in Spanish-facing copy)
+
+**Fusión de fichas**:
+Folding a duplicate ficha into a survivor: every referrer (assignments, owned matches, notification logs, equipos, funciones) is repointed onto the survivor, then the duplicate is soft-deleted. Never a hard delete — the old row can own past grillas.
+_Avoid_: merge, dedupe, borrar duplicado
+
 ### Data ownership
 
 **Domain DB**:

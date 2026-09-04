@@ -15,6 +15,9 @@ type Sql = ReturnType<typeof testSql>;
 // thanks to CASCADE; RESTART IDENTITY resets audit_log's bigint sequence.
 const RESET_TABLES = [
   "audit_log",
+  "access_requests",
+  "notification_logs",
+  "people_teams",
   "assignments",
   "matches",
   "app_settings",

@@ -3,6 +3,8 @@ import {
   parseFailure,
   type ParseResult,
 } from "@/lib/actions/define-action";
+import { isAccessRequestFuncion } from "@/lib/access-requests/constants";
+import { composeAccessRequestCiudad } from "@/lib/access-requests/locations";
 import { isE164Phone } from "@/lib/access-requests/phone";
 import { normalizeAccessTier, type AccessTierRole } from "@/lib/access-tier";
 import { maybeNull } from "@/lib/utils";
@@ -11,24 +13,44 @@ export type SubmitAccessRequestInput = {
   fullName: string;
   phone: string;
   funcion: string;
-  pais: string;
   ciudad: string;
-  otraCiudad: string;
   mensaje: string | null;
 };
 
-// The submit validations (name length, phone, funcion) stay in `run`: they must
-// come after the signed-in check, which needs the auth context.
 export function parseSubmitAccessRequest(
   formData: FormData,
 ): ParseResult<SubmitAccessRequestInput> {
-  return parsed({
-    fullName: String(formData.get("fullName") ?? "").trim(),
-    phone: String(formData.get("phone") ?? "").trim(),
-    funcion: String(formData.get("funcion") ?? "").trim(),
+  const fullName = String(formData.get("fullName") ?? "").trim();
+  const phone = String(formData.get("phone") ?? "").trim();
+  const funcion = String(formData.get("funcion") ?? "").trim();
+
+  if (fullName.length < 3) {
+    return parseFailure("Escribí tu nombre completo.");
+  }
+
+  if (!isE164Phone(phone)) {
+    return parseFailure("Revisá el teléfono: falta el país o tiene caracteres.");
+  }
+
+  if (!isAccessRequestFuncion(funcion)) {
+    return parseFailure("Elegí una función de la lista.");
+  }
+
+  const ciudad = composeAccessRequestCiudad({
     pais: String(formData.get("pais") ?? "").trim(),
     ciudad: String(formData.get("ciudad") ?? "").trim(),
     otraCiudad: String(formData.get("otraCiudad") ?? "").trim(),
+  });
+
+  if (!ciudad) {
+    return parseFailure("Elegí tu país y tu ciudad de la lista.");
+  }
+
+  return parsed({
+    fullName,
+    phone,
+    funcion,
+    ciudad,
     mensaje: maybeNull(String(formData.get("mensaje") ?? "")),
   });
 }
