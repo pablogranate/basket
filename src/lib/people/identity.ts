@@ -6,7 +6,6 @@ import {
   resolveApprovalTarget,
   type ApprovalCandidate,
 } from "@/lib/access-requests/approval";
-import type { AccessTierRole } from "@/lib/access-tier";
 import { stampInsert, stampUpdate } from "@/lib/audit";
 import type { AppRole } from "@/lib/database.types";
 import type { DbExecutor } from "@/lib/db/client";
@@ -39,7 +38,7 @@ export type SettleApplicantInput = {
   fullName: string;
   phone: string;
   roleId: string | null;
-  accessRole: AccessTierRole;
+  accessRole: AppRole;
   personId: string | null;
   mergePersonId: string | null;
   actor: Actor;
@@ -194,7 +193,7 @@ export async function listProfileLinkReview(
 
 async function upsertProfile(
   exec: DbExecutor,
-  input: { email: string; fullName: string; role: AccessTierRole },
+  input: { email: string; fullName: string; role: AppRole },
 ): Promise<string> {
   const role: AppRole = input.role;
   const rows = await exec

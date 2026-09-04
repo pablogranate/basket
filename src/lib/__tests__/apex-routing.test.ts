@@ -43,7 +43,7 @@ describe("resolveApexDestination", () => {
     );
   });
 
-  it.each<AppRole>(["editor", "coordinator"])(
+  it.each<AppRole>(["editor"])(
     "redirects a Productor (%s) straight to the portal grid",
     (role) => {
       expect(resolveApexDestination({ role, hasSession: true })).toEqual({
@@ -53,7 +53,7 @@ describe("resolveApexDestination", () => {
     },
   );
 
-  it.each<AppRole>(["collaborator", "viewer"])(
+  it.each<AppRole>(["collaborator"])(
     "redirects an Externo (%s) straight to mi-jornada",
     (role) => {
       expect(resolveApexDestination({ role, hasSession: true })).toEqual({

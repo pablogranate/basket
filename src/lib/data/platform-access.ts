@@ -6,17 +6,10 @@ import type { AppRole, ProfileRow } from "@/lib/database.types";
 import { db } from "@/lib/db/client";
 import { profiles } from "@/lib/db/schema";
 
-// Profile roles that grant a platform login. Kept in sync with PLATFORM_ACCESS_ROLES
-// in src/app/actions/people.ts.
-const PLATFORM_ACCESS_ROLES: readonly AppRole[] = [
-  "admin",
-  "editor",
-  "collaborator",
-];
-
 // Returns the active platform-access tier for an email, or null if the person
-// has no login. Callers use the tier to decide whether the current manager is
-// allowed to revoke it (see canManageAccessTier).
+// has no login. Any profiles row is a login (the enum holds live tiers only).
+// Callers use the tier to decide whether the current manager may revoke it
+// (see canGrantTier in roles.ts).
 function escapeLikePattern(value: string) {
   return value.replaceAll(/[\\%_]/g, (char) => `\\${char}`);
 }
@@ -41,14 +34,7 @@ export async function getPlatformAccessRole(
 
     const profile = (rows as Pick<ProfileRow, "email" | "role">[])[0];
 
-    if (
-      profile?.role &&
-      (PLATFORM_ACCESS_ROLES as readonly string[]).includes(profile.role)
-    ) {
-      return profile.role;
-    }
-
-    return null;
+    return profile?.role ?? null;
   } catch (error) {
     console.error("[platform-access] unexpected failure", error);
     return null;

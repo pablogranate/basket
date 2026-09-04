@@ -30,7 +30,7 @@ describe("api/team-logo GET auth", () => {
   });
 
   it("resolves the logo for an authenticated session", async () => {
-    mockedGetUserContext.mockResolvedValue(makeUserContext({ role: "viewer" }));
+    mockedGetUserContext.mockResolvedValue(makeUserContext({ role: "collaborator" }));
     const { GET } = await import("../route");
 
     const response = await GET(buildRequest());
@@ -41,7 +41,7 @@ describe("api/team-logo GET auth", () => {
   });
 
   it("returns 400 for an authenticated session without teamName", async () => {
-    mockedGetUserContext.mockResolvedValue(makeUserContext({ role: "viewer" }));
+    mockedGetUserContext.mockResolvedValue(makeUserContext({ role: "collaborator" }));
     const { GET } = await import("../route");
 
     const response = await GET(buildRequest(""));

@@ -10,6 +10,7 @@ import type { AppRole, ProfileRow } from "@/lib/database.types";
 import { db } from "@/lib/db/client";
 import { profileColumns } from "@/lib/db/rows";
 import { profiles as profilesTable } from "@/lib/db/schema";
+import { can, CAPABILITY_DENIED_MESSAGE } from "@/lib/roles";
 
 export type UserContext = Awaited<ReturnType<typeof getUserContext>>;
 
@@ -57,7 +58,7 @@ export const getUserContext = cache(async () => {
       profileId: null,
       email: null,
       profile: null,
-      role: "viewer" as AppRole,
+      role: "collaborator" as AppRole,
       canEdit: false,
       hasAccess: false,
     };
@@ -74,13 +75,13 @@ export const getUserContext = cache(async () => {
       profileId: null,
       email,
       profile: null,
-      role: "viewer" as AppRole,
+      role: "collaborator" as AppRole,
       canEdit: false,
       hasAccess: false,
     };
   }
 
-  const role: AppRole = profile.role ?? "viewer";
+  const role: AppRole = profile.role;
 
   return {
     userId: authUserId,
@@ -90,11 +91,7 @@ export const getUserContext = cache(async () => {
     email,
     profile,
     role,
-    canEdit:
-      role === "admin" ||
-      role === "editor" ||
-      role === "coordinator" ||
-      role === "collaborator",
+    canEdit: can({ role, hasAccess: true }, "edit"),
     hasAccess: true,
   };
 });
@@ -187,7 +184,7 @@ export async function requireEditor() {
   const context = await requireUserContext();
 
   if (!context.canEdit) {
-    throw new Error("No tenes permisos para editar.");
+    throw new Error(CAPABILITY_DENIED_MESSAGE.edit);
   }
 
   return context;

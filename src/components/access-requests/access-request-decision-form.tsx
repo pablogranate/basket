@@ -7,12 +7,7 @@ import type { AccessRequestReviewItem } from "@/lib/access-requests/review-item"
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { SubmitButton } from "@/components/ui/submit-button";
-
-const ACCESS_TIER_OPTIONS = [
-  { value: "collaborator", label: "Externo" },
-  { value: "editor", label: "Productor" },
-  { value: "admin", label: "Admin" },
-] as const;
+import { ACCESS_TIER_OPTIONS } from "@/lib/roles";
 
 export function AccessRequestDecisionForm({
   item,

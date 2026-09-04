@@ -34,7 +34,7 @@ type GeminiResponse = {
 };
 
 export const POST = withAuth(
-  { roles: ["admin", "editor", "coordinator"] },
+  { capability: "dashboard.full" },
   async (request) => {
   const payload = requestSchema.safeParse(await request.json());
 

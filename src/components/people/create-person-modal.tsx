@@ -23,17 +23,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { PersonFunctionsField } from "@/components/people/person-functions-field";
 import { PersonTeamsField } from "@/components/people/person-teams-field";
 import type { PersonTeamLink } from "@/lib/types";
+import type { AppRole } from "@/lib/database.types";
 import { APP_ROLE_DISPLAY_NAMES } from "@/lib/display";
+import { ACCESS_TIER_OPTIONS } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import { PeopleRedirectToInput } from "@/components/people/people-redirect-to";
 
-const ACCESS_TIER_OPTIONS = [
-  { value: "admin", label: APP_ROLE_DISPLAY_NAMES.admin },
-  { value: "editor", label: APP_ROLE_DISPLAY_NAMES.editor },
-  { value: "collaborator", label: APP_ROLE_DISPLAY_NAMES.collaborator },
-] as const;
-
-type AccessTierValue = (typeof ACCESS_TIER_OPTIONS)[number]["value"];
+type AccessTierValue = AppRole;
 
 function getInitials(name: string) {
   return name

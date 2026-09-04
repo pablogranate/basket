@@ -6,7 +6,8 @@ import {
 import { isAccessRequestFuncion } from "@/lib/access-requests/constants";
 import { composeAccessRequestCiudad } from "@/lib/access-requests/locations";
 import { isE164Phone } from "@/lib/access-requests/phone";
-import { normalizeAccessTier, type AccessTierRole } from "@/lib/access-tier";
+import type { AppRole } from "@/lib/database.types";
+import { normalizeAccessTier } from "@/lib/roles";
 import { maybeNull } from "@/lib/utils";
 
 export type SubmitAccessRequestInput = {
@@ -70,7 +71,7 @@ export type ApproveAccessRequestInput = {
   roleId: string | null;
   personId: string | null;
   mergePersonId: string | null;
-  requestedTier: AccessTierRole;
+  requestedTier: AppRole;
 };
 
 export function parseApproveAccessRequest(

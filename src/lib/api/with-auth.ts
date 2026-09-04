@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 
 import { getUserContext } from "@/lib/auth";
 import type { UserContext } from "@/lib/auth";
-import type { AppRole } from "@/lib/database.types";
+import { can, type Capability } from "@/lib/roles";
 
 type WithAuthOptions = {
-  roles?: ReadonlyArray<AppRole>;
+  capability?: Capability;
   allowGuest?: boolean;
 };
 
@@ -28,11 +28,12 @@ export function withAuth(options: WithAuthOptions, handler: AuthedHandler) {
 
     if (
       context.userId &&
-      options.roles &&
-      !options.roles.includes(context.role)
+      options.capability &&
+      !can(context, options.capability)
     ) {
       console.error("[with-auth] rejected request with insufficient role", {
         role: context.role,
+        capability: options.capability,
       });
       return NextResponse.json(
         { error: "No tenes permisos para usar este endpoint." },

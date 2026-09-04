@@ -9,13 +9,13 @@ import { DashboardNav } from "@/components/layout/dashboard-nav";
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
 import { UserProfileChip } from "@/components/layout/user-profile-chip";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { canManageAccessTier } from "@/lib/auth-access";
+import { can } from "@/lib/roles";
 import {
   APP_PORTAL_LABEL,
 } from "@/lib/constants";
 import type { AnnouncementSummary } from "@/lib/data/announcements";
 import { getAppRoleDisplayName } from "@/lib/display";
-import type { UserContext } from "@/lib/types";
+import type { UserContext } from "@/lib/auth";
 
 export function DashboardShell(props: {
   children: React.ReactNode;
@@ -78,7 +78,7 @@ export function DashboardShell(props: {
                     items={accessRequests.items}
                     funcionOptions={accessRequests.funcionOptions}
                     canSelectAccessTier={
-                      user ? canManageAccessTier(user.role, "admin") : false
+                      can(user, "admin")
                     }
                   />
                 ) : null}

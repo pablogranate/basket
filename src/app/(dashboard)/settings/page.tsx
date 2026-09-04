@@ -22,6 +22,7 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { ProfileAvatarSettings } from "@/components/settings/profile-avatar-settings";
 import { GEMINI_MODEL_OPTIONS, getSettingsSnapshot, UI_DENSITY_OPTIONS } from "@/lib/settings";
 import { parseNotice } from "@/lib/search-params";
+import { can } from "@/lib/roles";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -36,12 +37,13 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   }
 
   const user = await requireUserContext();
+  const isAdmin = can(user, "admin");
   // Settings and the latest announcement are independent — resolve both
   // concurrently.
   const [settings, latestAnnouncement, recipientConfig] = await Promise.all([
     getSettingsSnapshot(),
-    user.role === "admin" ? getLatestAnnouncement(user) : Promise.resolve(null),
-    user.role === "admin"
+    isAdmin ? getLatestAnnouncement(user) : Promise.resolve(null),
+    isAdmin
       ? getAccessRequestRecipientConfig()
       : Promise.resolve(null),
   ]);
@@ -208,7 +210,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
         </form>
       </Card>
 
-      {user.role === "admin" ? (
+      {isAdmin ? (
         <Card className="space-y-5">
           <div className="flex items-center gap-3">
             <div className="inline-flex size-11 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent)]">
@@ -293,7 +295,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
           </form>
         </Card>
       ) : null}
-      {user.role === "admin" && recipientConfig ? (
+      {isAdmin && recipientConfig ? (
         <Card className="space-y-5">
           <div className="flex items-center gap-3">
             <div className="inline-flex size-11 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent)]">

@@ -3,6 +3,7 @@ import {
   RESPONSIBLE_DISPLAY_LABEL,
 } from "@/lib/constants";
 import type { AppRole } from "@/lib/database.types";
+import { APP_ROLE_LABELS } from "@/lib/roles";
 import type { PersonListItem } from "@/lib/types";
 
 const ROLE_DISPLAY_NAMES: Record<string, string> = {
@@ -52,13 +53,7 @@ const ASSIGNMENT_STATE_DISPLAY_NAMES: Record<PersonListItem["assignment_state"],
   Inactivo: "Inactivo",
 };
 
-export const APP_ROLE_DISPLAY_NAMES: Record<AppRole, string> = {
-  admin: "Admin",
-  editor: "Productor",
-  coordinator: "Productor",
-  collaborator: "Externo",
-  viewer: "Externo",
-};
+export const APP_ROLE_DISPLAY_NAMES = APP_ROLE_LABELS;
 
 export function getRoleDisplayName(value?: string | null) {
   if (!value) {
@@ -90,12 +85,9 @@ export function getFunctionDisplayName(value?: string | null) {
   return FUNCTION_DISPLAY_NAMES[value] ?? value;
 }
 
+// No role (guest / unprovisioned) renders as the least-privileged tier.
 export function getAppRoleDisplayName(value?: AppRole | null) {
-  if (!value) {
-    return "Externo";
-  }
-
-  return APP_ROLE_DISPLAY_NAMES[value] ?? value;
+  return APP_ROLE_DISPLAY_NAMES[value ?? "collaborator"];
 }
 
 export function getCompactPersonName(name: string) {

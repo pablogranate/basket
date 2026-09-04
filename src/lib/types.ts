@@ -1,5 +1,4 @@
 import type {
-  AppRole,
   AssignmentRow,
   AuditRow,
   Database,
@@ -16,14 +15,6 @@ export type NotificationLogEntry =
 export type SyncLogEntry =
   Database["public"]["Tables"]["grid_sync_runs"]["Row"];
 
-
-export type UserContext = {
-  userId: string | null;
-  email: string | null;
-  profile: ProfileRow | null;
-  role: AppRole;
-  canEdit: boolean;
-};
 
 export type PersonTeamLink = {
   id: string;

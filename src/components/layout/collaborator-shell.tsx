@@ -8,7 +8,7 @@ import { UserProfileChip } from "@/components/layout/user-profile-chip";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { getAppRoleDisplayName } from "@/lib/display";
 import type { AnnouncementSummary } from "@/lib/data/announcements";
-import type { UserContext } from "@/lib/types";
+import type { UserContext } from "@/lib/auth";
 
 export function CollaboratorShell({
   children,

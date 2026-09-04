@@ -160,7 +160,7 @@ describe("resolveLoginRedirectTarget", () => {
 describe("apex-originated magic link for an external user", () => {
   const APEX_URL = "https://basket-app.com/login";
 
-  it.each<AppRole>(["collaborator", "viewer"])(
+  it.each<AppRole>(["collaborator"])(
     "verifies and lands %s on mi-jornada",
     (role) => {
       const callbackURL = buildLoginCallbackURL(

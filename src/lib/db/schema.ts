@@ -2,14 +2,14 @@ import { pgTable, uniqueIndex, uuid, text, index, foreignKey, boolean, check, bi
 import { sql } from "drizzle-orm"
 import { timestamptz } from "@/lib/db/columns"
 
-export const appRole = pgEnum("app_role", ['admin', 'editor', 'viewer', 'coordinator', 'collaborator'])
+export const appRole = pgEnum("app_role", ['admin', 'editor', 'collaborator'])
 export const matchStatus = pgEnum("match_status", ['Pendiente', 'Confirmado', 'Realizado'])
 
 
 export const profiles = pgTable("profiles", {
 	id: uuid().primaryKey().notNull(),
 	fullName: text("full_name"),
-	role: appRole().default('viewer').notNull(),
+	role: appRole().notNull(),
 	createdAt: timestamptz("created_at").default(sql`timezone('utc'::text, now())`).notNull(),
 	updatedAt: timestamptz("updated_at").default(sql`timezone('utc'::text, now())`).notNull(),
 	email: text().notNull(),

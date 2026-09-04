@@ -1,6 +1,8 @@
 import postgres from "postgres";
 
 import type { UserContext } from "@/lib/auth";
+import type { AppRole } from "@/lib/database.types";
+import { can } from "@/lib/roles";
 
 // Independent raw connection for seeding + assertions, so tests never depend on
 // the code under test to set up or read their own fixtures (mirrors the parity
@@ -51,7 +53,7 @@ export async function seedActor(
     email,
     profile: null,
     role,
-    canEdit: role === "admin" || role === "editor",
+    canEdit: can({ role: role as AppRole, hasAccess: true }, "edit"),
     hasAccess: true,
   } as unknown as UserContext;
 
