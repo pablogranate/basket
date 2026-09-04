@@ -6,11 +6,12 @@ import { requireAdmin } from "@/lib/auth-access";
 import { linkProfileToPersonAction } from "@/app/actions/access-requests";
 import { SubmitButton } from "@/components/ui/submit-button";
 import {
-  getDecidedAccessRequests,
-  getPendingAccessRequests,
-  getProfileLinkReview,
-} from "@/lib/data/access-requests";
-import type { AccessRequestSummary } from "@/lib/data/access-requests";
+  listDecidedAccessRequests,
+  listPendingAccessRequests,
+  type AccessRequestSummary,
+} from "@/lib/access-requests/requests";
+import { db } from "@/lib/db/client";
+import { listProfileLinkReview } from "@/lib/people/identity";
 import { formatMatchDateTime } from "@/lib/date";
 import { isSupabaseConfigured } from "@/lib/env";
 
@@ -19,11 +20,11 @@ export default async function AccessRequestsLogPage() {
     return <SetupPanel />;
   }
 
-  const ctx = await requireAdmin();
+  await requireAdmin();
   const [pending, decided, linkReview] = await Promise.all([
-    getPendingAccessRequests(ctx),
-    getDecidedAccessRequests(ctx),
-    getProfileLinkReview(ctx),
+    listPendingAccessRequests(db),
+    listDecidedAccessRequests(db),
+    listProfileLinkReview(db),
   ]);
 
   return (

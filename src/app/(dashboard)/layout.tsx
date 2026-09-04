@@ -71,7 +71,7 @@ export default async function DashboardLayout({
   // dashboard page; nobody else pays for the read (D-15).
   const accessRequests =
     user && isAccessRequestApproverRole(user.role)
-      ? await getAccessRequestReview(user)
+      ? await getAccessRequestReview()
       : null;
 
   const host = requestHeaders.get("host") ?? "";

@@ -3,6 +3,7 @@ import "server-only";
 import { eq, inArray } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
+import { isUniqueViolation } from "@/lib/db/errors";
 import {
   assignments as assignmentsTable,
   matches as matchesTable,
@@ -19,11 +20,6 @@ export type ApplyGridSyncResult = {
   peopleCreated: number;
   errors: string[];
 };
-
-// Postgres unique_violation; surfaced by the postgres driver on the error `code`.
-function isUniqueViolation(error: unknown): boolean {
-  return Boolean(error) && (error as { code?: string }).code === "23505";
-}
 
 // postgres driver errors are plain objects, not Error instances in every case;
 // String() on them can yield "[object Object]", so read `.message` explicitly.

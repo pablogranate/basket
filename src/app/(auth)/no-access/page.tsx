@@ -5,7 +5,8 @@ import { AccessRequestForm } from "@/components/access-requests/access-request-f
 import { PageMessage } from "@/components/ui/page-message";
 import { getUserContext } from "@/lib/auth";
 import { APP_NAME, getDefaultDashboardHrefForRole } from "@/lib/constants";
-import { getAccessRequestForOwnUser } from "@/lib/data/access-requests";
+import { getOwnAccessRequest } from "@/lib/access-requests/requests";
+import { db } from "@/lib/db/client";
 import { parseNotice } from "@/lib/search-params";
 
 import { LogoutButtonClient } from "./logout-button-client";
@@ -26,12 +27,12 @@ export default async function NoAccessPage({ searchParams }: PageProps) {
   }
 
   const { intent, notice } = parseNotice(await searchParams);
-  const request = await getAccessRequestForOwnUser(context);
-  // Only a pending row is a pending request. A resolved one (approved access
-  // later revoked, or rejected) means the applicant is back at the start and
-  // gets the form again — a resolved request must never read as "in review",
-  // which is how a revoked user ended up staring at a screen no approver saw.
-  const isPending = request?.status === "pendiente";
+  // Whether the applicant is "in review" is the lifecycle module's call, not a
+  // status comparison here: a resolved request must never read as pending,
+  // which is how a revoked user once ended up staring at a screen no approver saw.
+  const { request, pending: isPending } = await getOwnAccessRequest(db, {
+    authUserId: context.userId,
+  });
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[var(--background)] px-6 py-8">
@@ -47,7 +48,7 @@ export default async function NoAccessPage({ searchParams }: PageProps) {
 
         <div className="rounded-[22px] border border-[var(--border)] bg-[var(--surface)] p-7 text-center shadow-[0_12px_34px_rgba(28,13,16,0.05)] sm:p-8">
           <div className="mx-auto mb-5 flex size-14 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent)]">
-            {isPending ? (
+            {isPending && request ? (
               <Clock3 className="size-7" />
             ) : (
               <ShieldAlert className="size-7" />
@@ -67,7 +68,7 @@ export default async function NoAccessPage({ searchParams }: PageProps) {
             <PageMessage intent={intent} message={notice} />
           </div>
 
-          {isPending ? (
+          {isPending && request ? (
             <dl className="mt-5 space-y-2 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3 text-left text-sm">
               <PendingRow label="Nombre" value={request.full_name} />
               <PendingRow label="Correo" value={request.email} />

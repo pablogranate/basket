@@ -10,6 +10,13 @@ import * as relations from "@/lib/db/relations";
 const fullSchema = { ...schema, ...relations };
 type Schema = typeof fullSchema;
 
+// The query surface shared by `db` and a `db.transaction` callback's `tx`.
+// Modules that must run inside a caller's transaction take this, not `db`.
+export type DbExecutor = Pick<
+  PostgresJsDatabase<Schema>,
+  "select" | "insert" | "update" | "delete"
+>;
+
 const globalForDb = globalThis as unknown as {
   portalConn?: ReturnType<typeof postgres>;
   portalDb?: PostgresJsDatabase<Schema>;

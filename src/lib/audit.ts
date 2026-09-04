@@ -167,7 +167,7 @@ function nowIso() {
 // Mirrors set_row_metadata (INSERT branch): stamp the actor + timestamps,
 // coalescing an existing created_at exactly like the trigger did.
 export function stampInsert<T extends Record<string, unknown>>(
-  ctx: UserContext,
+  ctx: Pick<UserContext, "profileId">,
   payload: T,
 ): T & {
   created_by: string | null;
@@ -190,7 +190,7 @@ export function stampInsert<T extends Record<string, unknown>>(
 
 // Mirrors set_row_metadata (UPDATE branch): refresh updated_by + updated_at.
 export function stampUpdate<T extends Record<string, unknown>>(
-  ctx: UserContext,
+  ctx: Pick<UserContext, "profileId">,
   payload: T,
 ): T & { updated_by: string | null; updated_at: string } {
   return {

@@ -1,5 +1,5 @@
 import type { ApprovalTarget } from "@/lib/access-requests/approval";
-import type { AccessRequestSummary } from "@/lib/data/access-requests";
+import type { AccessRequestSummary } from "@/lib/access-requests/requests";
 
 // One pending request plus everything the approver needs to decide it: the
 // resolved target (link / suggest / create), the person's current values when
