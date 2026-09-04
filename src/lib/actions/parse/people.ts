@@ -1,5 +1,6 @@
 import { parsed, type ParseResult } from "@/lib/actions/define-action";
-import { normalizeAccessTier, type AccessTierRole } from "@/lib/access-tier";
+import type { AppRole } from "@/lib/database.types";
+import { normalizeAccessTier } from "@/lib/roles";
 import { isPersonFunctionKey, type PersonFunctionKey } from "@/lib/functions";
 import { buildPersonNotesMeta } from "@/lib/people-notes";
 import { maybeNull, resolveCheckboxFlag } from "@/lib/utils";
@@ -70,7 +71,7 @@ export function parsePersonId(formData: FormData): ParseResult<PersonIdInput> {
 
 export type UpdatePersonAccessRoleInput = {
   personId: string;
-  requestedAccessRole: AccessTierRole;
+  requestedAccessRole: AppRole;
 };
 
 export function parseUpdatePersonAccessRole(

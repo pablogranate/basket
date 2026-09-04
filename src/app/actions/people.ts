@@ -17,13 +17,9 @@ import {
 } from "@/lib/actions/parse/people";
 import { clearProfileCache, requireEditor } from "@/lib/auth";
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
-import {
-  ACCESS_TIER_ROLES,
-  canManageAccessTier,
-  requireAccessManager,
-  requireAdmin,
-} from "@/lib/auth-access";
+import { requireAccessManager, requireAdmin } from "@/lib/auth-access";
 import type { AppRole, ProfileRow } from "@/lib/database.types";
+import { can, canGrantTier, type Actor } from "@/lib/roles";
 import { db } from "@/lib/db/client";
 import { profileColumns } from "@/lib/db/rows";
 import {
@@ -46,26 +42,18 @@ async function findProfileByEmail(email: string): Promise<ProfileRow | null> {
   );
 }
 
-// Any of these profile roles grants platform login; revoke must cover all of
-// them, mirroring personHasPlatformAccess (src/lib/data/platform-access.ts).
-const PLATFORM_ACCESS_ROLES = ACCESS_TIER_ROLES;
-
-async function revokePlatformAccessByEmail(
-  email: string,
-  managerRole: AppRole,
-) {
+// Any profiles row grants platform login (the enum holds live tiers only), so
+// revoke is "does a row exist", mirroring getPlatformAccessRole.
+async function revokePlatformAccessByEmail(email: string, manager: Actor) {
   const profile = await findProfileByEmail(email);
 
-  if (
-    !profile ||
-    !(PLATFORM_ACCESS_ROLES as readonly string[]).includes(profile.role)
-  ) {
+  if (!profile) {
     return false;
   }
 
   // Productores may only revoke Externo logins; revoking an admin/Productor
-  // account stays admin-only (canManageAccessTier).
-  if (!canManageAccessTier(managerRole, profile.role)) {
+  // account stays admin-only (canGrantTier).
+  if (!canGrantTier(manager, profile.role)) {
     throw new Error("Solo un admin puede revocar este acceso.");
   }
 
@@ -214,8 +202,8 @@ const deletePerson = defineAction({
       throw new Error("No se encontró el usuario a eliminar.");
     }
 
-    if (context.role === "admin" && person.email) {
-      await revokePlatformAccessByEmail(person.email, context.role);
+    if (can(context, "admin") && person.email) {
+      await revokePlatformAccessByEmail(person.email, context);
     }
 
     await db.delete(peopleTable).where(eq(peopleTable.id, personId));
@@ -255,7 +243,7 @@ const revokePersonAccess = defineAction({
       throw new Error("Este usuario no tiene correo asociado.");
     }
 
-    const revoked = await revokePlatformAccessByEmail(person.email, ctx.role);
+    const revoked = await revokePlatformAccessByEmail(person.email, ctx);
 
     if (!revoked) {
       throw new Error("No se encontró acceso de plataforma para revocar.");
@@ -289,18 +277,15 @@ const updatePersonAccessRole = defineAction({
 
     const profile = await findProfileByEmail(person.email);
 
-    if (
-      !profile ||
-      !(PLATFORM_ACCESS_ROLES as readonly string[]).includes(profile.role)
-    ) {
+    if (!profile) {
       throw new Error("Este usuario no tiene acceso activo a la plataforma.");
     }
 
     // Both the current and the target tier must be within reach of the manager,
     // so a productor cannot promote an Externo nor touch an admin/Productor.
     if (
-      !canManageAccessTier(ctx.role, profile.role) ||
-      !canManageAccessTier(ctx.role, requestedAccessRole)
+      !canGrantTier(ctx, profile.role) ||
+      !canGrantTier(ctx, requestedAccessRole)
     ) {
       throw new Error("Solo un admin puede cambiar este nivel de acceso.");
     }

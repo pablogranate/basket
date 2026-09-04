@@ -4,6 +4,7 @@ import { and, count, desc, eq, gte, lte, type SQL } from "drizzle-orm";
 
 import type { UserContext } from "@/lib/auth";
 import { db } from "@/lib/db/client";
+import { can } from "@/lib/roles";
 import { gridSyncRunColumns } from "@/lib/db/rows";
 import { gridSyncRuns } from "@/lib/db/schema";
 import { getDayRange } from "@/lib/date";
@@ -33,7 +34,7 @@ export async function getSyncLogs(
     filters = EMPTY_SYNC_LOG_FILTERS,
   }: { page?: number; filters?: SyncLogFilters } = {},
 ): Promise<SyncLogsPage> {
-  if (ctx.role !== "admin") {
+  if (!can(ctx, "admin")) {
     throw new Error("Solo un admin puede ver el registro de sincronizaciones.");
   }
 

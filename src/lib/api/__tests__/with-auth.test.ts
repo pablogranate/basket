@@ -56,13 +56,13 @@ describe("withAuth", () => {
     expect(passedContext.userId).toBeNull();
   });
 
-  it("returns 403 when the resolved role is not in the allowed set", async () => {
+  it("returns 403 when the resolved context lacks the capability", async () => {
     mockedGetUserContext.mockResolvedValue(
       makeUserContext({ role: "collaborator", canEdit: true }),
     );
     const handler = vi.fn();
 
-    const wrapped = withAuth({ roles: ["admin"] }, handler);
+    const wrapped = withAuth({ capability: "admin" }, handler);
     const response = await wrapped(buildRequest());
 
     expect(response.status).toBe(403);
@@ -76,7 +76,7 @@ describe("withAuth", () => {
     mockedGetUserContext.mockResolvedValue(context);
     const handler = makeHandler();
 
-    const wrapped = withAuth({ roles: ["admin", "editor"] }, handler);
+    const wrapped = withAuth({ capability: "dashboard.full" }, handler);
     const response = await wrapped(buildRequest());
 
     expect(response.status).toBe(200);

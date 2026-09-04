@@ -4,6 +4,7 @@ import { and, count, desc, eq, gte, ilike, inArray, lte, type SQL } from "drizzl
 
 import type { UserContext } from "@/lib/auth";
 import { db } from "@/lib/db/client";
+import { can } from "@/lib/roles";
 import { notificationLogColumns } from "@/lib/db/rows";
 import { notificationLogs } from "@/lib/db/schema";
 import { getDayRange } from "@/lib/date";
@@ -38,7 +39,7 @@ export async function getNotificationLogs(
     filters = EMPTY_NOTIFICATION_LOG_FILTERS,
   }: { page?: number; filters?: NotificationLogFilters } = {},
 ): Promise<NotificationLogsPage> {
-  if (ctx.role !== "admin") {
+  if (!can(ctx, "admin")) {
     throw new Error("Solo un admin puede ver el registro de notificaciones.");
   }
 

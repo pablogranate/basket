@@ -1,5 +1,6 @@
 import type { AppRole, Database } from "@/lib/database.types";
 import { BUSINESS_LABELS, PRODUCT_COPY, SECTION_COPY } from "@/lib/copy";
+import { can } from "@/lib/roles";
 
 export const APP_NAME = PRODUCT_COPY.appName;
 export const APP_PORTAL_LABEL = PRODUCT_COPY.portalLabel;
@@ -104,18 +105,19 @@ function matchesPrefix(pathname: string, prefix: string) {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
 }
 
-export const FULL_DASHBOARD_ACCESS_ROLES: ReadonlyArray<AppRole> = [
-  "admin",
-  "editor",
-  "coordinator",
-];
+// Path gating is role-only by design: it runs after requireAccess has already
+// bounced hasAccess:false contexts, and client nav components only hold the
+// role. Everything else should ask can(ctx, ...) directly.
+function asActor(role?: AppRole | null) {
+  return role ? { role, hasAccess: true } : null;
+}
 
 export function hasFullDashboardAccessRole(role?: AppRole | null) {
-  return role != null && FULL_DASHBOARD_ACCESS_ROLES.includes(role);
+  return can(asActor(role), "dashboard.full");
 }
 
 export function isAdminDashboardRole(role?: AppRole | null) {
-  return role === "admin";
+  return can(asActor(role), "admin");
 }
 
 export function isCollaboratorLimitedRole(role?: AppRole | null) {

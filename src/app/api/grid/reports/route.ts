@@ -3,7 +3,6 @@ import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
 import { z } from "zod";
 
 import { withAuth } from "@/lib/api/with-auth";
-import { FULL_DASHBOARD_ACCESS_ROLES } from "@/lib/constants";
 import { getDayRange } from "@/lib/date";
 import { db } from "@/lib/db/client";
 import {
@@ -42,7 +41,7 @@ type MatchQueryRow = {
 };
 
 export const GET = withAuth(
-  { roles: FULL_DASHBOARD_ACCESS_ROLES },
+  { capability: "dashboard.full" },
   async (request) => {
     const url = new URL(request.url);
     const parsed = paramsSchema.safeParse({

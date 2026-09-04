@@ -58,7 +58,7 @@ describe("three-tier dashboard access policy", () => {
     });
   });
 
-  describe.each<AppRole>(["editor", "coordinator"])(
+  describe.each<AppRole>(["editor"])(
     "Productor tier (%s)",
     (role) => {
       it("reaches the full content shell", () => {
@@ -100,7 +100,7 @@ describe("three-tier dashboard access policy", () => {
     },
   );
 
-  describe.each<AppRole>(["collaborator", "viewer"])(
+  describe.each<AppRole>(["collaborator"])(
     "Externo tier (%s)",
     (role) => {
       it("reaches /mi-jornada and its sub-paths", () => {

@@ -17,11 +17,11 @@ import {
 } from "@/lib/access-requests/requests";
 import { clearProfileCache, requireUserContext } from "@/lib/auth";
 import {
-  canManageAccessTier,
   requireAccessRequestApprover,
   requireAdmin,
-  type AccessTierRole,
 } from "@/lib/auth-access";
+import type { AppRole } from "@/lib/database.types";
+import { canGrantTier } from "@/lib/roles";
 import { writeAudit } from "@/lib/audit";
 import { db } from "@/lib/db/client";
 import { roles as rolesTable } from "@/lib/db/schema";
@@ -111,10 +111,7 @@ const approve = defineAction({
   ) {
     // Productores can only mint Externo logins; downgrade anything higher rather
     // than trusting the submitted tier.
-    const accessRole: AccessTierRole = canManageAccessTier(
-      ctx.role,
-      requestedTier,
-    )
+    const accessRole: AppRole = canGrantTier(ctx, requestedTier)
       ? requestedTier
       : "collaborator";
 

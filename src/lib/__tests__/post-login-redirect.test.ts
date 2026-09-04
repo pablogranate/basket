@@ -46,7 +46,7 @@ describe("resolvePostLoginDestination", () => {
     ).toBe(APEX_LANDING);
   });
 
-  it.each<AppRole>(["editor", "coordinator"])(
+  it.each<AppRole>(["editor"])(
     "sends a Productor (%s) to the portal grid instead of bouncing through the apex",
     (role) => {
       expect(
@@ -55,7 +55,7 @@ describe("resolvePostLoginDestination", () => {
     },
   );
 
-  it.each<AppRole>(["collaborator", "viewer"])(
+  it.each<AppRole>(["collaborator"])(
     "sends an Externo (%s) to mi-jornada instead of the apex",
     (role) => {
       expect(
@@ -75,7 +75,7 @@ describe("resolvePostLoginDestination", () => {
       resolvePostLoginDestination({ role: "admin", redirectTo: "https://evil.com" }),
     ).toBe("/grid");
     expect(
-      resolvePostLoginDestination({ role: "viewer", redirectTo: null }),
+      resolvePostLoginDestination({ role: "collaborator", redirectTo: null }),
     ).toBe("/mi-jornada");
   });
 });

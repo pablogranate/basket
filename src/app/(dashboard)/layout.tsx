@@ -14,7 +14,7 @@ import {
 } from "@/lib/constants";
 import { getUserContext } from "@/lib/auth";
 import { getAccessRequestReview } from "@/lib/access-requests/review";
-import { isAccessRequestApproverRole } from "@/lib/auth-access";
+import { can } from "@/lib/roles";
 import { getActiveAnnouncement } from "@/lib/data/announcements";
 import { appEnv, isSupabaseConfigured } from "@/lib/env";
 
@@ -70,7 +70,7 @@ export default async function DashboardLayout({
   // Approvers get the Solicitudes badge and the auto-opening modal on every
   // dashboard page; nobody else pays for the read (D-15).
   const accessRequests =
-    user && isAccessRequestApproverRole(user.role)
+    can(user, "access.approve")
       ? await getAccessRequestReview()
       : null;
 

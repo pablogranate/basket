@@ -36,7 +36,6 @@ vi.mock(import("@/lib/auth-access"), async (importOriginal) => {
     ...actual,
     requireAdmin: vi.fn(async () => ({ profileId: "profile-1", role: "admin" })) as never,
     requireAccessManager: vi.fn(),
-    canManageAccessTier: () => true,
   };
 });
 

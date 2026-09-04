@@ -21,10 +21,7 @@ import { Input } from "@/components/ui/input";
 import { PageMessage } from "@/components/ui/page-message";
 import { Textarea } from "@/components/ui/textarea";
 import { requireUserContext, type UserContext } from "@/lib/auth";
-import {
-  canManageAccessTier,
-  isAccessManagerRole,
-} from "@/lib/auth-access";
+import { can, canGrantTier } from "@/lib/roles";
 import { SECTION_COPY } from "@/lib/copy";
 import type { AppRole } from "@/lib/database.types";
 import { getPeopleData } from "@/lib/data/dashboard";
@@ -105,8 +102,8 @@ export default async function PeoplePage({ searchParams }: PageProps) {
   const user = await requireUserContext();
   const peoplePromise = getPeopleData(user);
   const teamOptionsPromise = getTeamDirectory(user).then(buildTeamOptions);
-  const canManageAccess = isAccessManagerRole(user.role);
-  const canSelectAccessTier = user.role === "admin";
+  const canManageAccess = can(user, "access.manage");
+  const canSelectAccessTier = can(user, "admin");
   const currentPeopleHref = buildPeopleHref(resolvedSearchParams, {
     edit: undefined,
   });
@@ -275,7 +272,7 @@ async function PeopleEditModal({
   // Productores may revoke only Externo logins; admins may revoke any tier.
   const canRevokeSelectedAccess =
     selectedPersonAccessRole !== null &&
-    canManageAccessTier(user.role, selectedPersonAccessRole);
+    canGrantTier(user, selectedPersonAccessRole);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[rgba(28,13,16,0.48)] p-4 backdrop-blur-sm">

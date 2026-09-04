@@ -17,6 +17,7 @@ import {
 } from "@/lib/actions/parse/settings";
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth-access";
+import { can } from "@/lib/roles";
 import { clearAnnouncementCache } from "@/lib/data/announcements";
 import { db } from "@/lib/db/client";
 import {
@@ -100,7 +101,7 @@ const saveGeminiSettings = defineAction({
       ? "Configuración de Gemini actualizada."
       : "Clave de Gemini eliminada.";
 
-    if (user.role === "admin") {
+    if (can(user, "admin")) {
       if (apiKey) {
         const stamped = stampInsert(user, {
           setting_key: GEMINI_GLOBAL_SETTING_KEY,

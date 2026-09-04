@@ -8,18 +8,11 @@ describe("getAppRoleDisplayName (three-role display labels)", () => {
     ["admin", "Admin"],
     ["editor", "Productor"],
     ["collaborator", "Externo"],
-    ["coordinator", "Productor"],
-    ["viewer", "Externo"],
   ];
 
   it.each(cases)("renders %s as %s", (role, label) => {
     expect(getAppRoleDisplayName(role)).toBe(label);
     expect(APP_ROLE_DISPLAY_NAMES[role]).toBe(label);
-  });
-
-  it("folds legacy coordinator and viewer into the three-role vocabulary", () => {
-    expect(getAppRoleDisplayName("coordinator")).toBe("Productor");
-    expect(getAppRoleDisplayName("viewer")).toBe("Externo");
   });
 
   it("never leaks a raw enum value to the UI", () => {

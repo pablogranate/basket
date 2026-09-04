@@ -105,7 +105,7 @@ describe("people identity (integration)", () => {
       INSERT INTO profiles ${sql({
         id: crypto.randomUUID(),
         email: "nico.gomez@example.com",
-        role: "viewer",
+        role: "collaborator",
         full_name: "Old Name",
       })} RETURNING id`;
 

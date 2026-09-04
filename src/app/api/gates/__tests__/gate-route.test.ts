@@ -38,7 +38,7 @@ describe("GET /api/gates/[app]", () => {
     expect(response.status).toBe(401);
   });
 
-  it.each<AppRole>(["collaborator", "viewer"])(
+  it.each<AppRole>(["collaborator"])(
     "returns 403 for the generator gate with a %s session",
     async (role) => {
       mockedGetUserContext.mockResolvedValue(makeUserContext({ role }));
@@ -49,7 +49,7 @@ describe("GET /api/gates/[app]", () => {
     },
   );
 
-  it.each<AppRole>(["admin", "editor", "coordinator"])(
+  it.each<AppRole>(["admin", "editor"])(
     "returns 204 with an empty body for the generator gate with a %s session",
     async (role) => {
       mockedGetUserContext.mockResolvedValue(makeUserContext({ role }));

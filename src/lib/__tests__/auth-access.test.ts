@@ -9,17 +9,17 @@ vi.mock("@/lib/auth", () => ({
 }));
 
 import {
-  canManageAccessTier,
-  isAccessManagerRole,
   requireAccessManager,
+  requireAccessRequestApprover,
   requireAdmin,
+  requireCapability,
 } from "@/lib/auth-access";
 
-describe("requireAdmin (issue #4 admin-only guard)", () => {
-  afterEach(() => {
-    requireUserContext.mockReset();
-  });
+afterEach(() => {
+  requireUserContext.mockReset();
+});
 
+describe("requireAdmin (issue #4 admin-only guard)", () => {
   it("returns the context for an admin", async () => {
     const adminContext = makeUserContext({ role: "admin" });
     requireUserContext.mockResolvedValue(adminContext);
@@ -46,50 +46,9 @@ describe("requireAdmin (issue #4 admin-only guard)", () => {
   });
 });
 
-describe("isAccessManagerRole (issue #30 — who can manage platform access)", () => {
-  it("treats admin and both Productor roles as access managers", () => {
-    expect(isAccessManagerRole("admin")).toBe(true);
-    expect(isAccessManagerRole("editor")).toBe(true);
-    expect(isAccessManagerRole("coordinator")).toBe(true);
-  });
-
-  it("does not treat Externo roles as access managers", () => {
-    expect(isAccessManagerRole("collaborator")).toBe(false);
-    expect(isAccessManagerRole("viewer")).toBe(false);
-  });
-});
-
-describe("canManageAccessTier (issue #30 — which tiers a manager may grant/revoke)", () => {
-  it("lets an admin manage every tier", () => {
-    expect(canManageAccessTier("admin", "admin")).toBe(true);
-    expect(canManageAccessTier("admin", "editor")).toBe(true);
-    expect(canManageAccessTier("admin", "collaborator")).toBe(true);
-  });
-
-  it("limits both Productor roles to the Externo tier", () => {
-    for (const role of ["editor", "coordinator"] as const) {
-      expect(canManageAccessTier(role, "collaborator")).toBe(true);
-      expect(canManageAccessTier(role, "editor")).toBe(false);
-      expect(canManageAccessTier(role, "admin")).toBe(false);
-    }
-  });
-
-  it("denies Externo roles every tier", () => {
-    for (const role of ["collaborator", "viewer"] as const) {
-      expect(canManageAccessTier(role, "collaborator")).toBe(false);
-      expect(canManageAccessTier(role, "editor")).toBe(false);
-      expect(canManageAccessTier(role, "admin")).toBe(false);
-    }
-  });
-});
-
 describe("requireAccessManager (issue #30 — guard for the access-grant flows)", () => {
-  afterEach(() => {
-    requireUserContext.mockReset();
-  });
-
-  it("returns the context for admin and both Productor roles", async () => {
-    for (const role of ["admin", "editor", "coordinator"] as const) {
+  it("returns the context for admin and Productor", async () => {
+    for (const role of ["admin", "editor"] as const) {
       const context = makeUserContext({ role, canEdit: true });
       requireUserContext.mockResolvedValue(context);
 
@@ -104,6 +63,40 @@ describe("requireAccessManager (issue #30 — guard for the access-grant flows)"
 
     await expect(requireAccessManager()).rejects.toThrow(
       "No tenes permisos para gestionar accesos a la plataforma.",
+    );
+  });
+});
+
+describe("requireAccessRequestApprover (D-06 — approving is a productor job)", () => {
+  it("returns the context for admin and Productor", async () => {
+    for (const role of ["admin", "editor"] as const) {
+      const context = makeUserContext({ role });
+      requireUserContext.mockResolvedValue(context);
+
+      await expect(requireAccessRequestApprover()).resolves.toBe(context);
+    }
+  });
+
+  it("throws for an Externo", async () => {
+    requireUserContext.mockResolvedValue(
+      makeUserContext({ role: "collaborator" }),
+    );
+
+    await expect(requireAccessRequestApprover()).rejects.toThrow(
+      "No tenes permisos para aprobar solicitudes de acceso.",
+    );
+  });
+});
+
+describe("requireCapability", () => {
+  it("denies a context without access regardless of role", async () => {
+    requireUserContext.mockResolvedValue({
+      ...makeUserContext({ role: "admin" }),
+      hasAccess: false,
+    });
+
+    await expect(requireCapability("edit")).rejects.toThrow(
+      "No tenes permisos para editar.",
     );
   });
 });

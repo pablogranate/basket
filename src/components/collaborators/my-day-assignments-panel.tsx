@@ -67,7 +67,7 @@ const CollaboratorReportForm = dynamic(
 
 type MyDayAssignmentsPanelProps = {
   hasLinkedPerson: boolean;
-  // Externo (collaborator/viewer) users cannot reach /grid; hide the shortcut.
+  // Externo (collaborator) users cannot reach /grid; hide the shortcut.
   canViewGrid: boolean;
   // Today's date onward — the primary list.
   assignments: CollaboratorAssignmentItem[];

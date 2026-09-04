@@ -104,12 +104,4 @@ describe("personHasPlatformAccess", () => {
 
     expect(result).toBe(false);
   });
-
-  it("returns false for a non-access-granting role (viewer)", async () => {
-    h.state.rows = [{ email: "viewer@basket-app.test", role: "viewer" }];
-
-    const result = await personHasPlatformAccess("viewer@basket-app.test");
-
-    expect(result).toBe(false);
-  });
 });

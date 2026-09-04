@@ -51,7 +51,7 @@ export function makeGuestContext(
     profileId: null,
     email: null,
     profile: null,
-    role: "viewer",
+    role: "collaborator",
     canEdit: false,
     hasAccess: false,
     ...overrides,
