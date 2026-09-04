@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { Radio, UsersRound, Video } from "lucide-react";
 
 import { LoginFormClient } from "@/app/(auth)/login/login-form-client";
-import { SetupPanel } from "@/components/layout/setup-panel";
 import { PageMessage } from "@/components/ui/page-message";
 import { PRODUCT_COPY } from "@/lib/copy";
 import {
@@ -13,7 +12,6 @@ import {
   buildLoginCallbackURL,
   resolveLoginRedirectTarget,
 } from "@/lib/auth/login-callback";
-import { isSupabaseConfigured } from "@/lib/env";
 import { parseNotice } from "@/lib/search-params";
 import { getUserContext } from "@/lib/auth";
 
@@ -27,54 +25,6 @@ export default async function LoginPage({ searchParams }: PageProps) {
   const supportEmail = "soporte@dashboardproduccion.local";
   const supportWhatsAppHref: string | null = null;
   const supportContactHref = supportWhatsAppHref ?? `mailto:${supportEmail}`;
-
-  if (!isSupabaseConfigured) {
-    return (
-      <div className="min-h-screen bg-[var(--background)]">
-        <div className="grid min-h-screen lg:grid-cols-[1.1fr_0.9fr]">
-          <section className="hidden border-r border-[var(--border)] bg-[linear-gradient(180deg,var(--n-50)_0%,var(--n-50)_100%)] lg:flex lg:flex-col lg:justify-between lg:p-10 xl:p-12 2xl:p-16">
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-xl bg-[var(--foreground)] text-white">
-                <Video className="size-5" />
-              </div>
-              <p className="text-xl font-extrabold tracking-tight text-[var(--foreground)]">
-                {APP_NAME}
-              </p>
-            </div>
-            <div className="max-w-2xl space-y-6">
-              <p className="text-xs font-bold uppercase tracking-[0.32em] text-[var(--muted)]">
-                {APP_NAME}
-              </p>
-              <h1 className="font-[family-name:var(--font-oswald)] text-4xl font-bold leading-[1.02] tracking-[-0.04em] text-[var(--foreground)] xl:text-5xl 2xl:text-6xl">
-                Operación, talento y técnica en una sola consola.
-              </h1>
-              <p className="max-w-xl text-base font-medium leading-relaxed text-[var(--muted)] xl:text-lg">
-                El proyecto ya está listo. Solo falta conectar Supabase para activar auth,
-                CRUD, historial y permisos en tiempo real.
-              </p>
-            </div>
-            <p className="text-sm font-medium text-[var(--muted)]">
-              Configuración inicial del entorno operativo.
-            </p>
-          </section>
-
-          <section className="flex min-h-screen items-center justify-center px-6 py-8 sm:px-8 lg:px-10 xl:px-12">
-            <div className="w-full max-w-[500px]">
-              <div className="mb-8 flex items-center gap-3 lg:hidden">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-[var(--foreground)] text-white">
-                  <Video className="size-5" />
-                </div>
-                <p className="text-xl font-extrabold tracking-tight text-[var(--foreground)]">
-                  {APP_NAME}
-                </p>
-              </div>
-              <SetupPanel />
-            </div>
-          </section>
-        </div>
-      </div>
-    );
-  }
 
   const user = await getUserContext();
 

@@ -11,7 +11,6 @@ import {
 import { notFound } from "next/navigation";
 
 import { MatchNotificationWorkspace } from "@/components/match/match-notification-workspace";
-import { SetupPanel } from "@/components/layout/setup-panel";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { PageMessage } from "@/components/ui/page-message";
@@ -20,7 +19,6 @@ import { getProductionModeLabel } from "@/lib/constants";
 import { getMatchDetailData } from "@/lib/data/dashboard";
 import { formatMatchDate, formatMatchTime } from "@/lib/date";
 import { getRoleDisplayName } from "@/lib/display";
-import { isSupabaseConfigured } from "@/lib/env";
 import {
   buildBulkMatchNotificationMailtoHref,
   buildMatchNotificationMailtoHref,
@@ -63,10 +61,6 @@ function getRecipientKey(params: {
 export default async function MatchNotifyPage({ params, searchParams }: PageProps) {
   const resolvedSearchParams = await searchParams;
   const { intent, notice } = parseNotice(resolvedSearchParams);
-
-  if (!isSupabaseConfigured) {
-    return <SetupPanel />;
-  }
 
   const user = await requireUserContext();
 

@@ -1,6 +1,5 @@
 import { upsertRoleAction } from "@/app/actions/roles";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
-import { SetupPanel } from "@/components/layout/setup-panel";
 import { RoleDeleteButton } from "@/components/roles/role-delete-button";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -12,7 +11,6 @@ import { requireUserContext } from "@/lib/auth";
 import { SECTION_COPY } from "@/lib/copy";
 import { getRolesData } from "@/lib/data/dashboard";
 import { getRoleCategoryDisplayName, getRoleDisplayName } from "@/lib/display";
-import { isSupabaseConfigured } from "@/lib/env";
 import { parseNotice } from "@/lib/search-params";
 
 type PageProps = {
@@ -22,10 +20,6 @@ type PageProps = {
 export default async function RolesPage({ searchParams }: PageProps) {
   const resolvedSearchParams = await searchParams;
   const { intent, notice } = parseNotice(resolvedSearchParams);
-
-  if (!isSupabaseConfigured) {
-    return <SetupPanel />;
-  }
 
   const user = await requireUserContext();
   const { roles, grouped } = await getRolesData(user);

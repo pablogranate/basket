@@ -39,7 +39,6 @@ import { CollaboratorReportsPanel } from "@/components/match/collaborator-report
 import { GroupActions } from "@/components/match/group-actions";
 import { HistoryTimeline } from "@/components/match/history-timeline";
 import { TeamLogoMark } from "@/components/team-logo-mark";
-import { SetupPanel } from "@/components/layout/setup-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,7 +68,6 @@ import {
   peopleAssignableTo,
   roleNameToFunctionKey,
 } from "@/lib/functions";
-import { isSupabaseConfigured } from "@/lib/env";
 import { normalizeToWhatsAppChatId } from "@/lib/integrations/openwa";
 import {
   buildGoogleCalendarLink,
@@ -532,10 +530,6 @@ export default async function MatchDetailPage({
   const resolvedParams = await params;
   const resolvedSearchParams = await searchParams;
   const { intent, notice, notify } = parseNotice(resolvedSearchParams);
-
-  if (!isSupabaseConfigured) {
-    return <SetupPanel />;
-  }
 
   return (
     <div className="space-y-8">

@@ -16,7 +16,7 @@ import { getUserContext } from "@/lib/auth";
 import { getAccessRequestReview } from "@/lib/access-requests/review";
 import { can } from "@/lib/roles";
 import { getActiveAnnouncement } from "@/lib/data/announcements";
-import { appEnv, isSupabaseConfigured } from "@/lib/env";
+import { appEnv } from "@/lib/env";
 
 export default async function DashboardLayout({
   children,
@@ -29,13 +29,13 @@ export default async function DashboardLayout({
   // not depend on the user (it voids its ctx); we still only surface it once we
   // know the request is authenticated (gate below).
   const [user, activeAnnouncement] = await Promise.all([
-    isSupabaseConfigured ? getUserContext() : Promise.resolve(null),
-    isSupabaseConfigured ? getActiveAnnouncement(null) : Promise.resolve(null),
+    getUserContext(),
+    getActiveAnnouncement(null),
   ]);
   const announcement = user?.userId ? activeAnnouncement : null;
   const allowsGuestMiJornada = appEnv.allowGuestMiJornadaAccess && !user?.userId;
 
-  if (isSupabaseConfigured && !user?.userId && !allowsGuestMiJornada) {
+  if (!user?.userId && !allowsGuestMiJornada) {
     redirect("/login");
   }
 

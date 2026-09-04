@@ -1,15 +1,15 @@
 # Basket Production
 
-Dashboard operativo para programación deportiva con Next.js, Tailwind y Supabase.
+Dashboard operativo para programación deportiva con Next.js, Tailwind y Postgres (Drizzle) con Better Auth.
 
 ## Incluye
 
-- Login con Supabase Auth
+- Login unificado con Better Auth (Google / magic link) compartido en `*.basket-app.com`
 - Grilla por día o mes con buscador y filtros por liga, modo, estado y responsable
 - Detalle del partido con edición de datos base, asignaciones por rol, historial y conflictos por solape
 - ABM de personas y roles
 - Auditoría automática en `audit_log`
-- RLS para `admin`, `editor`, `coordinator`, `collaborator` y `viewer`
+- Autorización en capa de aplicación por capacidades (`src/lib/roles.ts`): `admin`, `editor`, `collaborator`
 - Link dinámico a Google Calendar y panel `GRUPO` con copiar / abrir WhatsApp
 - Importador CSV en `tools/import`
 - Primera pantalla móvil `Mi jornada` para colaboradores vinculados por correo o nombre a `Personal`
@@ -18,7 +18,7 @@ Dashboard operativo para programación deportiva con Next.js, Tailwind y Supabas
 
 - Next.js 16 App Router
 - Tailwind CSS 4
-- Supabase (`@supabase/ssr`, Postgres, Auth)
+- Postgres autoalojado (`basket-portal-db`) vía Drizzle + Better Auth (`basket-auth-db`)
 
 ## Calidad y proceso
 
@@ -55,36 +55,36 @@ cp .env.example .env.local
 3. Completa estas variables:
 
 ```bash
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
+DATABASE_URL=postgresql://basket_portal:...@127.0.0.1:5434/basket_portal
+AUTH_DATABASE_URL=postgresql://basket_auth:...@127.0.0.1:5433/basket_auth
+BETTER_AUTH_SECRET=
+BETTER_AUTH_URL=http://localhost:3000
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
 NEXT_PUBLIC_APP_TIMEZONE=America/Bogota
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-4. En Supabase ejecuta:
+4. Levanta los contenedores locales y aplica las migraciones:
 
-- `supabase/migrations/0001_initial.sql`
-- `supabase/migrations/0002_fix_audit_trigger.sql`
-- `supabase/migrations/0003_add_operator_roles.sql`
-- `supabase/migrations/0004_allow_collaborator_edit.sql`
-- `supabase/seed.sql`
+```bash
+podman start basket-portal-db basket-auth-db
+for f in supabase/migrations/*.sql; do psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"; done
+```
 
-5. Crea o invita un usuario en Supabase Auth y luego promuévelo a admin:
+(`supabase/migrations/` conserva el nombre por historia; el proyecto ya no usa Supabase. Ver `docs/adr/0002-self-hosted-portal-domain-db.md`.)
+
+5. Iniciá sesión una vez y promové tu perfil a admin:
 
 ```sql
-update public.profiles
-set role = 'admin'
-where id = '<AUTH_USER_ID>';
+update public.profiles set role = 'admin' where email = '<TU_EMAIL>';
 ```
 
 Roles disponibles:
 
-- `admin`: acceso total
-- `editor`: edición operativa general
-- `coordinator`: edición operativa sin administración global
-- `collaborator`: acceso móvil inicial a `Mi jornada` y edición operativa temporal mientras se completa el portal de cargas
-- `viewer`: solo lectura
+- `admin`: acceso total (ajustes, logs, gestión de niveles de acceso)
+- `editor` (Productor): grilla completa, personas, equipos, aprobación de solicitudes; otorga solo accesos Externo
+- `collaborator` (Externo): `Mi jornada` y sus reportes
 
 6. Levanta el proyecto:
 
@@ -118,6 +118,6 @@ npm run import:csv -- ./archivo.csv America/Bogota
 
 ## Notas
 
-- Si faltan variables de entorno, la app muestra un panel de setup en lugar de romper durante el build.
+- Si falta `DATABASE_URL` o `AUTH_DATABASE_URL`, el primer acceso a la base falla con un error explícito desde `src/lib/env.ts`.
 - La auditoría se genera desde triggers SQL sobre `matches`, `people`, `roles` y `assignments`.
 - Los conflictos por solape se calculan en el detalle del partido usando la ventana `kickoff_at + duration_minutes`.

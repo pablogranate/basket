@@ -8,7 +8,6 @@ import {
   isApexHost,
   resolveApexDestination,
 } from "@/lib/constants";
-import { isSupabaseConfigured } from "@/lib/env";
 
 export default async function Home() {
   const host = (await headers()).get("host") ?? "";
@@ -25,10 +24,6 @@ export default async function Home() {
     }
 
     redirect(destination.path);
-  }
-
-  if (!isSupabaseConfigured) {
-    redirect("/mi-jornada");
   }
 
   const user = await getUserContext();

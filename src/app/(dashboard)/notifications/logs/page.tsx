@@ -1,13 +1,11 @@
 import { Suspense } from "react";
 
 import { SectionPageHeader } from "@/components/layout/section-page-header";
-import { SetupPanel } from "@/components/layout/setup-panel";
 import { LogsSectionTabs } from "@/components/notifications/logs-section-tabs";
 import { NotificationLogsFilters } from "@/components/notifications/notification-logs-filters";
 import { NotificationLogsWorkspace } from "@/components/notifications/notification-logs-workspace";
 import { requireAdmin } from "@/lib/auth-access";
 import { getNotificationLogs } from "@/lib/data/notification-logs";
-import { isSupabaseConfigured } from "@/lib/env";
 import {
   parseNotificationLogFilters,
   type NotificationLogFilters,
@@ -25,10 +23,6 @@ function parsePage(value: string | string[] | undefined) {
 }
 
 export default async function NotificationLogsPage({ searchParams }: PageProps) {
-  if (!isSupabaseConfigured) {
-    return <SetupPanel />;
-  }
-
   const ctx = await requireAdmin();
 
   const resolvedSearchParams = await searchParams;

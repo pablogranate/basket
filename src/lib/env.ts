@@ -4,9 +4,6 @@ const BETTER_AUTH_URL =
   "http://localhost:3000";
 
 export const appEnv = {
-  supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-  supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
-  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
   appTimezone: process.env.NEXT_PUBLIC_APP_TIMEZONE ?? "America/Bogota",
   appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
   allowGuestMiJornadaAccess: process.env.ALLOW_GUEST_MI_JORNADA === "true",
@@ -38,26 +35,6 @@ export const appEnv = {
   openwaNotifyEnabled: process.env.OPENWA_NOTIFY_ENABLED !== "false",
   notificationsEnabled: process.env.NOTIFICATIONS_ENABLED !== "false",
 };
-
-export const isSupabaseConfigured = Boolean(
-  appEnv.supabaseUrl && appEnv.supabaseAnonKey,
-);
-
-export function assertSupabaseEnv() {
-  if (!isSupabaseConfigured) {
-    throw new Error(
-      "Missing Supabase environment variables. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
-    );
-  }
-}
-
-export function assertServiceRoleKey() {
-  if (!appEnv.supabaseServiceRoleKey) {
-    throw new Error(
-      "Missing SUPABASE_SERVICE_ROLE_KEY. The CSV importer requires a service role key.",
-    );
-  }
-}
 
 export function assertDatabaseUrl() {
   if (!appEnv.databaseUrl) {

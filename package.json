@@ -23,8 +23,6 @@
     "test:integration": "bash scripts/db/with-test-db.sh vitest run --config vitest.integration.config.mts"
   },
   "dependencies": {
-    "@supabase/ssr": "^0.9.0",
-    "@supabase/supabase-js": "^2.98.0",
     "better-auth": "^1.6.14",
     "clsx": "^2.1.1",
     "csv-parse": "^6.1.0",

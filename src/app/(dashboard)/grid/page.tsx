@@ -20,7 +20,6 @@ import {
   GridPastDaysToolbarButton,
 } from "@/components/grid/grid-regions";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
-import { SetupPanel } from "@/components/layout/setup-panel";
 import { PageMessage } from "@/components/ui/page-message";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { SECTION_COPY } from "@/lib/copy";
@@ -34,7 +33,6 @@ import {
   toStringGridSearchParams,
 } from "@/lib/grid/nav-hrefs";
 import { requireUserContext } from "@/lib/auth";
-import { isSupabaseConfigured } from "@/lib/env";
 import {
   GRID_DISPLAY_COOKIE,
   normalizeGridDisplay,
@@ -70,10 +68,6 @@ function formatSummaryDateLabel(params: {
 export default async function GridPage({ searchParams }: PageProps) {
   const resolvedSearchParams = await searchParams;
   const { intent, notice } = parseNotice(resolvedSearchParams);
-
-  if (!isSupabaseConfigured) {
-    return <SetupPanel />;
-  }
 
   const user = await requireUserContext();
   const storedDisplay = normalizeGridDisplay(

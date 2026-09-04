@@ -5,7 +5,6 @@ import { ShieldCheck, X } from "lucide-react";
 
 import { upsertPersonAction } from "@/app/actions/people";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
-import { SetupPanel } from "@/components/layout/setup-panel";
 import { CreatePersonModal } from "@/components/people/create-person-modal-lazy";
 import { PeopleHeaderExtras } from "@/components/people/people-header-extras";
 import { PeopleRedirectToInput } from "@/components/people/people-redirect-to";
@@ -29,7 +28,6 @@ import { getTeamDirectory } from "@/lib/data/teams";
 import { PersonTeamsField } from "@/components/people/person-teams-field";
 import { getPlatformAccessRole } from "@/lib/data/platform-access";
 import { getRoleDisplayName } from "@/lib/display";
-import { isSupabaseConfigured } from "@/lib/env";
 import { parsePersonNotesMeta } from "@/lib/people-notes";
 import { parseNotice } from "@/lib/search-params";
 import type { PersonListItem, PersonTeamLink } from "@/lib/types";
@@ -91,10 +89,6 @@ export default async function PeoplePage({ searchParams }: PageProps) {
     typeof resolvedSearchParams.edit === "string"
       ? resolvedSearchParams.edit
       : undefined;
-
-  if (!isSupabaseConfigured) {
-    return <SetupPanel />;
-  }
 
   // Nothing but the permission context is awaited here: the people, settings,
   // team-directory and last-sync reads all start unawaited and stream into the

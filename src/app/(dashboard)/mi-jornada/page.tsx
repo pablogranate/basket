@@ -3,12 +3,11 @@ import { Hash, Sparkles, UserRound } from "lucide-react";
 
 import { MyDayAssignmentsPanel } from "@/components/collaborators/my-day-assignments-panel";
 import { TeamLogoResolutionProvider } from "@/components/team-logo-resolution-context";
-import { SetupPanel } from "@/components/layout/setup-panel";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 import { getUserContext } from "@/lib/auth";
 import { isDashboardPathAllowedForRole } from "@/lib/constants";
 import { getCollaboratorDayData } from "@/lib/data/collaborators";
-import { appEnv, isSupabaseConfigured } from "@/lib/env";
+import { appEnv } from "@/lib/env";
 import { resolveTeamLogoMap } from "@/lib/team-logos";
 import { cn } from "@/lib/utils";
 
@@ -188,10 +187,6 @@ function DayAssignmentsFallback() {
 }
 
 export default async function CollaboratorDayPage() {
-  if (!isSupabaseConfigured) {
-    return <SetupPanel />;
-  }
-
   const user = await getUserContext();
   const guestMode = appEnv.allowGuestMiJornadaAccess && !user.userId;
   const fallbackCollaboratorName =
