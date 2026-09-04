@@ -1,13 +1,11 @@
 import { Suspense } from "react";
 
 import { SectionPageHeader } from "@/components/layout/section-page-header";
-import { SetupPanel } from "@/components/layout/setup-panel";
 import { LogsSectionTabs } from "@/components/notifications/logs-section-tabs";
 import { SyncLogsFilters } from "@/components/notifications/sync-logs-filters";
 import { SyncLogsWorkspace } from "@/components/notifications/sync-logs-workspace";
 import { requireAdmin } from "@/lib/auth-access";
 import { getSyncLogs } from "@/lib/data/sync-logs";
-import { isSupabaseConfigured } from "@/lib/env";
 import { parseSyncLogFilters, type SyncLogFilters } from "@/lib/sync/log-filters";
 import type { UserContext } from "@/lib/auth";
 
@@ -22,10 +20,6 @@ function parsePage(value: string | string[] | undefined) {
 }
 
 export default async function SyncLogsPage({ searchParams }: PageProps) {
-  if (!isSupabaseConfigured) {
-    return <SetupPanel />;
-  }
-
   const ctx = await requireAdmin();
 
   const resolvedSearchParams = await searchParams;

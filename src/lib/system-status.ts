@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 
-import { isSupabaseConfigured } from "@/lib/env";
+import { appEnv } from "@/lib/env";
 
 export type SystemStatusItem = {
   label: string;
@@ -14,9 +14,9 @@ export function getSystemStatus(hasSession: boolean): SystemStatusItem[] {
 
   return [
     {
-      label: "Supabase",
-      value: isSupabaseConfigured ? "Conectado" : "Pendiente",
-      tone: isSupabaseConfigured ? "success" : "neutral",
+      label: "Base de datos",
+      value: appEnv.databaseUrl ? "Conectada" : "Pendiente",
+      tone: appEnv.databaseUrl ? "success" : "neutral",
     },
     {
       label: "Auth",

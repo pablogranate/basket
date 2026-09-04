@@ -54,7 +54,7 @@ Each PR should describe:
 - What changed
 - Why it changed
 - Any migration or rollout impact
-- Any manual follow-up required in Supabase or deployment
+- Any manual follow-up required in the database or deployment
 
 Use the pull request template in `.github/pull_request_template.md`.
 

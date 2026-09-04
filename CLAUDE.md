@@ -13,7 +13,7 @@ It is one of three sibling apps under `basket-app.com`: `portal.` (this), `analy
 ### Constraints
 
 - **Tech stack**: Better Auth (^1.6.11) is the chosen auth across all apps; reuse analytics' Drizzle + Postgres approach for the auth layer in portal.
-- **Tech stack**: Portal stays on Next.js 16 App Router + Supabase (cloud) for domain data; auth adds a Drizzle/Postgres connection to the company-server auth DB.
+- **Tech stack**: Portal stays on Next.js 16 App Router; domain data lives in the self-hosted `basket-portal-db` Postgres (Drizzle, `DATABASE_URL`); auth uses a second Drizzle/Postgres connection to the company-server auth DB (`AUTH_DATABASE_URL`).
 - **Compatibility**: SSO requires identical `BETTER_AUTH_SECRET`, shared session table, and `.basket-app.com` cookie domain across all participating apps.
 - **Security**: Service-role/admin DB access stays server-only; per-app access gates enforced in `databaseHooks`; portal authorization moves fully to the app layer once RLS is dropped.
 - **Migration**: Existing portal users must retain access — no lockout; external-user path must work without Google.
@@ -51,8 +51,7 @@ It is one of three sibling apps under `basket-app.com`: `portal.` (this), `analy
 
 ## Key Dependencies
 
-- `@supabase/supabase-js` ^2.98.0 - Supabase client (auth, Postgres, admin). Used in `src/lib/supabase/admin.ts`, `tools/import/index.mjs`
-- `@supabase/ssr` ^0.9.0 - Cookie-based SSR auth for Next.js. Used in `src/lib/supabase/server.ts`, `src/lib/supabase/browser.ts`, `src/lib/supabase/middleware.ts`
+- `drizzle-orm` + `postgres` - Domain DB access via `src/lib/db/client.ts` (schema in `src/lib/db/schema.ts`); Supabase was retired 2026-09 (ADR 0002)
 - `zod` ^4.3.6 - Runtime schema validation for forms/actions and API payloads
 - `next` 16.1.6 / `react` 19.2.3 - Framework and UI runtime
 - `date-fns` ^4.1.0 + `date-fns-tz` ^3.2.0 - Date formatting and timezone conversion (default tz `America/Bogota`). Used in `src/lib/date.ts`, `tools/import/index.mjs`
@@ -67,22 +66,22 @@ It is one of three sibling apps under `basket-app.com`: `portal.` (this), `analy
 - Centralized accessor: `src/lib/env.ts` (`appEnv` object) reads all env vars with defaults
 - Local env file present: `.env.local` (contents not read — may contain secrets)
 - Required/consumed env vars:
-- Validation guards: `assertSupabaseEnv()`, `assertServiceRoleKey()` in `src/lib/env.ts`
+- Validation guards: `assertDatabaseUrl()`, `assertAuthDatabaseUrl()`, `assertBetterAuthEnv()` in `src/lib/env.ts`
 - `next.config.ts` - Next.js config (currently empty/default)
 - `tsconfig.json` - `strict: true`, `moduleResolution: bundler`, path alias `@/* → ./src/*`
 - `postcss.config.mjs` - Tailwind v4 PostCSS plugin
 - `eslint.config.mjs` - ESLint flat config
 - `.editorconfig` - Editor formatting rules
-- `middleware.ts` - Root middleware delegating to `src/lib/supabase/middleware.ts` for session refresh
+- `middleware.ts` - Root middleware delegating to `src/lib/auth/middleware.ts` for Better Auth session handling
 
 ## Platform Requirements
 
 - Node.js 20.x (inferred), pnpm
-- Local Supabase project or hosted Supabase instance (env vars must be set)
+- Local Postgres containers `basket-portal-db` (:5434) and `basket-auth-db` (:5433); `DATABASE_URL` + `AUTH_DATABASE_URL` must be set
 - Run: `pnpm dev` (or `npm run dev`); quality gate: `npm run check` (lint + typecheck + build)
 - Persistent Node server (VPS, long-lived `next start`) — NOT serverless. In-process `node-cron` schedulers (`src/instrumentation.ts`) depend on the process staying alive. The OpenWA WhatsApp instance runs on this same server.
-- Requires Supabase env vars provisioned in the host
-- Database hosted on Supabase (PostgreSQL); migrations in `supabase/migrations/` applied manually
+- Requires `DATABASE_URL`, `AUTH_DATABASE_URL`, `BETTER_AUTH_*` and Google OAuth env vars provisioned in the host
+- Domain DB is the `basket-portal-db` docker container on the VPS (PostgreSQL 17); migrations in `supabase/migrations/` (directory name is historical) applied manually via `docker exec`
 
 <!-- GSD:stack-end -->
 
@@ -102,10 +101,10 @@ It is one of three sibling apps under `basket-app.com`: `portal.` (this), `analy
 - React components use `PascalCase`: `Button`, `Badge`, `RolesPage`, `SectionPageHeader`.
 - `camelCase` for locals and object properties.
 - Module-level constants in `SCREAMING_SNAKE_CASE`: `STAFF_ROLE_FIELD_MAP`, `OPTIONAL_MATCH_COLUMNS`, `MATCH_STATUS_OPTIONS` (`src/app/actions/matches.ts`, `src/lib/constants.ts`).
-- Database column names stay `snake_case` to match Postgres/Supabase (`full_name`, `sort_order`, `created_at`); application-facing identifiers are `camelCase` (`responsableId`, `graphicsOperatorId`).
+- Database column names stay `snake_case` to match Postgres (`full_name`, `sort_order`, `created_at`); application-facing identifiers are `camelCase` (`responsableId`, `graphicsOperatorId`).
 - `PascalCase` for types and interfaces: `ButtonProps`, `PageProps`, `ProfileRow`, `AppRole`.
 - `type` aliases are strongly preferred over `interface` (40 `export type` vs. 1 `export interface` across `src/`).
-- Supabase-derived types use indexed access into generated `Database` type: `Database["public"]["Tables"]["matches"]["Insert"]` (`src/app/actions/matches.ts`).
+- Row types use indexed access into the generated `Database` type (`src/lib/database.types.ts`, kept from the Supabase era as the domain type source): `Database["public"]["Tables"]["matches"]["Insert"]` (`src/app/actions/matches.ts`).
 - `as const` is used to lock literal arrays/objects: `STAFF_ROLE_FIELD_MAP = [...] as const`.
 
 ## Code Style
@@ -133,14 +132,12 @@ It is one of three sibling apps under `basket-app.com`: `portal.` (this), `analy
 
 ## Error Handling
 
-- `ensureErrorMessage(error: unknown)` in `src/lib/utils.ts` normalizes any throwable into a user-facing string. It checks `Error.message`, then Supabase-style fields `error_description`, `details`, `hint`, falling back to `"Ocurrio un error inesperado."`.
-- Validate Supabase results via `result.error` and `throw` on failure.
+- `ensureErrorMessage(error: unknown)` in `src/lib/utils.ts` normalizes any throwable into a user-facing string. It checks `Error.message`, then PostgREST-style fields `error_description`, `details`, `hint` (legacy), falling back to `"Ocurrio un error inesperado."`.
 - Call `rethrowNavigationError(error)` (wraps `unstable_rethrow`) first in every `catch` so Next.js redirect/`notFound` control-flow throws are not swallowed (`src/app/actions/helpers.ts`).
 - Surface errors to the user as a redirect with `intent: "error"` and a `notice` message rather than throwing to an error boundary.
 - Validate request body with a `zod` schema and `safeParse`, returning `NextResponse.json({ error }, { status })` on failure:
 - Health/simple routes return plain JSON: `NextResponse.json({ ok: true, ... })` (`src/app/api/health/route.ts`).
-- `assertSupabaseEnv()` / `assertServiceRoleKey()` throw descriptive `Error`s when required env vars are missing (`src/lib/env.ts`).
-- Pages short-circuit to a `<SetupPanel />` when `!isSupabaseConfigured` rather than crashing (`src/app/(dashboard)/roles/page.tsx`).
+- `assertDatabaseUrl()` / `assertAuthDatabaseUrl()` / `assertBetterAuthEnv()` throw descriptive `Error`s when required env vars are missing (`src/lib/env.ts`).
 
 ## Input Validation
 
@@ -150,7 +147,7 @@ It is one of three sibling apps under `basket-app.com`: `portal.` (this), `analy
 
 ## Logging
 
-- `console.error` (11×): failed Supabase queries / unexpected failures, namespaced with a bracket tag, e.g. `console.error("[auth] failed to load profile", profileQuery.error);` (`src/lib/auth.ts`).
+- `console.error` (11×): failed DB queries / unexpected failures, namespaced with a bracket tag, e.g. `console.error("[auth] failed to load profile", profileQuery.error);` (`src/lib/auth.ts`).
 - `console.warn` (8×): recoverable / degraded conditions.
 - `console.info` (4×): notable runtime events.
 - Use a bracketed module prefix (`[auth]`, etc.) when logging.
@@ -202,18 +199,18 @@ It is one of three sibling apps under `basket-app.com`: `portal.` (this), `analy
 | Component | Responsibility | File |
 |-----------|----------------|------|
 | Root layout | Fonts, global CSS, html shell | `src/app/layout.tsx` |
-| Auth middleware | Session refresh, route guarding, role redirect | `middleware.ts`, `src/lib/supabase/middleware.ts` |
+| Auth middleware | Session refresh, route guarding, role redirect | `middleware.ts`, `src/lib/auth/middleware.ts` |
 | Auth context | Resolve user + profile + role + `canEdit` | `src/lib/auth.ts` |
 | Dashboard layout | Pick collaborator vs full shell by role | `src/app/(dashboard)/layout.tsx` |
 | Server actions | Mutations for matches, people, roles, auth, settings | `src/app/actions/*.ts` |
 | Data loaders | Read/aggregate queries for pages | `src/lib/data/*.ts` |
-| Supabase clients | Per-context DB access (server/edge/admin/browser) | `src/lib/supabase/*.ts` |
+| DB client | Drizzle + postgres-js pool, memoized per process | `src/lib/db/client.ts` |
 | Domain libs | Dates, audit formatting, integrations, display labels | `src/lib/*.ts` |
 | Page components | Section UIs (grid, people, teams, reports, etc.) | `src/components/**` |
 
 ## Pattern Overview
 
-- Server-first: pages are async RSCs that fetch data directly via Supabase server client.
+- Server-first: pages are async RSCs that fetch data directly via the Drizzle `db` client.
 - Mutations go through `"use server"` actions (`src/app/actions/*`), not REST endpoints.
 - `src/app/api/*` route handlers exist only for machine/external callers (AI, intake, health, exports, logos, reports).
 - Authorization is layered: edge middleware (coarse gate) + per-action `requireEditor`/`requireAdminAccessManager` + Postgres RLS.
@@ -229,18 +226,18 @@ It is one of three sibling apps under `basket-app.com`: `portal.` (this), `analy
 - Purpose: Validate input, enforce permissions, write to DB, revalidate.
 - Location: `src/app/actions/*.ts` (all start with `"use server"`).
 - Contains: `matches.ts`, `people.ts`, `roles.ts`, `auth.ts`, `settings.ts`, shared `helpers.ts`.
-- Depends on: `requireEditor`/`requireUserContext` (auth), Supabase server client, `revalidatePath`, `redirect`.
+- Depends on: `requireEditor`/`requireUserContext` (auth), Drizzle `db`, `revalidatePath`, `redirect`.
 - Used by: forms in page/components.
 - Purpose: External and programmatic entry points.
 - Location: `src/app/api/*/route.ts`.
 - Contains: `ai/*` (Gemini-backed), `matches/intake`, `collaborator-reports`, `grid/calendar`, `team-logo`, `health`.
-- Depends on: Supabase clients, `src/lib` domain helpers.
+- Depends on: Drizzle `db`, `src/lib` domain helpers.
 - Purpose: Reusable read queries, normalization, business rules.
 - Location: `src/lib/data/*` (queries) and `src/lib/*` (pure logic: dates, audit, integrations, display, settings).
-- Depends on: Supabase clients, `database.types.ts`, `types.ts`.
+- Depends on: Drizzle `db`, `database.types.ts`, `types.ts`.
 - Used by: pages, actions, route handlers.
-- Purpose: Context-specific Supabase clients.
-- Location: `src/lib/supabase/`.
+- Purpose: Domain DB access.
+- Location: `src/lib/db/` (`client.ts`, `schema.ts`, `rows.ts`, `columns.ts`).
 - Files: `server.ts` (RSC cookie-bound), `middleware.ts` (edge session refresh), `admin.ts` (service-role, `server-only`), `browser.ts` (client components), `auth-session.ts` (stale-session-safe user fetch).
 
 ## Data Flow
@@ -287,8 +284,7 @@ It is one of three sibling apps under `basket-app.com`: `portal.` (this), `analy
 
 - **Threading:** Single-threaded Node/edge runtime per request (Next.js). No worker threads.
 - **Global state:** `appEnv` object (`src/lib/env.ts`) is the only module-level singleton; it reads `process.env` once at import.
-- **Service-role isolation:** `src/lib/supabase/admin.ts` is marked `import "server-only"` and must never be reachable from client bundles.
-- **Cookie writes in RSC:** `createSupabaseServerClient` (`src/lib/supabase/server.ts:21`) swallows cookie-set errors because server components may render with read-only cookies — session refresh must happen in middleware.
+- **DB isolation:** `src/lib/db/client.ts` is marked `import "server-only"` and must never be reachable from client bundles.
 - **Auth source of truth:** Effective role is derived from both `profiles.role` and `user.app_metadata` via `resolveDashboardAccessRole`; never read role from only one source.
 
 ## Anti-Patterns
@@ -303,7 +299,7 @@ It is one of three sibling apps under `basket-app.com`: `portal.` (this), `analy
 
 - Guards throw (`requireEditor` throws "No tenes permisos para editar.").
 - Navigation errors re-thrown via `unstable_rethrow` (`src/app/actions/helpers.ts:29`).
-- Supabase query errors checked via `.error` and degraded gracefully (fallback profile in `getUserContext`).
+- DB failures in `getUserContext` degrade gracefully (fallback no-access context).
 - API routes return `NextResponse.json({ error }, { status })`.
 
 ## Cross-Cutting Concerns

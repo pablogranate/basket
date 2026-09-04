@@ -1,5 +1,4 @@
 import { SectionPageHeader } from "@/components/layout/section-page-header";
-import { SetupPanel } from "@/components/layout/setup-panel";
 import { LogsSectionTabs } from "@/components/notifications/logs-section-tabs";
 import { Card } from "@/components/ui/card";
 import { requireAdmin } from "@/lib/auth-access";
@@ -13,13 +12,8 @@ import {
 import { db } from "@/lib/db/client";
 import { listProfileLinkReview } from "@/lib/people/identity";
 import { formatMatchDateTime } from "@/lib/date";
-import { isSupabaseConfigured } from "@/lib/env";
 
 export default async function AccessRequestsLogPage() {
-  if (!isSupabaseConfigured) {
-    return <SetupPanel />;
-  }
-
   await requireAdmin();
   const [pending, decided, linkReview] = await Promise.all([
     listPendingAccessRequests(db),

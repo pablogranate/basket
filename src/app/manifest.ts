@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 // The installed home-screen app. start_url is "/" so the existing middleware +
 // apex/role resolution decide where each user lands — the manifest never
 // encodes role logic. No service worker is registered: the app needs a live
-// connection (Supabase) and offline caching would only risk stale data.
+// connection to the portal database and offline caching would only risk stale data.
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "BasquetPass Portal",

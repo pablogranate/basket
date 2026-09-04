@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 
-import { isSupabaseConfigured } from "@/lib/env";
+import { appEnv } from "@/lib/env";
 
 export async function GET() {
   return NextResponse.json({
     ok: true,
-    configured: isSupabaseConfigured,
+    configured: Boolean(appEnv.databaseUrl),
     timestamp: new Date().toISOString(),
   });
 }

@@ -2,23 +2,17 @@ import Link from "next/link";
 import { ArrowLeft, CalendarDays, Clock3, MapPin, Radio, UserRound, X } from "lucide-react";
 
 import { CollaboratorReportForm } from "@/components/collaborators/collaborator-report-form";
-import { SetupPanel } from "@/components/layout/setup-panel";
 import { Card } from "@/components/ui/card";
 import { requireUserContext } from "@/lib/auth";
 import { isDashboardPathAllowedForRole } from "@/lib/constants";
 import { getCollaboratorMatchData, isUuidLike } from "@/lib/data/collaborators";
 import { getRoleCategoryDisplayName, getRoleDisplayName } from "@/lib/display";
-import { isSupabaseConfigured } from "@/lib/env";
 
 type PageProps = {
   params: Promise<{ matchId: string }>;
 };
 
 export default async function CollaboratorReportPage({ params }: PageProps) {
-  if (!isSupabaseConfigured) {
-    return <SetupPanel />;
-  }
-
   const { matchId } = await params;
   const user = await requireUserContext();
   const canViewGrid = isDashboardPathAllowedForRole("/grid", user.role);

@@ -6,7 +6,6 @@ import {
   saveGeminiSettingsAction,
   savePreferencesAction,
 } from "@/app/actions/settings";
-import { SetupPanel } from "@/components/layout/setup-panel";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PageMessage } from "@/components/ui/page-message";
@@ -18,7 +17,6 @@ import { SECTION_COPY } from "@/lib/copy";
 import { getAccessRequestRecipientConfig } from "@/lib/access-requests/config";
 import { ACCESS_REQUEST_FUNCIONES } from "@/lib/access-requests/constants";
 import { getLatestAnnouncement } from "@/lib/data/announcements";
-import { isSupabaseConfigured } from "@/lib/env";
 import { ProfileAvatarSettings } from "@/components/settings/profile-avatar-settings";
 import { GEMINI_MODEL_OPTIONS, getSettingsSnapshot, UI_DENSITY_OPTIONS } from "@/lib/settings";
 import { parseNotice } from "@/lib/search-params";
@@ -31,10 +29,6 @@ type PageProps = {
 export default async function SettingsPage({ searchParams }: PageProps) {
   const resolvedSearchParams = await searchParams;
   const { intent, notice } = parseNotice(resolvedSearchParams);
-
-  if (!isSupabaseConfigured) {
-    return <SetupPanel />;
-  }
 
   const user = await requireUserContext();
   const isAdmin = can(user, "admin");
