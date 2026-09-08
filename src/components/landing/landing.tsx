@@ -4,6 +4,7 @@ import {
   BarChart3,
   Clapperboard,
   Image as ImageIcon,
+  Radio,
 } from "lucide-react";
 
 import { LandingLogoutClient } from "@/components/landing/landing-logout-client";
@@ -36,6 +37,11 @@ const LANDING_APPS: LandingApp[] = [
     subdomain: "generator",
     name: "Generador",
     Icon: ImageIcon,
+  },
+  {
+    subdomain: "op",
+    name: "Operaciones",
+    Icon: Radio,
   },
 ];
 
