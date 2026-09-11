@@ -58,6 +58,15 @@ export function DashboardShell(props: {
           <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[rgba(255,255,255,0.88)] backdrop-blur-md">
             <div className="flex h-20 items-center gap-4 px-4 sm:px-6 lg:px-8">
               <div className="flex min-w-0 flex-1 items-center gap-4">
+                {landingUrl ? (
+                  <a
+                    href={landingUrl}
+                    aria-label="Volver"
+                    className="inline-flex items-center justify-center gap-2 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--background-soft)]"
+                  >
+                    <ArrowLeft className="size-5" aria-hidden />
+                  </a>
+                ) : null}
                 <div className="flex items-center gap-3 lg:hidden">
                   <DashboardMobileNav
                     brand={brand}
@@ -81,15 +90,6 @@ export function DashboardShell(props: {
                       can(user, "admin")
                     }
                   />
-                ) : null}
-                {landingUrl ? (
-                  <a
-                    href={landingUrl}
-                    aria-label="Volver"
-                    className="inline-flex items-center justify-center gap-2 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--background-soft)]"
-                  >
-                    <ArrowLeft className="size-5" aria-hidden />
-                  </a>
                 ) : null}
                 <UserProfileChip
                   userId={user?.userId ?? null}

@@ -1,5 +1,3 @@
-<!-- GSD:project-start source:PROJECT.md -->
-
 ## Project
 
 **Basket-App Portal — Unified Auth**
@@ -17,10 +15,6 @@ It is one of three sibling apps under `basket-app.com`: `portal.` (this), `analy
 - **Compatibility**: SSO requires identical `BETTER_AUTH_SECRET`, shared session table, and `.basket-app.com` cookie domain across all participating apps.
 - **Security**: Service-role/admin DB access stays server-only; per-app access gates enforced in `databaseHooks`; portal authorization moves fully to the app layer once RLS is dropped.
 - **Migration**: Existing portal users must retain access — no lockout; external-user path must work without Google.
-
-<!-- GSD:project-end -->
-
-<!-- GSD:stack-start source:codebase/STACK.md -->
 
 ## Technology Stack
 
@@ -82,10 +76,6 @@ It is one of three sibling apps under `basket-app.com`: `portal.` (this), `analy
 - Persistent Node server (VPS, long-lived `next start`) — NOT serverless. In-process `node-cron` schedulers (`src/instrumentation.ts`) depend on the process staying alive. The OpenWA WhatsApp instance runs on this same server.
 - Requires `DATABASE_URL`, `AUTH_DATABASE_URL`, `BETTER_AUTH_*` and Google OAuth env vars provisioned in the host
 - Domain DB is the `basket-portal-db` docker container on the VPS (PostgreSQL 17); migrations in `supabase/migrations/` (directory name is historical) applied manually via `docker exec`
-
-<!-- GSD:stack-end -->
-
-<!-- GSD:conventions-start source:CONVENTIONS.md -->
 
 ## Conventions
 
@@ -181,10 +171,6 @@ It is one of three sibling apps under `basket-app.com`: `portal.` (this), `analy
 - Components expose a `variant` prop typed as a string-literal union, mapped through a `Record<Variant, string>` of class strings (`src/components/ui/button.tsx`).
 - Shared base class strings are exported for reuse: `badgeBaseClassName` (`src/components/ui/badge.tsx`).
 - Component props extend native HTML attributes: `React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ... }`.
-
-<!-- GSD:conventions-end -->
-
-<!-- GSD:architecture-start source:ARCHITECTURE.md -->
 
 ## Architecture
 
@@ -304,34 +290,6 @@ It is one of three sibling apps under `basket-app.com`: `portal.` (this), `analy
 
 ## Cross-Cutting Concerns
 
-<!-- GSD:architecture-end -->
-
-<!-- GSD:skills-start source:skills/ -->
-
 ## Project Skills
 
 No project skills found. Add skills to any of: `.claude/skills/`, `.agents/skills/`, `.cursor/skills/`, `.github/skills/`, or `.codex/skills/` with a `SKILL.md` index file.
-<!-- GSD:skills-end -->
-
-<!-- GSD:workflow-start source:GSD defaults -->
-
-## GSD Workflow Enforcement
-
-Before using Edit, Write, or other file-changing tools, start work through a GSD command so planning artifacts and execution context stay in sync.
-
-Use these entry points:
-
-- `/gsd-quick` for small fixes, doc updates, and ad-hoc tasks
-- `/gsd-debug` for investigation and bug fixing
-- `/gsd-execute-phase` for planned phase work
-
-Do not make direct repo edits outside a GSD workflow unless the user explicitly asks to bypass it.
-<!-- GSD:workflow-end -->
-
-<!-- GSD:profile-start -->
-
-## Developer Profile
-
-> Profile not yet configured. Run `/gsd-profile-user` to generate your developer profile.
-> This section is managed by `generate-claude-profile` -- do not edit manually.
-<!-- GSD:profile-end -->
