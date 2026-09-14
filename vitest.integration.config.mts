@@ -26,7 +26,8 @@ export default defineConfig({
     // One DB, shared across the suite — run serially so tests don't race on it.
     fileParallelism: false,
     env: {
-      AUTH_DATABASE_URL: "postgres://test:test@localhost:5432/test",
+      // Auth schema lives in the same throwaway DB (applied by global-setup).
+      AUTH_DATABASE_URL: process.env.DATABASE_URL ?? "",
       BETTER_AUTH_SECRET: "test-better-auth-secret-value-0000000000",
       GOOGLE_CLIENT_ID: "test-google-client-id",
       GOOGLE_CLIENT_SECRET: "test-google-client-secret",

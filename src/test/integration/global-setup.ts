@@ -29,7 +29,7 @@ async function applyPostBaselineMigrations(sql: postgres.Sql) {
   }
 }
 
-// Applies the portal baseline migration to the throwaway DATABASE_URL once,
+// Applies the portal baseline and the Auth DB migrations to the throwaway DATABASE_URL once,
 // before any integration test runs. Fails loudly if pointed at anything but a
 // dedicated test DB (safety: never run these against prod/Supabase).
 export default async function setup() {
@@ -53,6 +53,14 @@ export default async function setup() {
   try {
     await migrate(drizzle(sql), { migrationsFolder: "drizzle/portal" });
     await applyPostBaselineMigrations(sql);
+    // The Auth DB schema (users, sessions, every Acceso) shares the throwaway
+    // database in tests; AUTH_DATABASE_URL points at DATABASE_URL (see
+    // vitest.integration.config.mts). A separate migrations table keeps the
+    // two journals from shadowing each other's timestamps.
+    await migrate(drizzle(sql), {
+      migrationsFolder: "drizzle/auth",
+      migrationsTable: "__drizzle_migrations_auth",
+    });
   } finally {
     await sql.end();
   }

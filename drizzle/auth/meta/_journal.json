@@ -8,6 +8,13 @@
       "when": 1780505605115,
       "tag": "0000_careful_iron_lad",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789407037006,
+      "tag": "0001_acceso_app_access",
+      "breakpoints": true
     }
   ]
 }

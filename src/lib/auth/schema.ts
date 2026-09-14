@@ -1,6 +1,13 @@
 // src/lib/auth/schema.ts
 // Source: better-auth.com/docs/adapters/drizzle + concepts/database + plugins/admin
-import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  pgEnum,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+} from "drizzle-orm/pg-core";
 
 export const authUser = pgTable("auth_user", {
   id: text("id").primaryKey(),
@@ -58,3 +65,36 @@ export const authVerification = pgTable("auth_verification", {
   createdAt: timestamp("created_at").notNull(),
   updatedAt: timestamp("updated_at").notNull(),
 });
+
+// Acceso: one identity's Nivel in one sibling app (ADR 0009). The portal is
+// exempt (its entry is a Cuenta's role), so there is no `portal` value. Adding
+// a sibling is a deliberate migration extending the enum.
+export const appAccessApp = pgEnum("auth_app_access_app", [
+  "analytics",
+  "incidencias",
+  "generator",
+  "ops",
+]);
+
+export const appAccessLevel = pgEnum("auth_app_access_level", [
+  "read",
+  "write",
+  "admin",
+]);
+
+export const authAppAccess = pgTable(
+  "auth_app_access",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUser.id, { onDelete: "cascade" }),
+    app: appAccessApp("app").notNull(),
+    level: appAccessLevel("level").notNull(),
+    // Auth user id of the admin who granted; null for seeded rows.
+    grantedBy: text("granted_by").references(() => authUser.id, {
+      onDelete: "set null",
+    }),
+    grantedAt: timestamp("granted_at").notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.app] })],
+);
