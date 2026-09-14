@@ -2,7 +2,7 @@ import "server-only";
 
 import { inArray } from "drizzle-orm";
 
-import { grantAcceso, getAcceso } from "@/lib/acceso/accesos";
+import { grantAccesoIfAbsent } from "@/lib/acceso/accesos";
 import { authUser } from "@/lib/auth/schema";
 import { authDb } from "@/lib/db/auth-client";
 import { db } from "@/lib/db/client";
@@ -82,20 +82,11 @@ export async function seedGeneratorAccesoForFullAccessRoles(
 
     const seeded: Seeded = { email, role: cuenta.role, userId };
 
-    if (await getAcceso(userId, "generator")) {
-      report.alreadyHad.push(seeded);
-      continue;
-    }
-
-    if (!dryRun) {
-      await grantAcceso({
-        userId,
-        app: "generator",
-        level: SEEDED_LEVEL,
-        grantedBy: null,
-      });
-    }
-    report.granted.push(seeded);
+    const granted = await grantAccesoIfAbsent(
+      { userId, app: "generator", level: SEEDED_LEVEL, grantedBy: null },
+      { dryRun },
+    );
+    (granted ? report.granted : report.alreadyHad).push(seeded);
   }
 
   return report;
