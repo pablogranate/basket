@@ -3,6 +3,7 @@ import "server-only";
 import { eq, inArray } from "drizzle-orm";
 
 import { listUsersWithAccesos, type UserWithAccesos } from "@/lib/acceso/accesos";
+import type { UserContext } from "@/lib/auth";
 import type { AppRole } from "@/lib/database.types";
 import { db } from "@/lib/db/client";
 import { people as peopleTable, profiles as profilesTable } from "@/lib/db/schema";
@@ -17,7 +18,12 @@ export type AccesosMatrixRow = UserWithAccesos & {
 
 // Every identity in the Auth DB decorated with its Cuenta and Ficha from the
 // Domain DB — two databases, so joined in memory over the small staff set.
-export async function getAccesosMatrix(): Promise<AccesosMatrixRow[]> {
+// Authorization is resolved by the caller (requireAdmin) and threaded in as
+// ctx per the loader contract (D-06); the read itself is not per-actor.
+export async function getAccesosMatrix(
+  ctx: UserContext,
+): Promise<AccesosMatrixRow[]> {
+  void ctx;
   const users = await listUsersWithAccesos();
 
   if (users.length === 0) {
@@ -41,8 +47,10 @@ export async function getAccesosMatrix(): Promise<AccesosMatrixRow[]> {
 
   const byAuthUserId = new Map(
     cuentas
-      .filter((c) => c.authUserId)
-      .map((c) => [c.authUserId!, c] as const),
+      .filter(
+        (c): c is typeof c & { authUserId: string } => c.authUserId !== null,
+      )
+      .map((c) => [c.authUserId, c] as const),
   );
 
   return users.map((user) => {

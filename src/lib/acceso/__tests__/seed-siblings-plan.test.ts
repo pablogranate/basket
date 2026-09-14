@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { planSiblingAccesos } from "@/lib/acceso/seed-siblings-plan";
+import {
+  findSkippedSiblingUsers,
+  planSiblingAccesos,
+} from "@/lib/acceso/seed-siblings-plan";
 
 // Spec #172 story 27: same effective rights as in Supabase / the allowlist.
 describe("planSiblingAccesos", () => {
@@ -68,6 +71,25 @@ describe("planSiblingAccesos", () => {
     // Later rows win on duplicates so a stricter Nivel listed later is kept.
     expect(plan).toEqual([
       { email: "dup@basquetpass.tv", app: "incidencias", level: "admin" },
+    ]);
+  });
+
+  it("reports who the mapping drops and why, so the dry run is complete", () => {
+    expect(
+      findSkippedSiblingUsers({
+        incidencias: [
+          { email: "x@basquetpass.tv", role: "invitado" },
+          { email: "noprofile@basquetpass.tv", role: "" },
+          { email: "ok@basquetpass.tv", role: "operador" },
+        ],
+        ops: [],
+        opsViewerEmails: [],
+        analytics: [{ email: "y@basquetpass.tv", role: "owner" }],
+      }),
+    ).toEqual([
+      { email: "x@basquetpass.tv", app: "incidencias", reason: "rol desconocido: invitado" },
+      { email: "noprofile@basquetpass.tv", app: "incidencias", reason: "sin perfil" },
+      { email: "y@basquetpass.tv", app: "analytics", reason: "rol desconocido: owner" },
     ]);
   });
 });

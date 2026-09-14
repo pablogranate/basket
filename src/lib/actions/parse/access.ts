@@ -7,6 +7,7 @@ import {
   type AccesoLevel,
   isAccesoLevel,
   isSiblingApp,
+  NONE_LEVEL_OPTION,
   type SiblingApp,
 } from "@/lib/acceso/catalog";
 
@@ -16,8 +17,6 @@ export type SetAccesoInput = {
   app: SiblingApp;
   level: AccesoLevel | null;
 };
-
-export const NONE_LEVEL_OPTION = "none";
 
 export function parseSetAcceso(formData: FormData): ParseResult<SetAccesoInput> {
   const userId = String(formData.get("userId") ?? "").trim();

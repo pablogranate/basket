@@ -17,8 +17,13 @@ export const ACCESO_LEVELS = [
   "admin",
 ] as const satisfies ReadonlyArray<(typeof appAccessLevel.enumValues)[number]>;
 
+// Matrix select value meaning "revoke" — not a Nivel, so kept apart from them.
+export const NONE_LEVEL_OPTION = "none";
+
 export type SiblingApp = (typeof SIBLING_APPS)[number];
 export type AccesoLevel = (typeof ACCESO_LEVELS)[number];
+// What a matrix select can hold: a Nivel or "none" (revoke).
+export type LevelOption = AccesoLevel | typeof NONE_LEVEL_OPTION;
 
 export function isSiblingApp(value: string): value is SiblingApp {
   return (SIBLING_APPS as ReadonlyArray<string>).includes(value);

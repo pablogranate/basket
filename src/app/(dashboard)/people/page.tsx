@@ -113,12 +113,11 @@ export default async function PeoplePage({ searchParams }: PageProps) {
               <PeopleSearchField className="hidden sm:flex" />
               <PeopleHeaderExtras />
               {canSelectAccessTier ? (
-                <Link
-                  href="/access"
-                  className="inline-flex h-11 items-center gap-2 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--background-soft)]"
-                >
-                  <KeyRound className="size-4" />
-                  Accesos a apps
+                <Link href="/access">
+                  <Button variant="secondary" className="h-11 gap-2">
+                    <KeyRound className="size-4" />
+                    Accesos a apps
+                  </Button>
                 </Link>
               ) : null}
               {user.canEdit ? (
@@ -482,7 +481,7 @@ async function PeopleEditModal({
 
                 {canSelectAccessTier && selectedPerson.email ? (
                   <Link
-                    href="/access"
+                    href={`/access?email=${encodeURIComponent(selectedPerson.email)}`}
                     className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[var(--accent)] hover:underline"
                   >
                     <KeyRound className="size-4" />

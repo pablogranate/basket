@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageMessage } from "@/components/ui/page-message";
 import { SectionTableCard } from "@/components/ui/section-table-card";
-import { getAccesosMatrix } from "@/lib/acceso/matrix";
 import {
   SIBLING_APP_LABELS,
   SIBLING_APP_LEVEL_HELP,
@@ -16,30 +15,31 @@ import {
 } from "@/lib/acceso/catalog";
 import { requireAdmin } from "@/lib/auth-access";
 import { SECTION_COPY } from "@/lib/copy";
+import { getAccesosMatrix } from "@/lib/data/accesos";
+import { formatMatchDate } from "@/lib/date";
 import { getRoleDisplayName } from "@/lib/display";
 import { parseNotice } from "@/lib/search-params";
+import { cn } from "@/lib/utils";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-function formatGrantedAt(date: Date) {
-  return date.toLocaleDateString("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
-
 // Accesos matrix (ADR 0009): every identity in the Auth DB — with or without a
 // Cuenta or Ficha — × the four sibling apps. Admins only: the route prefix is
 // denied to productores and requireAdmin refuses anyone else server-side.
 export default async function AccessPage({ searchParams }: PageProps) {
-  const [{ intent, notice }, , rows] = await Promise.all([
-    searchParams.then(parseNotice),
-    requireAdmin(),
-    getAccesosMatrix(),
+  const ctx = await requireAdmin();
+  const [resolvedSearchParams, rows] = await Promise.all([
+    searchParams,
+    getAccesosMatrix(ctx),
   ]);
+  const { intent, notice } = parseNotice(resolvedSearchParams);
+  // Deep link from a person's Cuenta block: highlight that identity's row.
+  const highlightedEmail =
+    typeof resolvedSearchParams.email === "string"
+      ? resolvedSearchParams.email.toLowerCase()
+      : null;
 
   const grantorNames = new Map(rows.map((row) => [row.userId, row.name || row.email]));
 
@@ -90,7 +90,15 @@ export default async function AccessPage({ searchParams }: PageProps) {
               </thead>
               <tbody className="divide-y divide-[var(--n-100)]">
                 {rows.map((row) => (
-                  <tr key={row.userId} className="align-top">
+                  <tr
+                    key={row.userId}
+                    id={`identity-${row.userId}`}
+                    className={cn(
+                      "align-top",
+                      highlightedEmail === row.email.toLowerCase() &&
+                        "bg-[var(--accent-soft)]",
+                    )}
+                  >
                     <td className="px-6 py-4">
                       <div className="font-semibold text-[var(--foreground)]">
                         {row.name || row.email}
@@ -119,7 +127,7 @@ export default async function AccessPage({ searchParams }: PageProps) {
                               {acceso.grantedBy
                                 ? `Por ${grantorNames.get(acceso.grantedBy) ?? "admin"}`
                                 : "Alta inicial"}{" "}
-                              · {formatGrantedAt(acceso.grantedAt)}
+                              · {formatMatchDate(acceso.grantedAt.toISOString(), undefined, "d MMM yyyy")}
                             </p>
                           ) : null}
                         </td>

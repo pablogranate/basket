@@ -89,8 +89,11 @@ Env (in `.env.local`, only for the cutover run): `SEED_INCIDENCIAS_SUPABASE_URL`
 ops repo `src/lib/roles.ts`), `SEED_ANALYTICS_DATABASE_URL`, plus
 `AUTH_DATABASE_URL`. `--input` takes a JSON file shaped like `SiblingSeedInput`
 and skips every fetch. Idempotent: existing identities are reused by email
-(case-insensitive) and an existing Acceso is never overridden. Seeded rows have
-`granted_by = null`.
+(case-insensitive) and an existing Acceso is never overridden — deliberately
+"grant if absent" rather than the spec's "upsert", so an admin's later change
+survives a re-run; fix a wrongly seeded row from the Accesos page. Users the
+mapping drops (unknown role, no incidencias profile) are listed in the output.
+Seeded rows have `granted_by = null`.
 
 ## Integration tests
 

@@ -9,8 +9,6 @@ import { authAppAccess, authUser } from "@/lib/auth/schema";
 // Acceso: one identity's Nivel in one sibling app (CONTEXT.md "Unified auth",
 // ADR 0009). Read per request, never cached: revoking denies on the next hit.
 
-export type { AccesoLevel, SiblingApp } from "@/lib/acceso/catalog";
-
 export type Acceso = {
   userId: string;
   app: SiblingApp;
@@ -18,6 +16,9 @@ export type Acceso = {
   grantedBy: string | null;
   grantedAt: Date;
 };
+
+// What a caller supplies to grant: the row minus its timestamp.
+export type AccesoGrant = Omit<Acceso, "grantedAt">;
 
 export async function getAcceso(
   userId: string,
@@ -32,12 +33,7 @@ export async function getAcceso(
   return rows[0] ?? null;
 }
 
-export async function grantAcceso(input: {
-  userId: string;
-  app: SiblingApp;
-  level: AccesoLevel;
-  grantedBy: string | null;
-}): Promise<Acceso> {
+export async function grantAcceso(input: AccesoGrant): Promise<Acceso> {
   const [row] = await authDb
     .insert(authAppAccess)
     .values({
@@ -120,12 +116,7 @@ export async function listUsersWithAccesos(): Promise<UserWithAccesos[]> {
 // Seeds grant without overriding: an admin may already have set a Nivel.
 // Returns whether a row was (or, in dryRun, would be) written.
 export async function grantAccesoIfAbsent(
-  input: {
-    userId: string;
-    app: SiblingApp;
-    level: AccesoLevel;
-    grantedBy: string | null;
-  },
+  input: AccesoGrant,
   options: { dryRun?: boolean } = {},
 ): Promise<boolean> {
   if (await getAcceso(input.userId, input.app)) {

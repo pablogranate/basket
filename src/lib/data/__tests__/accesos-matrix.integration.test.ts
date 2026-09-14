@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { grantAcceso } from "@/lib/acceso/accesos";
-import { getAccesosMatrix } from "@/lib/acceso/matrix";
-import { seedAuthUser, testSql, truncateAll } from "@/test/integration/db";
+import { getAccesosMatrix } from "@/lib/data/accesos";
+import { seedActor, seedAuthUser, testSql, truncateAll } from "@/test/integration/db";
 
 // What the Accesos page shows: every identity in the Auth DB, joined to its
 // Cuenta (Domain DB profiles) and Ficha (people) when they exist.
@@ -33,7 +33,8 @@ describe("accesos matrix (integration)", () => {
     await sql`INSERT INTO profiles ${sql({ id: crypto.randomUUID(), email: "op@basquetpass.tv", role: "collaborator", full_name: "Operador", auth_user_id: operator })}`;
     await grantAcceso({ userId: operator, app: "incidencias", level: "write", grantedBy: admin });
 
-    const matrix = await getAccesosMatrix();
+    const { ctx } = await seedActor(sql);
+    const matrix = await getAccesosMatrix(ctx);
 
     expect(matrix.map((r) => r.email)).toEqual([
       "admin@basquetpass.tv",

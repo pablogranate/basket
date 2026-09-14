@@ -9,12 +9,12 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import {
   ACCESO_LEVEL_LABELS,
   ACCESO_LEVELS,
+  SIBLING_APP_LABELS,
   type AccesoLevel,
+  type LevelOption,
+  NONE_LEVEL_OPTION,
   type SiblingApp,
 } from "@/lib/acceso/catalog";
-import { NONE_LEVEL_OPTION } from "@/lib/actions/parse/access";
-
-type LevelOption = AccesoLevel | typeof NONE_LEVEL_OPTION;
 
 // One matrix cell: the Nivel for one identity in one app. Saving grants,
 // changes or revokes (none) the Acceso; the person feels it on their next
@@ -41,7 +41,7 @@ export function AccesoLevelCell({
         name="level"
         value={level}
         onChange={(event) => setLevel(event.target.value as LevelOption)}
-        aria-label={`Nivel en ${app}`}
+        aria-label={`Nivel en ${SIBLING_APP_LABELS[app]}`}
         className={
           currentLevel
             ? "h-10 min-w-[8.5rem] px-3 py-0 font-semibold"

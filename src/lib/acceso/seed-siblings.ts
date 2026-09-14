@@ -7,12 +7,6 @@ import {
 } from "@/lib/acceso/accesos";
 import type { PlannedAcceso } from "@/lib/acceso/seed-siblings-plan";
 
-export {
-  planSiblingAccesos,
-  type PlannedAcceso,
-  type SiblingSeedInput,
-} from "@/lib/acceso/seed-siblings-plan";
-
 export type SiblingSeedReport = {
   createdIdentities: { email: string; userId: string | null }[];
   granted: PlannedAcceso[];
@@ -58,22 +52,11 @@ export async function applySiblingAccesoPlan(
       continue;
     }
 
-    if (dryRun) {
-      const has = await grantAccesoIfAbsent(
-        { userId, app: row.app, level: row.level, grantedBy: null },
-        { dryRun: true },
-      );
-      (has ? report.granted : report.alreadyHad).push(row);
-      continue;
-    }
-
-    const granted = await grantAccesoIfAbsent({
-      userId,
-      app: row.app,
-      level: row.level,
-      grantedBy: null,
-    });
-    (granted ? report.granted : report.alreadyHad).push(row);
+    const wouldGrant = await grantAccesoIfAbsent(
+      { userId, app: row.app, level: row.level, grantedBy: null },
+      { dryRun },
+    );
+    (wouldGrant ? report.granted : report.alreadyHad).push(row);
   }
 
   return report;

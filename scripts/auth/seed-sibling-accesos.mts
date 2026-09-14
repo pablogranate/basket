@@ -17,11 +17,12 @@ import { readFile } from "node:fs/promises";
 
 import postgres from "postgres";
 
+import { applySiblingAccesoPlan } from "@/lib/acceso/seed-siblings";
 import {
-  applySiblingAccesoPlan,
+  findSkippedSiblingUsers,
   planSiblingAccesos,
   type SiblingSeedInput,
-} from "@/lib/acceso/seed-siblings";
+} from "@/lib/acceso/seed-siblings-plan";
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
@@ -114,6 +115,7 @@ async function collectInput(): Promise<SiblingSeedInput> {
 
 const input = await collectInput();
 const plan = planSiblingAccesos(input);
+const skipped = findSkippedSiblingUsers(input);
 const report = await applySiblingAccesoPlan(plan, { dryRun });
 
 const verb = dryRun ? "would" : "did";
@@ -124,5 +126,8 @@ console.log(`[seed-siblings] Accesos ${verb} grant: ${report.granted.length}`);
 for (const row of report.granted) console.log(`  + ${row.email}  ${row.app}/${row.level}`);
 console.log(`[seed-siblings] already present, untouched: ${report.alreadyHad.length}`);
 for (const row of report.alreadyHad) console.log(`  = ${row.email}  ${row.app}`);
+
+console.log(`[seed-siblings] skipped by the mapping: ${skipped.length}`);
+for (const row of skipped) console.log(`  ? ${row.email}  ${row.app} — ${row.reason}`);
 
 process.exit(0);
