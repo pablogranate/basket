@@ -19,7 +19,7 @@ At the same time we stopped running a Better Auth *server* per sibling. Only the
 
 - `auth_app_access` lives in the Auth DB even though it is not identity. The glossary now says the Auth DB holds "users, sessions and every Acceso". Adding a sibling is a migration that extends the `app` enum, deliberately.
 - Analytics loses its `databaseHooks`, `@basquetpass.tv` domain check, `/api/auth` route, Google credentials, `auth_allowed_emails` and its `/admin` allowlist manager. Its `admin` level currently unlocks nothing beyond `viewer`.
-- The generator gate in `/api/gates/[app]` looks up an Acceso instead of the `dashboard.full` capability; the nginx block is unchanged.
+- The generator gate in `/api/gates/[app]` looks up an Acceso instead of the `dashboard.full` capability; the nginx block is unchanged. Existing admins and editors receive a `generator` Acceso through a deploy-day seed (see `docs/runbooks/unified-auth-acceso.md`).
 - Legacy identities in sibling databases (Supabase `auth.users` uuids in incidencias `profiles`/`incidencias`, ops `messages.created_by`, `audit_logs.user_id`) are linked to the Better Auth user id by email on first login; old uuids stay as history.
 - The ops worker keeps writing `created_by = null` for system actions; it never touches auth.
 - Revocation relies on Better Auth session invalidation plus the per-request Acceso read; a deleted row denies on the next request.

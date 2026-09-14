@@ -59,6 +59,14 @@ export const CAPABILITY_DENIED_MESSAGE: Record<Capability, string> = {
 // hasAccess:false, and must never pass a capability check.
 export type Actor = { role: AppRole; hasAccess: boolean };
 
+// Which roles hold a capability — for the few places that enumerate people
+// (seeds, reports) rather than check one actor.
+export function rolesWithCapability(
+  capability: Capability,
+): ReadonlyArray<AppRole> {
+  return CAPABILITY_ROLES[capability];
+}
+
 export function can(
   actor: Actor | null | undefined,
   capability: Capability,

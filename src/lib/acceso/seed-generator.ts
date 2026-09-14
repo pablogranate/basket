@@ -7,6 +7,7 @@ import { authUser } from "@/lib/auth/schema";
 import { authDb } from "@/lib/db/auth-client";
 import { db } from "@/lib/db/client";
 import { profiles as profilesTable } from "@/lib/db/schema";
+import { rolesWithCapability } from "@/lib/roles";
 
 // Deploy-day rule (basket#173): the generator used to admit the Full-access
 // roles (admin, editor) through the dashboard.full capability; now it admits a
@@ -18,7 +19,8 @@ import { profiles as profilesTable } from "@/lib/db/schema";
 // Cross-database on purpose: Cuentas live in the Domain DB, Accesos in the Auth
 // DB, so this cannot be a SQL migration. Run `pnpm db:auth:seed-generator`.
 
-const FULL_ACCESS_ROLES = ["admin", "editor"] as const;
+// The exact set the gate used to admit — derived, so the seed cannot drift.
+const FULL_ACCESS_ROLES = rolesWithCapability("dashboard.full");
 const SEEDED_LEVEL = "write";
 
 type Seeded = { email: string; role: string; userId: string };
@@ -27,7 +29,6 @@ export type SeedGeneratorReport = {
   granted: Seeded[];
   alreadyHad: Seeded[];
   noIdentity: { email: string; role: string }[];
-  dryRun: boolean;
 };
 
 export async function seedGeneratorAccesoForFullAccessRoles(
@@ -68,7 +69,6 @@ export async function seedGeneratorAccesoForFullAccessRoles(
     granted: [],
     alreadyHad: [],
     noIdentity: [],
-    dryRun,
   };
 
   for (const cuenta of cuentas) {

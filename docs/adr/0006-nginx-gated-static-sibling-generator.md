@@ -1,4 +1,10 @@
+---
+status: partially superseded by 0009
+---
 # Generator is an nginx-gated static sibling, not a Better Auth instance
+
+> **Superseded in part by [ADR 0009](0009-central-acceso-single-auth-server.md):** siblings no longer run their own Better Auth instance (they are Session readers), and the gate admits a `generator` Acceso instead of the full-access role set. The nginx `auth_request` shape below still stands.
+
 
 Every sibling app under `*.basket-app.com` runs its own Better Auth instance against the shared `basket_auth` DB — except the generator. It is a fully static browser tool (one `index.html`, no backend, no `package.json`), so instead of bolting a Node server onto it just to validate sessions, its app gate is enforced in front of it: nginx serves the files directly (`root`, no node process) and `auth_request` calls the portal's `GET /api/gates/generator`, which checks the shared session plus the full-access role set (admin/editor/coordinator). 401 redirects to portal login, 403 to portal `/no-access`.
 

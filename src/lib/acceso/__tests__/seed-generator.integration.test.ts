@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { getAcceso, grantAcceso } from "@/lib/acceso/accesos";
 import { seedGeneratorAccesoForFullAccessRoles } from "@/lib/acceso/seed-generator";
-import { testSql, truncateAll } from "@/test/integration/db";
+import { seedAuthUser, testSql, truncateAll } from "@/test/integration/db";
 
 // Deploy-day seed (basket#173): every portal admin and editor keeps the
 // generator, now as a `generator` Acceso instead of the dashboard.full
@@ -23,21 +23,6 @@ describe("seed generator Acceso for full-access roles (integration)", () => {
     await truncateAll(sql);
   });
 
-  async function seedAuthUser(exec: Sql, email: string) {
-    const id = `user-${crypto.randomUUID()}`;
-    const now = new Date();
-    await exec`
-      INSERT INTO auth_user ${exec({
-        id,
-        email,
-        name: email.split("@")[0],
-        email_verified: true,
-        created_at: now,
-        updated_at: now,
-      })}`;
-    return id;
-  }
-
   async function seedProfile(
     exec: Sql,
     values: { email: string; role: string; auth_user_id?: string | null },
@@ -55,10 +40,10 @@ describe("seed generator Acceso for full-access roles (integration)", () => {
   }
 
   it("grants generator/write to linked admins and editors, matches unlinked ones by email, skips the rest", async () => {
-    const admin = await seedAuthUser(sql, "admin@basquetpass.tv");
-    const editor = await seedAuthUser(sql, "editor@basquetpass.tv");
-    const unlinkedEditor = await seedAuthUser(sql, "Unlinked.Editor@basquetpass.tv");
-    const collaborator = await seedAuthUser(sql, "colab@basquetpass.tv");
+    const admin = await seedAuthUser(sql, { email: "admin@basquetpass.tv" });
+    const editor = await seedAuthUser(sql, { email: "editor@basquetpass.tv" });
+    const unlinkedEditor = await seedAuthUser(sql, { email: "Unlinked.Editor@basquetpass.tv" });
+    const collaborator = await seedAuthUser(sql, { email: "colab@basquetpass.tv" });
     await seedProfile(sql, { email: "admin@basquetpass.tv", role: "admin", auth_user_id: admin });
     await seedProfile(sql, { email: "editor@basquetpass.tv", role: "editor", auth_user_id: editor });
     // Never logged in since the Better Auth cutover: no auth_user_id yet, same email.
@@ -89,8 +74,8 @@ describe("seed generator Acceso for full-access roles (integration)", () => {
   });
 
   it("is idempotent and never overrides a Nivel an admin already set", async () => {
-    const admin = await seedAuthUser(sql, "admin@basquetpass.tv");
-    const editor = await seedAuthUser(sql, "editor@basquetpass.tv");
+    const admin = await seedAuthUser(sql, { email: "admin@basquetpass.tv" });
+    const editor = await seedAuthUser(sql, { email: "editor@basquetpass.tv" });
     await seedProfile(sql, { email: "admin@basquetpass.tv", role: "admin", auth_user_id: admin });
     await seedProfile(sql, { email: "editor@basquetpass.tv", role: "editor", auth_user_id: editor });
     await grantAcceso({ userId: editor, app: "generator", level: "read", grantedBy: admin });
@@ -110,7 +95,7 @@ describe("seed generator Acceso for full-access roles (integration)", () => {
   });
 
   it("dry run reports the plan and writes nothing", async () => {
-    const admin = await seedAuthUser(sql, "admin@basquetpass.tv");
+    const admin = await seedAuthUser(sql, { email: "admin@basquetpass.tv" });
     await seedProfile(sql, { email: "admin@basquetpass.tv", role: "admin", auth_user_id: admin });
 
     const report = await seedGeneratorAccesoForFullAccessRoles({ dryRun: true });

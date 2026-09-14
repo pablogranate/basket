@@ -19,7 +19,7 @@ A sibling's ability to recognize the shared login without being able to create o
 _Avoid_: auth client, auth instance
 
 **Acceso**:
-One identity's Nivel in one sibling app. Having an Acceso is what admits a person to that app; identity alone admits nobody. Granted and revoked by portal admins only. The portal itself is exempt: entry there is a Cuenta's role.
+One identity's Nivel in one sibling app. Having an Acceso is what admits a person to that app; identity alone admits nobody. Granted and revoked by portal admins only; rows seeded at cutover carry no grantor. The portal itself is exempt: entry there is a Cuenta's role.
 _Avoid_: grant, permiso, rol (when the per-app entry is meant), allowlist
 
 **Nivel**:

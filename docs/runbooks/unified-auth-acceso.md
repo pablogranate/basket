@@ -53,7 +53,7 @@ Rules: linked Cuentas (`profiles.auth_user_id`) are granted directly; unlinked
 ones are matched to an identity by email, case-insensitively, like the
 first-login auto-link; an existing `generator` row is never touched (an admin
 may have changed its Nivel); a full-access Cuenta with no identity yet is
-reported, not created. Idempotent — safe to re-run after people log in for the
+reported, not created. Seeded rows have `granted_by = null` (no admin granted them). Idempotent — safe to re-run after people log in for the
 first time.
 
 ## Integration tests

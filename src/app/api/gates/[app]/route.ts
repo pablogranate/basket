@@ -11,7 +11,7 @@ import { withAuth } from "@/lib/api/with-auth";
 // owns that prefix.
 const NGINX_GATED_APPS: ReadonlyArray<SiblingApp> = ["generator"];
 
-function gatedApp(app: string): SiblingApp | null {
+function parseGatedApp(app: string): SiblingApp | null {
   return (NGINX_GATED_APPS as ReadonlyArray<string>).includes(app)
     ? (app as SiblingApp)
     : null;
@@ -22,7 +22,7 @@ export async function GET(
   { params }: { params: Promise<{ app: string }> },
 ) {
   const { app: raw } = await params;
-  const app = gatedApp(raw);
+  const app = parseGatedApp(raw);
 
   if (!app) {
     return NextResponse.json({ error: "App desconocida." }, { status: 404 });

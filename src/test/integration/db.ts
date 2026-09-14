@@ -37,6 +37,26 @@ export async function truncateAll(sql: Sql) {
   await sql.unsafe(`TRUNCATE ${list} RESTART IDENTITY CASCADE`);
 }
 
+// Seed an identity in the Auth DB tables (same throwaway database). Returns
+// the Better Auth text id.
+export async function seedAuthUser(
+  sql: Sql,
+  values: { email: string; name?: string },
+): Promise<string> {
+  const id = `user-${crypto.randomUUID()}`;
+  const now = new Date();
+  await sql`
+    INSERT INTO auth_user ${sql({
+      id,
+      email: values.email,
+      name: values.name ?? values.email.split("@")[0],
+      email_verified: true,
+      created_at: now,
+      updated_at: now,
+    })}`;
+  return id;
+}
+
 // Seed a profile row (the audited actor) and return a minimal UserContext. Write
 // helpers only read ctx.profileId, so the rest is filled to satisfy the type.
 export async function seedActor(

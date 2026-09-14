@@ -6,13 +6,12 @@ import {
   listUsersWithAccesos,
   revokeAcceso,
 } from "@/lib/acceso/accesos";
-import { testSql, truncateAll } from "@/test/integration/db";
+import { seedAuthUser, testSql, truncateAll } from "@/test/integration/db";
 
 // Acceso rows in the Auth DB: what a portal admin grants and what every App
 // gate reads (ADR 0009). Observed through the module's public surface only.
 describe("accesos (integration)", () => {
   const sql = testSql();
-  type Sql = typeof sql;
 
   beforeAll(async () => {
     await sql`SELECT 1`;
@@ -25,24 +24,6 @@ describe("accesos (integration)", () => {
   beforeEach(async () => {
     await truncateAll(sql);
   });
-
-  async function seedAuthUser(
-    exec: Sql,
-    values: { email: string; name?: string },
-  ) {
-    const id = `user-${crypto.randomUUID()}`;
-    const now = new Date();
-    await exec`
-      INSERT INTO auth_user ${exec({
-        id,
-        email: values.email,
-        name: values.name ?? values.email.split("@")[0],
-        email_verified: true,
-        created_at: now,
-        updated_at: now,
-      })}`;
-    return id;
-  }
 
   it("grants an Acceso and answers the lookup with its Nivel", async () => {
     const admin = await seedAuthUser(sql, { email: "admin@basquetpass.tv" });
