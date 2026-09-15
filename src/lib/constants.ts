@@ -99,6 +99,8 @@ const PRODUCTOR_DENIED_DASHBOARD_PREFIXES = [
   "/roles",
   "/settings",
   "/notifications",
+  // Accesos matrix: sibling-app access is managed by admins only (ADR 0009).
+  "/access",
 ] as const;
 
 function matchesPrefix(pathname: string, prefix: string) {

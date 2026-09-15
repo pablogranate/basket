@@ -56,6 +56,45 @@ may have changed its Nivel); a full-access Cuenta with no identity yet is
 reported, not created. Seeded rows have `granted_by = null` (no admin granted them). Idempotent — safe to re-run after people log in for the
 first time.
 
+## Accesos page (admins only)
+
+`/access` lists every identity in the Auth DB × the four sibling apps with a
+Nivel select per cell (Sin acceso / Lectura / Escritura / Admin). Saving a cell
+grants, changes or revokes the Acceso, stamping `granted_by` and `granted_at`;
+the person feels it on their next request in that app. Productores never see
+the route (denied prefix) and the server action refuses them. Linked from the
+People page header and from a person's Cuenta block.
+
+## Cutover seed: incidencias, ops hub and analytics users
+
+One script maps legacy rights to Accesos (spec #172 story 27) and creates the
+missing identities by email — verified, no email sent; they log in with a
+magic link when they next need to:
+
+| Source                          | Mapping                                   |
+|---------------------------------|-------------------------------------------|
+| incidencias `profiles.role`     | `operador` → escritura, `admin` → admin   |
+| ops hub Supabase users          | viewer-only emails → lectura, rest → escritura |
+| analytics `auth_allowed_emails` | `viewer` → lectura, `admin` → admin       |
+
+```bash
+pnpm db:auth:seed-siblings -- --dry-run            # plan only
+pnpm db:auth:seed-siblings                         # fetch + write
+pnpm db:auth:seed-siblings -- --input plan.json    # sources from a file
+```
+
+Env (in `.env.local`, only for the cutover run): `SEED_INCIDENCIAS_SUPABASE_URL`,
+`SEED_INCIDENCIAS_SERVICE_ROLE_KEY`, `SEED_OPS_SUPABASE_URL`,
+`SEED_OPS_SERVICE_ROLE_KEY`, `SEED_OPS_VIEWER_EMAILS` (comma list, copy from the
+ops repo `src/lib/roles.ts`), `SEED_ANALYTICS_DATABASE_URL`, plus
+`AUTH_DATABASE_URL`. `--input` takes a JSON file shaped like `SiblingSeedInput`
+and skips every fetch. Idempotent: existing identities are reused by email
+(case-insensitive) and an existing Acceso is never overridden — deliberately
+"grant if absent" rather than the spec's "upsert", so an admin's later change
+survives a re-run; fix a wrongly seeded row from the Accesos page. Users the
+mapping drops (unknown role, no incidencias profile) are listed in the output.
+Seeded rows have `granted_by = null`.
+
 ## Integration tests
 
 `npm run test:integration` applies both journals to the throwaway Postgres

@@ -48,6 +48,11 @@ export const SECTION_COPY = {
     description:
       "Gestión y coordinación de talento y equipos técnicos de producción.",
   },
+  access: {
+    title: "Accesos",
+    description:
+      "Quién puede entrar a cada app hermana y con qué nivel. La entrada al portal se gestiona desde Personal.",
+  },
   roles: {
     title: "Roles",
     description:

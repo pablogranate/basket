@@ -1,23 +1,13 @@
 import "server-only";
 
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 
 import { authDb } from "@/lib/db/auth-client";
-import {
-  appAccessApp,
-  appAccessLevel,
-  authAppAccess,
-  authUser,
-} from "@/lib/auth/schema";
+import type { AccesoLevel, SiblingApp } from "@/lib/acceso/catalog";
+import { authAppAccess, authUser } from "@/lib/auth/schema";
 
 // Acceso: one identity's Nivel in one sibling app (CONTEXT.md "Unified auth",
 // ADR 0009). Read per request, never cached: revoking denies on the next hit.
-
-export const SIBLING_APPS = appAccessApp.enumValues;
-export const ACCESO_LEVELS = appAccessLevel.enumValues;
-
-export type SiblingApp = (typeof SIBLING_APPS)[number];
-export type AccesoLevel = (typeof ACCESO_LEVELS)[number];
 
 export type Acceso = {
   userId: string;
@@ -26,6 +16,9 @@ export type Acceso = {
   grantedBy: string | null;
   grantedAt: Date;
 };
+
+// What a caller supplies to grant: the row minus its timestamp.
+export type AccesoGrant = Omit<Acceso, "grantedAt">;
 
 export async function getAcceso(
   userId: string,
@@ -40,12 +33,7 @@ export async function getAcceso(
   return rows[0] ?? null;
 }
 
-export async function grantAcceso(input: {
-  userId: string;
-  app: SiblingApp;
-  level: AccesoLevel;
-  grantedBy: string | null;
-}): Promise<Acceso> {
+export async function grantAcceso(input: AccesoGrant): Promise<Acceso> {
   const [row] = await authDb
     .insert(authAppAccess)
     .values({
@@ -123,4 +111,58 @@ export async function listUsersWithAccesos(): Promise<UserWithAccesos[]> {
   }
 
   return [...byUser.values()];
+}
+
+// Seeds grant without overriding: an admin may already have set a Nivel.
+// Returns whether a row was (or, in dryRun, would be) written.
+export async function grantAccesoIfAbsent(
+  input: AccesoGrant,
+  options: { dryRun?: boolean } = {},
+): Promise<boolean> {
+  if (await getAcceso(input.userId, input.app)) {
+    return false;
+  }
+
+  if (!options.dryRun) {
+    await grantAcceso(input);
+  }
+
+  return true;
+}
+
+export async function findIdentityByEmail(
+  email: string,
+): Promise<{ id: string; email: string } | null> {
+  const rows = await authDb
+    .select({ id: authUser.id, email: authUser.email })
+    .from(authUser)
+    .where(sql`lower(${authUser.email}) = ${email.toLowerCase()}`)
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
+// Creates an identity the way Better Auth would after a first magic-link login
+// (verified email, no account row, no session) so the person's next login
+// attaches to this row instead of creating a duplicate. Same-email Google
+// sign-in links to it via accountLinking.
+export async function createIdentity(input: {
+  email: string;
+  name?: string;
+}): Promise<{ id: string; email: string }> {
+  const email = input.email.toLowerCase();
+  const now = new Date();
+  const [row] = await authDb
+    .insert(authUser)
+    .values({
+      id: crypto.randomUUID().replace(/-/g, ""),
+      email,
+      name: input.name ?? email.split("@")[0],
+      emailVerified: true,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .returning({ id: authUser.id, email: authUser.email });
+
+  return row;
 }

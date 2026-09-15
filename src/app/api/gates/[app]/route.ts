@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { getAcceso, type SiblingApp } from "@/lib/acceso/accesos";
+import { getAcceso } from "@/lib/acceso/accesos";
+import type { SiblingApp } from "@/lib/acceso/catalog";
 import { withAuth } from "@/lib/api/with-auth";
 
 // App gate consumed by infrastructure (nginx auth_request) — see ADR 0006 for
