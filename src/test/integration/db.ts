@@ -28,11 +28,33 @@ const RESET_TABLES = [
   "people",
   "roles",
   "profiles",
+  // Auth DB tables (same throwaway database): cascades to sessions and Accesos.
+  "auth_user",
 ];
 
 export async function truncateAll(sql: Sql) {
   const list = RESET_TABLES.map((t) => `"${t}"`).join(", ");
   await sql.unsafe(`TRUNCATE ${list} RESTART IDENTITY CASCADE`);
+}
+
+// Seed an identity in the Auth DB tables (same throwaway database). Returns
+// the Better Auth text id.
+export async function seedAuthUser(
+  sql: Sql,
+  values: { email: string; name?: string },
+): Promise<string> {
+  const id = `user-${crypto.randomUUID()}`;
+  const now = new Date();
+  await sql`
+    INSERT INTO auth_user ${sql({
+      id,
+      email: values.email,
+      name: values.name ?? values.email.split("@")[0],
+      email_verified: true,
+      created_at: now,
+      updated_at: now,
+    })}`;
+  return id;
 }
 
 // Seed a profile row (the audited actor) and return a minimal UserContext. Write

@@ -21,6 +21,17 @@ describe("sanitizeRedirectTo", () => {
     );
   });
 
+  // Session readers send unauthenticated visitors to the portal login and back
+  // to the page they asked for (ADR 0009); the round-trip must survive the gate.
+  it.each([
+    "https://op.basket-app.com/clubs?tab=activos",
+    "https://incidencias.basket-app.com/partidos/123",
+    "http://op.basket-app.localhost:3006/",
+    "http://incidencias.basket-app.localhost:3002/reportes",
+  ])("accepts the ops hub and incidencias hosts as login round-trip targets: %s", (target) => {
+    expect(sanitizeRedirectTo(target)).toBe(target);
+  });
+
   it("rejects protocol-relative and javascript URLs", () => {
     expect(sanitizeRedirectTo("//evil.com")).toBeNull();
     expect(sanitizeRedirectTo("javascript:alert(1)")).toBeNull();
