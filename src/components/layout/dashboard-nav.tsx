@@ -7,6 +7,7 @@ import {
   CalendarDays,
   CircleHelp,
   ClipboardList,
+  KeyRound,
   ListOrdered,
   ScrollText,
   Settings2,
@@ -34,6 +35,8 @@ const navItems = [
     label: "Registros",
     icon: ScrollText,
   },
+  // Admins only: hidden for productores by the /access denied prefix.
+  { href: "/access", label: "Accesos", icon: KeyRound },
   { href: "/settings", label: "Configuración", icon: Settings2 },
   { href: "/support", label: "Soporte", icon: CircleHelp },
 ] as const;
