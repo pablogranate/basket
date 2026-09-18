@@ -374,6 +374,48 @@ export async function assignTeamToLeagueAction({
   }
 }
 
+// Persists the league tab order shown on /teams. Every listed league gets a
+// row (ensureLeague) so leagues only known through memberships can be ordered
+// too; positions are 1-based in the given order.
+export async function reorderLeagueTabsAction({
+  leagueNames,
+}: {
+  leagueNames: string[];
+}): Promise<UpsertTeamResult> {
+  try {
+    await requireEditor();
+
+    const names = Array.from(
+      new Set(leagueNames.map((name) => name.trim()).filter(Boolean)),
+    );
+
+    if (names.length < 2) {
+      return { ok: false, error: "Hacen falta al menos dos ligas para ordenar." };
+    }
+
+    const leagues: Array<{ id: string }> = [];
+    for (const name of names) {
+      leagues.push(await ensureLeague(name));
+    }
+
+    await db.transaction(async (tx) => {
+      for (const [index, league] of leagues.entries()) {
+        await tx
+          .update(leaguesTable)
+          .set({ sortOrder: index + 1, updatedAt: new Date().toISOString() })
+          .where(eq(leaguesTable.id, league.id));
+      }
+    });
+
+    revalidatePath("/teams");
+
+    return { ok: true };
+  } catch (error) {
+    console.error("[teams] failed to reorder league tabs", error);
+    return { ok: false, error: ensureErrorMessage(error) };
+  }
+}
+
 export type RemoveTeamResult = UpsertTeamResult & {
   teamDeleted?: boolean;
 };

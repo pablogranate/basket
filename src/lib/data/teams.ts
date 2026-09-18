@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import type { UserContext } from "@/lib/auth";
 import { EXTERNAL_TEAM_LEAGUES } from "@/lib/club-catalog";
 import { db } from "@/lib/db/client";
-import { teams } from "@/lib/db/schema";
+import { leagues, teams } from "@/lib/db/schema";
 import type { TeamDirectoryItem, TeamDirectoryTab } from "@/lib/team-directory";
 import {
   getTeamLeagueLabel,
@@ -261,8 +261,34 @@ export async function getTeamFromDbBySlug(
   return team;
 }
 
+// Persisted tab order (leagues.sort_order), keyed by league name. Leagues
+// without a row or without a sort_order fall back to the built-in order.
+export async function getLeagueTabOrder(
+  ctx: UserContext,
+): Promise<Record<string, number>> {
+  if (!ctx.userId) {
+    return {};
+  }
+
+  try {
+    const rows = await db
+      .select({ name: leagues.name, sortOrder: leagues.sortOrder })
+      .from(leagues);
+
+    return Object.fromEntries(
+      rows
+        .filter((row) => row.sortOrder !== null)
+        .map((row) => [row.name, row.sortOrder as number]),
+    );
+  } catch (error) {
+    console.error("[teams] failed to load league tab order", error);
+    return {};
+  }
+}
+
 export function buildTeamDirectoryTabs(
   teams: TeamDirectoryItem[],
+  tabOrder: Record<string, number> = {},
 ): TeamDirectoryTab[] {
   const counts = new Map<string, number>();
   const seenWithTeams: string[] = [];
@@ -291,6 +317,20 @@ export function buildTeamDirectoryTabs(
   TEAM_DIRECTORY_TAB_ORDER.forEach(pushLeague);
   seenWithTeams.forEach(pushLeague);
   EXTERNAL_TEAM_LEAGUES.forEach(pushLeague);
+
+  // Stable sort: leagues with a persisted position come first in that order;
+  // the rest keep the built-in order after them.
+  const defaultIndex = new Map(ordered.map((league, index) => [league, index]));
+  ordered.sort((left, right) => {
+    const leftOrder = tabOrder[left] ?? Number.MAX_SAFE_INTEGER;
+    const rightOrder = tabOrder[right] ?? Number.MAX_SAFE_INTEGER;
+
+    if (leftOrder !== rightOrder) {
+      return leftOrder - rightOrder;
+    }
+
+    return (defaultIndex.get(left) ?? 0) - (defaultIndex.get(right) ?? 0);
+  });
 
   return ordered.map((league) => ({
     value: league,

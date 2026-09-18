@@ -12,7 +12,11 @@ import { SECTION_COPY } from "@/lib/copy";
 import { isCollaboratorLimitedRole } from "@/lib/constants";
 import type { UserContext } from "@/lib/auth";
 import { getPeopleContactList } from "@/lib/data/dashboard";
-import { buildTeamDirectoryTabs, getTeamDirectory } from "@/lib/data/teams";
+import {
+  buildTeamDirectoryTabs,
+  getLeagueTabOrder,
+  getTeamDirectory,
+} from "@/lib/data/teams";
 import type { TeamDirectoryItem } from "@/lib/team-directory";
 import { resolveTeamLogoMap } from "@/lib/team-logos";
 import {
@@ -58,6 +62,7 @@ export default async function TeamsPage() {
 
       <Suspense fallback={<TeamsLeagueTabsSkeleton />}>
         <TeamsLeagueTabsRegion
+          user={user}
           teamsPromise={teamsPromise}
           canManageTeams={canManageTeams}
         />
@@ -76,17 +81,22 @@ export default async function TeamsPage() {
 }
 
 async function TeamsLeagueTabsRegion({
+  user,
   teamsPromise,
   canManageTeams,
 }: {
+  user: UserContext;
   teamsPromise: Promise<TeamDirectoryItem[]>;
   canManageTeams: boolean;
 }) {
-  const teams = await teamsPromise;
+  const [teams, tabOrder] = await Promise.all([
+    teamsPromise,
+    getLeagueTabOrder(user),
+  ]);
 
   return (
     <TeamsLeagueTabs
-      tabs={buildTeamDirectoryTabs(teams)}
+      tabs={buildTeamDirectoryTabs(teams, tabOrder)}
       totalCount={teams.length}
       canManageTeams={canManageTeams}
     />
