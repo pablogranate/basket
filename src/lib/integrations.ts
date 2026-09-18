@@ -1,7 +1,13 @@
-import { APP_NAME, APP_PORTAL_LABEL, PRODUCTION_SHORT_LABEL } from "@/lib/constants";
+import {
+  APP_NAME,
+  APP_PORTAL_LABEL,
+  PRODUCTION_SHORT_LABEL,
+  RESPONSIBLE_DISPLAY_LABEL,
+} from "@/lib/constants";
 import { formatMatchDate, formatMatchTime, toCalendarDates } from "@/lib/date";
 import { appEnv } from "@/lib/env";
 import { getRoleDisplayName } from "@/lib/display";
+import type { CollaboratorAssignmentItem } from "@/lib/data/collaborators";
 import type { AssignmentDetail, MatchDetail } from "@/lib/types";
 import { buildWhatsAppUrl } from "@/lib/utils";
 
@@ -50,6 +56,33 @@ export function buildGoogleCalendarLink(match: MatchDetail) {
   );
   url.searchParams.set("details", details);
   url.searchParams.set("location", match.venue ?? "");
+
+  return url.toString();
+}
+
+// Per-match "add to my calendar" link for a collaborator's own assignment.
+export function buildAssignmentCalendarLink(assignment: CollaboratorAssignmentItem) {
+  const url = new URL("https://calendar.google.com/calendar/render");
+  url.searchParams.set("action", "TEMPLATE");
+  url.searchParams.set("text", `${assignment.homeTeam} vs ${assignment.awayTeam}`);
+  url.searchParams.set(
+    "dates",
+    toCalendarDates({
+      kickoffAt: assignment.kickoffAt,
+      durationMinutes: assignment.durationMinutes,
+    }),
+  );
+  url.searchParams.set("ctz", assignment.timezone);
+  url.searchParams.set(
+    "details",
+    [
+      `Competencia: ${assignment.competition ?? "Sin definir"}`,
+      `${PRODUCTION_SHORT_LABEL}: ${assignment.productionMode ?? "Sin definir"}`,
+      `Mi rol: ${getRoleDisplayName(assignment.roleName) || "Por definir"}`,
+      `${RESPONSIBLE_DISPLAY_LABEL}: ${assignment.responsibleName ?? assignment.ownerName ?? "Sin definir"}`,
+    ].join("\n"),
+  );
+  url.searchParams.set("location", assignment.venue ?? "");
 
   return url.toString();
 }

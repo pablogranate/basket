@@ -7,6 +7,7 @@ import { es } from "date-fns/locale";
 import {
   Bell,
   CalendarDays,
+  CalendarPlus,
   Camera,
   CheckCircle2,
   ChevronDown,
@@ -53,6 +54,7 @@ import type {
 } from "@/lib/data/collaborators";
 import { getProductionModeLabel } from "@/lib/constants";
 import { getRoleDisplayName } from "@/lib/display";
+import { buildAssignmentCalendarLink } from "@/lib/integrations";
 import { buildWhatsAppUrl, cn, normalizeText } from "@/lib/utils";
 
 // Lazy: the report form (~49KB) only mounts when a collaborator opens the
@@ -224,6 +226,24 @@ function formatAssignmentPlanillaDate(assignment: CollaboratorAssignmentItem) {
   return capitalizeSentence(
     format(parseISO(assignment.kickoffAt), "dd 'de' MMMM 'de' yyyy", { locale: es }),
   );
+}
+
+function getRelatorModeLabel(assignment: CollaboratorAssignmentItem) {
+  const normalized = normalizeText(assignment.commentaryPlan ?? "");
+
+  if (!normalized) {
+    return "Falta definir";
+  }
+
+  if (normalized.includes("offtube") || normalized.includes("off tube") || normalized.includes("off-tube")) {
+    return "Offtube";
+  }
+
+  if (normalized.includes("cancha")) {
+    return "En cancha";
+  }
+
+  return assignment.commentaryPlan?.trim() ?? "Falta definir";
 }
 
 function getAssignmentTablePersonValue(value: string | null | undefined) {
@@ -434,6 +454,61 @@ function AssignmentOperationalSummary({
   );
 }
 
+function openAssignmentCalendar(assignment: CollaboratorAssignmentItem) {
+  window.open(buildAssignmentCalendarLink(assignment), "_blank", "noopener,noreferrer");
+}
+
+const CARD_ACTION_TONE_CLASS = {
+  group: "bg-[#1faa52] shadow-[0_14px_28px_rgba(31,170,82,0.18)]",
+  report: "bg-[var(--accent)] shadow-[0_14px_28px_rgba(227,27,35,0.22)]",
+  calendar: "bg-[#1a73e8] shadow-[0_14px_28px_rgba(26,115,232,0.2)]",
+} as const;
+
+const CARD_ACTION_ICON_CLASS = {
+  group: "text-[#1faa52]",
+  report: "text-[var(--accent)]",
+  calendar: "text-[#1a73e8]",
+} as const;
+
+// Three of these share one card row. The card is 330px wide from `sm` up
+// (298px inner), where only the text label fits. Below `sm` the card is
+// full-width, so on phones wider than 420px each cell has room for the icon
+// bubble as well; narrower than that the bubble is dropped again.
+function AssignmentCardActionButton({
+  label,
+  icon: Icon,
+  tone,
+  title,
+  onClick,
+}: {
+  label: string;
+  icon: typeof MessageCircleMore;
+  tone: keyof typeof CARD_ACTION_TONE_CLASS;
+  title?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      title={title ?? label}
+      aria-label={title ?? label}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
+      className={cn(
+        "inline-flex h-10 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--panel-radius)] px-2 text-[11px] font-black text-white transition hover:brightness-105 sm:text-xs",
+        CARD_ACTION_TONE_CLASS[tone],
+      )}
+    >
+      <span className="hidden size-6 shrink-0 items-center justify-center rounded-full bg-[var(--n-100)] shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] min-[420px]:max-sm:inline-flex">
+        <Icon className={cn("size-3.5", CARD_ACTION_ICON_CLASS[tone])} />
+      </span>
+      <span className="truncate">{label}</span>
+    </button>
+  );
+}
+
 function AssignmentCard({
   assignment,
   onOpenGroup,
@@ -559,34 +634,26 @@ function AssignmentCard({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 border-t border-[#efe7e1] bg-[#fbfaf7] p-4">
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onOpenGroup(assignment.assignmentId);
-          }}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-[var(--panel-radius)] bg-[#1faa52] px-3 text-xs font-black text-white shadow-[0_14px_28px_rgba(31,170,82,0.18)] transition hover:brightness-105"
-        >
-          <span className="inline-flex size-6 items-center justify-center rounded-full bg-[var(--n-100)] shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
-            <MessageCircleMore className="size-3.5 text-[#1faa52]" />
-          </span>
-          Grupo
-        </button>
-
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onOpenReport(assignment.assignmentId);
-          }}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-[var(--panel-radius)] bg-[var(--accent)] px-3 text-xs font-black text-white shadow-[0_14px_28px_rgba(227,27,35,0.22)] transition hover:brightness-105"
-        >
-          <span className="inline-flex size-6 items-center justify-center rounded-full bg-[var(--n-100)] shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
-            <Megaphone className="size-3.5 text-[var(--accent)]" />
-          </span>
-          Reportar
-        </button>
+      <div className="grid grid-cols-3 gap-2 border-t border-[#efe7e1] bg-[#fbfaf7] p-3 sm:p-4">
+        <AssignmentCardActionButton
+          label="Grupo"
+          icon={MessageCircleMore}
+          tone="group"
+          onClick={() => onOpenGroup(assignment.assignmentId)}
+        />
+        <AssignmentCardActionButton
+          label="Reportar"
+          icon={Megaphone}
+          tone="report"
+          onClick={() => onOpenReport(assignment.assignmentId)}
+        />
+        <AssignmentCardActionButton
+          label="Agenda"
+          icon={CalendarPlus}
+          tone="calendar"
+          title="Agregar a Google Calendar"
+          onClick={() => openAssignmentCalendar(assignment)}
+        />
       </div>
     </Card>
   );
@@ -613,8 +680,8 @@ function AssignmentTable({
           assignment.responsibleName ?? assignment.ownerName,
         );
         const realizer = getAssignmentTablePersonValue(assignment.realizerName);
-        const producer = getAssignmentTablePersonValue(assignment.producerName);
         const relator = getAssignmentTablePersonValue(assignment.relatorName);
+        const relatorMode = getRelatorModeLabel(assignment);
 
         return (
           <article
@@ -752,26 +819,6 @@ function AssignmentTable({
                   </div>
                   <div className="flex items-center gap-3">
                     <HoverAvatarBadge
-                      initials={getInitials(producer.value)}
-                      roleLabel="Productor"
-                      showTooltip={false}
-                      tone="neutral"
-                      size="sm"
-                    />
-                    <div className="min-w-0">
-                      <p
-                        className={cn(
-                          "truncate text-sm font-bold text-[var(--foreground)]",
-                          producer.muted && "text-[var(--muted)] italic font-semibold",
-                        )}
-                      >
-                        {producer.muted ? producer.value : abbreviatePersonName(producer.value)}
-                      </p>
-                      <p className="text-xs font-semibold text-[var(--muted)]">Productor</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <HoverAvatarBadge
                       initials={getInitials(relator.value)}
                       roleLabel="Relator"
                       showTooltip={false}
@@ -787,8 +834,13 @@ function AssignmentTable({
                       >
                         {relator.muted ? relator.value : abbreviatePersonName(relator.value)}
                       </p>
-                      <p className="text-xs font-semibold italic text-[var(--muted)]">
-                        Relator
+                      <p
+                        className={cn(
+                          "text-xs font-semibold text-[var(--muted)]",
+                          relatorMode === "Falta definir" && "italic",
+                        )}
+                      >
+                        Relator · {relatorMode}
                       </p>
                     </div>
                   </div>
@@ -888,6 +940,18 @@ function AssignmentTable({
                   title="Abrir reporte"
                 >
                   <Megaphone className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    openAssignmentCalendar(assignment);
+                  }}
+                  className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[#1a73e8] text-white shadow-[0_12px_24px_rgba(26,115,232,0.22)] transition hover:brightness-105"
+                  aria-label="Agregar a Google Calendar"
+                  title="Agregar a Google Calendar"
+                >
+                  <CalendarPlus className="size-4" />
                 </button>
               </div>
             </div>
@@ -1414,6 +1478,9 @@ function GroupAssistantDrawer({
   onClose: () => void;
 }) {
   const contacts = getAssignmentContacts(assignment);
+  const supportContacts = assignment.contacts.filter(
+    (contact) => contact.roleName === "Soporte tecnico" && contact.personName,
+  );
   const leagueAccent = getAssignmentLeagueAccentColor(assignment.competition);
 
   const drawerContent = (
@@ -1633,6 +1700,20 @@ function GroupAssistantDrawer({
                   label="Encoder"
                   value={assignment.encoderName ?? "Sin asignar"}
                 />
+                {supportContacts.length ? (
+                  supportContacts.map((contact) => (
+                    <DrawerPersonCard
+                      key={`${contact.roleName}-${contact.personName}`}
+                      label="Soporte"
+                      value={contact.personName ?? "Sin asignar"}
+                    />
+                  ))
+                ) : (
+                  <DrawerPersonCard
+                    label="Soporte"
+                    value={assignment.supportTechName ?? "Sin asignar"}
+                  />
+                )}
                 <div className="col-span-2">
                   <DrawerInfoCard
                     icon={MapPin}
