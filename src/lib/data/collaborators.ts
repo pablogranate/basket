@@ -49,6 +49,7 @@ type AssignmentRow = {
     away_team: string;
     venue: string | null;
     transport?: string | null;
+    commentary_plan?: string | null;
     notes: string | null;
     kickoff_at: string;
     duration_minutes: number;
@@ -247,7 +248,7 @@ function buildAssignmentItem(params: {
     relatorName: params.relatorName ?? null,
     cameraCount: params.cameraCount ?? 0,
     talentLabel: params.talentLabel ?? null,
-    commentaryPlan: null,
+    commentaryPlan: match.commentary_plan ?? null,
     transport: match.transport ?? null,
     matchNotes: match.notes ?? null,
     contacts: params.contacts ?? [],
@@ -521,6 +522,7 @@ async function selectAssignmentsForLinkedPerson(params: {
         venue: matchesTable.venue,
         notes: matchesTable.notes,
         transport: matchesTable.transport,
+        commentary_plan: matchesTable.commentaryPlan,
         kickoff_at: matchesTable.kickoffAt,
         duration_minutes: matchesTable.durationMinutes,
         timezone: matchesTable.timezone,
@@ -712,6 +714,7 @@ async function getFallbackAssignmentForMatch(params: {
       away_team: matchesTable.awayTeam,
       venue: matchesTable.venue,
       notes: matchesTable.notes,
+      commentary_plan: matchesTable.commentaryPlan,
       kickoff_at: matchesTable.kickoffAt,
       duration_minutes: matchesTable.durationMinutes,
       timezone: matchesTable.timezone,

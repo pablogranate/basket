@@ -168,6 +168,14 @@ function hasIncidentObservations(draft: DraftState) {
   return Boolean(draft.generalObservations.trim());
 }
 
+function hasAnyProblemSelected(draft: DraftState) {
+  return Object.values(draft.problems).some(Boolean);
+}
+
+function requiresIncidentObservations(draft: DraftState) {
+  return draft.incidentLevel !== "sin" || hasAnyProblemSelected(draft);
+}
+
 function normalizeSignalLabel(value: string | null | undefined): SignalOption {
   const normalized = value?.trim();
   const match = SIGNAL_OPTIONS.find((option) => option === normalized);
@@ -523,6 +531,7 @@ export function CollaboratorReportForm({
   );
   const [isSending, setIsSending] = useState(false);
   const draftKey = useMemo(() => getDraftKey(assignment.assignmentId), [assignment.assignmentId]);
+  const requiresObservations = requiresIncidentObservations(draft);
   const latestDraftRef = useRef(draft);
 
   const persistDraft = useCallback(
@@ -565,9 +574,9 @@ export function CollaboratorReportForm({
 
     const current = latestDraftRef.current;
 
-    if (current.incidentLevel !== "sin" && !hasIncidentObservations(current)) {
+    if (requiresIncidentObservations(current) && !hasIncidentObservations(current)) {
       setSaveMessage(
-        "Completa las observaciones antes de enviar una incidencia.",
+        "Completa las observaciones antes de enviar el reporte.",
       );
       setSaveTone("error");
       return;
@@ -774,29 +783,6 @@ export function CollaboratorReportForm({
         </div>
       </Card>
 
-      {draft.incidentLevel !== "sin" ? (
-        <Card className="space-y-4 p-5">
-          <div className="space-y-1">
-            <h4 className="text-sm font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
-              Observaciones
-            </h4>
-            <p className="text-sm text-[var(--n-600)]">
-              Obligatorio: detalla la incidencia.
-            </p>
-          </div>
-          <Textarea
-            placeholder="Ej. Se cayó la cámara 1 en dos momentos y la VM tardó en responder."
-            value={draft.generalObservations}
-            onChange={(event) =>
-              updateDraft((previous) => ({
-                ...previous,
-                generalObservations: event.target.value,
-              }))
-            }
-          />
-        </Card>
-      ) : null}
-
       <Card className="space-y-5 p-5">
         <h4 className="text-sm font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
           Contexto del partido
@@ -949,6 +935,29 @@ export function CollaboratorReportForm({
           })}
         </div>
       </Card>
+
+      {requiresObservations ? (
+        <Card className="space-y-4 p-5">
+          <div className="space-y-1">
+            <h4 className="text-sm font-black uppercase tracking-[0.22em] text-[var(--n-400)]">
+              Observaciones
+            </h4>
+            <p className="text-sm text-[var(--n-600)]">
+              Obligatorio: detalla la incidencia o los problemas marcados.
+            </p>
+          </div>
+          <Textarea
+            placeholder="Ej. Se cayó la cámara 1 en dos momentos y la VM tardó en responder."
+            value={draft.generalObservations}
+            onChange={(event) =>
+              updateDraft((previous) => ({
+                ...previous,
+                generalObservations: event.target.value,
+              }))
+            }
+          />
+        </Card>
+      ) : null}
 
       <Card className="space-y-5 p-5">
         <div className="space-y-1">
