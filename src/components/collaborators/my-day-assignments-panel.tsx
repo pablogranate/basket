@@ -702,257 +702,258 @@ function AssignmentTable({
             />
 
             <div className="relative z-10 overflow-visible rounded-t-[10px] rounded-b-[10px]">
-              <div
-                className={cn(
-                  "overflow-hidden rounded-t-[10px] rounded-b-[10px] flex flex-col xl:grid xl:grid-cols-[6rem_minmax(15rem,1.45fr)_minmax(12rem,1fr)_minmax(12rem,1fr)_minmax(12.5rem,1.05fr)_minmax(10.5rem,0.92fr)] xl:items-stretch",
-                )}
-              >
-                <div className="relative z-10 flex flex-col items-center justify-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-5 text-center xl:border-b-0 xl:border-r">
-                  <LeagueLogoMarkClient league={leagueLabel} className="h-16 w-16" />
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--n-500)]">
-                    {leagueLabel}
-                  </p>
-                </div>
-
-                <div className="flex min-w-0 items-center border-b border-[var(--border)] px-5 py-5 xl:border-b-0 xl:border-r xl:px-5 2xl:px-6">
-                  <div className="mx-auto w-full max-w-[22rem]">
-                    <div className="grid items-center justify-center gap-2 sm:grid-cols-[minmax(0,1fr)_1.75rem_minmax(0,1fr)] sm:gap-3">
-                      <div className="flex min-w-0 flex-col items-center text-center">
-                        <ClientTeamLogoMark
-                          teamName={assignment.homeTeam}
-                          competition={assignment.competition}
-                          className="size-12 rounded-full 2xl:size-14"
-                        />
-                        <p
-                          title={assignment.homeTeam}
-                          className="mt-2 min-h-[2.16em] text-center text-[0.9rem] font-black leading-[1.08] tracking-[-0.03em] text-[var(--foreground)] [display:-webkit-box] overflow-hidden text-ellipsis [-webkit-box-orient:vertical] [-webkit-line-clamp:2]"
-                        >
-                          {assignment.homeTeam}
-                        </p>
-                      </div>
-
-                      <span className="self-center justify-self-center text-sm font-semibold uppercase tracking-[0.18em] text-[var(--n-400)]">
-                        vs
-                      </span>
-
-                      <div className="flex min-w-0 flex-col items-center text-center">
-                        <ClientTeamLogoMark
-                          teamName={assignment.awayTeam}
-                          competition={assignment.competition}
-                          className="size-12 rounded-full 2xl:size-14"
-                        />
-                        <p
-                          title={assignment.awayTeam}
-                          className="mt-2 min-h-[2.16em] text-center text-[0.9rem] font-black leading-[1.08] tracking-[-0.03em] text-[var(--foreground)] [display:-webkit-box] overflow-hidden text-ellipsis [-webkit-box-orient:vertical] [-webkit-line-clamp:2]"
-                        >
-                          {assignment.awayTeam}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 flex items-center justify-center gap-2 text-center text-[12px] font-semibold text-[var(--n-400)]">
-                      <MapPin className="size-3.5 shrink-0" />
-                      <span className="truncate">{assignment.venue ?? "Sede por definir"}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid gap-4 border-b border-[var(--border)] px-5 py-5 xl:border-b-0 xl:border-r xl:px-6">
-                  <div className="flex items-center gap-2">
-                    <ShieldUser className="size-3.5 text-[var(--n-400)]" />
-                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--n-400)]">
-                      Staff
+              <div className="relative">
+                <div
+                  className={cn(
+                    "overflow-hidden rounded-t-[10px] rounded-b-[10px] flex flex-col xl:grid xl:grid-cols-[6rem_minmax(15rem,1.45fr)_minmax(12rem,1fr)_minmax(12rem,1fr)_minmax(12.5rem,1.05fr)_minmax(10.5rem,0.92fr)] xl:items-stretch",
+                  )}
+                >
+                  <div className="relative z-10 flex flex-col items-center justify-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-5 text-center xl:border-b-0 xl:border-r">
+                    <LeagueLogoMarkClient league={leagueLabel} className="h-16 w-16" />
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--n-500)]">
+                      {leagueLabel}
                     </p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <HoverAvatarBadge
-                      initials={getInitials(responsible.value)}
-                      roleLabel="Responsable de cancha"
-                      showTooltip={false}
-                      tone="neutral"
-                      size="sm"
-                    />
-                    <div className="min-w-0">
-                      <p
-                        className={cn(
-                          "truncate text-sm font-bold text-[var(--foreground)]",
-                          responsible.muted && "text-[var(--muted)] italic font-semibold",
-                        )}
-                      >
-                        {responsible.muted
-                          ? responsible.value
-                          : abbreviatePersonName(responsible.value)}
-                      </p>
-                      <p className="text-xs font-semibold text-[var(--muted)]">
-                        Responsable
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <HoverAvatarBadge
-                      initials={getInitials(realizer.value)}
-                      roleLabel="Realizador"
-                      showTooltip={false}
-                      tone="neutral"
-                      size="sm"
-                    />
-                    <div className="min-w-0">
-                      <p
-                        className={cn(
-                          "truncate text-sm font-bold text-[var(--foreground)]",
-                          realizer.muted && "text-[var(--muted)] italic font-semibold",
-                        )}
-                      >
-                        {realizer.muted ? realizer.value : abbreviatePersonName(realizer.value)}
-                      </p>
-                      <p className="text-xs font-semibold text-[var(--muted)]">Realizador</p>
-                    </div>
-                  </div>
-                </div>
 
-                <div className="grid gap-4 border-b border-[var(--border)] px-5 py-5 xl:border-b-0 xl:border-r xl:px-6">
-                  <div className="flex items-center gap-2">
-                    <Mic2 className="size-3.5 text-[var(--n-400)]" />
-                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--n-400)]">
-                      Cobertura
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <HoverAvatarBadge
-                      initials={getInitials(relator.value)}
-                      roleLabel="Relator"
-                      showTooltip={false}
-                      tone="accent"
-                      size="sm"
-                    />
-                    <div className="min-w-0">
-                      <p
-                        className={cn(
-                          "truncate text-sm font-bold text-[var(--foreground)]",
-                          relator.muted && "text-[var(--muted)] italic font-semibold",
-                        )}
-                      >
-                        {relator.muted ? relator.value : abbreviatePersonName(relator.value)}
-                      </p>
-                      <p
-                        className={cn(
-                          "text-xs font-semibold text-[var(--muted)]",
-                          relatorMode === "Falta definir" && "italic",
-                        )}
-                      >
-                        Relator · {relatorMode}
-                      </p>
+                  <div className="flex min-w-0 items-center border-b border-[var(--border)] px-5 py-5 xl:border-b-0 xl:border-r xl:px-5 2xl:px-6">
+                    <div className="mx-auto w-full max-w-[22rem]">
+                      <div className="grid items-center justify-center gap-2 sm:grid-cols-[minmax(0,1fr)_1.75rem_minmax(0,1fr)] sm:gap-3">
+                        <div className="flex min-w-0 flex-col items-center text-center">
+                          <ClientTeamLogoMark
+                            teamName={assignment.homeTeam}
+                            competition={assignment.competition}
+                            className="size-12 rounded-full 2xl:size-14"
+                          />
+                          <p
+                            title={assignment.homeTeam}
+                            className="mt-2 min-h-[2.16em] text-center text-[0.9rem] font-black leading-[1.08] tracking-[-0.03em] text-[var(--foreground)] [display:-webkit-box] overflow-hidden text-ellipsis [-webkit-box-orient:vertical] [-webkit-line-clamp:2]"
+                          >
+                            {assignment.homeTeam}
+                          </p>
+                        </div>
+
+                        <span className="self-center justify-self-center text-sm font-semibold uppercase tracking-[0.18em] text-[var(--n-400)]">
+                          vs
+                        </span>
+
+                        <div className="flex min-w-0 flex-col items-center text-center">
+                          <ClientTeamLogoMark
+                            teamName={assignment.awayTeam}
+                            competition={assignment.competition}
+                            className="size-12 rounded-full 2xl:size-14"
+                          />
+                          <p
+                            title={assignment.awayTeam}
+                            className="mt-2 min-h-[2.16em] text-center text-[0.9rem] font-black leading-[1.08] tracking-[-0.03em] text-[var(--foreground)] [display:-webkit-box] overflow-hidden text-ellipsis [-webkit-box-orient:vertical] [-webkit-line-clamp:2]"
+                          >
+                            {assignment.awayTeam}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex items-center justify-center gap-2 text-center text-[12px] font-semibold text-[var(--n-400)]">
+                        <MapPin className="size-3.5 shrink-0" />
+                        <span className="truncate">{assignment.venue ?? "Sede por definir"}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="grid gap-4 border-b border-[var(--border)] px-5 py-5 xl:border-b-0 xl:border-r xl:px-6">
-                  {assignment.productionCode ? (
+                  <div className="grid gap-4 border-b border-[var(--border)] px-5 py-5 xl:border-b-0 xl:border-r xl:px-6">
+                    <div className="flex items-center gap-2">
+                      <ShieldUser className="size-3.5 text-[var(--n-400)]" />
+                      <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--n-400)]">
+                        Staff
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <HoverAvatarBadge
+                        initials={getInitials(responsible.value)}
+                        roleLabel="Responsable de cancha"
+                        showTooltip={false}
+                        tone="neutral"
+                        size="sm"
+                      />
+                      <div className="min-w-0">
+                        <p
+                          className={cn(
+                            "truncate text-sm font-bold text-[var(--foreground)]",
+                            responsible.muted && "text-[var(--muted)] italic font-semibold",
+                          )}
+                        >
+                          {responsible.muted
+                            ? responsible.value
+                            : abbreviatePersonName(responsible.value)}
+                        </p>
+                        <p className="text-xs font-semibold text-[var(--muted)]">
+                          Responsable
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <HoverAvatarBadge
+                        initials={getInitials(realizer.value)}
+                        roleLabel="Realizador"
+                        showTooltip={false}
+                        tone="neutral"
+                        size="sm"
+                      />
+                      <div className="min-w-0">
+                        <p
+                          className={cn(
+                            "truncate text-sm font-bold text-[var(--foreground)]",
+                            realizer.muted && "text-[var(--muted)] italic font-semibold",
+                          )}
+                        >
+                          {realizer.muted ? realizer.value : abbreviatePersonName(realizer.value)}
+                        </p>
+                        <p className="text-xs font-semibold text-[var(--muted)]">Realizador</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 border-b border-[var(--border)] px-5 py-5 xl:border-b-0 xl:border-r xl:px-6">
+                    <div className="flex items-center gap-2">
+                      <Mic2 className="size-3.5 text-[var(--n-400)]" />
+                      <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--n-400)]">
+                        Cobertura
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <HoverAvatarBadge
+                        initials={getInitials(relator.value)}
+                        roleLabel="Relator"
+                        showTooltip={false}
+                        tone="accent"
+                        size="sm"
+                      />
+                      <div className="min-w-0">
+                        <p
+                          className={cn(
+                            "truncate text-sm font-bold text-[var(--foreground)]",
+                            relator.muted && "text-[var(--muted)] italic font-semibold",
+                          )}
+                        >
+                          {relator.muted ? relator.value : abbreviatePersonName(relator.value)}
+                        </p>
+                        <p
+                          className={cn(
+                            "text-xs font-semibold text-[var(--muted)]",
+                            relatorMode === "Falta definir" && "italic",
+                          )}
+                        >
+                          Relator · {relatorMode}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 border-b border-[var(--border)] px-5 py-5 xl:border-b-0 xl:border-r xl:px-6">
+                    {assignment.productionCode ? (
+                      <div>
+                        <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--n-400)]">
+                          <Hash className="size-3.5 text-[var(--n-400)]" />
+                          ID Plataforma
+                        </p>
+                        <div className="mt-2">
+                          <span
+                            className={cn(
+                              badgeBaseClassName,
+                              "border border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]",
+                            )}
+                          >
+                            {assignment.productionCode}
+                          </span>
+                        </div>
+                      </div>
+                    ) : null}
                     <div>
                       <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--n-400)]">
-                        <Hash className="size-3.5 text-[var(--n-400)]" />
-                        ID Plataforma
+                        <Video className="size-3.5 text-[var(--n-400)]" />
+                        {PRODUCTION_SHORT_LABEL}
                       </p>
                       <div className="mt-2">
                         <span
                           className={cn(
                             badgeBaseClassName,
-                            "border border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]",
+                            "border border-[var(--n-200)] bg-[var(--n-50)] text-[var(--n-600)]",
                           )}
                         >
-                          {assignment.productionCode}
+                          {formatAssignmentProductionModeLabel(assignment.productionMode)}
                         </span>
                       </div>
+                      <p className="mt-2 text-xs font-semibold text-[var(--muted)]">
+                        {formatAssignmentProductionMeta(assignment)}
+                      </p>
                     </div>
-                  ) : null}
-                  <div>
-                    <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--n-400)]">
-                      <Video className="size-3.5 text-[var(--n-400)]" />
-                      {PRODUCTION_SHORT_LABEL}
-                    </p>
-                    <div className="mt-2">
-                      <span
-                        className={cn(
-                          badgeBaseClassName,
-                          "border border-[var(--n-200)] bg-[var(--n-50)] text-[var(--n-600)]",
-                        )}
-                      >
-                        {formatAssignmentProductionModeLabel(assignment.productionMode)}
-                      </span>
+                  </div>
+
+                  <div className="grid gap-4 border-b border-[var(--border)] px-5 py-5 xl:border-b-0 xl:px-6 xl:pr-24">
+                    <div>
+                      <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--n-400)]">
+                        <CalendarDays className="size-3.5 text-[var(--n-400)]" />
+                        Fecha
+                      </p>
+                      <p className="mt-2 text-sm font-bold text-[var(--foreground)]">
+                        {formatAssignmentPlanillaDate(assignment)}
+                      </p>
                     </div>
-                    <p className="mt-2 text-xs font-semibold text-[var(--muted)]">
-                      {formatAssignmentProductionMeta(assignment)}
-                    </p>
+                    <div>
+                      <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--n-400)]">
+                        <Clock3 className="size-3.5 text-[var(--n-400)]" />
+                        Hora
+                      </p>
+                      <p className="font-[family-name:var(--font-oswald)] mt-1 text-4xl font-bold tracking-[-0.06em] text-[var(--accent)]">
+                        {assignment.timeLabel}
+                      </p>
+                    </div>
                   </div>
-                </div>
 
-                <div className="grid gap-4 border-b border-[var(--border)] px-5 py-5 xl:border-b-0 xl:px-6 xl:pr-24">
-                  <div>
-                    <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--n-400)]">
-                      <CalendarDays className="size-3.5 text-[var(--n-400)]" />
-                      Fecha
-                    </p>
-                    <p className="mt-2 text-sm font-bold text-[var(--foreground)]">
-                      {formatAssignmentPlanillaDate(assignment)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--n-400)]">
-                      <Clock3 className="size-3.5 text-[var(--n-400)]" />
-                      Hora
-                    </p>
-                    <p className="font-[family-name:var(--font-oswald)] mt-1 text-4xl font-bold tracking-[-0.06em] text-[var(--accent)]">
-                      {assignment.timeLabel}
-                    </p>
-                  </div>
                 </div>
-
+                <div className="flex items-center justify-center gap-2 border-t border-[var(--border)] px-4 py-4 xl:absolute xl:inset-y-0 xl:right-0 xl:z-20 xl:w-[5.5rem] xl:flex-col xl:border-l xl:border-t-0 xl:border-[var(--border)] xl:bg-transparent xl:px-0 xl:py-0">
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onOpenGroup(assignment.assignmentId);
+                    }}
+                    className="inline-flex size-10 items-center justify-center rounded-full bg-[#1faa52] text-white shadow-[0_12px_24px_rgba(31,170,82,0.18)] transition hover:brightness-105"
+                    aria-label="Abrir grupo"
+                    title="Abrir grupo"
+                  >
+                    <MessageCircleMore className="size-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onOpenReport(assignment.assignmentId);
+                    }}
+                    className="inline-flex size-10 items-center justify-center rounded-full bg-[var(--accent)] text-white shadow-[0_12px_24px_rgba(227,27,35,0.22)] transition hover:brightness-105"
+                    aria-label="Abrir reporte"
+                    title="Abrir reporte"
+                  >
+                    <Megaphone className="size-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      openAssignmentCalendar(assignment);
+                    }}
+                    className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[#1a73e8] text-white shadow-[0_12px_24px_rgba(26,115,232,0.22)] transition hover:brightness-105"
+                    aria-label="Agregar a Google Calendar"
+                    title="Agregar a Google Calendar"
+                  >
+                    <CalendarPlus className="size-4" />
+                  </button>
+                </div>
               </div>
 
               <div
                 onClick={(event) => event.stopPropagation()}
-                className="border-t border-[var(--border)] px-5 py-4 xl:pr-24"
+                className="border-t border-[var(--border)] px-5 py-4"
               >
                 <AttendanceInlineControl assignment={assignment} />
-              </div>
-
-              <div className="flex items-center justify-center gap-2 border-t border-[var(--border)] px-4 py-4 xl:absolute xl:inset-y-0 xl:right-0 xl:z-20 xl:w-[5.5rem] xl:flex-col xl:border-l xl:border-t-0 xl:border-[var(--border)] xl:bg-transparent xl:px-0 xl:py-0">
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onOpenGroup(assignment.assignmentId);
-                  }}
-                  className="inline-flex size-10 items-center justify-center rounded-full bg-[#1faa52] text-white shadow-[0_12px_24px_rgba(31,170,82,0.18)] transition hover:brightness-105"
-                  aria-label="Abrir grupo"
-                  title="Abrir grupo"
-                >
-                  <MessageCircleMore className="size-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onOpenReport(assignment.assignmentId);
-                  }}
-                  className="inline-flex size-10 items-center justify-center rounded-full bg-[var(--accent)] text-white shadow-[0_12px_24px_rgba(227,27,35,0.22)] transition hover:brightness-105"
-                  aria-label="Abrir reporte"
-                  title="Abrir reporte"
-                >
-                  <Megaphone className="size-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    openAssignmentCalendar(assignment);
-                  }}
-                  className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[#1a73e8] text-white shadow-[0_12px_24px_rgba(26,115,232,0.22)] transition hover:brightness-105"
-                  aria-label="Agregar a Google Calendar"
-                  title="Agregar a Google Calendar"
-                >
-                  <CalendarPlus className="size-4" />
-                </button>
               </div>
             </div>
           </article>
