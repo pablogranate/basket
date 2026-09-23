@@ -23,6 +23,9 @@ async function journalThrough(tag: string) {
     entries: Array<{ tag: string }>;
   };
   const cut = journal.entries.findIndex((entry) => entry.tag === tag);
+  if (cut === -1) {
+    throw new Error(`No Auth DB migration tagged ${tag}.`);
+  }
   journal.entries = journal.entries.slice(0, cut + 1);
   await writeFile(journalPath, JSON.stringify(journal));
   return dir;

@@ -66,6 +66,10 @@ export function accesoLevelOptions(app: SiblingApp): AccesoLevelOption[] {
   });
 }
 
+export function isLevelOffered(app: SiblingApp, level: AccesoLevel): boolean {
+  return accesoLevelOptions(app).some((option) => option.level === level);
+}
+
 // Also labels a Nivel the app no longer offers, so a stray row still renders.
 export function accesoLevelLabel(app: SiblingApp, level: AccesoLevel): string {
   const offered = accesoLevelOptions(app).find((option) => option.level === level);

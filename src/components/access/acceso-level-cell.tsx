@@ -9,6 +9,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import {
   accesoLevelLabel,
   accesoLevelOptions,
+  isLevelOffered,
   SIBLING_APP_LABELS,
   type AccesoLevel,
   type LevelOption,
@@ -33,7 +34,7 @@ export function AccesoLevelCell({
   const hasChanged = level !== current;
   const options = accesoLevelOptions(app);
   // A Nivel the app no longer offers still shows, so the cell reflects the row.
-  if (currentLevel && !options.some((option) => option.level === currentLevel)) {
+  if (currentLevel && !isLevelOffered(app, currentLevel)) {
     options.unshift({ level: currentLevel, label: accesoLevelLabel(app, currentLevel) });
   }
 
