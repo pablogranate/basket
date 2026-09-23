@@ -15,6 +15,13 @@
       "when": 1789407037006,
       "tag": "0001_acceso_app_access",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790198458116,
+      "tag": "0002_acceso_facturacion",
+      "breakpoints": true
     }
   ]
 }

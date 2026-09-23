@@ -1,0 +1,1 @@
+ALTER TYPE "public"."auth_app_access_app" ADD VALUE 'facturacion';

@@ -50,6 +50,23 @@ describe("accesos (integration)", () => {
     expect(await getAcceso(admin, "incidencias")).toBeNull();
   });
 
+  it("grants facturacion coordinador and admin as the plain write/admin Niveles facturacion-bp reads", async () => {
+    const admin = await seedAuthUser(sql, { email: "admin@basquetpass.tv" });
+    const coordinador = await seedAuthUser(sql, { email: "coord@basquetpass.tv" });
+
+    await grantAcceso({ userId: coordinador, app: "facturacion", level: "write", grantedBy: admin });
+    await grantAcceso({ userId: admin, app: "facturacion", level: "admin", grantedBy: admin });
+
+    expect(await getAcceso(coordinador, "facturacion")).toMatchObject({
+      app: "facturacion",
+      level: "write",
+    });
+    expect(await getAcceso(admin, "facturacion")).toMatchObject({
+      app: "facturacion",
+      level: "admin",
+    });
+  });
+
   it("re-granting changes the Nivel and keeps a single row per identity and app", async () => {
     const admin = await seedAuthUser(sql, { email: "admin@basquetpass.tv" });
     const other = await seedAuthUser(sql, { email: "other@basquetpass.tv" });

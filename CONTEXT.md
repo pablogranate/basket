@@ -7,7 +7,7 @@ Glossary for the portal's domain language. Implementation lives in code; this fi
 ### Unified auth
 
 **Sibling app**:
-Any app living on a `basket-app.com` subdomain (portal, analytics, incidencias, generator, ops hub) plus the apex directory. Siblings share one identity — a user logs in once and is recognized everywhere — and one place that says which app each identity may use.
+Any app living on a `basket-app.com` subdomain (portal, analytics, incidencias, generator, ops hub, facturacion) plus the apex directory. Siblings share one identity — a user logs in once and is recognized everywhere — and one place that says which app each identity may use.
 _Avoid_: sub-app, satellite app
 
 **Auth server**:
@@ -15,7 +15,7 @@ The portal, as the only sibling that logs people in: Google, magic link, sign-ou
 _Avoid_: identity provider, IdP, SSO server
 
 **Session reader**:
-A sibling's ability to recognize the shared login without being able to create one. Analytics, incidencias and ops hub are readers; the generator is read on its behalf by the App gate.
+A sibling's ability to recognize the shared login without being able to create one. Analytics, incidencias, ops hub and facturacion are readers; the generator is read on its behalf by the App gate.
 _Avoid_: auth client, auth instance
 
 **Acceso**:
@@ -23,7 +23,7 @@ One identity's Nivel in one sibling app. Having an Acceso is what admits a perso
 _Avoid_: grant, permiso, rol (when the per-app entry is meant), allowlist
 
 **Nivel**:
-What an Acceso allows inside its app: lectura, escritura or admin (stored as read, write, admin). Each app decides what its levels unlock; an app that does not distinguish them treats any Acceso as entry.
+What an Acceso allows inside its app: lectura, escritura or admin (stored as read, write, admin). Each app decides what its levels unlock, and may name them in its own words (facturacion: write is coordinador, admin is admin, read does not apply); an app that does not distinguish them treats any Acceso as entry.
 _Avoid_: permission, tier, scope
 
 **App gate**:
