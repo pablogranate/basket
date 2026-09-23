@@ -7,8 +7,9 @@ import { setAccesoAction } from "@/app/actions/access";
 import { Select } from "@/components/ui/select";
 import { SubmitButton } from "@/components/ui/submit-button";
 import {
-  ACCESO_LEVEL_LABELS,
-  ACCESO_LEVELS,
+  accesoLevelLabel,
+  accesoLevelOptions,
+  isLevelOffered,
   SIBLING_APP_LABELS,
   type AccesoLevel,
   type LevelOption,
@@ -31,6 +32,11 @@ export function AccesoLevelCell({
   const current: LevelOption = currentLevel ?? NONE_LEVEL_OPTION;
   const [level, setLevel] = useState<LevelOption>(current);
   const hasChanged = level !== current;
+  const options = accesoLevelOptions(app);
+  // A Nivel the app no longer offers still shows, so the cell reflects the row.
+  if (currentLevel && !isLevelOffered(app, currentLevel)) {
+    options.unshift({ level: currentLevel, label: accesoLevelLabel(app, currentLevel) });
+  }
 
   return (
     <form action={setAccesoAction} className="flex items-center gap-2">
@@ -49,9 +55,9 @@ export function AccesoLevelCell({
         }
       >
         <option value={NONE_LEVEL_OPTION}>Sin acceso</option>
-        {ACCESO_LEVELS.map((option) => (
-          <option key={option} value={option}>
-            {ACCESO_LEVEL_LABELS[option]}
+        {options.map((option) => (
+          <option key={option.level} value={option.level}>
+            {option.label}
           </option>
         ))}
       </Select>

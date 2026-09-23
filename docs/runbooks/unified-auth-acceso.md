@@ -11,7 +11,7 @@ The portal pins `better-auth` **exactly** (no caret) in `package.json`:
 |---------------|----------|
 | `better-auth` | `1.6.15` |
 
-Every Session reader (analytics, ops hub, incidencias) must pin the **same**
+Every Session reader (analytics, ops hub, incidencias, facturacion) must pin the **same**
 version: they read the cookie the portal writes, and a session-format change
 on one side silently logs everyone out on the other. Bump here first, then in
 each reader in the same rollout.
@@ -58,8 +58,10 @@ first time.
 
 ## Accesos page (admins only)
 
-`/access` lists every identity in the Auth DB × the four sibling apps with a
-Nivel select per cell (Sin acceso / Lectura / Escritura / Admin). Saving a cell
+`/access` lists every identity in the Auth DB × every sibling app with a
+Nivel select per cell (Sin acceso / Lectura / Escritura / Admin; facturacion
+names its Niveles Coordinador for `write` and Admin for `admin`, and has no
+`read`). Saving a cell
 grants, changes or revokes the Acceso, stamping `granted_by` and `granted_at`;
 the person feels it on their next request in that app. Productores never see
 the route (denied prefix) and the server action refuses them. Linked from the

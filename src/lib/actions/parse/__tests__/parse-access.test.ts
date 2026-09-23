@@ -37,4 +37,18 @@ describe("parseSetAcceso", () => {
     expect(parseSetAcceso(form({ userId: "user-1", app: "ops", level: "owner" })).ok).toBe(false);
     expect(parseSetAcceso(form({ userId: "", app: "ops", level: "read" })).ok).toBe(false);
   });
+
+  it("accepts facturacion coordinador (write) and admin, stored as the plain Nivel", () => {
+    expect(
+      parseSetAcceso(form({ userId: "user-1", app: "facturacion", level: "write" })),
+    ).toEqual({ ok: true, input: { userId: "user-1", app: "facturacion", level: "write" } });
+    expect(
+      parseSetAcceso(form({ userId: "user-1", app: "facturacion", level: "admin" })),
+    ).toEqual({ ok: true, input: { userId: "user-1", app: "facturacion", level: "admin" } });
+  });
+
+  it("rejects a Nivel the app does not offer — facturacion has no read", () => {
+    const result = parseSetAcceso(form({ userId: "user-1", app: "facturacion", level: "read" }));
+    expect(result.ok).toBe(false);
+  });
 });

@@ -5,6 +5,7 @@ import {
   Clapperboard,
   Image as ImageIcon,
   Radio,
+  Receipt,
 } from "lucide-react";
 
 import { LandingLogoutClient } from "@/components/landing/landing-logout-client";
@@ -42,6 +43,11 @@ const LANDING_APPS: LandingApp[] = [
     subdomain: "op",
     name: "Operaciones",
     Icon: Radio,
+  },
+  {
+    subdomain: "facturacion",
+    name: "Facturación",
+    Icon: Receipt,
   },
 ];
 

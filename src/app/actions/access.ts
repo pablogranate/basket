@@ -1,10 +1,7 @@
 "use server";
 
 import { grantAcceso, revokeAcceso } from "@/lib/acceso/accesos";
-import {
-  ACCESO_LEVEL_LABELS,
-  SIBLING_APP_LABELS,
-} from "@/lib/acceso/catalog";
+import { accesoLevelLabel, SIBLING_APP_LABELS } from "@/lib/acceso/catalog";
 import { defineAction } from "@/lib/actions/define-action";
 import { parseSetAcceso } from "@/lib/actions/parse/access";
 import { requireAdmin } from "@/lib/auth-access";
@@ -33,7 +30,7 @@ const setAcceso = defineAction({
     await grantAcceso({ userId, app, level, grantedBy: ctx.userId });
 
     return {
-      notice: `Acceso a ${appLabel}: ${ACCESO_LEVEL_LABELS[level]}.`,
+      notice: `Acceso a ${appLabel}: ${accesoLevelLabel(app, level)}.`,
     };
   },
 });

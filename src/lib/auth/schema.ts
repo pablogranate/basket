@@ -74,6 +74,7 @@ export const appAccessApp = pgEnum("auth_app_access_app", [
   "incidencias",
   "generator",
   "ops",
+  "facturacion",
 ]);
 
 export const appAccessLevel = pgEnum("auth_app_access_level", [

@@ -6,6 +6,7 @@ import {
 import {
   type AccesoLevel,
   isAccesoLevel,
+  isLevelOffered,
   isSiblingApp,
   NONE_LEVEL_OPTION,
   type SiblingApp,
@@ -37,6 +38,10 @@ export function parseSetAcceso(formData: FormData): ParseResult<SetAccesoInput> 
 
   if (!isAccesoLevel(level)) {
     return parseFailure("Nivel desconocido.");
+  }
+
+  if (!isLevelOffered(app, level)) {
+    return parseFailure("Ese nivel no aplica a esta app.");
   }
 
   return parsed({ userId, app, level });
