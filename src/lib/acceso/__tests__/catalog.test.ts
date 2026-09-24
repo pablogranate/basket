@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { accesoLevelLabel, accesoLevelOptions } from "@/lib/acceso/catalog";
+import {
+  accesoLevelLabel,
+  accesoLevelOptions,
+  launcherApps,
+} from "@/lib/acceso/catalog";
 
 // What the Accesos matrix offers per sibling app. Each app decides what its
 // Niveles mean, so the labels are per app; the stored values never change.
@@ -32,5 +36,51 @@ describe("accesoLevelLabel", () => {
 
   it("still labels a facturacion=read row instead of failing, marked as not applicable", () => {
     expect(accesoLevelLabel("facturacion", "read")).toBe("Lectura (no aplica)");
+  });
+});
+
+// The apex launcher lists only the apps a person may enter: the portal by
+// Cuenta, each sibling by an Acceso whose Nivel that app actually uses.
+describe("launcherApps", () => {
+  it("lists the portal first and granted siblings in catalog order", () => {
+    expect(
+      launcherApps({
+        hasPortalAccess: true,
+        accesos: [
+          { app: "ops", level: "read" },
+          { app: "analytics", level: "write" },
+        ],
+      }),
+    ).toEqual(["portal", "analytics", "ops"]);
+  });
+
+  it("leaves out the portal for an identity without a Cuenta", () => {
+    expect(
+      launcherApps({
+        hasPortalAccess: false,
+        accesos: [{ app: "facturacion", level: "write" }],
+      }),
+    ).toEqual(["facturacion"]);
+  });
+
+  it("hides facturacion for a read-only Acceso, which facturacion ignores", () => {
+    expect(
+      launcherApps({
+        hasPortalAccess: true,
+        accesos: [{ app: "facturacion", level: "read" }],
+      }),
+    ).toEqual(["portal"]);
+  });
+
+  it("falls back to the portal when nothing admits the person, so they can ask for access", () => {
+    expect(launcherApps({ hasPortalAccess: false, accesos: [] })).toEqual([
+      "portal",
+    ]);
+    expect(
+      launcherApps({
+        hasPortalAccess: false,
+        accesos: [{ app: "facturacion", level: "read" }],
+      }),
+    ).toEqual(["portal"]);
   });
 });

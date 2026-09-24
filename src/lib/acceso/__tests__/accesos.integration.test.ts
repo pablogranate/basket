@@ -3,6 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   getAcceso,
   grantAcceso,
+  listAccesosForUser,
   listUsersWithAccesos,
   revokeAcceso,
 } from "@/lib/acceso/accesos";
@@ -48,6 +49,27 @@ describe("accesos (integration)", () => {
     // An Acceso admits to one app only.
     expect(await getAcceso(operator, "ops")).toBeNull();
     expect(await getAcceso(admin, "incidencias")).toBeNull();
+  });
+
+  it("lists only the asking identity's Accesos, for the apex launcher", async () => {
+    const operator = await seedAuthUser(sql, { email: "op@basquetpass.tv" });
+    const other = await seedAuthUser(sql, { email: "other@basquetpass.tv" });
+
+    await grantAcceso({ userId: operator, app: "ops", level: "read", grantedBy: null });
+    await grantAcceso({ userId: operator, app: "facturacion", level: "write", grantedBy: null });
+    await grantAcceso({ userId: other, app: "analytics", level: "admin", grantedBy: null });
+
+    const accesos = await listAccesosForUser(operator);
+    expect(accesos).toHaveLength(2);
+    expect(accesos).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ app: "facturacion", level: "write" }),
+        expect.objectContaining({ app: "ops", level: "read" }),
+      ]),
+    );
+
+    const nobody = await seedAuthUser(sql, { email: "none@basquetpass.tv" });
+    expect(await listAccesosForUser(nobody)).toEqual([]);
   });
 
   it("grants facturacion coordinador and admin as the plain write/admin Niveles facturacion-bp reads", async () => {

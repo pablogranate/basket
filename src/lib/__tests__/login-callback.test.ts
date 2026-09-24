@@ -161,7 +161,7 @@ describe("apex-originated magic link for an external user", () => {
   const APEX_URL = "https://basket-app.com/login";
 
   it.each<AppRole>(["collaborator"])(
-    "verifies and lands %s on mi-jornada",
+    "verifies and returns %s to the apex launcher",
     (role) => {
       const callbackURL = buildLoginCallbackURL(
         resolveLoginRedirectTarget({ redirectTo: APEX_URL }),
@@ -178,7 +178,7 @@ describe("apex-originated magic link for an external user", () => {
           role,
           redirectTo: resolveLoginRedirectTarget(params),
         }),
-      ).toBe("/mi-jornada");
+      ).toBe(APEX_URL);
     },
   );
 

@@ -33,6 +33,14 @@ export async function getAcceso(
   return rows[0] ?? null;
 }
 
+// Every Acceso one identity holds, for the apex launcher.
+export async function listAccesosForUser(userId: string): Promise<Acceso[]> {
+  return authDb
+    .select()
+    .from(authAppAccess)
+    .where(eq(authAppAccess.userId, userId));
+}
+
 export async function grantAcceso(input: AccesoGrant): Promise<Acceso> {
   const [row] = await authDb
     .insert(authAppAccess)
