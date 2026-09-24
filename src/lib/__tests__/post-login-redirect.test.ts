@@ -51,27 +51,12 @@ describe("sanitizeRedirectTo", () => {
 const APEX_LANDING = "https://basket-app.com/";
 
 describe("resolvePostLoginDestination", () => {
-  it("returns an Admin to the apex landing they came from", () => {
-    expect(
-      resolvePostLoginDestination({ role: "admin", redirectTo: APEX_LANDING }),
-    ).toBe(APEX_LANDING);
-  });
-
-  it.each<AppRole>(["editor"])(
-    "sends a Productor (%s) to the portal grid instead of bouncing through the apex",
+  it.each<AppRole>(["admin", "editor", "collaborator"])(
+    "returns %s to the apex launcher they came from",
     (role) => {
       expect(
         resolvePostLoginDestination({ role, redirectTo: APEX_LANDING }),
-      ).toBe("/grid");
-    },
-  );
-
-  it.each<AppRole>(["collaborator"])(
-    "sends an Externo (%s) to mi-jornada instead of the apex",
-    (role) => {
-      expect(
-        resolvePostLoginDestination({ role, redirectTo: APEX_LANDING }),
-      ).toBe("/mi-jornada");
+      ).toBe(APEX_LANDING);
     },
   );
 

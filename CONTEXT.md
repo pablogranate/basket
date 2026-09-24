@@ -10,6 +10,10 @@ Glossary for the portal's domain language. Implementation lives in code; this fi
 Any app living on a `basket-app.com` subdomain (portal, analytics, incidencias, generator, ops hub, facturacion) plus the apex directory. Siblings share one identity — a user logs in once and is recognized everywhere — and one place that says which app each identity may use.
 _Avoid_: sub-app, satellite app
 
+**Lanzador**:
+The apex page at `basket-app.com` ("Elegí una aplicación") where every signed-in identity lands. It lists only the apps that identity may enter: the portal when its Cuenta admits it, and each sibling whose Acceso holds a Nivel that app uses. With nothing else to list it still shows the portal, the door to a Solicitud de acceso.
+_Avoid_: selector, directory, landing (in prose)
+
 **Auth server**:
 The portal, as the only sibling that logs people in: Google, magic link, sign-out. Every other sibling sends its visitors here to log in and here to log out.
 _Avoid_: identity provider, IdP, SSO server

@@ -10,6 +10,7 @@ import {
 
 import { LandingLogoutClient } from "@/components/landing/landing-logout-client";
 import { Card } from "@/components/ui/card";
+import { SIBLING_APP_LABELS, type LauncherApp } from "@/lib/acceso/catalog";
 import { buildSiblingAppUrl } from "@/lib/constants";
 
 type LandingApp = {
@@ -18,45 +19,40 @@ type LandingApp = {
   Icon: typeof Clapperboard;
 };
 
-const LANDING_APPS: LandingApp[] = [
-  {
-    subdomain: "portal",
-    name: "Producción",
-    Icon: Clapperboard,
-  },
-  {
+// Subdomains are not always the app key: the ops hub lives at op.
+const LANDING_APPS: Record<LauncherApp, LandingApp> = {
+  portal: { subdomain: "portal", name: "Producción", Icon: Clapperboard },
+  analytics: {
     subdomain: "analytics",
-    name: "Analytics",
+    name: SIBLING_APP_LABELS.analytics,
     Icon: BarChart3,
   },
-  {
+  incidencias: {
     subdomain: "incidencias",
-    name: "Incidencias",
+    name: SIBLING_APP_LABELS.incidencias,
     Icon: AlertTriangle,
   },
-  {
+  generator: {
     subdomain: "generator",
-    name: "Generador",
+    name: SIBLING_APP_LABELS.generator,
     Icon: ImageIcon,
   },
-  {
-    subdomain: "op",
-    name: "Operaciones",
-    Icon: Radio,
-  },
-  {
+  ops: { subdomain: "op", name: SIBLING_APP_LABELS.ops, Icon: Radio },
+  facturacion: {
     subdomain: "facturacion",
-    name: "Facturación",
+    name: SIBLING_APP_LABELS.facturacion,
     Icon: Receipt,
   },
-];
+};
 
 export function Landing({
   host,
   userEmail,
+  apps,
 }: {
   host: string;
   userEmail: string | null;
+  apps: LauncherApp[];
 }) {
   const loginUrl = `${buildSiblingAppUrl(host, "portal")}/login`;
 
@@ -89,7 +85,7 @@ export function Landing({
       </div>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
-        {LANDING_APPS.map(({ subdomain, name, Icon }) => (
+        {apps.map((app) => LANDING_APPS[app]).map(({ subdomain, name, Icon }) => (
           <a
             key={subdomain}
             href={buildSiblingAppUrl(host, subdomain)}

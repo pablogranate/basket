@@ -200,14 +200,6 @@ export function isApexHost(host: string) {
   return APEX_HOSTS.has(hostname);
 }
 
-function targetsApexHost(target: string) {
-  try {
-    return isApexHost(new URL(target).host);
-  } catch {
-    return false;
-  }
-}
-
 export function resolvePostLoginDestination({
   role,
   redirectTo,
@@ -215,15 +207,7 @@ export function resolvePostLoginDestination({
   role?: AppRole | null;
   redirectTo?: string | null;
 }): string {
-  const safe = sanitizeRedirectTo(redirectTo);
-
-  // Honor a safe target, except an apex landing for a non-Admin — they have no
-  // launcher to see, so route them straight to their portal home (no bounce).
-  if (safe && !(targetsApexHost(safe) && !isAdminDashboardRole(role))) {
-    return safe;
-  }
-
-  return getDefaultDashboardHrefForRole(role);
+  return sanitizeRedirectTo(redirectTo) ?? getDefaultDashboardHrefForRole(role);
 }
 
 export function buildSiblingAppUrl(host: string, subdomain: string) {
@@ -255,22 +239,17 @@ export type ApexDestination =
   | { kind: "render-landing" }
   | { kind: "redirect"; path: string };
 
+// Any session gets the launcher; what it lists is per person (launcherApps).
 export function resolveApexDestination({
-  role,
   hasSession,
 }: {
-  role?: AppRole | null;
   hasSession: boolean;
 }): ApexDestination {
   if (!hasSession) {
     return { kind: "redirect", path: "/login" };
   }
 
-  if (isAdminDashboardRole(role)) {
-    return { kind: "render-landing" };
-  }
-
-  return { kind: "redirect", path: getDefaultDashboardHrefForRole(role) };
+  return { kind: "render-landing" };
 }
 
 export const RESERVED_IMPORT_HEADERS = new Set([

@@ -5,7 +5,6 @@ import {
   isApexHost,
   resolveApexDestination,
 } from "@/lib/constants";
-import type { AppRole } from "@/lib/database.types";
 
 describe("isApexHost", () => {
   it("recognizes the apex host but not the portal subdomain", () => {
@@ -31,37 +30,19 @@ describe("isApexHost", () => {
 
 describe("resolveApexDestination", () => {
   it("sends a session-less visitor to the portal login", () => {
-    expect(resolveApexDestination({ role: null, hasSession: false })).toEqual({
+    expect(resolveApexDestination({ hasSession: false })).toEqual({
       kind: "redirect",
       path: "/login",
     });
   });
 
-  it("renders the landing for an Admin", () => {
-    expect(resolveApexDestination({ role: "admin", hasSession: true })).toEqual(
-      { kind: "render-landing" },
-    );
+  // Every signed-in identity gets the launcher; what it lists is per person
+  // (launcherApps), so nobody is bounced into the portal from the apex.
+  it("renders the landing for any session", () => {
+    expect(resolveApexDestination({ hasSession: true })).toEqual({
+      kind: "render-landing",
+    });
   });
-
-  it.each<AppRole>(["editor"])(
-    "redirects a Productor (%s) straight to the portal grid",
-    (role) => {
-      expect(resolveApexDestination({ role, hasSession: true })).toEqual({
-        kind: "redirect",
-        path: "/grid",
-      });
-    },
-  );
-
-  it.each<AppRole>(["collaborator"])(
-    "redirects an Externo (%s) straight to mi-jornada",
-    (role) => {
-      expect(resolveApexDestination({ role, hasSession: true })).toEqual({
-        kind: "redirect",
-        path: "/mi-jornada",
-      });
-    },
-  );
 });
 
 describe("buildSiblingAppUrl", () => {

@@ -87,3 +87,29 @@ export const SIBLING_APP_LEVEL_HELP: Record<SiblingApp, string> = {
   facturacion:
     "Coordinador: carga y gestiona a sus periodistas. Admin: ve y administra todas las facturas.",
 };
+
+// What the apex launcher lists for one person: the portal when their Cuenta
+// admits them, then each sibling whose Acceso holds a Nivel that app uses
+// (facturacion ignores read). Nobody gets an empty launcher: the portal stays
+// as the door to a Solicitud de acceso.
+export type LauncherApp = "portal" | SiblingApp;
+
+export function launcherApps({
+  hasPortalAccess,
+  accesos,
+}: {
+  hasPortalAccess: boolean;
+  accesos: ReadonlyArray<{ app: SiblingApp; level: AccesoLevel }>;
+}): LauncherApp[] {
+  const siblings = SIBLING_APPS.filter((app) =>
+    accesos.some(
+      (acceso) => acceso.app === app && isLevelOffered(app, acceso.level),
+    ),
+  );
+
+  if (hasPortalAccess || siblings.length === 0) {
+    return ["portal", ...siblings];
+  }
+
+  return siblings;
+}
