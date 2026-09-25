@@ -20,6 +20,7 @@ import {
   grantPortalRole,
   revokePortalRole,
 } from "@/lib/acceso/portal";
+import { removeCuenta } from "@/lib/acceso/portal-cuenta";
 import { clearProfileCache, requireEditor } from "@/lib/auth";
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
 import { requireAccessManager, requireAdmin } from "@/lib/auth-access";
@@ -82,12 +83,7 @@ async function revokePlatformAccessByEmail(email: string, manager: Actor) {
   // hasAccess:false and any live Better Auth session lands on /no-access. The
   // people row and its whole history stay; only the link is cut (D-13).
   try {
-    await db
-      .update(peopleTable)
-      .set({ profileId: null })
-      .where(eq(peopleTable.profileId, profile.id));
-
-    await db.delete(profilesTable).where(eq(profilesTable.id, profile.id));
+    await removeCuenta(profile.id);
   } catch (error) {
     console.error("[acceso] portal Acceso revoked but Cuenta not deleted", error);
     throw error;

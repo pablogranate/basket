@@ -35,7 +35,7 @@ const navItems = [
     label: "Registros",
     icon: ScrollText,
   },
-  // Admins only: hidden for productores by the /access denied prefix.
+  // Super admins only: redirects to the apex users section (ADR 0010).
   { href: "/access", label: "Accesos", icon: KeyRound },
   { href: "/settings", label: "Configuración", icon: Settings2 },
   { href: "/support", label: "Soporte", icon: CircleHelp },
@@ -51,19 +51,33 @@ function getNavPrefix(item: NavItem) {
   return "activePrefix" in item ? item.activePrefix : item.href;
 }
 
+function isNavItemAllowed(
+  item: NavItem,
+  role: AppRole | null | undefined,
+  superAdmin: boolean,
+) {
+  if (item.href === "/access" && !superAdmin) {
+    return false;
+  }
+
+  return isDashboardNavHrefAllowedForRole(getNavPrefix(item), role);
+}
+
 export function DashboardNav({
   mobile = false,
   role,
+  superAdmin = false,
 }: {
   mobile?: boolean;
   role?: AppRole | null;
+  superAdmin?: boolean;
 }) {
   const pathname = usePathname();
   const allowedItems = navItems.filter((item) =>
-    isDashboardNavHrefAllowedForRole(getNavPrefix(item), role),
+    isNavItemAllowed(item, role, superAdmin),
   );
   const allowedMobileItems = mobileNavItems.filter((item) =>
-    isDashboardNavHrefAllowedForRole(getNavPrefix(item), role),
+    isNavItemAllowed(item, role, superAdmin),
   );
 
   if (mobile) {

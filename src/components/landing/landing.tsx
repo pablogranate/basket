@@ -6,12 +6,13 @@ import {
   Image as ImageIcon,
   Radio,
   Receipt,
+  UsersRound,
 } from "lucide-react";
 
 import { LandingLogoutClient } from "@/components/landing/landing-logout-client";
 import { Card } from "@/components/ui/card";
 import { SIBLING_APP_LABELS, type LauncherApp } from "@/lib/acceso/catalog";
-import { buildSiblingAppUrl } from "@/lib/constants";
+import { buildSiblingAppUrl, USUARIOS_PATH } from "@/lib/constants";
 
 type LandingApp = {
   subdomain: string;
@@ -49,10 +50,13 @@ export function Landing({
   host,
   userEmail,
   apps,
+  showUsuarios = false,
 }: {
   host: string;
   userEmail: string | null;
   apps: LauncherApp[];
+  // Super admins only: the users section lives on the apex itself.
+  showUsuarios?: boolean;
 }) {
   const loginUrl = `${buildSiblingAppUrl(host, "portal")}/login`;
 
@@ -106,6 +110,16 @@ export function Landing({
           </a>
         ))}
       </div>
+
+      {showUsuarios ? (
+        <a
+          href={USUARIOS_PATH}
+          className="mt-8 inline-flex items-center gap-2 self-start text-sm font-semibold text-[var(--accent)] hover:underline"
+        >
+          <UsersRound className="size-4" aria-hidden />
+          Usuarios y accesos
+        </a>
+      ) : null}
     </main>
   );
 }

@@ -16,6 +16,7 @@
     "perf:mi-jornada": "node scripts/perf/mi-jornada-stream.mjs",
     "db:auth:generate": "drizzle-kit generate --config drizzle.auth.config.ts",
     "db:auth:migrate": "drizzle-kit migrate --config drizzle.auth.config.ts",
+    "db:auth:bootstrap-superadmin": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/auth/bootstrap-superadmin.mts",
     "db:auth:seed-generator": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/auth/seed-generator-acceso.mts",
     "db:auth:seed-portal": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/auth/seed-portal-accesos.mts",
     "db:auth:seed-siblings": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/auth/seed-sibling-accesos.mts",
