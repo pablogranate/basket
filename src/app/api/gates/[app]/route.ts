@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { getAcceso } from "@/lib/acceso/accesos";
+import { getEffectiveAccess } from "@/lib/acceso/accesos";
 import type { SiblingApp } from "@/lib/acceso/catalog";
 import { withAuth } from "@/lib/api/with-auth";
 
 // App gate consumed by infrastructure (nginx auth_request) — see ADR 0006 for
-// the nginx shape and ADR 0009 for the decision: the gate answers by looking up
-// the identity's Acceso, not a portal capability. Readers (analytics,
+// the nginx shape and ADRs 0009/0010 for the decision: the gate answers from the
+// identity's effective access (super admins included), not a portal capability. Readers (analytics,
 // incidencias, ops) gate themselves in-process, so only the static generator
 // is served here. Must never live under /api/auth/*: the Better Auth catch-all
 // owns that prefix.
@@ -31,12 +31,12 @@ export async function GET(
 
   // withAuth answers 401 without a session; no capability — a Cuenta's portal
   // role says nothing about sibling access. Identity alone admits nobody: any
-  // Nivel of `generator` Acceso does.
+  // `generator` role does, and a super admin resolves to its admin role.
   return withAuth({}, async (_request, context) => {
-    const acceso = await getAcceso(context.userId!, app);
+    const access = await getEffectiveAccess(context.userId!, app);
 
-    if (!acceso) {
-      console.error("[gate] rejected identity without Acceso", {
+    if (!access) {
+      console.error("[gate] rejected identity without access", {
         app,
         userId: context.userId,
       });
