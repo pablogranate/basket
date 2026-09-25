@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   buildSiblingAppUrl,
   isApexHost,
+  isUsuariosPath,
   resolveApexDestination,
+  resolveUsuariosDestination,
 } from "@/lib/constants";
 
 describe("isApexHost", () => {
@@ -56,5 +58,45 @@ describe("buildSiblingAppUrl", () => {
     expect(buildSiblingAppUrl("basket-app.localhost:3000", "portal")).toBe(
       "http://portal.basket-app.localhost:3000",
     );
+  });
+});
+
+// The users section (basket#187): apex only, super admins only.
+describe("resolveUsuariosDestination", () => {
+  it("is a 404 on every host but the apex, whoever asks", () => {
+    for (const host of ["portal.basket-app.com", "analytics.basket-app.com", "localhost:3000"]) {
+      expect(
+        resolveUsuariosDestination({ host, hasSession: true, superAdmin: true }),
+      ).toEqual({ kind: "not-found" });
+    }
+  });
+
+  it("sends a session-less visitor on the apex to the login", () => {
+    expect(
+      resolveUsuariosDestination({ host: "basket-app.com", hasSession: false, superAdmin: false }),
+    ).toEqual({ kind: "redirect", path: "/login" });
+  });
+
+  it("sends a signed-in non-super-admin to /no-access", () => {
+    expect(
+      resolveUsuariosDestination({ host: "basket-app.com", hasSession: true, superAdmin: false }),
+    ).toEqual({ kind: "redirect", path: "/no-access" });
+  });
+
+  it("lets a super admin in on the apex, local alias included", () => {
+    for (const host of ["basket-app.com", "basket-app.localhost:3000"]) {
+      expect(
+        resolveUsuariosDestination({ host, hasSession: true, superAdmin: true }),
+      ).toEqual({ kind: "allow" });
+    }
+  });
+});
+
+describe("isUsuariosPath", () => {
+  it("matches the section and its subpaths only", () => {
+    expect(isUsuariosPath("/usuarios")).toBe(true);
+    expect(isUsuariosPath("/usuarios/x")).toBe(true);
+    expect(isUsuariosPath("/usuarios-old")).toBe(false);
+    expect(isUsuariosPath("/access")).toBe(false);
   });
 });

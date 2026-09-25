@@ -2,9 +2,12 @@
 // Source: better-auth.com/docs/adapters/drizzle + concepts/database + plugins/admin
 import { sql } from "drizzle-orm";
 import {
+  bigserial,
   boolean,
   foreignKey,
+  index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   pgView,
@@ -161,3 +164,26 @@ export const authEffectiveAccess = pgView("auth_effective_access", {
   isAdmin: boolean("is_admin").notNull(),
   viaSuperadmin: boolean("via_superadmin").notNull(),
 }).existing();
+
+// Identity-level changes made from the apex users section (super admin set or
+// removed, bans, sign-outs, creations). Role grants are audited by the
+// granted_by/granted_at columns of auth_app_access instead.
+export const authAuditLog = pgTable(
+  "auth_audit_log",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    // Null when a script acted (bootstrap).
+    actorId: text("actor_id").references(() => authUser.id, {
+      onDelete: "set null",
+    }),
+    targetUserId: text("target_user_id").references(() => authUser.id, {
+      onDelete: "set null",
+    }),
+    action: text("action").notNull(),
+    detail: jsonb("detail"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("auth_audit_log_target_idx").on(table.targetUserId, table.createdAt),
+  ],
+);

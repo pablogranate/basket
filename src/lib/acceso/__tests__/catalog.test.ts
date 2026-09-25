@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  accesoLevelLabel,
   accesoLevelOptions,
   launcherApps,
 } from "@/lib/acceso/catalog";
@@ -24,18 +23,6 @@ describe("accesoLevelOptions", () => {
         { level: "admin", label: "Admin" },
       ]);
     }
-  });
-});
-
-describe("accesoLevelLabel", () => {
-  it("labels a Nivel in the app's own words", () => {
-    expect(accesoLevelLabel("facturacion", "write")).toBe("Coordinador");
-    expect(accesoLevelLabel("facturacion", "admin")).toBe("Admin");
-    expect(accesoLevelLabel("ops", "write")).toBe("Escritura");
-  });
-
-  it("still labels a facturacion=read row instead of failing, marked as not applicable", () => {
-    expect(accesoLevelLabel("facturacion", "read")).toBe("Lectura (no aplica)");
   });
 });
 
@@ -82,5 +69,11 @@ describe("launcherApps", () => {
         accesos: [{ app: "facturacion", level: "read" }],
       }),
     ).toEqual(["portal"]);
+  });
+
+  it("lists every app for a super admin, whatever their explicit rows say", () => {
+    expect(
+      launcherApps({ hasPortalAccess: false, superAdmin: true, accesos: [] }),
+    ).toEqual(["portal", "analytics", "incidencias", "generator", "ops", "facturacion"]);
   });
 });

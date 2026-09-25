@@ -47,9 +47,12 @@ SELECT count(*) FROM auth_app_access WHERE role IS NULL;  -- must be 0
 SELECT app, role, level, count(*) FROM auth_app_access GROUP BY 1, 2, 3;
 ```
 
-Super admins are `auth_user.role = 'superadmin'`; until the users section
-(#187) ships, set one by hand only if needed:
-`UPDATE auth_user SET role = 'superadmin' WHERE lower(email) = '<email>';`
+Super admins are `auth_user.role = 'superadmin'`; set the first ones with the
+bootstrap script (see "Users section" below), then from `/usuarios`.
+
+`0004_audit_log` (#187) adds `auth_audit_log`: one row per identity-level
+change made from `/usuarios` or the bootstrap script (create, ban, unban,
+sign out everywhere, super admin set/removed). Additive only.
 
 ## Deploy-day seed: generator Acceso for admins and editors
 
@@ -114,16 +117,44 @@ Grant rule (`canGrantRole`): a manager grants, re-tiers or revokes roles
 ranked below their own; the portal Admin also reaches Admin; super admins
 grant anything. Productores stay limited to Externo.
 
-## Accesos page (admins only)
+## Users section at basket-app.com/usuarios (#187)
 
-`/access` lists every identity in the Auth DB × every sibling app with a
-Nivel select per cell (Sin acceso / Lectura / Escritura / Admin; facturacion
-names its Niveles Coordinador for `write` and Admin for `admin`, and has no
-`read`). Saving a cell
-grants, changes or revokes the Acceso, stamping `granted_by` and `granted_at`;
-the person feels it on their next request in that app. Productores never see
-the route (denied prefix) and the server action refuses them. Linked from the
-People page header and from a person's Cuenta block.
+Replaces `/access` (which now redirects there, `?email=` kept). Served on the
+apex host only: every other host gets a 404 (middleware, page and every
+action). Only active super admins get in; anyone else lands on `/no-access`.
+The check reads `auth_user` uncached, so it doesn't need a portal Cuenta.
+
+- Matrix: every identity × every app of the catalog, one select per cell with
+  that app's roles plus "Sin acceso", role descriptions in the header,
+  `granted_by`/`granted_at` under each cell. Super admin rows are locked as
+  "Admin (super admin)"; the action refuses them too.
+- Portal cell: until #189 a Cuenta without a portal row still enters with
+  `profiles.role` (shown as "Desde la Cuenta"). So granting also creates or
+  links the Cuenta and dual-writes `profiles.role`, and "Sin acceso" removes
+  the Acceso and the Cuenta (the Ficha stays, unlinked). Auth DB first; a
+  Domain DB failure is logged with `[acceso]` and shown as an error notice.
+- Per identity: create (email + name, verified, no email sent), ban / unban
+  (ban also ends every session), sign out everywhere, set / remove super
+  admin. All behind a confirm. Create, ban, unban and sign-out go through the
+  Better Auth admin plugin (`adminRoles: ["superadmin"]`). Super admin
+  set/remove is one Auth DB transaction that locks every active super admin
+  row, refuses to remove the last one, and writes its audit row; it is logged
+  with `[usuarios]`.
+
+### Deploy (#187)
+
+```bash
+pnpm db:auth:migrate                     # applies 0004_audit_log
+pnpm db:auth:bootstrap-superadmin -- --dry-run <email> [<email>…]
+pnpm db:auth:bootstrap-superadmin -- <email> [<email>…]
+# deploy the portal
+```
+
+The bootstrap script is idempotent. It exits 1 and lists any email with no
+identity yet: have that person sign in once, then re-run it. Its audit rows
+have `actor_id = null`. Smoke: a super admin opens `basket-app.com/usuarios`;
+a non-super-admin is sent to `/no-access`; `portal.basket-app.com/usuarios`
+is a 404; `portal.basket-app.com/access` redirects to the apex.
 
 ## Cutover seed: incidencias, ops hub and analytics users
 
@@ -151,7 +182,7 @@ ops repo `src/lib/roles.ts`), `SEED_ANALYTICS_DATABASE_URL`, plus
 and skips every fetch. Idempotent: existing identities are reused by email
 (case-insensitive) and an existing Acceso is never overridden — deliberately
 "grant if absent" rather than the spec's "upsert", so an admin's later change
-survives a re-run; fix a wrongly seeded row from the Accesos page. Users the
+survives a re-run; fix a wrongly seeded row from `/usuarios`. Users the
 mapping drops (unknown role, no incidencias profile) are listed in the output.
 Seeded rows have `granted_by = null`.
 

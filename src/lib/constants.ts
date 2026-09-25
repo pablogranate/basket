@@ -252,6 +252,44 @@ export function resolveApexDestination({
   return { kind: "render-landing" };
 }
 
+// The users section (ADR 0010) exists on the apex only; everywhere else it is
+// a 404 so the route is invisible off basket-app.com.
+export const USUARIOS_PATH = "/usuarios";
+
+export function isUsuariosPath(pathname: string) {
+  return pathname === USUARIOS_PATH || pathname.startsWith(`${USUARIOS_PATH}/`);
+}
+
+export type UsuariosDestination =
+  | { kind: "not-found" }
+  | { kind: "redirect"; path: string }
+  | { kind: "allow" };
+
+// Host first, so a non-apex host never reveals whether the caller would pass.
+export function resolveUsuariosDestination({
+  host,
+  hasSession,
+  superAdmin,
+}: {
+  host: string;
+  hasSession: boolean;
+  superAdmin: boolean;
+}): UsuariosDestination {
+  if (!isApexHost(host)) {
+    return { kind: "not-found" };
+  }
+
+  if (!hasSession) {
+    return { kind: "redirect", path: "/login" };
+  }
+
+  if (!superAdmin) {
+    return { kind: "redirect", path: "/no-access" };
+  }
+
+  return { kind: "allow" };
+}
+
 export const RESERVED_IMPORT_HEADERS = new Set([
   "fecha",
   "dia",
