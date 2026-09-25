@@ -34,6 +34,23 @@ created by this journal, check `drizzle.__drizzle_migrations` exists and lists
 `0000_careful_iron_lad`; otherwise mark the baseline applied first (same
 approach as `scripts/db/mark-baseline-applied.sh` for the portal DB).
 
+`0003_role_catalog` (ADR 0010, #185) adds the Catálogo de roles
+(`auth_app`, `auth_app_role`, seeded), turns `auth_app_access.app` into text
+with an FK to `auth_app`, adds `role` backfilled from `level` through each
+role's `legacy_level`, makes `level` nullable, and creates the view
+`auth_effective_access`. Readers keep reading `level` untouched; the portal
+writes both columns. Expand-only: no reader needs to deploy with it. Check
+after migrating:
+
+```sql
+SELECT count(*) FROM auth_app_access WHERE role IS NULL;  -- must be 0
+SELECT app, role, level, count(*) FROM auth_app_access GROUP BY 1, 2, 3;
+```
+
+Super admins are `auth_user.role = 'superadmin'`; until the users section
+(#187) ships, set one by hand only if needed:
+`UPDATE auth_user SET role = 'superadmin' WHERE lower(email) = '<email>';`
+
 ## Deploy-day seed: generator Acceso for admins and editors
 
 The generator gate (`/api/gates/generator`) now admits a `generator` Acceso at
