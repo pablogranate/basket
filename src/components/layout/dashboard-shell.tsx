@@ -51,7 +51,10 @@ export function DashboardShell(props: {
     <div className="min-h-screen bg-[var(--page-canvas)]">
       <div className="flex min-h-screen">
         <DashboardSidebar brand={brand}>
-          <DashboardNav role={user?.role ?? null} />
+          <DashboardNav
+            role={user?.role ?? null}
+            superAdmin={user?.superAdmin ?? false}
+          />
         </DashboardSidebar>
 
         <div className="flex min-w-0 flex-1 flex-col">
@@ -71,6 +74,7 @@ export function DashboardShell(props: {
                   <DashboardMobileNav
                     brand={brand}
                     role={user?.role ?? null}
+                    superAdmin={user?.superAdmin ?? false}
                   />
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img

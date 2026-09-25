@@ -18,13 +18,11 @@ export const ACCESO_LEVELS = [
   "admin",
 ] as const satisfies ReadonlyArray<(typeof appAccessLevel.enumValues)[number]>;
 
-// Matrix select value meaning "revoke" — not a Nivel, so kept apart from them.
-export const NONE_LEVEL_OPTION = "none";
+// Users-matrix select value meaning "revoke"; never a catalog role key.
+export const NO_ROLE_OPTION = "none";
 
 export type SiblingApp = (typeof SIBLING_APPS)[number];
 export type AccesoLevel = (typeof ACCESO_LEVELS)[number];
-// What a matrix select can hold: a Nivel or "none" (revoke).
-export type LevelOption = AccesoLevel | typeof NONE_LEVEL_OPTION;
 
 export function isSiblingApp(value: string): value is SiblingApp {
   return (SIBLING_APPS as ReadonlyArray<string>).includes(value);
@@ -70,37 +68,26 @@ export function isLevelOffered(app: SiblingApp, level: AccesoLevel): boolean {
   return accesoLevelOptions(app).some((option) => option.level === level);
 }
 
-// Also labels a Nivel the app no longer offers, so a stray row still renders.
-export function accesoLevelLabel(app: SiblingApp, level: AccesoLevel): string {
-  const offered = accesoLevelOptions(app).find((option) => option.level === level);
-  return offered?.label ?? `${DEFAULT_LEVEL_LABELS[level]} (no aplica)`;
-}
-
-// What each Nivel unlocks per app (spec #172 "Level semantics"), shown under
-// each matrix column so an admin grants the right one.
-export const SIBLING_APP_LEVEL_HELP: Record<SiblingApp, string> = {
-  analytics: "Cualquier nivel habilita todos los tableros.",
-  incidencias:
-    "Lectura: ver incidencias y reportes. Escritura: cargar, editar y borrar.",
-  generator: "Cualquier nivel habilita la herramienta.",
-  ops: "Lectura: solo el tablero. Escritura: clubes, mensajes, importaciones.",
-  facturacion:
-    "Coordinador: carga y gestiona a sus periodistas. Admin: ve y administra todas las facturas.",
-};
-
 // What the apex launcher lists for one person: the portal when their Cuenta
 // admits them, then each sibling whose Acceso holds a Nivel that app uses
 // (facturacion ignores read). Nobody gets an empty launcher: the portal stays
 // as the door to a Solicitud de acceso.
 export type LauncherApp = "portal" | SiblingApp;
 
+// A super admin is admin in every app (ADR 0010), so they get all of them.
 export function launcherApps({
   hasPortalAccess,
+  superAdmin = false,
   accesos,
 }: {
   hasPortalAccess: boolean;
+  superAdmin?: boolean;
   accesos: ReadonlyArray<{ app: SiblingApp; level: AccesoLevel }>;
 }): LauncherApp[] {
+  if (superAdmin) {
+    return ["portal", ...SIBLING_APPS];
+  }
+
   const siblings = SIBLING_APPS.filter((app) =>
     accesos.some(
       (acceso) => acceso.app === app && isLevelOffered(app, acceso.level),

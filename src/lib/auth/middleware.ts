@@ -1,7 +1,11 @@
 import { getSessionCookie } from "better-auth/cookies";
 import { NextResponse, type NextRequest } from "next/server";
 
-import { buildSiblingAppUrl, isApexHost } from "@/lib/constants";
+import {
+  buildSiblingAppUrl,
+  isApexHost,
+  isUsuariosPath,
+} from "@/lib/constants";
 import { appEnv } from "@/lib/env";
 
 function isGuestMiJornadaPath(pathname: string) {
@@ -47,6 +51,12 @@ export async function updateSession(request: NextRequest) {
     const loginUrl = new URL(`${buildSiblingAppUrl(host, "portal")}/login`);
     loginUrl.searchParams.set("redirectTo", apexUrl);
     return NextResponse.redirect(loginUrl);
+  }
+
+  // The users section lives on the apex only (ADR 0010); requireSuperAdmin
+  // repeats this and the super admin check in the page and every action.
+  if (isUsuariosPath(pathname)) {
+    return new NextResponse(null, { status: 404 });
   }
 
   if (hasSession || isPublicPath(pathname) || isGuestMiJornadaPath(pathname)) {
