@@ -34,6 +34,7 @@ export function makeUserContext(
   return {
     email: "editor@basket-app.test",
     canEdit: true,
+    superAdmin: false,
     ...overrides,
     userId,
     profileId,
@@ -52,6 +53,7 @@ export function makeGuestContext(
     email: null,
     profile: null,
     role: "collaborator",
+    superAdmin: false,
     canEdit: false,
     hasAccess: false,
     ...overrides,

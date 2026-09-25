@@ -40,9 +40,9 @@ export const auth = betterAuth({
     updateAge: ONE_DAY_SECONDS,
     // Serve session validation from a signed cookie for `maxAge` seconds,
     // skipping the auth-DB round-trip on every getSession. Does NOT cache the
-    // portal role (resolved fresh from profiles in getUserContext), so
-    // role/permission changes stay immediate. Short maxAge bounds the window
-    // in which an admin force-logout/ban can linger.
+    // portal role (read per request from auth_effective_access in
+    // getUserContext), so role/permission changes stay immediate. Short maxAge
+    // bounds the window in which an admin force-logout/ban can linger.
     cookieCache: { enabled: true, maxAge: 60 },
   },
   // Share the session cookie across *.basket-app.com so logging in once on the
