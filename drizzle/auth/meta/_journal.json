@@ -22,6 +22,13 @@
       "when": 1790198458116,
       "tag": "0002_acceso_facturacion",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790360678522,
+      "tag": "0003_role_catalog",
+      "breakpoints": true
     }
   ]
 }
