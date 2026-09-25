@@ -1,12 +1,17 @@
 // src/lib/auth/schema.ts
 // Source: better-auth.com/docs/adapters/drizzle + concepts/database + plugins/admin
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  foreignKey,
+  integer,
   pgEnum,
   pgTable,
+  pgView,
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 export const authUser = pgTable("auth_user", {
@@ -66,9 +71,8 @@ export const authVerification = pgTable("auth_verification", {
   updatedAt: timestamp("updated_at").notNull(),
 });
 
-// Acceso: one identity's Nivel in one sibling app (ADR 0009). The portal is
-// exempt (its entry is a Cuenta's role), so there is no `portal` value. Adding
-// a sibling is a deliberate migration extending the enum.
+// Nivel enums from ADR 0009. Kept while readers still read `level`; dropped
+// by the contract step of ADR 0010 along with the column.
 export const appAccessApp = pgEnum("auth_app_access_app", [
   "analytics",
   "incidencias",
@@ -83,19 +87,77 @@ export const appAccessLevel = pgEnum("auth_app_access_level", [
   "admin",
 ]);
 
+// Catálogo de roles (ADR 0010): the apps, and the roles each one declares.
+// Adding an app or a role is a row, not a migration of an enum.
+export const authApp = pgTable("auth_app", {
+  key: text("key").primaryKey(),
+  label: text("label").notNull(),
+  sortOrder: integer("sort_order").notNull(),
+});
+
+export const authAppRole = pgTable(
+  "auth_app_role",
+  {
+    app: text("app")
+      .notNull()
+      .references(() => authApp.key, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    label: text("label").notNull(),
+    description: text("description"),
+    // Higher outranks lower within one app; grant rules compare ranks.
+    rank: integer("rank").notNull(),
+    isAdmin: boolean("is_admin").notNull().default(false),
+    // The Nivel this role equals while readers still read `level`; null for
+    // apps that never had one (portal). Dropped with `level`.
+    legacyLevel: appAccessLevel("legacy_level"),
+  },
+  (table) => [
+    primaryKey({ columns: [table.app, table.key] }),
+    // A super admin resolves to exactly one role per app.
+    uniqueIndex("auth_app_role_one_admin_per_app")
+      .on(table.app)
+      .where(sql`${table.isAdmin}`),
+  ],
+);
+
+// Acceso: one identity's role in one app (ADR 0010). `level` is the ADR 0009
+// Nivel, written alongside `role` until every reader moves to the view.
 export const authAppAccess = pgTable(
   "auth_app_access",
   {
     userId: text("user_id")
       .notNull()
       .references(() => authUser.id, { onDelete: "cascade" }),
-    app: appAccessApp("app").notNull(),
-    level: appAccessLevel("level").notNull(),
+    app: text("app")
+      .notNull()
+      .references(() => authApp.key),
+    role: text("role").notNull(),
+    level: appAccessLevel("level"),
     // Auth user id of the admin who granted; null for seeded rows.
     grantedBy: text("granted_by").references(() => authUser.id, {
       onDelete: "set null",
     }),
     grantedAt: timestamp("granted_at").notNull().defaultNow(),
   },
-  (table) => [primaryKey({ columns: [table.userId, table.app] })],
+  (table) => [
+    primaryKey({ columns: [table.userId, table.app] }),
+    foreignKey({
+      columns: [table.app, table.role],
+      foreignColumns: [authAppRole.app, authAppRole.key],
+      name: "auth_app_access_app_role_fk",
+    }),
+  ],
 );
+
+// What every gate reads: one row per identity and app. A non-banned super
+// admin (auth_user.role = 'superadmin') resolves every app to its admin role;
+// their explicit rows are kept so a demotion restores them. Defined in
+// drizzle/auth/0003_role_catalog.sql.
+export const authEffectiveAccess = pgView("auth_effective_access", {
+  userId: text("user_id").notNull(),
+  app: text("app").notNull(),
+  role: text("role").notNull(),
+  rank: integer("rank").notNull(),
+  isAdmin: boolean("is_admin").notNull(),
+  viaSuperadmin: boolean("via_superadmin").notNull(),
+}).existing();
