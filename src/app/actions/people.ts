@@ -15,11 +15,16 @@ import {
   parseUpdatePersonAccessRole,
   parseUpsertPerson,
 } from "@/lib/actions/parse/people";
+import {
+  getPortalAccess,
+  grantPortalRole,
+  revokePortalRole,
+} from "@/lib/acceso/portal";
 import { clearProfileCache, requireEditor } from "@/lib/auth";
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
 import { requireAccessManager, requireAdmin } from "@/lib/auth-access";
 import type { AppRole, ProfileRow } from "@/lib/database.types";
-import { can, canGrantTier, type Actor } from "@/lib/roles";
+import { can, canGrantRole, type Actor } from "@/lib/roles";
 import { db } from "@/lib/db/client";
 import { profileColumns } from "@/lib/db/rows";
 import {
@@ -42,8 +47,20 @@ async function findProfileByEmail(email: string): Promise<ProfileRow | null> {
   );
 }
 
-// Any profiles row grants platform login (the enum holds live tiers only), so
-// revoke is "does a row exist", mirroring getPlatformAccessRole.
+// The role the Cuenta holds today: its portal Acceso once linked (a super
+// admin reads as admin), else the profiles.role it will be seeded from.
+async function getCurrentPortalRole(profile: ProfileRow): Promise<AppRole> {
+  if (!profile.auth_user_id) {
+    return profile.role;
+  }
+
+  const access = await getPortalAccess(profile.auth_user_id);
+
+  return access?.role ?? profile.role;
+}
+
+// Revoke cuts both the portal Acceso (Auth DB, written first: it is what
+// getUserContext reads) and the Cuenta (Domain DB) until basket#189.
 async function revokePlatformAccessByEmail(email: string, manager: Actor) {
   const profile = await findProfileByEmail(email);
 
@@ -52,20 +69,29 @@ async function revokePlatformAccessByEmail(email: string, manager: Actor) {
   }
 
   // Productores may only revoke Externo logins; revoking an admin/Productor
-  // account stays admin-only (canGrantTier).
-  if (!canGrantTier(manager, profile.role)) {
+  // account needs a higher rank (canGrantRole).
+  if (!canGrantRole(manager, await getCurrentPortalRole(profile))) {
     throw new Error("Solo un admin puede revocar este acceso.");
+  }
+
+  if (profile.auth_user_id) {
+    await revokePortalRole(profile.auth_user_id);
   }
 
   // Deleting the profiles row removes authorization: getUserContext now returns
   // hasAccess:false and any live Better Auth session lands on /no-access. The
   // people row and its whole history stay; only the link is cut (D-13).
-  await db
-    .update(peopleTable)
-    .set({ profileId: null })
-    .where(eq(peopleTable.profileId, profile.id));
+  try {
+    await db
+      .update(peopleTable)
+      .set({ profileId: null })
+      .where(eq(peopleTable.profileId, profile.id));
 
-  await db.delete(profilesTable).where(eq(profilesTable.id, profile.id));
+    await db.delete(profilesTable).where(eq(profilesTable.id, profile.id));
+  } catch (error) {
+    console.error("[acceso] portal Acceso revoked but Cuenta not deleted", error);
+    throw error;
+  }
 
   clearProfileCache();
 
@@ -281,28 +307,48 @@ const updatePersonAccessRole = defineAction({
       throw new Error("Este usuario no tiene acceso activo a la plataforma.");
     }
 
-    // Both the current and the target tier must be within reach of the manager,
-    // so a productor cannot promote an Externo nor touch an admin/Productor.
+    const currentRole = await getCurrentPortalRole(profile);
+
+    // Both the current and the target tier must rank below the manager, so a
+    // productor cannot promote an Externo nor touch an admin/Productor.
     if (
-      !canGrantTier(ctx, profile.role) ||
-      !canGrantTier(ctx, requestedAccessRole)
+      !canGrantRole(ctx, currentRole) ||
+      !canGrantRole(ctx, requestedAccessRole)
     ) {
       throw new Error("Solo un admin puede cambiar este nivel de acceso.");
     }
 
     // Self-demotion would lock the current admin out on the next request.
-    if (profile.id === ctx.profileId && requestedAccessRole !== profile.role) {
+    if (profile.id === ctx.profileId && requestedAccessRole !== currentRole) {
       throw new Error("No podés cambiar tu propio nivel de acceso.");
     }
 
-    if (profile.role === requestedAccessRole) {
+    if (
+      currentRole === requestedAccessRole &&
+      profile.role === requestedAccessRole
+    ) {
       return { notice: "El nivel de acceso ya estaba actualizado." };
     }
 
-    await db
-      .update(profilesTable)
-      .set({ role: requestedAccessRole satisfies AppRole })
-      .where(eq(profilesTable.id, profile.id));
+    // Auth DB first: it is what getUserContext reads. An unlinked Cuenta gets
+    // its Acceso from profiles.role at first login.
+    if (profile.auth_user_id) {
+      await grantPortalRole({
+        userId: profile.auth_user_id,
+        role: requestedAccessRole,
+        grantedBy: ctx.userId,
+      });
+    }
+
+    try {
+      await db
+        .update(profilesTable)
+        .set({ role: requestedAccessRole satisfies AppRole })
+        .where(eq(profilesTable.id, profile.id));
+    } catch (error) {
+      console.error("[acceso] portal role written but profiles.role not", error);
+      throw error;
+    }
 
     clearProfileCache();
 

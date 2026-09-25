@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { PageMessage } from "@/components/ui/page-message";
 import { Textarea } from "@/components/ui/textarea";
 import { requireUserContext, type UserContext } from "@/lib/auth";
-import { can, canGrantTier } from "@/lib/roles";
+import { can, canGrantRole } from "@/lib/roles";
 import { SECTION_COPY } from "@/lib/copy";
 import type { AppRole } from "@/lib/database.types";
 import { getPeopleData } from "@/lib/data/dashboard";
@@ -274,7 +274,7 @@ async function PeopleEditModal({
   // Productores may revoke only Externo logins; admins may revoke any tier.
   const canRevokeSelectedAccess =
     selectedPersonAccessRole !== null &&
-    canGrantTier(user, selectedPersonAccessRole);
+    canGrantRole(user, selectedPersonAccessRole);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[rgba(28,13,16,0.48)] p-4 backdrop-blur-sm">
