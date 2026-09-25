@@ -5,6 +5,11 @@ import { redirect } from "next/navigation";
 
 import { and, eq, isNull } from "drizzle-orm";
 
+import {
+  getPortalAccess,
+  grantPortalRoleIfAbsent,
+  type PortalAccess,
+} from "@/lib/acceso/portal";
 import { auth } from "@/lib/auth/server";
 import type { AppRole, ProfileRow } from "@/lib/database.types";
 import { db } from "@/lib/db/client";
@@ -14,7 +19,8 @@ import { can, CAPABILITY_DENIED_MESSAGE } from "@/lib/roles";
 
 export type UserContext = Awaited<ReturnType<typeof getUserContext>>;
 
-// Cross-request profile cache: profiles change rarely and only through the
+// Cross-request profile cache: the Cuenta only (the role is read per request
+// from the Auth DB, see resolvePortalAccess). Profiles change rarely and only through the
 // people actions (which call clearProfileCache on every mutation); the TTL
 // bounds staleness from out-of-band edits (direct SQL). Null is cached too —
 // but only after the first-login auto-link attempt has run — so unprovisioned
@@ -59,6 +65,7 @@ export const getUserContext = cache(async () => {
       email: null,
       profile: null,
       role: "collaborator" as AppRole,
+      superAdmin: false,
       canEdit: false,
       hasAccess: false,
     };
@@ -68,7 +75,9 @@ export const getUserContext = cache(async () => {
   const email = session.user.email ?? null;
   const profile = await resolveProfile(authUserId, email);
 
-  // Authenticated but unprovisioned: no access, routed to /no-access (D-11/D-13).
+  // Authenticated but unprovisioned: no access, routed to /no-access
+  // (D-11/D-13). Domain writes need the Cuenta's uuid, so an identity with a
+  // portal Acceso but no Cuenta is unprovisioned too.
   if (!profile) {
     return {
       userId: authUserId,
@@ -76,12 +85,13 @@ export const getUserContext = cache(async () => {
       email,
       profile: null,
       role: "collaborator" as AppRole,
+      superAdmin: false,
       canEdit: false,
       hasAccess: false,
     };
   }
 
-  const role: AppRole = profile.role;
+  const { role, superAdmin } = await resolvePortalAccess(authUserId, profile);
 
   return {
     userId: authUserId,
@@ -91,10 +101,32 @@ export const getUserContext = cache(async () => {
     email,
     profile,
     role,
+    superAdmin,
     canEdit: can({ role, hasAccess: true }, "edit"),
     hasAccess: true,
   };
 });
+
+// The portal role comes from auth_effective_access (ADR 0010), uncached.
+// Transition until basket#189: a Cuenta with no portal row yet (seed not run,
+// or the Auth DB unreachable) keeps its profiles.role, which every grant path
+// still dual-writes.
+async function resolvePortalAccess(
+  authUserId: string,
+  profile: ProfileRow,
+): Promise<PortalAccess> {
+  try {
+    const access = await getPortalAccess(authUserId);
+
+    if (access) {
+      return access;
+    }
+  } catch (error) {
+    console.error("[auth] failed to load portal Acceso", error);
+  }
+
+  return { role: profile.role, superAdmin: false };
+}
 
 async function loadProfile(
   authUserId: string,
@@ -143,6 +175,10 @@ async function loadProfile(
             )
             .returning(profileColumns)) as ProfileRow[];
           profile = link[0] ?? candidate;
+
+          if (link[0]) {
+            await grantPortalAccesoOnLink(authUserId, link[0].role);
+          }
         } catch (error) {
           console.error("[auth] failed to auto-link profile by email", error);
           profile = candidate;
@@ -154,6 +190,16 @@ async function loadProfile(
   }
 
   return profile;
+}
+
+// The unlinked Cuenta's profiles.role is a one-shot seed (ADR 0010): the first
+// login turns it into the portal Acceso, unless one was already granted.
+async function grantPortalAccesoOnLink(authUserId: string, role: AppRole) {
+  try {
+    await grantPortalRoleIfAbsent({ userId: authUserId, role, grantedBy: null });
+  } catch (error) {
+    console.error("[auth] failed to grant portal Acceso on first login", error);
+  }
 }
 
 export async function requireUserContext() {

@@ -98,7 +98,11 @@ describe("access-request lifecycle (integration)", () => {
       outcome: "aprobada",
       actorProfileId: actor,
     });
-    expect(won).toEqual({ id, email: "ana.perez@example.com" });
+    expect(won).toEqual({
+      id,
+      email: "ana.perez@example.com",
+      authUserId: applicant.authUserId,
+    });
 
     await expect(
       claimAccessRequest(db, { id, outcome: "rechazada", actorProfileId: actor }),

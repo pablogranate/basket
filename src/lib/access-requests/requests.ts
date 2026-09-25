@@ -107,7 +107,7 @@ export async function claimAccessRequest(
     outcome: AccessRequestOutcome;
     actorProfileId: string | null;
   },
-): Promise<{ id: string; email: string }> {
+): Promise<{ id: string; email: string; authUserId: string }> {
   const claimed = await exec
     .update(accessRequestsTable)
     .set({
@@ -121,13 +121,21 @@ export async function claimAccessRequest(
         eq(accessRequestsTable.status, PENDING),
       ),
     )
-    .returning({ id: accessRequestsTable.id, email: accessRequestsTable.email });
+    .returning({
+      id: accessRequestsTable.id,
+      email: accessRequestsTable.email,
+      authUserId: accessRequestsTable.authUserId,
+    });
 
   if (!claimed[0]) {
     throw new Error("Esta solicitud ya fue resuelta.");
   }
 
-  return { id: claimed[0].id, email: claimed[0].email.trim().toLowerCase() };
+  return {
+    id: claimed[0].id,
+    email: claimed[0].email.trim().toLowerCase(),
+    authUserId: claimed[0].authUserId,
+  };
 }
 
 // Records which cuenta and ficha an approved request ended up as.
