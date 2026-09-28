@@ -9,6 +9,7 @@ import {
   parseRejectAccessRequest,
   parseSubmitAccessRequest,
 } from "@/lib/actions/parse/access-requests";
+import { grantPortalRole } from "@/lib/acceso/portal";
 import { notifyAccessRequest } from "@/lib/access-requests/notify";
 import {
   attachAccessRequestIdentity,
@@ -21,7 +22,7 @@ import {
   requireAdmin,
 } from "@/lib/auth-access";
 import type { AppRole } from "@/lib/database.types";
-import { canGrantTier } from "@/lib/roles";
+import { canGrantRole } from "@/lib/roles";
 import { writeAudit } from "@/lib/audit";
 import { db } from "@/lib/db/client";
 import { roles as rolesTable } from "@/lib/db/schema";
@@ -111,7 +112,7 @@ const approve = defineAction({
   ) {
     // Productores can only mint Externo logins; downgrade anything higher rather
     // than trusting the submitted tier.
-    const accessRole: AppRole = canGrantTier(ctx, requestedTier)
+    const accessRole: AppRole = canGrantRole(ctx, requestedTier)
       ? requestedTier
       : "collaborator";
 
@@ -147,7 +148,21 @@ const approve = defineAction({
         actor: ctx,
       });
 
-      await attachAccessRequestIdentity(tx, { id: requestId, ...settled });
+      await attachAccessRequestIdentity(tx, {
+        id: requestId,
+        profileId: settled.profileId,
+        personId: settled.personId,
+      });
+
+      // The portal Acceso, written inside the transaction so a failing Auth DB
+      // rolls the approval back. The identity is the Cuenta's link if it has
+      // one, else the applicant's session (the Cuenta links to it by email at
+      // first login).
+      await grantPortalRole({
+        userId: settled.authUserId ?? claimed.authUserId,
+        role: accessRole,
+        grantedBy: ctx.userId,
+      });
 
       return { ...settled, email: claimed.email };
     });

@@ -44,14 +44,19 @@ export type SettleApplicantInput = {
   actor: Actor;
 };
 
-export type SettledApplicant = { profileId: string; personId: string };
+// authUserId: the identity the Cuenta is already linked to, if any.
+export type SettledApplicant = {
+  profileId: string;
+  personId: string;
+  authUserId: string | null;
+};
 
 export async function settleApplicant(
   exec: DbExecutor,
   input: SettleApplicantInput,
 ): Promise<SettledApplicant> {
   const email = input.email.trim().toLowerCase();
-  const profileId = await upsertProfile(exec, {
+  const { profileId, authUserId } = await upsertProfile(exec, {
     email,
     fullName: input.fullName,
     role: input.accessRole,
@@ -74,7 +79,7 @@ export async function settleApplicant(
     });
   }
 
-  return { profileId, personId };
+  return { profileId, personId, authUserId };
 }
 
 export async function linkProfileToPerson(
@@ -194,10 +199,10 @@ export async function listProfileLinkReview(
 async function upsertProfile(
   exec: DbExecutor,
   input: { email: string; fullName: string; role: AppRole },
-): Promise<string> {
+): Promise<{ profileId: string; authUserId: string | null }> {
   const role: AppRole = input.role;
   const rows = await exec
-    .select({ id: profilesTable.id })
+    .select({ id: profilesTable.id, authUserId: profilesTable.authUserId })
     .from(profilesTable)
     .where(sql`lower(${profilesTable.email}) = ${input.email}`)
     .limit(1);
@@ -208,7 +213,7 @@ async function upsertProfile(
       .set({ role, fullName: input.fullName })
       .where(eq(profilesTable.id, rows[0].id));
 
-    return rows[0].id;
+    return { profileId: rows[0].id, authUserId: rows[0].authUserId };
   }
 
   const id = globalThis.crypto.randomUUID();
@@ -220,7 +225,7 @@ async function upsertProfile(
     authUserId: null,
   });
 
-  return id;
+  return { profileId: id, authUserId: null };
 }
 
 async function upsertPerson(

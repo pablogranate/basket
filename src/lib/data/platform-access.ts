@@ -9,7 +9,7 @@ import { profiles } from "@/lib/db/schema";
 // Returns the active platform-access tier for an email, or null if the person
 // has no login. Any profiles row is a login (the enum holds live tiers only).
 // Callers use the tier to decide whether the current manager may revoke it
-// (see canGrantTier in roles.ts).
+// (see canGrantRole in roles.ts).
 function escapeLikePattern(value: string) {
   return value.replaceAll(/[\\%_]/g, (char) => `\\${char}`);
 }

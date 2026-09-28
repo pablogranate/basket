@@ -5,7 +5,7 @@ import {
   ACCESS_TIER_OPTIONS,
   APP_ROLES,
   can,
-  canGrantTier,
+  canGrantRole,
   isAppRole,
   normalizeAccessTier,
   type Capability,
@@ -70,23 +70,42 @@ describe("role capability matrix", () => {
   });
 });
 
-describe("canGrantTier (issue #30 — which tiers a manager may grant/revoke)", () => {
-  const GRANT_MATRIX: Record<AppRole, Record<AppRole, boolean>> = {
+describe("canGrantRole (ADR 0010 — which roles a manager may grant/revoke)", () => {
+  // Externo / Productor / Admin, plus a super admin (whose portal role is admin).
+  const GRANT_MATRIX: Record<AppRole | "superadmin", Record<AppRole, boolean>> = {
+    superadmin: { admin: true, editor: true, collaborator: true },
     admin: { admin: true, editor: true, collaborator: true },
     editor: { admin: false, editor: false, collaborator: true },
     collaborator: { admin: false, editor: false, collaborator: false },
   };
 
-  describe.each(APP_ROLES)("%s grants", (manager) => {
-    it.each(APP_ROLES)("%s", (tier) => {
-      expect(canGrantTier(actor(manager), tier)).toBe(
-        GRANT_MATRIX[manager][tier],
-      );
-    });
+  function manager(key: AppRole | "superadmin") {
+    return key === "superadmin"
+      ? { role: "admin" as const, hasAccess: true, superAdmin: true }
+      : actor(key);
+  }
+
+  describe.each(Object.keys(GRANT_MATRIX) as (AppRole | "superadmin")[])(
+    "%s grants",
+    (key) => {
+      it.each(APP_ROLES)("%s", (role) => {
+        expect(canGrantRole(manager(key), role)).toBe(GRANT_MATRIX[key][role]);
+      });
+    },
+  );
+
+  it("denies an admin or super admin without access", () => {
+    expect(canGrantRole(actor("admin", false), "collaborator")).toBe(false);
+    expect(
+      canGrantRole(
+        { role: "admin", hasAccess: false, superAdmin: true },
+        "collaborator",
+      ),
+    ).toBe(false);
   });
 
-  it("denies an admin without access", () => {
-    expect(canGrantTier(actor("admin", false), "collaborator")).toBe(false);
+  it("denies a missing actor", () => {
+    expect(canGrantRole(null, "collaborator")).toBe(false);
   });
 });
 

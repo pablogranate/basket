@@ -130,10 +130,84 @@ export async function grantAcceso(input: AccesoGrant): Promise<Acceso> {
   return acceso;
 }
 
-// Returns whether a row was removed. Denial is immediate: gates read per request.
-export async function revokeAcceso(input: {
+export type RoleGrant = {
   userId: string;
-  app: SiblingApp;
+  app: string;
+  role: string;
+  grantedBy: string | null;
+};
+
+// The Nivel a catalog role equals (null for the portal), dual-written into
+// `level` while sibling readers still read it (ADR 0010 expand step).
+function legacyLevelForRole(app: string, role: string) {
+  return sql`(SELECT ${authAppRole.legacyLevel} FROM ${authAppRole} WHERE ${authAppRole.app} = ${app} AND ${authAppRole.key} = ${role})`;
+}
+
+// Role-based grant for any app, the portal included. The composite FK rejects
+// a role the app's catalog doesn't declare.
+export async function grantRole(input: RoleGrant): Promise<void> {
+  await authDb
+    .insert(authAppAccess)
+    .values({
+      userId: input.userId,
+      app: input.app,
+      role: input.role,
+      level: legacyLevelForRole(input.app, input.role),
+      grantedBy: input.grantedBy,
+      grantedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: [authAppAccess.userId, authAppAccess.app],
+      set: {
+        role: input.role,
+        level: legacyLevelForRole(input.app, input.role),
+        grantedBy: input.grantedBy,
+        grantedAt: new Date(),
+      },
+    });
+}
+
+// Seeds and first-login links grant without overriding an existing row.
+// Returns whether a row was (or, in dryRun, would be) written.
+export async function grantRoleIfAbsent(
+  input: RoleGrant,
+  options: { dryRun?: boolean } = {},
+): Promise<boolean> {
+  if (options.dryRun) {
+    const existing = await authDb
+      .select({ userId: authAppAccess.userId })
+      .from(authAppAccess)
+      .where(
+        and(
+          eq(authAppAccess.userId, input.userId),
+          eq(authAppAccess.app, input.app),
+        ),
+      )
+      .limit(1);
+
+    return existing.length === 0;
+  }
+
+  const inserted = await authDb
+    .insert(authAppAccess)
+    .values({
+      userId: input.userId,
+      app: input.app,
+      role: input.role,
+      level: legacyLevelForRole(input.app, input.role),
+      grantedBy: input.grantedBy,
+      grantedAt: new Date(),
+    })
+    .onConflictDoNothing({ target: [authAppAccess.userId, authAppAccess.app] })
+    .returning({ userId: authAppAccess.userId });
+
+  return inserted.length > 0;
+}
+
+// Returns whether a row was removed. Denial is immediate: gates read per request.
+export async function revokeRole(input: {
+  userId: string;
+  app: string;
 }): Promise<boolean> {
   const removed = await authDb
     .delete(authAppAccess)
@@ -146,6 +220,13 @@ export async function revokeAcceso(input: {
     .returning({ userId: authAppAccess.userId });
 
   return removed.length > 0;
+}
+
+export async function revokeAcceso(input: {
+  userId: string;
+  app: SiblingApp;
+}): Promise<boolean> {
+  return revokeRole(input);
 }
 
 export type UserWithAccesos = {

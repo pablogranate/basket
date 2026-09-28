@@ -73,6 +73,47 @@ may have changed its Nivel); a full-access Cuenta with no identity yet is
 reported, not created. Seeded rows have `granted_by = null` (no admin granted them). Idempotent — safe to re-run after people log in for the
 first time.
 
+## Deploy-day seed: portal Acceso from profiles.role (#186)
+
+The portal reads its own role (Externo / Productor / Admin) from
+`auth_effective_access`, app `portal`, instead of `profiles.role`. Every grant
+path (solicitud approval, re-tier, revoke, delete-with-revoke) writes the Auth
+DB first and still dual-writes `profiles.role` until #189.
+
+Deploy order:
+
+1. `pnpm db:auth:migrate` — `0003_role_catalog` (already applied with #185).
+2. Seed, before the code ships:
+
+   ```bash
+   pnpm db:auth:seed-portal -- --dry-run   # prints the plan, writes nothing
+   pnpm db:auth:seed-portal                # grants each linked Cuenta its role
+   ```
+
+3. Deploy #186.
+
+Rules: every linked Cuenta (`profiles.auth_user_id`) gets a `portal` row with
+its current `profiles.role`, `granted_by = null`; an existing `portal` row is
+never touched; unlinked Cuentas are only reported — their first login stamps
+the link and converts `profiles.role` into the portal Acceso. Idempotent.
+
+Check after seeding (Auth DB), expecting one row per linked Cuenta:
+
+```sql
+SELECT role, count(*) FROM auth_app_access WHERE app = 'portal' GROUP BY 1;
+```
+
+Transition safety net (removed in #189): a Cuenta with no `portal` row — seed
+not run yet, or the Auth DB unreachable — falls back to its `profiles.role`,
+so deploying before the seed does not lock anyone out. Because of that
+fallback, deleting only the `portal` row does not revoke a Cuenta that still
+exists; revoke from the People page, which removes both. #187 must not ship
+Acceso-only revokes for the portal until the fallback is gone.
+
+Grant rule (`canGrantRole`): a manager grants, re-tiers or revokes roles
+ranked below their own; the portal Admin also reaches Admin; super admins
+grant anything. Productores stay limited to Externo.
+
 ## Accesos page (admins only)
 
 `/access` lists every identity in the Auth DB × every sibling app with a
