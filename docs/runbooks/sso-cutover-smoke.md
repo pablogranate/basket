@@ -55,6 +55,24 @@ from *another* device. The Acceso read is uncached, so revoke is immediate.
   the header label. `curl /api/basket/overview` without session is the `401`
   check.
 
+## Smoke, gates on `auth_effective_access` (#188)
+
+Every gate reads the role from the `auth_effective_access` view instead of the
+`auth_app_access` Nivel. Permissions are unchanged; the one intended change is
+that a super admin (`auth_user.role = 'superadmin'`, not banned) enters every
+app as its admin role without a grant of their own. Deploy after the Auth DB is
+on migration 0003. For each app, check it with four identities: one without a
+role, the lowest role, the write or admin role, and a super admin with no grant
+of their own.
+
+| App | Login | Role enforcement | Super admin | Revoke |
+|-----|-------|------------------|-------------|--------|
+| Generator | No session: `curl -sI portal/api/gates/generator` gives `401` | Any `generator` role gives `204`; a session with no role gives `403`, whatever the portal role | `204` | Remove the role in `/usuarios`: the next request gives `403` |
+| Ops hub | `op.…/dashboard` goes to portal login and comes back | `read`: dashboard only; `/templates` and `/clubs/[id]` bounce to `/dashboard`; write actions throw "Tu Acceso a Operaciones es de lectura." `write`/`admin`: everything | Opens `/templates`; the nav shows the write items | Delete the ops role, or ban or demote the super admin: the next request goes to `portal/no-access` |
+| Incidencias | Goes to portal login and comes back | `read`: lists, detail and reports; `/int/nuevo` redirects to `/ar`; writes fail with "Tu Acceso a Incidencias es de lectura." `write`: create, edit, delete, upload | Gets in; the navbar shows "Admin"; writes are allowed | The next request goes to `portal/no-access`, with no logout |
+| Analytics | `analytics.…/financiero` goes to portal login and comes back | `read`/`write`: every dashboard, and the header shows viewer. `admin`: the header shows admin. No role: `/no-access` | Gets in as admin; once banned, denied | The next request with the same session goes to `/no-access` |
+| Facturación | `/` goes to `portal/login?redirectTo=…` and comes back | `coordinador`: `/api/yo` returns `rol: coordinador`, and `/admin` and `/api/admin/*` return `403`. `admin`: `/admin` loads. `periodista` with an active padrón row: `rol: periodista`. `periodista` without a padrón row: "Sin acceso" | `/api/yo` returns `rol: admin`; `/admin` opens | Remove the role, or unset the super admin: `/api/yo` returns `403 SIN_ACCESO`. A person with no role but an active padrón row still enters as periodista |
+
 ## After the soak
 
 Delete the Supabase Auth users of the incidencias and ops projects (Postgres

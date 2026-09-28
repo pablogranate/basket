@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { GET } from "@/app/api/gates/[app]/route";
-import { getAcceso } from "@/lib/acceso/accesos";
+import { getEffectiveAccess } from "@/lib/acceso/accesos";
 import { getUserContext } from "@/lib/auth";
 import { makeGuestContext, makeUserContext } from "@/test/fixtures/user-context";
 
@@ -10,11 +10,11 @@ vi.mock("@/lib/auth", () => ({
 }));
 
 vi.mock("@/lib/acceso/accesos", () => ({
-  getAcceso: vi.fn(),
+  getEffectiveAccess: vi.fn(),
 }));
 
 const mockedGetUserContext = vi.mocked(getUserContext);
-const mockedGetAcceso = vi.mocked(getAcceso);
+const mockedGetAccess = vi.mocked(getEffectiveAccess);
 
 function callGate(app: string) {
   return GET(new Request(`https://portal.basket-app.test/api/gates/${app}`), {
@@ -22,18 +22,26 @@ function callGate(app: string) {
   });
 }
 
-function accesoFor(userId: string, level: "read" | "write" | "admin") {
+const GENERATOR_RANKS = { read: 10, write: 20, admin: 30 } as const;
+
+function accessFor(
+  userId: string,
+  role: keyof typeof GENERATOR_RANKS,
+  viaSuperadmin = false,
+) {
   return {
     userId,
-    app: "generator" as const,
-    level,
-    grantedBy: "user-admin",
-    grantedAt: new Date("2026-09-14T12:00:00Z"),
+    app: "generator",
+    role,
+    rank: GENERATOR_RANKS[role],
+    isAdmin: role === "admin",
+    viaSuperadmin,
   };
 }
 
-// The App gate in front of the generator (ADR 0009): identity alone admits
-// nobody; an Acceso for `generator` at any Nivel does.
+// The App gate in front of the generator (ADRs 0009/0010): identity alone
+// admits nobody; any `generator` role in auth_effective_access does, and a
+// super admin resolves to the admin role.
 describe("GET /api/gates/[app]", () => {
   afterEach(() => {
     vi.clearAllMocks();
@@ -41,17 +49,17 @@ describe("GET /api/gates/[app]", () => {
 
   it("returns 404 for an app outside the gate allowlist, even with an admin session", async () => {
     mockedGetUserContext.mockResolvedValue(makeUserContext({ role: "admin" }));
-    mockedGetAcceso.mockResolvedValue(accesoFor("user-test-1", "admin"));
+    mockedGetAccess.mockResolvedValue(accessFor("user-test-1", "admin"));
 
     const response = await callGate("nope");
 
     expect(response.status).toBe(404);
-    expect(mockedGetAcceso).not.toHaveBeenCalled();
+    expect(mockedGetAccess).not.toHaveBeenCalled();
   });
 
   it("returns 404 for a sibling app that is not gated by nginx (readers gate themselves)", async () => {
     mockedGetUserContext.mockResolvedValue(makeUserContext({ role: "admin" }));
-    mockedGetAcceso.mockResolvedValue(accesoFor("user-test-1", "admin"));
+    mockedGetAccess.mockResolvedValue(accessFor("user-test-1", "admin"));
 
     const response = await callGate("ops");
 
@@ -64,22 +72,22 @@ describe("GET /api/gates/[app]", () => {
     const response = await callGate("generator");
 
     expect(response.status).toBe(401);
-    expect(mockedGetAcceso).not.toHaveBeenCalled();
+    expect(mockedGetAccess).not.toHaveBeenCalled();
   });
 
-  it("returns 403 with a session but no generator Acceso, whatever the portal role", async () => {
+  it("returns 403 with a session but no generator access, whatever the portal role", async () => {
     mockedGetUserContext.mockResolvedValue(makeUserContext({ role: "admin" }));
-    mockedGetAcceso.mockResolvedValue(null);
+    mockedGetAccess.mockResolvedValue(null);
 
     const response = await callGate("generator");
 
     expect(response.status).toBe(403);
-    expect(mockedGetAcceso).toHaveBeenCalledWith("user-test-1", "generator");
+    expect(mockedGetAccess).toHaveBeenCalledWith("user-test-1", "generator");
   });
 
   it.each(["read", "write", "admin"] as const)(
-    "returns 204 with an empty body for any generator Acceso (%s), even without a Cuenta",
-    async (level) => {
+    "returns 204 with an empty body for any generator role (%s), even without a Cuenta",
+    async (role) => {
       // Authenticated but unprovisioned on the portal: no profile, no role.
       mockedGetUserContext.mockResolvedValue(
         makeUserContext({
@@ -90,13 +98,27 @@ describe("GET /api/gates/[app]", () => {
           profile: null,
         } as never),
       );
-      mockedGetAcceso.mockResolvedValue(accesoFor("user-gen-1", level));
+      mockedGetAccess.mockResolvedValue(accessFor("user-gen-1", role));
 
       const response = await callGate("generator");
 
       expect(response.status).toBe(204);
       expect(await response.text()).toBe("");
-      expect(mockedGetAcceso).toHaveBeenCalledWith("user-gen-1", "generator");
+      expect(mockedGetAccess).toHaveBeenCalledWith("user-gen-1", "generator");
     },
   );
+
+  it("returns 204 for a super admin with no generator grant of their own", async () => {
+    mockedGetUserContext.mockResolvedValue(
+      makeUserContext({ userId: "user-super-1", role: "collaborator" }),
+    );
+    mockedGetAccess.mockResolvedValue(
+      accessFor("user-super-1", "admin", true),
+    );
+
+    const response = await callGate("generator");
+
+    expect(response.status).toBe(204);
+    expect(mockedGetAccess).toHaveBeenCalledWith("user-super-1", "generator");
+  });
 });
