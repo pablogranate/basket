@@ -5,11 +5,7 @@ import { redirect } from "next/navigation";
 
 import { and, eq, isNull } from "drizzle-orm";
 
-import {
-  getPortalAccess,
-  grantPortalRoleIfAbsent,
-  type PortalAccess,
-} from "@/lib/acceso/portal";
+import { getPortalAccess, type PortalAccess } from "@/lib/acceso/portal";
 import { auth } from "@/lib/auth/server";
 import type { AppRole, ProfileRow } from "@/lib/database.types";
 import { db } from "@/lib/db/client";
@@ -73,12 +69,22 @@ export const getUserContext = cache(async () => {
 
   const authUserId = session.user.id;
   const email = session.user.email ?? null;
-  const profile = await resolveProfile(authUserId, email);
+  const [access, linkedProfile] = await Promise.all([
+    resolvePortalAccess(authUserId),
+    resolveProfile(authUserId, email),
+  ]);
+  // ADR 0010: a super admin is admin in the portal too, so the Cuenta domain
+  // writes need is created on their first visit.
+  const profile =
+    linkedProfile ??
+    (access?.superAdmin && email
+      ? await createSuperAdminCuenta(authUserId, email, session.user.name)
+      : null);
 
   // Authenticated but unprovisioned: no access, routed to /no-access
-  // (D-11/D-13). Domain writes need the Cuenta's uuid, so an identity with a
-  // portal Acceso but no Cuenta is unprovisioned too.
-  if (!profile) {
+  // (D-11/D-13). Access is the portal Acceso; domain writes need the Cuenta's
+  // uuid, so an identity missing either one is unprovisioned.
+  if (!access || !profile) {
     return {
       userId: authUserId,
       profileId: null,
@@ -91,7 +97,7 @@ export const getUserContext = cache(async () => {
     };
   }
 
-  const { role, superAdmin } = await resolvePortalAccess(authUserId, profile);
+  const { role, superAdmin } = access;
 
   return {
     userId: authUserId,
@@ -107,25 +113,52 @@ export const getUserContext = cache(async () => {
   };
 });
 
-// The portal role comes from auth_effective_access (ADR 0010), uncached.
-// Transition until basket#189: a Cuenta with no portal row yet (seed not run,
-// or the Auth DB unreachable) keeps its profiles.role, which every grant path
-// still dual-writes.
+// The portal role comes from auth_effective_access (ADR 0010), uncached. The
+// Auth DB being unreachable denies access: there is no second source.
 async function resolvePortalAccess(
   authUserId: string,
-  profile: ProfileRow,
-): Promise<PortalAccess> {
+): Promise<PortalAccess | null> {
   try {
-    const access = await getPortalAccess(authUserId);
-
-    if (access) {
-      return access;
-    }
+    return await getPortalAccess(authUserId);
   } catch (error) {
     console.error("[auth] failed to load portal Acceso", error);
+    return null;
+  }
+}
+
+async function createSuperAdminCuenta(
+  authUserId: string,
+  email: string,
+  name: string | null | undefined,
+): Promise<ProfileRow | null> {
+  try {
+    const [created] = (await db
+      .insert(profilesTable)
+      .values({
+        id: globalThis.crypto.randomUUID(),
+        email: email.toLowerCase(),
+        fullName: name || email.split("@")[0],
+        authUserId,
+      })
+      // A parallel first request, or an unlinked Cuenta with the same email
+      // created meanwhile, wins; the next request links or reads it.
+      .onConflictDoNothing()
+      .returning(profileColumns)) as ProfileRow[];
+
+    if (created) {
+      profileCache.set(authUserId, {
+        profile: created,
+        expiresAt: Date.now() + PROFILE_CACHE_TTL_MS,
+      });
+      console.info("[auth] created the Cuenta of a super admin", authUserId);
+      return created;
+    }
+  } catch (error) {
+    console.error("[auth] failed to create a super admin Cuenta", error);
   }
 
-  return { role: profile.role, superAdmin: false };
+  profileCache.delete(authUserId);
+  return loadProfile(authUserId, email);
 }
 
 async function loadProfile(
@@ -175,10 +208,6 @@ async function loadProfile(
             )
             .returning(profileColumns)) as ProfileRow[];
           profile = link[0] ?? candidate;
-
-          if (link[0]) {
-            await grantPortalAccesoOnLink(authUserId, link[0].role);
-          }
         } catch (error) {
           console.error("[auth] failed to auto-link profile by email", error);
           profile = candidate;
@@ -190,16 +219,6 @@ async function loadProfile(
   }
 
   return profile;
-}
-
-// The unlinked Cuenta's profiles.role is a one-shot seed (ADR 0010): the first
-// login turns it into the portal Acceso, unless one was already granted.
-async function grantPortalAccesoOnLink(authUserId: string, role: AppRole) {
-  try {
-    await grantPortalRoleIfAbsent({ userId: authUserId, role, grantedBy: null });
-  } catch (error) {
-    console.error("[auth] failed to grant portal Acceso on first login", error);
-  }
 }
 
 export async function requireUserContext() {

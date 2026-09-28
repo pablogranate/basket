@@ -2,18 +2,18 @@ import "server-only";
 
 import { and, eq, isNull, or, sql } from "drizzle-orm";
 
+import { createIdentity, findIdentityByEmail } from "@/lib/acceso/accesos";
 import { grantPortalRole, revokePortalRole } from "@/lib/acceso/portal";
 import { clearProfileCache } from "@/lib/auth";
 import type { AppRole } from "@/lib/database.types";
 import { db } from "@/lib/db/client";
 import { people as peopleTable, profiles as profilesTable } from "@/lib/db/schema";
 
-// Portal access written from outside Personal (the apex users section). Until
-// basket#189 the portal also needs a Cuenta: getUserContext denies an identity
-// without one, and falls back to profiles.role when the Acceso row is
-// missing. So a grant also writes the Cuenta, and a revoke also removes it.
-// Two databases, no shared transaction: the Auth DB goes first because it is
-// what getUserContext reads.
+// Portal access written from outside Personal (the apex users section). The
+// portal Acceso decides access; the Cuenta is the uuid domain rows point at,
+// so getUserContext denies an identity without one. A grant also writes the
+// Cuenta, and a revoke also removes it. Two databases, no shared transaction:
+// the Auth DB goes first because it is what getUserContext reads.
 
 type Identity = { userId: string; email: string; name: string };
 
@@ -53,14 +53,13 @@ export async function grantPortalRoleWithCuenta(
     if (cuenta) {
       await db
         .update(profilesTable)
-        .set({ role: input.role, authUserId: input.userId })
+        .set({ authUserId: input.userId })
         .where(eq(profilesTable.id, cuenta.id));
     } else {
       await db.insert(profilesTable).values({
         id: globalThis.crypto.randomUUID(),
         email: input.email.toLowerCase(),
         fullName: input.name,
-        role: input.role,
         authUserId: input.userId,
       });
     }
@@ -104,4 +103,29 @@ export async function revokePortalRoleWithCuenta(
   } finally {
     clearProfileCache();
   }
+}
+
+// Every Cuenta has an identity to hold its portal Acceso. A legacy Cuenta that
+// never logged in gets one the way the sibling seed makes them (verified, no
+// email sent), and is linked to it. Returns the identity id.
+export async function linkCuentaIdentity(cuenta: {
+  id: string;
+  email: string;
+  authUserId: string | null;
+}): Promise<string> {
+  if (cuenta.authUserId) {
+    return cuenta.authUserId;
+  }
+
+  const identity =
+    (await findIdentityByEmail(cuenta.email)) ??
+    (await createIdentity({ email: cuenta.email }));
+
+  await db
+    .update(profilesTable)
+    .set({ authUserId: identity.id })
+    .where(and(eq(profilesTable.id, cuenta.id), isNull(profilesTable.authUserId)));
+  clearProfileCache();
+
+  return identity.id;
 }

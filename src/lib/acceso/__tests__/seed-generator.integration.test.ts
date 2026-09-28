@@ -6,10 +6,9 @@ import { accessRow, seedAuthUser, testSql, truncateAll } from "@/test/integratio
 
 // Deploy-day seed (basket#173): every portal admin and editor keeps the
 // generator, now as a `generator` Acceso instead of the dashboard.full
-// capability. Reads Cuentas from the Domain DB, writes Accesos to the Auth DB.
+// capability. Reads portal Accesos, writes generator ones, both in the Auth DB.
 describe("seed generator Acceso for full-access roles (integration)", () => {
   const sql = testSql();
-  type Sql = typeof sql;
 
   beforeAll(async () => {
     await sql`SELECT 1`;
@@ -23,61 +22,42 @@ describe("seed generator Acceso for full-access roles (integration)", () => {
     await truncateAll(sql);
   });
 
-  async function seedProfile(
-    exec: Sql,
-    values: { email: string; role: string; auth_user_id?: string | null },
-  ) {
-    const id = crypto.randomUUID();
-    await exec`
-      INSERT INTO profiles ${exec({
-        id,
-        email: values.email,
-        role: values.role,
-        full_name: values.email,
-        auth_user_id: values.auth_user_id ?? null,
-      })}`;
-    return id;
+  async function portalUser(email: string, role: string) {
+    const userId = await seedAuthUser(sql, { email });
+    await grantRole({ userId, app: "portal", role, grantedBy: null });
+    return userId;
   }
 
-  it("grants generator/write to linked admins and editors, matches unlinked ones by email, skips the rest", async () => {
-    const admin = await seedAuthUser(sql, { email: "admin@basquetpass.tv" });
-    const editor = await seedAuthUser(sql, { email: "editor@basquetpass.tv" });
-    const unlinkedEditor = await seedAuthUser(sql, { email: "Unlinked.Editor@basquetpass.tv" });
-    const collaborator = await seedAuthUser(sql, { email: "colab@basquetpass.tv" });
-    await seedProfile(sql, { email: "admin@basquetpass.tv", role: "admin", auth_user_id: admin });
-    await seedProfile(sql, { email: "editor@basquetpass.tv", role: "editor", auth_user_id: editor });
-    // Never logged in since the Better Auth cutover: no auth_user_id yet, same email.
-    await seedProfile(sql, { email: "unlinked.editor@basquetpass.tv", role: "editor" });
-    await seedProfile(sql, { email: "colab@basquetpass.tv", role: "collaborator", auth_user_id: collaborator });
-    // Full-access Cuenta with no identity at all: nothing to grant to yet.
-    await seedProfile(sql, { email: "ghost@basquetpass.tv", role: "admin" });
+  it("grants generator/write to portal admins and editors and skips the rest", async () => {
+    const admin = await portalUser("admin@basquetpass.tv", "admin");
+    const editor = await portalUser("Editor@basquetpass.tv", "editor");
+    const collaborator = await portalUser("colab@basquetpass.tv", "collaborator");
+    const noPortal = await seedAuthUser(sql, { email: "ops.only@gmail.com" });
+    await grantRole({ userId: noPortal, app: "ops", role: "admin", grantedBy: null });
 
     const report = await seedGeneratorAccesoForFullAccessRoles();
 
-    expect(report.granted.map((r) => r.email).sort()).toEqual([
-      "admin@basquetpass.tv",
-      "editor@basquetpass.tv",
-      "unlinked.editor@basquetpass.tv",
+    expect(report.granted.map((r) => [r.email, r.role])).toEqual([
+      ["admin@basquetpass.tv", "admin"],
+      ["editor@basquetpass.tv", "editor"],
     ]);
     expect(report.alreadyHad).toEqual([]);
-    expect(report.noIdentity.map((r) => r.email)).toEqual(["ghost@basquetpass.tv"]);
 
-    for (const userId of [admin, editor, unlinkedEditor]) {
-      expect(await accessRow(sql, userId, "generator")).toMatchObject({
+    for (const userId of [admin, editor]) {
+      expect(await accessRow(sql, userId, "generator")).toEqual({
         role: "write",
         grantedBy: null,
       });
     }
     expect(await accessRow(sql, collaborator, "generator")).toBeNull();
+    expect(await accessRow(sql, noPortal, "generator")).toBeNull();
     // Seed only touches the generator column.
     expect(await accessRow(sql, admin, "ops")).toBeNull();
   });
 
   it("is idempotent and never overrides a role an admin already set", async () => {
-    const admin = await seedAuthUser(sql, { email: "admin@basquetpass.tv" });
-    const editor = await seedAuthUser(sql, { email: "editor@basquetpass.tv" });
-    await seedProfile(sql, { email: "admin@basquetpass.tv", role: "admin", auth_user_id: admin });
-    await seedProfile(sql, { email: "editor@basquetpass.tv", role: "editor", auth_user_id: editor });
+    const admin = await portalUser("admin@basquetpass.tv", "admin");
+    const editor = await portalUser("editor@basquetpass.tv", "editor");
     await grantRole({ userId: editor, app: "generator", role: "read", grantedBy: admin });
 
     const first = await seedGeneratorAccesoForFullAccessRoles();
@@ -88,15 +68,14 @@ describe("seed generator Acceso for full-access roles (integration)", () => {
     expect(second.granted).toEqual([]);
     expect(second.alreadyHad).toHaveLength(2);
 
-    expect(await accessRow(sql, editor, "generator")).toMatchObject({
+    expect(await accessRow(sql, editor, "generator")).toEqual({
       role: "read",
       grantedBy: admin,
     });
   });
 
   it("dry run reports the plan and writes nothing", async () => {
-    const admin = await seedAuthUser(sql, { email: "admin@basquetpass.tv" });
-    await seedProfile(sql, { email: "admin@basquetpass.tv", role: "admin", auth_user_id: admin });
+    const admin = await portalUser("admin@basquetpass.tv", "admin");
 
     const report = await seedGeneratorAccesoForFullAccessRoles({ dryRun: true });
 

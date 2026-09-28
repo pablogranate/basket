@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   getPortalAccess,
@@ -14,7 +14,6 @@ import { seedAuthUser, testSql, truncateAll } from "@/test/integration/db";
 // The portal on the central Acceso table (basket#186, ADR 0010).
 describe("portal Acceso (integration)", () => {
   const sql = testSql();
-  type Sql = typeof sql;
 
   afterAll(async () => {
     await sql.end();
@@ -23,22 +22,6 @@ describe("portal Acceso (integration)", () => {
   beforeEach(async () => {
     await truncateAll(sql);
   });
-
-  async function seedProfile(
-    exec: Sql,
-    values: { email: string; role: AppRole; auth_user_id?: string | null },
-  ) {
-    const id = crypto.randomUUID();
-    await exec`
-      INSERT INTO profiles ${exec({
-        id,
-        email: values.email,
-        role: values.role,
-        full_name: values.email,
-        auth_user_id: values.auth_user_id ?? null,
-      })}`;
-    return id;
-  }
 
   async function portalRow(userId: string) {
     const rows = await sql<{ role: string; granted_by: string | null }[]>`
@@ -92,60 +75,114 @@ describe("portal Acceso (integration)", () => {
     expect(await getPortalAccess(boss)).toEqual({ role: "admin", superAdmin: true });
   });
 
+  // Pre-drop seed: runs while profiles.role still exists, which the final
+  // schema (migration 0043) no longer has, so each case puts it back.
   describe("seedPortalAccesosFromProfiles", () => {
-    it("grants linked Cuentas their profiles.role and reports unlinked ones", async () => {
+    beforeEach(async () => {
+      await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS role app_role`;
+    });
+
+    afterEach(async () => {
+      await sql`ALTER TABLE profiles DROP COLUMN IF EXISTS role`;
+    });
+
+    async function seedLegacyCuenta(values: {
+      email: string;
+      role: AppRole;
+      auth_user_id?: string | null;
+    }) {
+      const id = crypto.randomUUID();
+      await sql`
+        INSERT INTO profiles ${sql({
+          id,
+          email: values.email,
+          role: values.role,
+          full_name: values.email,
+          auth_user_id: values.auth_user_id ?? null,
+        })}`;
+      return id;
+    }
+
+    async function linkOf(profileId: string) {
+      const [row] = await sql<{ auth_user_id: string | null }[]>`
+        SELECT auth_user_id FROM profiles WHERE id = ${profileId}`;
+      return row.auth_user_id;
+    }
+
+    it("grants every Cuenta its profiles.role, linking or creating the identity of never-linked ones", async () => {
       const admin = await seedAuthUser(sql, { email: "admin@basquetpass.tv" });
       const editor = await seedAuthUser(sql, { email: "editor@basquetpass.tv" });
-      const colab = await seedAuthUser(sql, { email: "colab@basquetpass.tv" });
-      await seedProfile(sql, { email: "admin@basquetpass.tv", role: "admin", auth_user_id: admin });
-      await seedProfile(sql, { email: "Editor@basquetpass.tv", role: "editor", auth_user_id: editor });
-      await seedProfile(sql, { email: "colab@basquetpass.tv", role: "collaborator", auth_user_id: colab });
-      await seedProfile(sql, { email: "never.logged@basquetpass.tv", role: "editor" });
+      // Signed in once since the cutover, never linked: same email, other case.
+      const returning = await seedAuthUser(sql, { email: "Returning@basquetpass.tv" });
+      await seedLegacyCuenta({ email: "admin@basquetpass.tv", role: "admin", auth_user_id: admin });
+      await seedLegacyCuenta({ email: "Editor@basquetpass.tv", role: "editor", auth_user_id: editor });
+      const returningCuenta = await seedLegacyCuenta({ email: "returning@basquetpass.tv", role: "collaborator" });
+      const neverCuenta = await seedLegacyCuenta({ email: "never.logged@basquetpass.tv", role: "editor" });
 
       const report = await seedPortalAccesosFromProfiles();
 
       expect(report.granted.map((r) => [r.email, r.role]).sort()).toEqual([
         ["admin@basquetpass.tv", "admin"],
-        ["colab@basquetpass.tv", "collaborator"],
         ["editor@basquetpass.tv", "editor"],
+        ["never.logged@basquetpass.tv", "editor"],
+        ["returning@basquetpass.tv", "collaborator"],
       ]);
       expect(report.alreadyHad).toEqual([]);
-      expect(report.unlinked).toEqual([{ email: "never.logged@basquetpass.tv", role: "editor" }]);
+      expect(report.createdIdentities).toEqual(["never.logged@basquetpass.tv"]);
 
       expect(await portalRow(admin)).toEqual({ role: "admin", granted_by: null });
-      expect((await portalRow(editor))?.role).toBe("editor");
-      expect((await portalRow(colab))?.role).toBe("collaborator");
+      expect(await linkOf(returningCuenta)).toBe(returning);
+      expect((await portalRow(returning))?.role).toBe("collaborator");
+
+      const created = await linkOf(neverCuenta);
+      expect(created).toBeTruthy();
+      const [identity] = await sql`
+        SELECT email, email_verified FROM auth_user WHERE id = ${created}`;
+      expect(identity).toEqual({ email: "never.logged@basquetpass.tv", email_verified: true });
+      expect((await portalRow(created as string))?.role).toBe("editor");
+      // No login is minted: they sign in with a magic link when they need to.
+      expect((await sql`SELECT count(*)::int AS n FROM auth_session`)[0].n).toBe(0);
     });
 
     it("is idempotent and never overrides a role already set", async () => {
       const editor = await seedAuthUser(sql, { email: "editor@basquetpass.tv" });
       const admin = await seedAuthUser(sql, { email: "admin@basquetpass.tv" });
-      await seedProfile(sql, { email: "editor@basquetpass.tv", role: "editor", auth_user_id: editor });
-      await seedProfile(sql, { email: "admin@basquetpass.tv", role: "admin", auth_user_id: admin });
+      await seedLegacyCuenta({ email: "editor@basquetpass.tv", role: "editor", auth_user_id: editor });
+      await seedLegacyCuenta({ email: "admin@basquetpass.tv", role: "admin", auth_user_id: admin });
+      await seedLegacyCuenta({ email: "never.logged@basquetpass.tv", role: "collaborator" });
       // Re-tiered in the Auth DB since: the seed must not undo it.
       await grantPortalRole({ userId: editor, role: "collaborator", grantedBy: admin });
 
       const first = await seedPortalAccesosFromProfiles();
-      expect(first.granted.map((r) => r.email)).toEqual(["admin@basquetpass.tv"]);
+      expect(first.granted.map((r) => r.email)).toEqual([
+        "admin@basquetpass.tv",
+        "never.logged@basquetpass.tv",
+      ]);
       expect(first.alreadyHad.map((r) => r.email)).toEqual(["editor@basquetpass.tv"]);
       expect((await portalRow(editor))?.role).toBe("collaborator");
 
       const second = await seedPortalAccesosFromProfiles();
       expect(second.granted).toEqual([]);
-      expect(second.alreadyHad.map((r) => r.email).sort()).toEqual([
-        "admin@basquetpass.tv",
-        "editor@basquetpass.tv",
-      ]);
+      expect(second.createdIdentities).toEqual([]);
+      expect(second.alreadyHad).toHaveLength(3);
+      expect((await sql`SELECT count(*)::int AS n FROM auth_user`)[0].n).toBe(3);
     });
 
     it("writes nothing in dry-run", async () => {
       const editor = await seedAuthUser(sql, { email: "editor@basquetpass.tv" });
-      await seedProfile(sql, { email: "editor@basquetpass.tv", role: "editor", auth_user_id: editor });
+      await seedLegacyCuenta({ email: "editor@basquetpass.tv", role: "editor", auth_user_id: editor });
+      const neverCuenta = await seedLegacyCuenta({ email: "never.logged@basquetpass.tv", role: "admin" });
 
       const report = await seedPortalAccesosFromProfiles({ dryRun: true });
 
-      expect(report.granted.map((r) => r.email)).toEqual(["editor@basquetpass.tv"]);
+      expect(report.granted.map((r) => r.email)).toEqual([
+        "editor@basquetpass.tv",
+        "never.logged@basquetpass.tv",
+      ]);
+      expect(report.createdIdentities).toEqual(["never.logged@basquetpass.tv"]);
       expect(await portalRow(editor)).toBeNull();
+      expect(await linkOf(neverCuenta)).toBeNull();
+      expect((await sql`SELECT count(*)::int AS n FROM auth_user`)[0].n).toBe(1);
     });
   });
 });

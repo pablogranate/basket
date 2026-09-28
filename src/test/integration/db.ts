@@ -80,7 +80,7 @@ export async function seedActor(
   const email = overrides.email ?? `actor-${id}@basquetpass.tv`;
   const role = overrides.role ?? "admin";
 
-  await sql`INSERT INTO profiles ${sql({ id, email, role, full_name: "Test Actor" })}`;
+  await sql`INSERT INTO profiles ${sql({ id, email, full_name: "Test Actor" })}`;
 
   const ctx = {
     userId: id,

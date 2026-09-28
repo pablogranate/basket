@@ -32,7 +32,7 @@ describe("people identity (integration)", () => {
     fullName: "Nico Gómez",
     phone: "+5491100000001",
     roleId: null,
-    accessRole: "collaborator" as const,
+    authUserId: "applicant-identity",
     personId: null,
     mergePersonId: null,
   };
@@ -80,13 +80,13 @@ describe("people identity (integration)", () => {
 
     const settled = await settleApplicant(db, { ...base, actor: { profileId: actor } });
 
-    const [profile] = await sql`SELECT email, full_name, role, auth_user_id FROM profiles WHERE id = ${settled.profileId}`;
+    const [profile] = await sql`SELECT email, full_name, auth_user_id FROM profiles WHERE id = ${settled.profileId}`;
     expect(profile).toEqual({
       email: "nico.gomez@example.com",
       full_name: "Nico Gómez",
-      role: "collaborator",
-      auth_user_id: null,
+      auth_user_id: "applicant-identity",
     });
+    expect(settled.authUserId).toBe("applicant-identity");
 
     const [person] = await sql`SELECT email, phone, active, profile_id, created_by, updated_by FROM people WHERE id = ${settled.personId}`;
     expect(person).toEqual({
@@ -99,27 +99,38 @@ describe("people identity (integration)", () => {
     });
   });
 
-  it("reuses an existing cuenta found by email case-insensitively and updates its role", async () => {
+  it("reuses an existing cuenta found by email case-insensitively and links it to the applicant", async () => {
     const { profileId: actor } = await seedActor(sql);
     const [existing] = await sql`
       INSERT INTO profiles ${sql({
         id: crypto.randomUUID(),
         email: "nico.gomez@example.com",
-        role: "collaborator",
         full_name: "Old Name",
       })} RETURNING id`;
 
-    const settled = await settleApplicant(db, {
-      ...base,
-      accessRole: "editor",
-      actor: { profileId: actor },
-    });
+    const settled = await settleApplicant(db, { ...base, actor: { profileId: actor } });
 
     expect(settled.profileId).toBe(existing.id);
-    const [profile] = await sql`SELECT role, full_name FROM profiles WHERE id = ${existing.id}`;
-    expect(profile).toEqual({ role: "editor", full_name: "Nico Gómez" });
+    expect(settled.authUserId).toBe("applicant-identity");
+    const [profile] = await sql`SELECT auth_user_id, full_name FROM profiles WHERE id = ${existing.id}`;
+    expect(profile).toEqual({ auth_user_id: "applicant-identity", full_name: "Nico Gómez" });
     const [{ count }] = await sql`SELECT count(*)::int AS count FROM profiles`;
     expect(count).toBe(2);
+  });
+
+  it("keeps the identity an existing cuenta is already linked to", async () => {
+    const { profileId: actor } = await seedActor(sql);
+    await sql`
+      INSERT INTO profiles ${sql({
+        id: crypto.randomUUID(),
+        email: "nico.gomez@example.com",
+        full_name: "Old Name",
+        auth_user_id: "earlier-identity",
+      })}`;
+
+    const settled = await settleApplicant(db, { ...base, actor: { profileId: actor } });
+
+    expect(settled.authUserId).toBe("earlier-identity");
   });
 
   it("reactivates the ficha the approver picked instead of creating one", async () => {
@@ -239,13 +250,11 @@ describe("people identity (integration)", () => {
     await sql`INSERT INTO profiles ${sql({
       id: crypto.randomUUID(),
       email: "maria.lopez@basquetpass.tv",
-      role: "collaborator",
       full_name: "María López",
     })}`;
     await sql`INSERT INTO profiles ${sql({
       id: crypto.randomUUID(),
       email: "solo.admin@basquetpass.tv",
-      role: "admin",
       full_name: "Solo Admin",
     })}`;
     const maria = await seedPerson(sql, { full_name: "Maria Lopez" });

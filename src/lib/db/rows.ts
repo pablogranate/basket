@@ -16,7 +16,6 @@ import {
 export const profileColumns = {
   id: profiles.id,
   full_name: profiles.fullName,
-  role: profiles.role,
   created_at: profiles.createdAt,
   updated_at: profiles.updatedAt,
   email: profiles.email,

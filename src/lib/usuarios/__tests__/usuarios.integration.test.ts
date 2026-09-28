@@ -118,8 +118,8 @@ describe("usuarios (integration)", () => {
 
   describe("portal with its Cuenta", () => {
     async function cuenta(email: string) {
-      const rows = await sql<{ role: string; auth_user_id: string | null }[]>`
-        SELECT role, auth_user_id FROM profiles WHERE lower(email) = ${email}`;
+      const rows = await sql<{ auth_user_id: string | null }[]>`
+        SELECT auth_user_id FROM profiles WHERE lower(email) = ${email}`;
       return rows[0] ?? null;
     }
 
@@ -135,17 +135,14 @@ describe("usuarios (integration)", () => {
         grantedBy: actor,
       });
 
-      expect(await cuenta("viewer@gmail.com")).toEqual({
-        role: "collaborator",
-        auth_user_id: viewer,
-      });
+      expect(await cuenta("viewer@gmail.com")).toEqual({ auth_user_id: viewer });
       const [row] = await sql`SELECT role, granted_by FROM auth_app_access WHERE user_id = ${viewer} AND app = 'portal'`;
       expect(row).toEqual({ role: "collaborator", granted_by: actor });
     });
 
     it("links and re-tiers an unlinked Cuenta with the same email", async () => {
       const ana = await seedAuthUser(sql, { email: "ana@basquetpass.tv" });
-      await sql`INSERT INTO profiles ${sql({ id: crypto.randomUUID(), email: "Ana@basquetpass.tv", role: "collaborator", full_name: "Ana", auth_user_id: null })}`;
+      await sql`INSERT INTO profiles ${sql({ id: crypto.randomUUID(), email: "Ana@basquetpass.tv", full_name: "Ana", auth_user_id: null })}`;
 
       await grantPortalRoleWithCuenta({
         userId: ana,
@@ -155,13 +152,15 @@ describe("usuarios (integration)", () => {
         grantedBy: null,
       });
 
-      expect(await cuenta("ana@basquetpass.tv")).toEqual({ role: "editor", auth_user_id: ana });
+      expect(await cuenta("ana@basquetpass.tv")).toEqual({ auth_user_id: ana });
+      const [row] = await sql`SELECT role FROM auth_app_access WHERE user_id = ${ana} AND app = 'portal'`;
+      expect(row).toEqual({ role: "editor" });
     });
 
     it("revokes the row and removes the Cuenta, keeping the Ficha", async () => {
       const ana = await seedAuthUser(sql, { email: "ana@basquetpass.tv" });
       const profileId = crypto.randomUUID();
-      await sql`INSERT INTO profiles ${sql({ id: profileId, email: "ana@basquetpass.tv", role: "editor", full_name: "Ana", auth_user_id: ana })}`;
+      await sql`INSERT INTO profiles ${sql({ id: profileId, email: "ana@basquetpass.tv", full_name: "Ana", auth_user_id: ana })}`;
       await sql`INSERT INTO people ${sql({ full_name: "Ana", email: "ana@basquetpass.tv", profile_id: profileId, active: true })}`;
       await grantRole({ userId: ana, app: "portal", role: "editor", grantedBy: null });
 
@@ -183,7 +182,7 @@ describe("usuarios (integration)", () => {
     const viewer = await seedAuthUser(sql, { email: "viewer@gmail.com", name: "Viewer" });
     await makeSuperAdmin(admin);
     const profileId = crypto.randomUUID();
-    await sql`INSERT INTO profiles ${sql({ id: profileId, email: "admin@basquetpass.tv", role: "admin", full_name: "Admin", auth_user_id: admin })}`;
+    await sql`INSERT INTO profiles ${sql({ id: profileId, email: "admin@basquetpass.tv", full_name: "Admin", auth_user_id: admin })}`;
     await sql`INSERT INTO people ${sql({ full_name: "Ana Admin", email: "admin@basquetpass.tv", profile_id: profileId, active: true })}`;
     await grantRole({ userId: viewer, app: "ops", role: "read", grantedBy: admin });
 
@@ -194,7 +193,7 @@ describe("usuarios (integration)", () => {
       superAdmin: true,
       banned: false,
       accesos: {},
-      cuenta: { role: "admin", fichaName: "Ana Admin" },
+      cuenta: { fichaName: "Ana Admin" },
     });
     expect(rows[1]).toMatchObject({ superAdmin: false, cuenta: null });
     expect(rows[1].accesos.ops).toMatchObject({ role: "read", grantedBy: admin });

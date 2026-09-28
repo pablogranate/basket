@@ -3,8 +3,9 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { grantPortalRole } from "@/lib/acceso/portal";
 import { seedAuthUser, testSql, truncateAll } from "@/test/integration/db";
 
-// First-login auto-link (basket#186): the unlinked Cuenta's profiles.role
-// becomes the identity's portal Acceso, against the real Domain and Auth DBs.
+// getUserContext against the real Domain and Auth DBs (basket#189): the portal
+// Acceso decides access, the Cuenta supplies the domain actor id, and a super
+// admin gets their Cuenta on the first visit.
 const { getSession } = vi.hoisted(() => ({ getSession: vi.fn() }));
 
 vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers()) }));
@@ -12,7 +13,7 @@ vi.mock("@/lib/auth/server", () => ({ auth: { api: { getSession } } }));
 
 import { clearProfileCache, getUserContext } from "@/lib/auth";
 
-describe("getUserContext first-login auto-link (integration)", () => {
+describe("getUserContext (integration)", () => {
   const sql = testSql();
 
   afterAll(async () => {
@@ -24,41 +25,61 @@ describe("getUserContext first-login auto-link (integration)", () => {
     clearProfileCache();
   });
 
-  async function seedUnlinkedProfile(email: string, role: string) {
+  async function seedCuenta(email: string, authUserId: string | null = null) {
     const id = crypto.randomUUID();
-    await sql`INSERT INTO profiles ${sql({ id, email, role, full_name: email })}`;
+    await sql`INSERT INTO profiles ${sql({ id, email, full_name: email, auth_user_id: authUserId })}`;
     return id;
   }
 
-  async function portalRole(userId: string) {
-    const rows = await sql<{ role: string }[]>`
-      SELECT role FROM auth_app_access WHERE user_id = ${userId} AND app = 'portal'
-    `;
-    return rows[0]?.role ?? null;
+  function signIn(userId: string, email: string, name = "Ana") {
+    getSession.mockResolvedValue({ user: { id: userId, email, name } });
   }
 
-  it("stamps the link and creates the portal Acceso from profiles.role", async () => {
+  it("links an unlinked Cuenta by email at first login and reads the role from the portal Acceso", async () => {
     const userId = await seedAuthUser(sql, { email: "ana@basquetpass.tv" });
-    const profileId = await seedUnlinkedProfile("Ana@basquetpass.tv", "editor");
-    getSession.mockResolvedValue({ user: { id: userId, email: "ana@basquetpass.tv" } });
+    const profileId = await seedCuenta("Ana@basquetpass.tv");
+    await grantPortalRole({ userId, role: "editor", grantedBy: null });
+    signIn(userId, "ana@basquetpass.tv");
 
     const context = await getUserContext();
 
-    expect(context).toMatchObject({ profileId, role: "editor", hasAccess: true });
-    expect(await portalRole(userId)).toBe("editor");
+    expect(context).toMatchObject({ profileId, role: "editor", hasAccess: true, superAdmin: false });
     const [profile] = await sql`SELECT auth_user_id FROM profiles WHERE id = ${profileId}`;
     expect(profile.auth_user_id).toBe(userId);
   });
 
-  it("keeps a portal Acceso granted before the first login", async () => {
+  it("denies a Cuenta whose identity holds no portal Acceso", async () => {
     const userId = await seedAuthUser(sql, { email: "ana@basquetpass.tv" });
-    await seedUnlinkedProfile("ana@basquetpass.tv", "editor");
+    await seedCuenta("ana@basquetpass.tv", userId);
+    signIn(userId, "ana@basquetpass.tv");
+
+    expect(await getUserContext()).toMatchObject({ profileId: null, hasAccess: false });
+  });
+
+  it("keeps an identity with a portal Acceso but no Cuenta unprovisioned", async () => {
+    const userId = await seedAuthUser(sql, { email: "ana@basquetpass.tv" });
     await grantPortalRole({ userId, role: "collaborator", grantedBy: null });
-    getSession.mockResolvedValue({ user: { id: userId, email: "ana@basquetpass.tv" } });
+    signIn(userId, "ana@basquetpass.tv");
 
-    const context = await getUserContext();
+    expect(await getUserContext()).toMatchObject({ profileId: null, hasAccess: false });
+    expect((await sql`SELECT count(*)::int AS n FROM profiles`)[0].n).toBe(0);
+  });
 
-    expect(context).toMatchObject({ role: "collaborator", hasAccess: true });
-    expect(await portalRole(userId)).toBe("collaborator");
+  it("creates the Cuenta of a super admin on the first visit, once", async () => {
+    const boss = await seedAuthUser(sql, { email: "Boss@basquetpass.tv" });
+    await sql`UPDATE auth_user SET role = 'superadmin' WHERE id = ${boss}`;
+    signIn(boss, "Boss@basquetpass.tv", "Boss");
+
+    const first = await getUserContext();
+
+    expect(first).toMatchObject({ role: "admin", superAdmin: true, hasAccess: true, canEdit: true });
+    const [cuenta] = await sql`SELECT id, email, full_name, auth_user_id FROM profiles`;
+    expect(cuenta).toMatchObject({ email: "boss@basquetpass.tv", full_name: "Boss", auth_user_id: boss });
+    expect(first.profileId).toBe(cuenta.id);
+
+    clearProfileCache();
+    const second = await getUserContext();
+    expect(second.profileId).toBe(cuenta.id);
+    expect((await sql`SELECT count(*)::int AS n FROM profiles`)[0].n).toBe(1);
   });
 });

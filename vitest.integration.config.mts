@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 
 import tsconfigPaths from "vite-tsconfig-paths";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 // Data-layer integration tests: exercise the REAL Drizzle client against a
 // throwaway Postgres (schema applied from the baseline migration). Kept in a
@@ -20,6 +20,9 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["**/*.integration.test.ts"],
+    // Agent worktrees under .claude/worktrees carry full repo copies; without
+    // this exclude a run from the main checkout counts their suites too.
+    exclude: [...configDefaults.exclude, "**/.claude/worktrees/**"],
     globalSetup: ["./src/test/integration/global-setup.ts"],
     testTimeout: 30000,
     hookTimeout: 60000,

@@ -346,7 +346,6 @@ export async function getMatchDetailData(ctx: UserContext, matchId: string) {
           actor: {
             id: profilesTable.id,
             full_name: profilesTable.fullName,
-            role: profilesTable.role,
           },
         })
         .from(auditLogTable)
