@@ -5,6 +5,7 @@ import { Landing } from "@/components/landing/landing";
 import { listAccesosForUser } from "@/lib/acceso/accesos";
 import { launcherApps } from "@/lib/acceso/catalog";
 import { getUserContext } from "@/lib/auth";
+import { findActiveSuperAdmin } from "@/lib/usuarios/super-admin";
 import {
   getDefaultDashboardHrefForRole,
   isApexHost,
@@ -24,12 +25,27 @@ export default async function Home() {
       redirect(destination.path);
     }
 
+    // Read apart from getUserContext, which only knows super admins with a Cuenta.
+    const [superAdmin, accesos] = user.userId
+      ? await Promise.all([
+          findActiveSuperAdmin(user.userId),
+          listAccesosForUser(user.userId),
+        ])
+      : [null, []];
     const apps = launcherApps({
       hasPortalAccess: user.hasAccess,
-      accesos: user.userId ? await listAccesosForUser(user.userId) : [],
+      superAdmin: Boolean(superAdmin),
+      accesos,
     });
 
-    return <Landing host={host} userEmail={user.email} apps={apps} />;
+    return (
+      <Landing
+        host={host}
+        userEmail={user.email}
+        apps={apps}
+        showUsuarios={Boolean(superAdmin)}
+      />
+    );
   }
 
   const user = await getUserContext();

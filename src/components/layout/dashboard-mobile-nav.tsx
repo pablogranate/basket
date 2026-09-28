@@ -10,9 +10,11 @@ import type { AppRole } from "@/lib/database.types";
 export function DashboardMobileNav({
   brand,
   role,
+  superAdmin = false,
 }: {
   brand: React.ReactNode;
   role: AppRole | null;
+  superAdmin?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -83,7 +85,7 @@ export function DashboardMobileNav({
               </button>
             </div>
             <div className="px-5 py-6">
-              <DashboardNav role={role} />
+              <DashboardNav role={role} superAdmin={superAdmin} />
             </div>
           </aside>
         </div>,
