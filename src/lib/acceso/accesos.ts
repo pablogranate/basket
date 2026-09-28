@@ -3,8 +3,18 @@ import "server-only";
 import { and, asc, eq, sql } from "drizzle-orm";
 
 import { authDb } from "@/lib/db/auth-client";
-import type { AccesoLevel, SiblingApp } from "@/lib/acceso/catalog";
-import { authAppAccess, authUser } from "@/lib/auth/schema";
+import {
+  isAccesoLevel,
+  isSiblingApp,
+  type AccesoLevel,
+  type SiblingApp,
+} from "@/lib/acceso/catalog";
+import {
+  authAppAccess,
+  authAppRole,
+  authEffectiveAccess,
+  authUser,
+} from "@/lib/auth/schema";
 
 // Acceso: one identity's Nivel in one sibling app (CONTEXT.md "Unified auth",
 // ADR 0009). Read per request, never cached: revoking denies on the next hit.
@@ -20,6 +30,51 @@ export type Acceso = {
 // What a caller supplies to grant: the row minus its timestamp.
 export type AccesoGrant = Omit<Acceso, "grantedAt">;
 
+type AccesoRow = typeof authAppAccess.$inferSelect;
+
+// Rows outside the sibling Nivel model (a portal role, ADR 0010) are not
+// Accesos in this module's sense until callers move to roles.
+function toAcceso(row: AccesoRow): Acceso | null {
+  if (!isSiblingApp(row.app) || !row.level || !isAccesoLevel(row.level)) {
+    return null;
+  }
+
+  return {
+    userId: row.userId,
+    app: row.app,
+    level: row.level,
+    grantedBy: row.grantedBy,
+    grantedAt: row.grantedAt,
+  };
+}
+
+// The catalog role equal to a Nivel in one app, so a Nivel grant also writes
+// the role gates will read once they move to auth_effective_access.
+function roleForLevel(app: SiblingApp, level: AccesoLevel) {
+  return sql`(SELECT ${authAppRole.key} FROM ${authAppRole} WHERE ${authAppRole.app} = ${app} AND ${authAppRole.legacyLevel} = ${level})`;
+}
+
+export type EffectiveAccess = typeof authEffectiveAccess.$inferSelect;
+
+// The role a gate honours for one identity in one app, super admins included.
+export async function getEffectiveAccess(
+  userId: string,
+  app: string,
+): Promise<EffectiveAccess | null> {
+  const rows = await authDb
+    .select()
+    .from(authEffectiveAccess)
+    .where(
+      and(
+        eq(authEffectiveAccess.userId, userId),
+        eq(authEffectiveAccess.app, app),
+      ),
+    )
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
 export async function getAcceso(
   userId: string,
   app: SiblingApp,
@@ -30,15 +85,17 @@ export async function getAcceso(
     .where(and(eq(authAppAccess.userId, userId), eq(authAppAccess.app, app)))
     .limit(1);
 
-  return rows[0] ?? null;
+  return rows[0] ? toAcceso(rows[0]) : null;
 }
 
 // Every Acceso one identity holds, for the apex launcher.
 export async function listAccesosForUser(userId: string): Promise<Acceso[]> {
-  return authDb
+  const rows = await authDb
     .select()
     .from(authAppAccess)
     .where(eq(authAppAccess.userId, userId));
+
+  return rows.flatMap((row) => toAcceso(row) ?? []);
 }
 
 export async function grantAcceso(input: AccesoGrant): Promise<Acceso> {
@@ -47,6 +104,7 @@ export async function grantAcceso(input: AccesoGrant): Promise<Acceso> {
     .values({
       userId: input.userId,
       app: input.app,
+      role: roleForLevel(input.app, input.level),
       level: input.level,
       grantedBy: input.grantedBy,
       grantedAt: new Date(),
@@ -56,6 +114,7 @@ export async function grantAcceso(input: AccesoGrant): Promise<Acceso> {
     .onConflictDoUpdate({
       target: [authAppAccess.userId, authAppAccess.app],
       set: {
+        role: roleForLevel(input.app, input.level),
         level: input.level,
         grantedBy: input.grantedBy,
         grantedAt: new Date(),
@@ -63,7 +122,12 @@ export async function grantAcceso(input: AccesoGrant): Promise<Acceso> {
     })
     .returning();
 
-  return row;
+  const acceso = toAcceso(row);
+  if (!acceso) {
+    throw new Error(`[acceso] granted row for ${input.app} is not a sibling Acceso`);
+  }
+
+  return acceso;
 }
 
 // Returns whether a row was removed. Denial is immediate: gates read per request.
@@ -113,8 +177,9 @@ export async function listUsersWithAccesos(): Promise<UserWithAccesos[]> {
       user = { userId: row.userId, email: row.email, name: row.name, accesos: {} };
       byUser.set(row.userId, user);
     }
-    if (row.acceso) {
-      user.accesos[row.acceso.app] = row.acceso;
+    const acceso = row.acceso ? toAcceso(row.acceso) : null;
+    if (acceso) {
+      user.accesos[acceso.app] = acceso;
     }
   }
 

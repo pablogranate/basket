@@ -5,6 +5,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { admin, magicLink } from "better-auth/plugins";
+import { adminAc, userAc } from "better-auth/plugins/admin/access";
 
 import { authDb } from "@/lib/db/auth-client";
 import { resolveCrossSubdomainCookieConfig } from "@/lib/auth/cookie-domain";
@@ -83,7 +84,13 @@ export const auth = betterAuth({
     },
   },
   plugins: [
-    admin(),
+    // Only super admins (ADR 0010) may call the admin endpoints; everyone else
+    // keeps the plugin's default role "user". There is deliberately no "admin"
+    // role here: portal admin is an Acceso, not an identity role.
+    admin({
+      roles: { user: userAc, superadmin: adminAc },
+      adminRoles: ["superadmin"],
+    }),
     magicLink({
       sendMagicLink: async ({ email, url }) => {
         await sendMagicLinkEmail({ to: email, url });
