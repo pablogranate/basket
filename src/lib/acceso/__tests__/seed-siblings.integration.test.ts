@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { getAcceso, grantAcceso } from "@/lib/acceso/accesos";
+import { grantRole } from "@/lib/acceso/accesos";
 import { applySiblingAccesoPlan } from "@/lib/acceso/seed-siblings";
-import { seedAuthUser, testSql, truncateAll } from "@/test/integration/db";
+import { accessRow, seedAuthUser, testSql, truncateAll } from "@/test/integration/db";
 
 // Cutover seed for incidencias, ops hub and analytics users: creates missing
 // identities by email (verified, no email sent) and grants their Accesos.
@@ -22,9 +22,9 @@ describe("apply sibling Acceso plan (integration)", () => {
   });
 
   const plan = [
-    { email: "existing@basquetpass.tv", app: "incidencias", level: "write" },
-    { email: "existing@basquetpass.tv", app: "ops", level: "write" },
-    { email: "newcomer@gmail.com", app: "ops", level: "read" },
+    { email: "existing@basquetpass.tv", app: "incidencias", role: "write" },
+    { email: "existing@basquetpass.tv", app: "ops", role: "write" },
+    { email: "newcomer@gmail.com", app: "ops", role: "read" },
   ] as const;
 
   it("creates missing identities as verified users and grants every planned Acceso", async () => {
@@ -43,15 +43,15 @@ describe("apply sibling Acceso plan (integration)", () => {
     // No verification token or session was minted for the new identity.
     expect((await sql`SELECT count(*)::int AS n FROM auth_verification`)[0].n).toBe(0);
 
-    expect(await getAcceso(existing, "incidencias")).toMatchObject({ level: "write", grantedBy: null });
-    expect(await getAcceso(existing, "ops")).toMatchObject({ level: "write" });
-    expect(await getAcceso(newcomer.id as string, "ops")).toMatchObject({ level: "read" });
+    expect(await accessRow(sql, existing, "incidencias")).toMatchObject({ role: "write", grantedBy: null });
+    expect(await accessRow(sql, existing, "ops")).toMatchObject({ role: "write" });
+    expect(await accessRow(sql, newcomer.id as string, "ops")).toMatchObject({ role: "read" });
   });
 
-  it("is idempotent: a second run creates nothing and never overrides an admin's Nivel", async () => {
+  it("is idempotent: a second run creates nothing and never overrides an admin's role", async () => {
     const admin = await seedAuthUser(sql, { email: "admin@basquetpass.tv" });
     const existing = await seedAuthUser(sql, { email: "existing@basquetpass.tv" });
-    await grantAcceso({ userId: existing, app: "ops", level: "read", grantedBy: admin });
+    await grantRole({ userId: existing, app: "ops", role: "read", grantedBy: admin });
 
     const first = await applySiblingAccesoPlan([...plan]);
     expect(first.alreadyHad.map((r) => `${r.email}/${r.app}`)).toEqual(["existing@basquetpass.tv/ops"]);
@@ -61,7 +61,7 @@ describe("apply sibling Acceso plan (integration)", () => {
     expect(second.granted).toEqual([]);
     expect(second.alreadyHad).toHaveLength(3);
 
-    expect(await getAcceso(existing, "ops")).toMatchObject({ level: "read", grantedBy: admin });
+    expect(await accessRow(sql, existing, "ops")).toMatchObject({ role: "read", grantedBy: admin });
     expect((await sql`SELECT count(*)::int AS n FROM auth_user`)[0].n).toBe(3);
   });
 

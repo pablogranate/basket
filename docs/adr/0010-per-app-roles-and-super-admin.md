@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 # Per-app roles replace the shared Nivel; super admins and the portal join the central Acceso table
 

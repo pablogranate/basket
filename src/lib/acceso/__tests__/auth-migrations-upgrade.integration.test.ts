@@ -121,7 +121,7 @@ describe("Auth DB migrations over a database with data", () => {
       SELECT user_id, app::text, level::text FROM auth_app_access ORDER BY user_id, app
     `;
 
-    await migrate(drizzle(sql), { migrationsFolder: "drizzle/auth" });
+    await migrateThrough("0003_role_catalog");
 
     const after = await sql`
       SELECT user_id, app, level::text, role FROM auth_app_access ORDER BY user_id, app
@@ -145,5 +145,45 @@ describe("Auth DB migrations over a database with data", () => {
         WHERE app <> 'facturacion' AND role <> level::text
       `,
     ).toEqual([{ n: 0 }]);
+  });
+
+  it("drops the Nivel and its enums, keeping every role, grantor and effective row", async () => {
+    await migrateThrough("0004_audit_log");
+    await seedUsers("u-a", "u-b", "u-super");
+    await sql`UPDATE auth_user SET role = 'superadmin' WHERE id = 'u-super'`;
+    await sql`
+      INSERT INTO auth_app_access (user_id, app, role, level, granted_by)
+      VALUES ('u-a', 'ops', 'write', 'write', 'u-b'),
+             ('u-a', 'facturacion', 'periodista', 'read', null),
+             ('u-b', 'portal', 'editor', null, 'u-a')
+    `;
+    const accessBefore = await sql`
+      SELECT user_id, app, role, granted_by FROM auth_app_access ORDER BY user_id, app
+    `;
+    const effectiveBefore = await sql`
+      SELECT * FROM auth_effective_access ORDER BY user_id, app
+    `;
+
+    await migrate(drizzle(sql), { migrationsFolder: "drizzle/auth" });
+
+    expect(
+      await sql`SELECT user_id, app, role, granted_by FROM auth_app_access ORDER BY user_id, app`,
+    ).toEqual([...accessBefore]);
+    expect(
+      await sql`SELECT * FROM auth_effective_access ORDER BY user_id, app`,
+    ).toEqual([...effectiveBefore]);
+    expect(
+      await sql`
+        SELECT table_name, column_name FROM information_schema.columns
+        WHERE (table_name = 'auth_app_access' AND column_name = 'level')
+           OR (table_name = 'auth_app_role' AND column_name = 'legacy_level')
+      `,
+    ).toEqual([]);
+    expect(
+      await sql`
+        SELECT typname FROM pg_type
+        WHERE typname IN ('auth_app_access_level', 'auth_app_access_app')
+      `,
+    ).toEqual([]);
   });
 });

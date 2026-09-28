@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { Landing } from "@/components/landing/landing";
-import { listAccesosForUser } from "@/lib/acceso/accesos";
+import { listEffectiveAccessForUser } from "@/lib/acceso/accesos";
 import { launcherApps } from "@/lib/acceso/catalog";
 import { getUserContext } from "@/lib/auth";
 import { findActiveSuperAdmin } from "@/lib/usuarios/super-admin";
@@ -26,16 +26,16 @@ export default async function Home() {
     }
 
     // Read apart from getUserContext, which only knows super admins with a Cuenta.
-    const [superAdmin, accesos] = user.userId
+    const [superAdmin, access] = user.userId
       ? await Promise.all([
           findActiveSuperAdmin(user.userId),
-          listAccesosForUser(user.userId),
+          listEffectiveAccessForUser(user.userId),
         ])
       : [null, []];
     const apps = launcherApps({
       hasPortalAccess: user.hasAccess,
       superAdmin: Boolean(superAdmin),
-      accesos,
+      apps: access.map((row) => row.app),
     });
 
     return (

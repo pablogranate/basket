@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: accepted, partially superseded by ADR 0010 (per-app roles replace the Nivel; the portal joins the Acceso table)
 ---
 # Sibling authorization is centralized as Acceso rows in the Auth DB; portal is the only auth server
 

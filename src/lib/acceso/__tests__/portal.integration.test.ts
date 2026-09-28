@@ -41,8 +41,8 @@ describe("portal Acceso (integration)", () => {
   }
 
   async function portalRow(userId: string) {
-    const rows = await sql<{ role: string; level: string | null; granted_by: string | null }[]>`
-      SELECT role, level::text, granted_by FROM auth_app_access
+    const rows = await sql<{ role: string; granted_by: string | null }[]>`
+      SELECT role, granted_by FROM auth_app_access
       WHERE user_id = ${userId} AND app = 'portal'
     `;
     return rows[0] ?? null;
@@ -61,12 +61,12 @@ describe("portal Acceso (integration)", () => {
     ]);
   });
 
-  it("grants, re-tiers and revokes a portal role with no Nivel", async () => {
+  it("grants, re-tiers and revokes a portal role", async () => {
     const admin = await seedAuthUser(sql, { email: "admin@basquetpass.tv" });
     const ana = await seedAuthUser(sql, { email: "ana@basquetpass.tv" });
 
     await grantPortalRole({ userId: ana, role: "collaborator", grantedBy: admin });
-    expect(await portalRow(ana)).toEqual({ role: "collaborator", level: null, granted_by: admin });
+    expect(await portalRow(ana)).toEqual({ role: "collaborator", granted_by: admin });
     expect(await getPortalAccess(ana)).toEqual({ role: "collaborator", superAdmin: false });
 
     await grantPortalRole({ userId: ana, role: "editor", grantedBy: admin });
@@ -112,7 +112,7 @@ describe("portal Acceso (integration)", () => {
       expect(report.alreadyHad).toEqual([]);
       expect(report.unlinked).toEqual([{ email: "never.logged@basquetpass.tv", role: "editor" }]);
 
-      expect(await portalRow(admin)).toEqual({ role: "admin", level: null, granted_by: null });
+      expect(await portalRow(admin)).toEqual({ role: "admin", granted_by: null });
       expect((await portalRow(editor))?.role).toBe("editor");
       expect((await portalRow(colab))?.role).toBe("collaborator");
     });

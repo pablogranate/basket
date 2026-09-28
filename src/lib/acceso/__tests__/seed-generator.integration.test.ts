@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { getAcceso, grantAcceso } from "@/lib/acceso/accesos";
+import { grantRole } from "@/lib/acceso/accesos";
 import { seedGeneratorAccesoForFullAccessRoles } from "@/lib/acceso/seed-generator";
-import { seedAuthUser, testSql, truncateAll } from "@/test/integration/db";
+import { accessRow, seedAuthUser, testSql, truncateAll } from "@/test/integration/db";
 
 // Deploy-day seed (basket#173): every portal admin and editor keeps the
 // generator, now as a `generator` Acceso instead of the dashboard.full
@@ -63,22 +63,22 @@ describe("seed generator Acceso for full-access roles (integration)", () => {
     expect(report.noIdentity.map((r) => r.email)).toEqual(["ghost@basquetpass.tv"]);
 
     for (const userId of [admin, editor, unlinkedEditor]) {
-      expect(await getAcceso(userId, "generator")).toMatchObject({
-        level: "write",
+      expect(await accessRow(sql, userId, "generator")).toMatchObject({
+        role: "write",
         grantedBy: null,
       });
     }
-    expect(await getAcceso(collaborator, "generator")).toBeNull();
+    expect(await accessRow(sql, collaborator, "generator")).toBeNull();
     // Seed only touches the generator column.
-    expect(await getAcceso(admin, "ops")).toBeNull();
+    expect(await accessRow(sql, admin, "ops")).toBeNull();
   });
 
-  it("is idempotent and never overrides a Nivel an admin already set", async () => {
+  it("is idempotent and never overrides a role an admin already set", async () => {
     const admin = await seedAuthUser(sql, { email: "admin@basquetpass.tv" });
     const editor = await seedAuthUser(sql, { email: "editor@basquetpass.tv" });
     await seedProfile(sql, { email: "admin@basquetpass.tv", role: "admin", auth_user_id: admin });
     await seedProfile(sql, { email: "editor@basquetpass.tv", role: "editor", auth_user_id: editor });
-    await grantAcceso({ userId: editor, app: "generator", level: "read", grantedBy: admin });
+    await grantRole({ userId: editor, app: "generator", role: "read", grantedBy: admin });
 
     const first = await seedGeneratorAccesoForFullAccessRoles();
     expect(first.granted.map((r) => r.email)).toEqual(["admin@basquetpass.tv"]);
@@ -88,8 +88,8 @@ describe("seed generator Acceso for full-access roles (integration)", () => {
     expect(second.granted).toEqual([]);
     expect(second.alreadyHad).toHaveLength(2);
 
-    expect(await getAcceso(editor, "generator")).toMatchObject({
-      level: "read",
+    expect(await accessRow(sql, editor, "generator")).toMatchObject({
+      role: "read",
       grantedBy: admin,
     });
   });
@@ -101,6 +101,6 @@ describe("seed generator Acceso for full-access roles (integration)", () => {
     const report = await seedGeneratorAccesoForFullAccessRoles({ dryRun: true });
 
     expect(report.granted.map((r) => r.email)).toEqual(["admin@basquetpass.tv"]);
-    expect(await getAcceso(admin, "generator")).toBeNull();
+    expect(await accessRow(sql, admin, "generator")).toBeNull();
   });
 });

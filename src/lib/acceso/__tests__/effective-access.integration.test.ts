@@ -1,10 +1,10 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
-import { getEffectiveAccess, grantAcceso } from "@/lib/acceso/accesos";
+import { getEffectiveAccess, grantRole } from "@/lib/acceso/accesos";
 import { seedAuthUser, testSql, truncateAll } from "@/test/integration/db";
 
-// The role catalog and auth_effective_access (ADR 0010): what every gate reads
-// once readers move off `level`. Super admins are admin in every app.
+// The role catalog and auth_effective_access (ADR 0010): what every gate
+// reads. Super admins are admin in every app.
 describe("effective access (integration)", () => {
   const sql = testSql();
 
@@ -32,21 +32,16 @@ describe("effective access (integration)", () => {
     `;
   }
 
-  it("writes the catalog role equal to the granted Nivel", async () => {
+  it("re-granting a role moves the effective role with it", async () => {
     const coord = await seedAuthUser(sql, { email: "coord@basquetpass.tv" });
 
-    await grantAcceso({ userId: coord, app: "facturacion", level: "write", grantedBy: null });
-    await grantAcceso({ userId: coord, app: "ops", level: "read", grantedBy: null });
+    await grantRole({ userId: coord, app: "facturacion", role: "coordinador", grantedBy: null });
+    expect(await getEffectiveAccess(coord, "facturacion")).toMatchObject({
+      role: "coordinador",
+      isAdmin: false,
+    });
 
-    expect(
-      await sql`SELECT app, role, level::text FROM auth_app_access WHERE user_id = ${coord} ORDER BY app`,
-    ).toEqual([
-      { app: "facturacion", role: "coordinador", level: "write" },
-      { app: "ops", role: "read", level: "read" },
-    ]);
-
-    // Re-granting a Nivel moves the role with it.
-    await grantAcceso({ userId: coord, app: "facturacion", level: "admin", grantedBy: null });
+    await grantRole({ userId: coord, app: "facturacion", role: "admin", grantedBy: null });
     expect(await getEffectiveAccess(coord, "facturacion")).toMatchObject({
       role: "admin",
       isAdmin: true,
@@ -56,7 +51,7 @@ describe("effective access (integration)", () => {
 
   it("answers an explicit Acceso with its role and rank, and nothing for other apps", async () => {
     const operator = await seedAuthUser(sql, { email: "op@basquetpass.tv" });
-    await grantAcceso({ userId: operator, app: "incidencias", level: "write", grantedBy: null });
+    await grantRole({ userId: operator, app: "incidencias", role: "write", grantedBy: null });
 
     expect(await getEffectiveAccess(operator, "incidencias")).toEqual({
       userId: operator,
@@ -72,7 +67,7 @@ describe("effective access (integration)", () => {
 
   it("resolves a super admin to the admin role of every app, over their explicit rows", async () => {
     const boss = await seedAuthUser(sql, { email: "boss@basquetpass.tv" });
-    await grantAcceso({ userId: boss, app: "ops", level: "read", grantedBy: null });
+    await grantRole({ userId: boss, app: "ops", role: "read", grantedBy: null });
     await setSuperadmin(boss);
 
     const rows = await effectiveRows(boss);
@@ -87,7 +82,7 @@ describe("effective access (integration)", () => {
 
   it("restores a demoted super admin's explicit rows", async () => {
     const boss = await seedAuthUser(sql, { email: "boss@basquetpass.tv" });
-    await grantAcceso({ userId: boss, app: "ops", level: "read", grantedBy: null });
+    await grantRole({ userId: boss, app: "ops", role: "read", grantedBy: null });
     await setSuperadmin(boss);
 
     await sql`UPDATE auth_user SET role = 'user' WHERE id = ${boss}`;
@@ -99,7 +94,7 @@ describe("effective access (integration)", () => {
 
   it("gives a banned super admin only their explicit rows", async () => {
     const boss = await seedAuthUser(sql, { email: "boss@basquetpass.tv" });
-    await grantAcceso({ userId: boss, app: "generator", level: "write", grantedBy: null });
+    await grantRole({ userId: boss, app: "generator", role: "write", grantedBy: null });
     await setSuperadmin(boss, true);
 
     expect(await effectiveRows(boss)).toEqual([

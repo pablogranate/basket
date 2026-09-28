@@ -2,7 +2,7 @@ import "server-only";
 
 import { inArray } from "drizzle-orm";
 
-import { grantAccesoIfAbsent } from "@/lib/acceso/accesos";
+import { grantRoleIfAbsent } from "@/lib/acceso/accesos";
 import { authUser } from "@/lib/auth/schema";
 import { authDb } from "@/lib/db/auth-client";
 import { db } from "@/lib/db/client";
@@ -21,7 +21,7 @@ import { rolesWithCapability } from "@/lib/roles";
 
 // The exact set the gate used to admit — derived, so the seed cannot drift.
 const FULL_ACCESS_ROLES = rolesWithCapability("dashboard.full");
-const SEEDED_LEVEL = "write";
+const SEEDED_ROLE = "write";
 
 type Seeded = { email: string; role: string; userId: string };
 
@@ -82,8 +82,8 @@ export async function seedGeneratorAccesoForFullAccessRoles(
 
     const seeded: Seeded = { email, role: cuenta.role, userId };
 
-    const granted = await grantAccesoIfAbsent(
-      { userId, app: "generator", level: SEEDED_LEVEL, grantedBy: null },
+    const granted = await grantRoleIfAbsent(
+      { userId, app: "generator", role: SEEDED_ROLE, grantedBy: null },
       { dryRun },
     );
     (granted ? report.granted : report.alreadyHad).push(seeded);

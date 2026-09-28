@@ -11,7 +11,7 @@ Any app living on a `basket-app.com` subdomain (portal, analytics, incidencias, 
 _Avoid_: sub-app, satellite app
 
 **Lanzador**:
-The apex page at `basket-app.com` ("Elegí una aplicación") where every signed-in identity lands. It lists only the apps that identity may enter: the portal when its Cuenta admits it, and each sibling whose Acceso holds a Nivel that app uses. With nothing else to list it still shows the portal, the door to a Solicitud de acceso.
+The apex page at `basket-app.com` ("Elegí una aplicación") where every signed-in identity lands. It lists only the apps that identity may enter: the portal when its Cuenta admits it, and each sibling it holds a Rol de app in. With nothing else to list it still shows the portal, the door to a Solicitud de acceso.
 _Avoid_: selector, directory, landing (in prose)
 
 **Auth server**:
@@ -23,15 +23,23 @@ A sibling's ability to recognize the shared login without being able to create o
 _Avoid_: auth client, auth instance
 
 **Acceso**:
-One identity's Nivel in one sibling app. Having an Acceso is what admits a person to that app; identity alone admits nobody. Granted and revoked by portal admins only; rows seeded at cutover carry no grantor. The portal itself is exempt: entry there is a Cuenta's role.
-_Avoid_: grant, permiso, rol (when the per-app entry is meant), allowlist
+One identity's Rol de app in one app, the portal included. Having an Acceso is what admits a person to that app; identity alone admits nobody. Granted and revoked from the apex users section or an app's own user management; rows seeded at cutover carry no grantor.
+_Avoid_: grant, permiso, allowlist
 
-**Nivel**:
-What an Acceso allows inside its app: lectura, escritura or admin (stored as read, write, admin). Each app decides what its levels unlock, and may name them in its own words (facturacion: write is coordinador, admin is admin, read does not apply); an app that does not distinguish them treats any Acceso as entry.
-_Avoid_: permission, tier, scope
+**Rol de app**:
+What an Acceso allows inside its app, in that app's own words: Externo, Productor or Admin in the portal; Periodista, Coordinador or Admin in facturacion; Lectura, Escritura or Admin elsewhere. Each app declares its roles in the Catálogo de roles and decides what they unlock. Replaced the shared Nivel (lectura/escritura/admin for every app), which is retired.
+_Avoid_: Nivel, permission, tier, scope
+
+**Catálogo de roles**:
+The Auth DB list of apps and the roles each one declares, ranked within the app, with exactly one admin role per app. Adding a role is a new row, not a code change in every reader.
+_Avoid_: role enum, permissions table
+
+**Super admin**:
+An identity that is admin in every app without holding an Acceso in each. Their explicit Accesos are kept, so removing super admin restores them; a banned super admin gets only those. Only super admins open the apex users section.
+_Avoid_: root, superuser, global admin
 
 **App gate**:
-The per-app check answering "may this identity use this app?" by looking up its Acceso. Identity being valid says nothing about access. The gate runs inside each reader, and in front of the generator.
+The per-app check answering "may this identity use this app?" by looking up its effective Rol de app (its Acceso, or admin for a Super admin). Identity being valid says nothing about access. The gate runs inside each reader, and in front of the generator.
 _Avoid_: access check, permission check (too generic)
 
 **Full-access role**:
@@ -53,7 +61,7 @@ A `people` row — the person as production staff (name, phone, funciones, equip
 _Avoid_: persona (ambiguous with the human), contacto, people row (in Spanish-facing copy)
 
 **Cuenta**:
-A `profiles` row — the login and its access tier. Distinct from the ficha it may be linked to. One cuenta per email.
+A `profiles` row — the portal login that domain rows point at (created_by, owners, reports). Its portal access is the portal Acceso, not the Cuenta itself. Distinct from the ficha it may be linked to. One cuenta per email.
 _Avoid_: perfil, usuario (when the login is meant), profile (in Spanish-facing copy)
 
 **Fusión de fichas**:

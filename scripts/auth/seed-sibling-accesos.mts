@@ -123,7 +123,7 @@ console.log(`[seed-siblings] plan: ${plan.length} Accesos for ${new Set(plan.map
 console.log(`[seed-siblings] identities ${verb} create: ${report.createdIdentities.length}`);
 for (const row of report.createdIdentities) console.log(`  + ${row.email}`);
 console.log(`[seed-siblings] Accesos ${verb} grant: ${report.granted.length}`);
-for (const row of report.granted) console.log(`  + ${row.email}  ${row.app}/${row.level}`);
+for (const row of report.granted) console.log(`  + ${row.email}  ${row.app}/${row.role}`);
 console.log(`[seed-siblings] already present, untouched: ${report.alreadyHad.length}`);
 for (const row of report.alreadyHad) console.log(`  = ${row.email}  ${row.app}`);
 

@@ -192,3 +192,32 @@ Seeded rows have `granted_by = null`.
 (`drizzle/portal` then `drizzle/auth`, the latter into its own
 `__drizzle_migrations_auth` table so the two timelines don't shadow each
 other). `AUTH_DATABASE_URL` points at the same database in that run.
+
+## Contract: drop the Nivel (#189)
+
+`0005_contract_drop_nivel` drops `auth_app_access.level`,
+`auth_app_role.legacy_level` and the enums `auth_app_access_level` and
+`auth_app_access_app`. The portal stops writing `level` in the same change.
+
+Deploy order:
+
+1. Every reader already deployed on `auth_effective_access` (#188:
+   facturacion-bp, data-bp, incidencias-bp, ops) and each one's smoke rows
+   passed. A reader still on `level` loses its gate the moment the column
+   goes.
+2. Grep every sibling's deployed commit for `level` reads (recorded in the
+   #189 PR).
+3. Deploy the portal. It no longer writes `level`, which is nullable since
+   0003, so it runs on the old schema too.
+4. `pnpm db:auth:migrate` — `0005_contract_drop_nivel`.
+
+Not the other way round: the old portal build writes `level` on every grant,
+so a grant made after the drop and before the deploy would fail.
+
+Check after migrating (Auth DB), expecting no rows:
+
+```sql
+SELECT column_name FROM information_schema.columns
+WHERE (table_name = 'auth_app_access' AND column_name = 'level')
+   OR (table_name = 'auth_app_role' AND column_name = 'legacy_level');
+```

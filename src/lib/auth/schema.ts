@@ -8,7 +8,6 @@ import {
   index,
   integer,
   jsonb,
-  pgEnum,
   pgTable,
   pgView,
   primaryKey,
@@ -74,22 +73,6 @@ export const authVerification = pgTable("auth_verification", {
   updatedAt: timestamp("updated_at").notNull(),
 });
 
-// Nivel enums from ADR 0009. Kept while readers still read `level`; dropped
-// by the contract step of ADR 0010 along with the column.
-export const appAccessApp = pgEnum("auth_app_access_app", [
-  "analytics",
-  "incidencias",
-  "generator",
-  "ops",
-  "facturacion",
-]);
-
-export const appAccessLevel = pgEnum("auth_app_access_level", [
-  "read",
-  "write",
-  "admin",
-]);
-
 // Catálogo de roles (ADR 0010): the apps, and the roles each one declares.
 // Adding an app or a role is a row, not a migration of an enum.
 export const authApp = pgTable("auth_app", {
@@ -110,9 +93,6 @@ export const authAppRole = pgTable(
     // Higher outranks lower within one app; grant rules compare ranks.
     rank: integer("rank").notNull(),
     isAdmin: boolean("is_admin").notNull().default(false),
-    // The Nivel this role equals while readers still read `level`; null for
-    // apps that never had one (portal). Dropped with `level`.
-    legacyLevel: appAccessLevel("legacy_level"),
   },
   (table) => [
     primaryKey({ columns: [table.app, table.key] }),
@@ -123,8 +103,7 @@ export const authAppRole = pgTable(
   ],
 );
 
-// Acceso: one identity's role in one app (ADR 0010). `level` is the ADR 0009
-// Nivel, written alongside `role` until every reader moves to the view.
+// Acceso: one identity's role in one app (ADR 0010).
 export const authAppAccess = pgTable(
   "auth_app_access",
   {
@@ -135,7 +114,6 @@ export const authAppAccess = pgTable(
       .notNull()
       .references(() => authApp.key),
     role: text("role").notNull(),
-    level: appAccessLevel("level"),
     // Auth user id of the admin who granted; null for seeded rows.
     grantedBy: text("granted_by").references(() => authUser.id, {
       onDelete: "set null",
