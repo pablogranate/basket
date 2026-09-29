@@ -106,12 +106,9 @@ Check after seeding (Auth DB), expecting one row per linked Cuenta:
 SELECT role, count(*) FROM auth_app_access WHERE app = 'portal' GROUP BY 1;
 ```
 
-Transition safety net (removed in #189): a Cuenta with no `portal` row — seed
-not run yet, or the Auth DB unreachable — falls back to its `profiles.role`,
-so deploying before the seed does not lock anyone out. Because of that
-fallback, deleting only the `portal` row does not revoke a Cuenta that still
-exists; revoke from the People page, which removes both. #187 must not ship
-Acceso-only revokes for the portal until the fallback is gone.
+Transition safety net, removed by #189: a Cuenta with no `portal` row fell
+back to its `profiles.role`. Since #189 the `portal` Acceso alone admits: no
+row, or the Auth DB unreachable, means `/no-access`.
 
 Grant rule (`canGrantRole`): a manager grants, re-tiers or revokes roles
 ranked below their own; the portal Admin also reaches Admin; super admins
@@ -192,3 +189,59 @@ Seeded rows have `granted_by = null`.
 (`drizzle/portal` then `drizzle/auth`, the latter into its own
 `__drizzle_migrations_auth` table so the two timelines don't shadow each
 other). `AUTH_DATABASE_URL` points at the same database in that run.
+
+## Contract: retire the Nivel and profiles.role (#189)
+
+Two Auth DB drops (`0005_contract_drop_nivel`: `auth_app_access.level`,
+`auth_app_role.legacy_level`, enums `auth_app_access_level` and
+`auth_app_access_app`) and one Domain DB drop (`profiles.role`, in two steps:
+`0042_profiles_role_nullable`, `0043_drop_profiles_role`). After #189 the
+portal reads only the `portal` Acceso; the Cuenta is the uuid domain rows point
+at. A super admin without a Cuenta gets one on their first dashboard visit.
+
+Deploy order:
+
+1. Every reader already deployed on `auth_effective_access` (#188:
+   facturacion-bp, data-bp, incidencias-bp, ops) and each one's smoke rows
+   passed. A reader still on `level` loses its gate when 0005 runs. Grep every
+   sibling's deployed commit for `level` reads (recorded in the #189 PR).
+2. Domain DB: apply `0042_profiles_role_nullable.sql` (`docker exec`). The old
+   build works either way.
+3. Seed from the #189 checkout, before deploying it:
+
+   ```bash
+   pnpm db:auth:seed-portal -- --dry-run   # identities to create, Accesos to grant
+   pnpm db:auth:seed-portal
+   ```
+
+   Every Cuenta gets an identity (a never-linked one: created verified, no
+   email sent, and linked) and a `portal` Acceso from its `profiles.role`; an
+   existing Acceso is never touched. Check (Domain DB), expecting 0:
+
+   ```sql
+   SELECT count(*) FROM profiles WHERE auth_user_id IS NULL;
+   ```
+
+   And (Auth DB) that the `portal` rows cover every Cuenta — the seed's
+   granted + already-had count equals `SELECT count(*) FROM profiles`.
+4. Deploy the portal. It writes neither `level` nor `profiles.role`, and both
+   columns are nullable by now.
+5. Run `pnpm db:auth:seed-portal` again: it picks up any Cuenta the old build
+   created or re-tiered between steps 3 and 4. Idempotent.
+6. Domain DB: apply `0043_drop_profiles_role.sql`.
+7. Auth DB: `pnpm db:auth:migrate` — `0005_contract_drop_nivel`.
+
+Not in the other order: the old portal build writes `level` and
+`profiles.role` on every grant, so a grant made after a drop and before the
+deploy would fail.
+
+Check after both drops, expecting no rows (Auth DB, then Domain DB):
+
+```sql
+SELECT column_name FROM information_schema.columns
+WHERE (table_name = 'auth_app_access' AND column_name = 'level')
+   OR (table_name = 'auth_app_role' AND column_name = 'legacy_level');
+
+SELECT column_name FROM information_schema.columns
+WHERE table_name = 'profiles' AND column_name = 'role';
+```

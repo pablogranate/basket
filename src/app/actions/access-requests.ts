@@ -142,7 +142,7 @@ const approve = defineAction({
         fullName,
         phone,
         roleId,
-        accessRole,
+        authUserId: claimed.authUserId,
         personId,
         mergePersonId,
         actor: ctx,
@@ -155,11 +155,10 @@ const approve = defineAction({
       });
 
       // The portal Acceso, written inside the transaction so a failing Auth DB
-      // rolls the approval back. The identity is the Cuenta's link if it has
-      // one, else the applicant's session (the Cuenta links to it by email at
-      // first login).
+      // rolls the approval back. The identity is the Cuenta's link: an
+      // existing one, else the applicant's session, linked just now.
       await grantPortalRole({
-        userId: settled.authUserId ?? claimed.authUserId,
+        userId: settled.authUserId,
         role: accessRole,
         grantedBy: ctx.userId,
       });

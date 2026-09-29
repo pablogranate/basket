@@ -20,7 +20,7 @@ import {
   grantPortalRole,
   revokePortalRole,
 } from "@/lib/acceso/portal";
-import { removeCuenta } from "@/lib/acceso/portal-cuenta";
+import { linkCuentaIdentity, removeCuenta } from "@/lib/acceso/portal-cuenta";
 import { clearProfileCache, requireEditor } from "@/lib/auth";
 import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
 import { requireAccessManager, requireAdmin } from "@/lib/auth-access";
@@ -48,20 +48,19 @@ async function findProfileByEmail(email: string): Promise<ProfileRow | null> {
   );
 }
 
-// The role the Cuenta holds today: its portal Acceso once linked (a super
-// admin reads as admin), else the profiles.role it will be seeded from.
+// The role the Cuenta holds today: its portal Acceso (a super admin reads as
+// admin). A Cuenta without one ranks as the lowest role, so any manager may
+// grant it or clean it up.
 async function getCurrentPortalRole(profile: ProfileRow): Promise<AppRole> {
-  if (!profile.auth_user_id) {
-    return profile.role;
-  }
+  const access = profile.auth_user_id
+    ? await getPortalAccess(profile.auth_user_id)
+    : null;
 
-  const access = await getPortalAccess(profile.auth_user_id);
-
-  return access?.role ?? profile.role;
+  return access?.role ?? "collaborator";
 }
 
 // Revoke cuts both the portal Acceso (Auth DB, written first: it is what
-// getUserContext reads) and the Cuenta (Domain DB) until basket#189.
+// getUserContext reads) and the Cuenta (Domain DB).
 async function revokePlatformAccessByEmail(email: string, manager: Actor) {
   const profile = await findProfileByEmail(email);
 
@@ -280,7 +279,7 @@ export async function revokePersonAccessAction(formData: FormData) {
 }
 
 // Re-tier an existing platform login without revoking it first: only the
-// profiles.role changes, so no invite email is re-sent.
+// portal Acceso changes, so no invite email is re-sent.
 const updatePersonAccessRole = defineAction({
   fallbackRedirect: "/people",
   authz: requireAccessManager,
@@ -319,34 +318,22 @@ const updatePersonAccessRole = defineAction({
       throw new Error("No podés cambiar tu propio nivel de acceso.");
     }
 
-    if (
-      currentRole === requestedAccessRole &&
-      profile.role === requestedAccessRole
-    ) {
+    const userId = await linkCuentaIdentity({
+      id: profile.id,
+      email: profile.email,
+      authUserId: profile.auth_user_id,
+    });
+    const access = await getPortalAccess(userId);
+
+    if (access?.role === requestedAccessRole) {
       return { notice: "El nivel de acceso ya estaba actualizado." };
     }
 
-    // Auth DB first: it is what getUserContext reads. An unlinked Cuenta gets
-    // its Acceso from profiles.role at first login.
-    if (profile.auth_user_id) {
-      await grantPortalRole({
-        userId: profile.auth_user_id,
-        role: requestedAccessRole,
-        grantedBy: ctx.userId,
-      });
-    }
-
-    try {
-      await db
-        .update(profilesTable)
-        .set({ role: requestedAccessRole satisfies AppRole })
-        .where(eq(profilesTable.id, profile.id));
-    } catch (error) {
-      console.error("[acceso] portal role written but profiles.role not", error);
-      throw error;
-    }
-
-    clearProfileCache();
+    await grantPortalRole({
+      userId,
+      role: requestedAccessRole,
+      grantedBy: ctx.userId,
+    });
 
     return {
       notice: "Nivel de acceso actualizado.",

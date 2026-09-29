@@ -15,10 +15,8 @@ import { Input } from "@/components/ui/input";
 import { PageMessage } from "@/components/ui/page-message";
 import { SectionTableCard } from "@/components/ui/section-table-card";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { PORTAL_APP } from "@/lib/acceso/portal";
 import { buildApexUrl } from "@/lib/constants";
 import { formatMatchDate } from "@/lib/date";
-import { getRoleDisplayName } from "@/lib/display";
 import { parseNotice } from "@/lib/search-params";
 import {
   getRoleCatalog,
@@ -173,12 +171,6 @@ export default async function UsuariosPage({ searchParams }: PageProps) {
                       }
 
                       const acceso = row.accesos[app.key];
-                      // Until basket#189 a Cuenta without a portal row still
-                      // enters with its profiles.role; show that, not "Sin acceso".
-                      const inherited =
-                        app.key === PORTAL_APP && !acceso && row.cuenta
-                          ? row.cuenta.role
-                          : null;
 
                       return (
                         <td key={app.key} className="px-4 py-4">
@@ -187,7 +179,7 @@ export default async function UsuariosPage({ searchParams }: PageProps) {
                             app={app.key}
                             appLabel={app.label}
                             roles={app.roles}
-                            currentRole={acceso?.role ?? inherited}
+                            currentRole={acceso?.role ?? null}
                           />
                           {acceso ? (
                             <p className="mt-2 text-[11px] text-[var(--n-500)]">
@@ -195,10 +187,6 @@ export default async function UsuariosPage({ searchParams }: PageProps) {
                                 ? `Por ${nameOf(acceso.grantedBy)}`
                                 : "Alta inicial"}{" "}
                               · {formatDay(acceso.grantedAt)}
-                            </p>
-                          ) : inherited ? (
-                            <p className="mt-2 text-[11px] text-[var(--n-500)]">
-                              Desde la Cuenta
                             </p>
                           ) : null}
                         </td>
@@ -241,9 +229,7 @@ function IdentityBadges({ row }: { row: UsuarioRow }) {
       {row.superAdmin ? <Badge>Super admin</Badge> : null}
       {row.banned ? <Badge>Bloqueado</Badge> : null}
       <Badge>
-        {row.cuenta
-          ? `Cuenta: ${getRoleDisplayName(row.cuenta.role)}`
-          : "Sin cuenta en el portal"}
+        {row.cuenta ? "Con cuenta en el portal" : "Sin cuenta en el portal"}
       </Badge>
       {row.cuenta?.fichaName ? <Badge>Ficha: {row.cuenta.fichaName}</Badge> : null}
     </div>

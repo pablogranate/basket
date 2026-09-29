@@ -3,31 +3,30 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProfileRow } from "@/lib/database.types";
 
 // getUserContext resolves the Cuenta from the Domain DB and the portal role
-// from auth_effective_access (basket#186, ADR 0010).
-const { state, getSession, getPortalAccess, grantPortalRoleIfAbsent } =
-  vi.hoisted(() => ({
-    state: {
-      byAuthId: [] as unknown[],
-      unlinked: [] as unknown[],
-      linked: [] as unknown[],
-    },
-    getSession: vi.fn(),
-    getPortalAccess: vi.fn(),
-    grantPortalRoleIfAbsent: vi.fn(),
-  }));
+// from auth_effective_access (ADR 0010); the portal Acceso alone decides
+// access (basket#189).
+const { state, getSession, getPortalAccess, insertValues } = vi.hoisted(() => ({
+  state: {
+    byAuthId: [] as unknown[],
+    unlinked: [] as unknown[],
+    linked: [] as unknown[],
+    created: [] as unknown[],
+  },
+  getSession: vi.fn(),
+  getPortalAccess: vi.fn(),
+  insertValues: vi.fn(),
+}));
 
 vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers()) }));
 
 vi.mock("@/lib/auth/server", () => ({ auth: { api: { getSession } } }));
 
-vi.mock("@/lib/acceso/portal", () => ({
-  getPortalAccess,
-  grantPortalRoleIfAbsent,
-}));
+vi.mock("@/lib/acceso/portal", () => ({ getPortalAccess }));
 
 // select().from().where() is awaited directly for the unlinked scan and via
 // .limit(1) for the auth_user_id lookup; update().set().where().returning()
-// stamps the link.
+// stamps the link; insert().values().onConflictDoNothing().returning()
+// creates a super admin's Cuenta.
 vi.mock("@/lib/db/client", () => ({
   db: {
     select: () => ({
@@ -42,6 +41,12 @@ vi.mock("@/lib/db/client", () => ({
     update: () => ({
       set: () => ({ where: () => ({ returning: async () => state.linked }) }),
     }),
+    insert: () => ({
+      values: (values: unknown) => {
+        insertValues(values);
+        return { onConflictDoNothing: () => ({ returning: async () => state.created }) };
+      },
+    }),
   },
 }));
 
@@ -53,7 +58,6 @@ function profile(overrides: Partial<ProfileRow> = {}): ProfileRow {
   return {
     id: "profile-1",
     full_name: "Ana",
-    role: "collaborator",
     email: "ana@basquetpass.tv",
     auth_user_id: AUTH_USER_ID,
     created_at: "2026-01-01T00:00:00Z",
@@ -62,9 +66,11 @@ function profile(overrides: Partial<ProfileRow> = {}): ProfileRow {
   };
 }
 
-function signIn(email = "ana@basquetpass.tv") {
-  getSession.mockResolvedValue({ user: { id: AUTH_USER_ID, email } });
+function signIn(email = "ana@basquetpass.tv", name = "Ana") {
+  getSession.mockResolvedValue({ user: { id: AUTH_USER_ID, email, name } });
 }
+
+const DENIED = { userId: AUTH_USER_ID, profileId: null, hasAccess: false };
 
 describe("getUserContext", () => {
   beforeEach(() => {
@@ -73,6 +79,7 @@ describe("getUserContext", () => {
     state.byAuthId = [];
     state.unlinked = [];
     state.linked = [];
+    state.created = [];
   });
 
   it("is a guest without a session", async () => {
@@ -85,9 +92,9 @@ describe("getUserContext", () => {
     });
   });
 
-  it("takes the role from the portal Acceso, not profiles.role", async () => {
+  it("takes the role from the portal Acceso", async () => {
     signIn();
-    state.byAuthId = [profile({ role: "collaborator" })];
+    state.byAuthId = [profile()];
     getPortalAccess.mockResolvedValue({ role: "editor", superAdmin: false });
 
     const context = await getUserContext();
@@ -105,7 +112,7 @@ describe("getUserContext", () => {
 
   it("resolves a super admin to admin", async () => {
     signIn();
-    state.byAuthId = [profile({ role: "collaborator" })];
+    state.byAuthId = [profile()];
     getPortalAccess.mockResolvedValue({ role: "admin", superAdmin: true });
 
     expect(await getUserContext()).toMatchObject({
@@ -115,40 +122,54 @@ describe("getUserContext", () => {
     });
   });
 
-  it("falls back to profiles.role while the Cuenta has no portal row yet", async () => {
+  it("denies a Cuenta whose identity holds no portal Acceso", async () => {
     signIn();
-    state.byAuthId = [profile({ role: "admin" })];
+    state.byAuthId = [profile()];
     getPortalAccess.mockResolvedValue(null);
 
-    expect(await getUserContext()).toMatchObject({
-      role: "admin",
-      superAdmin: false,
-      hasAccess: true,
-    });
+    expect(await getUserContext()).toMatchObject(DENIED);
   });
 
-  it("falls back to profiles.role when the Auth DB read fails", async () => {
+  it("denies access when the Auth DB read fails", async () => {
     signIn();
-    state.byAuthId = [profile({ role: "editor" })];
+    state.byAuthId = [profile()];
     getPortalAccess.mockRejectedValue(new Error("auth db down"));
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    expect(await getUserContext()).toMatchObject({
-      role: "editor",
-      hasAccess: true,
-    });
+    expect(await getUserContext()).toMatchObject(DENIED);
     consoleError.mockRestore();
   });
 
   it("denies an identity with a portal Acceso but no Cuenta", async () => {
     signIn("nobody@gmail.com");
-    getPortalAccess.mockResolvedValue({ role: "admin", superAdmin: true });
+    getPortalAccess.mockResolvedValue({ role: "editor", superAdmin: false });
 
-    expect(await getUserContext()).toMatchObject({
-      userId: AUTH_USER_ID,
-      profileId: null,
-      hasAccess: false,
+    expect(await getUserContext()).toMatchObject(DENIED);
+    expect(insertValues).not.toHaveBeenCalled();
+  });
+
+  it("creates the Cuenta of a super admin who has none", async () => {
+    signIn("Boss@gmail.com", "Boss");
+    getPortalAccess.mockResolvedValue({ role: "admin", superAdmin: true });
+    state.created = [profile({ id: "profile-new", email: "boss@gmail.com", full_name: "Boss" })];
+    const consoleInfo = vi.spyOn(console, "info").mockImplementation(() => {});
+
+    const context = await getUserContext();
+
+    expect(insertValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: "boss@gmail.com",
+        fullName: "Boss",
+        authUserId: AUTH_USER_ID,
+      }),
+    );
+    expect(context).toMatchObject({
+      profileId: "profile-new",
+      role: "admin",
+      superAdmin: true,
+      hasAccess: true,
     });
+    consoleInfo.mockRestore();
   });
 
   it("re-reads the portal role on every request despite the profile cache", async () => {
@@ -161,20 +182,16 @@ describe("getUserContext", () => {
     expect((await getUserContext()).role).toBe("collaborator");
   });
 
-  it("turns an unlinked Cuenta's profiles.role into a portal Acceso at first login", async () => {
+  it("links an unlinked Cuenta by email at first login, granting nothing", async () => {
     signIn("Ana@Basquetpass.tv");
-    const unlinked = profile({ role: "editor", auth_user_id: null });
+    const unlinked = profile({ auth_user_id: null });
     state.unlinked = [unlinked];
     state.linked = [{ ...unlinked, auth_user_id: AUTH_USER_ID }];
     getPortalAccess.mockResolvedValue({ role: "editor", superAdmin: false });
 
     const context = await getUserContext();
 
-    expect(grantPortalRoleIfAbsent).toHaveBeenCalledWith({
-      userId: AUTH_USER_ID,
-      role: "editor",
-      grantedBy: null,
-    });
-    expect(context).toMatchObject({ role: "editor", hasAccess: true });
+    expect(context).toMatchObject({ profileId: "profile-1", role: "editor", hasAccess: true });
+    expect(insertValues).not.toHaveBeenCalled();
   });
 });

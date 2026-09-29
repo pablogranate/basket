@@ -19,8 +19,8 @@ describe("planSiblingAccesos", () => {
     });
 
     expect(plan).toEqual([
-      { email: "op@basquetpass.tv", app: "incidencias", level: "write" },
-      { email: "boss@basquetpass.tv", app: "incidencias", level: "admin" },
+      { email: "op@basquetpass.tv", app: "incidencias", role: "write" },
+      { email: "boss@basquetpass.tv", app: "incidencias", role: "admin" },
     ]);
   });
 
@@ -33,8 +33,8 @@ describe("planSiblingAccesos", () => {
     });
 
     expect(plan).toEqual([
-      { email: "viewer@gmail.com", app: "ops", level: "read" },
-      { email: "ops@basquetpass.tv", app: "ops", level: "write" },
+      { email: "viewer@gmail.com", app: "ops", role: "read" },
+      { email: "ops@basquetpass.tv", app: "ops", role: "write" },
     ]);
   });
 
@@ -50,8 +50,8 @@ describe("planSiblingAccesos", () => {
     });
 
     expect(plan).toEqual([
-      { email: "a@basquetpass.tv", app: "analytics", level: "admin" },
-      { email: "v@basquetpass.tv", app: "analytics", level: "read" },
+      { email: "a@basquetpass.tv", app: "analytics", role: "admin" },
+      { email: "v@basquetpass.tv", app: "analytics", role: "read" },
     ]);
   });
 
@@ -68,9 +68,9 @@ describe("planSiblingAccesos", () => {
       analytics: [{ email: "y@basquetpass.tv", role: "owner" }],
     });
 
-    // Later rows win on duplicates so a stricter Nivel listed later is kept.
+    // Later rows win on duplicates so a stricter role listed later is kept.
     expect(plan).toEqual([
-      { email: "dup@basquetpass.tv", app: "incidencias", level: "admin" },
+      { email: "dup@basquetpass.tv", app: "incidencias", role: "admin" },
     ]);
   });
 

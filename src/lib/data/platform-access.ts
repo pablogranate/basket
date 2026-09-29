@@ -2,14 +2,14 @@ import "server-only";
 
 import { ilike } from "drizzle-orm";
 
-import type { AppRole, ProfileRow } from "@/lib/database.types";
+import { getPortalAccess } from "@/lib/acceso/portal";
+import type { AppRole } from "@/lib/database.types";
 import { db } from "@/lib/db/client";
 import { profiles } from "@/lib/db/schema";
 
-// Returns the active platform-access tier for an email, or null if the person
-// has no login. Any profiles row is a login (the enum holds live tiers only).
-// Callers use the tier to decide whether the current manager may revoke it
-// (see canGrantRole in roles.ts).
+// Returns the portal role of the Cuenta with this email, or null when there is
+// no Cuenta or its identity holds no portal Acceso. Callers use it to decide
+// whether the current manager may re-tier or revoke it (canGrantRole).
 function escapeLikePattern(value: string) {
   return value.replaceAll(/[\\%_]/g, (char) => `\\${char}`);
 }
@@ -27,14 +27,17 @@ export async function getPlatformAccessRole(
     // Case-insensitive exact match resolved in SQL (wildcards escaped) so the
     // DB returns at most one row instead of the whole table.
     const rows = await db
-      .select({ email: profiles.email, role: profiles.role })
+      .select({ authUserId: profiles.authUserId })
       .from(profiles)
       .where(ilike(profiles.email, escapeLikePattern(normalizedEmail)))
       .limit(1);
+    const authUserId = rows[0]?.authUserId;
 
-    const profile = (rows as Pick<ProfileRow, "email" | "role">[])[0];
+    if (!authUserId) {
+      return null;
+    }
 
-    return profile?.role ?? null;
+    return (await getPortalAccess(authUserId))?.role ?? null;
   } catch (error) {
     console.error("[platform-access] unexpected failure", error);
     return null;

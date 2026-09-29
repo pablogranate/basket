@@ -7,7 +7,6 @@ import {
   type ApprovalCandidate,
 } from "@/lib/access-requests/approval";
 import { stampInsert, stampUpdate } from "@/lib/audit";
-import type { AppRole } from "@/lib/database.types";
 import type { DbExecutor } from "@/lib/db/client";
 import {
   assignments as assignmentsTable,
@@ -38,17 +37,18 @@ export type SettleApplicantInput = {
   fullName: string;
   phone: string;
   roleId: string | null;
-  accessRole: AppRole;
+  // The applicant's identity; a still-unlinked Cuenta is linked to it.
+  authUserId: string;
   personId: string | null;
   mergePersonId: string | null;
   actor: Actor;
 };
 
-// authUserId: the identity the Cuenta is already linked to, if any.
+// authUserId: the identity the Cuenta is linked to — an existing link wins.
 export type SettledApplicant = {
   profileId: string;
   personId: string;
-  authUserId: string | null;
+  authUserId: string;
 };
 
 export async function settleApplicant(
@@ -59,7 +59,7 @@ export async function settleApplicant(
   const { profileId, authUserId } = await upsertProfile(exec, {
     email,
     fullName: input.fullName,
-    role: input.accessRole,
+    authUserId: input.authUserId,
   });
   const personId = await upsertPerson(exec, {
     personId: input.personId,
@@ -131,7 +131,7 @@ export async function listApprovalCandidates(
 }
 
 export type LinkReviewRow = {
-  profile: { id: string; full_name: string | null; email: string; role: string };
+  profile: { id: string; full_name: string | null; email: string };
   candidates: { id: string; full_name: string; email: string | null }[];
 };
 
@@ -148,7 +148,6 @@ export async function listProfileLinkReview(
         id: profilesTable.id,
         full_name: profilesTable.fullName,
         email: profilesTable.email,
-        role: profilesTable.role,
       })
       .from(profilesTable)
       .leftJoin(peopleTable, eq(peopleTable.profileId, profilesTable.id))
@@ -198,9 +197,8 @@ export async function listProfileLinkReview(
 
 async function upsertProfile(
   exec: DbExecutor,
-  input: { email: string; fullName: string; role: AppRole },
-): Promise<{ profileId: string; authUserId: string | null }> {
-  const role: AppRole = input.role;
+  input: { email: string; fullName: string; authUserId: string },
+): Promise<{ profileId: string; authUserId: string }> {
   const rows = await exec
     .select({ id: profilesTable.id, authUserId: profilesTable.authUserId })
     .from(profilesTable)
@@ -208,12 +206,13 @@ async function upsertProfile(
     .limit(1);
 
   if (rows[0]) {
+    const authUserId = rows[0].authUserId ?? input.authUserId;
     await exec
       .update(profilesTable)
-      .set({ role, fullName: input.fullName })
+      .set({ fullName: input.fullName, authUserId })
       .where(eq(profilesTable.id, rows[0].id));
 
-    return { profileId: rows[0].id, authUserId: rows[0].authUserId };
+    return { profileId: rows[0].id, authUserId };
   }
 
   const id = globalThis.crypto.randomUUID();
@@ -221,11 +220,10 @@ async function upsertProfile(
     id,
     email: input.email,
     fullName: input.fullName,
-    role,
-    authUserId: null,
+    authUserId: input.authUserId,
   });
 
-  return { profileId: id, authUserId: null };
+  return { profileId: id, authUserId: input.authUserId };
 }
 
 async function upsertPerson(

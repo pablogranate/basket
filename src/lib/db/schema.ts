@@ -9,7 +9,6 @@ export const matchStatus = pgEnum("match_status", ['Pendiente', 'Confirmado', 'R
 export const profiles = pgTable("profiles", {
 	id: uuid().primaryKey().notNull(),
 	fullName: text("full_name"),
-	role: appRole().notNull(),
 	createdAt: timestamptz("created_at").default(sql`timezone('utc'::text, now())`).notNull(),
 	updatedAt: timestamptz("updated_at").default(sql`timezone('utc'::text, now())`).notNull(),
 	email: text().notNull(),

@@ -1,6 +1,9 @@
 // Pure mapping from the legacy per-app user lists to Acceso rows (spec #172
 // story 27). No I/O: the script feeds it what it fetched, tests feed literals.
-import type { AccesoLevel, SiblingApp } from "@/lib/acceso/catalog";
+import type { SiblingApp } from "@/lib/acceso/catalog";
+
+// Role keys of the incidencias, ops and analytics catalogs (auth_app_role).
+type SiblingRole = "read" | "write" | "admin";
 
 export type SiblingSeedInput = {
   // Supabase Auth users of incidencias joined to their profiles.role.
@@ -16,15 +19,15 @@ export type SiblingSeedInput = {
 export type PlannedAcceso = {
   email: string;
   app: SiblingApp;
-  level: AccesoLevel;
+  role: SiblingRole;
 };
 
-const INCIDENCIAS_ROLE_LEVEL: Record<string, AccesoLevel> = {
+const INCIDENCIAS_ROLES: Record<string, SiblingRole> = {
   operador: "write",
   admin: "admin",
 };
 
-const ANALYTICS_ROLE_LEVEL: Record<string, AccesoLevel> = {
+const ANALYTICS_ROLES: Record<string, SiblingRole> = {
   viewer: "read",
   admin: "admin",
 };
@@ -46,7 +49,7 @@ export function findSkippedSiblingUsers(
   const skipped: SkippedSiblingUser[] = [];
 
   for (const user of input.incidencias) {
-    if (!INCIDENCIAS_ROLE_LEVEL[user.role]) {
+    if (!INCIDENCIAS_ROLES[user.role]) {
       skipped.push({
         email: normalizeEmail(user.email),
         app: "incidencias",
@@ -56,7 +59,7 @@ export function findSkippedSiblingUsers(
   }
 
   for (const user of input.analytics) {
-    if (!ANALYTICS_ROLE_LEVEL[user.role]) {
+    if (!ANALYTICS_ROLES[user.role]) {
       skipped.push({
         email: normalizeEmail(user.email),
         app: "analytics",
@@ -75,23 +78,23 @@ export function planSiblingAccesos(input: SiblingSeedInput): PlannedAcceso[] {
   const add = (row: {
     email: string;
     app: SiblingApp;
-    level: AccesoLevel | undefined;
+    role: SiblingRole | undefined;
   }) => {
     const email = normalizeEmail(row.email);
-    if (!email || !row.level) {
+    if (!email || !row.role) {
       return;
     }
-    // Later rows win, so a re-listed email keeps the last Nivel seen.
+    // Later rows win, so a re-listed email keeps the last role seen.
     const key = `${email}/${row.app}`;
     byKey.delete(key);
-    byKey.set(key, { email, app: row.app, level: row.level });
+    byKey.set(key, { email, app: row.app, role: row.role });
   };
 
   for (const user of input.incidencias) {
     add({
       email: user.email,
       app: "incidencias",
-      level: INCIDENCIAS_ROLE_LEVEL[user.role],
+      role: INCIDENCIAS_ROLES[user.role],
     });
   }
 
@@ -99,7 +102,7 @@ export function planSiblingAccesos(input: SiblingSeedInput): PlannedAcceso[] {
     add({
       email: user.email,
       app: "ops",
-      level: viewers.has(normalizeEmail(user.email)) ? "read" : "write",
+      role: viewers.has(normalizeEmail(user.email)) ? "read" : "write",
     });
   }
 
@@ -107,7 +110,7 @@ export function planSiblingAccesos(input: SiblingSeedInput): PlannedAcceso[] {
     add({
       email: user.email,
       app: "analytics",
-      level: ANALYTICS_ROLE_LEVEL[user.role],
+      role: ANALYTICS_ROLES[user.role],
     });
   }
 

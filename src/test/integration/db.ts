@@ -59,6 +59,19 @@ export async function seedAuthUser(
 
 // Seed a profile row (the audited actor) and return a minimal UserContext. Write
 // helpers only read ctx.profileId, so the rest is filled to satisfy the type.
+// One identity's stored Acceso row in one app, grantor included (the view
+// that gates read leaves the grantor out).
+export async function accessRow(
+  sql: Sql,
+  userId: string,
+  app: string,
+): Promise<{ role: string; grantedBy: string | null } | null> {
+  const [row] = await sql<{ role: string; grantedBy: string | null }[]>`
+    SELECT role, granted_by AS "grantedBy" FROM auth_app_access
+    WHERE user_id = ${userId} AND app = ${app}`;
+  return row ?? null;
+}
+
 export async function seedActor(
   sql: Sql,
   overrides: { role?: string; email?: string } = {},
@@ -67,7 +80,7 @@ export async function seedActor(
   const email = overrides.email ?? `actor-${id}@basquetpass.tv`;
   const role = overrides.role ?? "admin";
 
-  await sql`INSERT INTO profiles ${sql({ id, email, role, full_name: "Test Actor" })}`;
+  await sql`INSERT INTO profiles ${sql({ id, email, full_name: "Test Actor" })}`;
 
   const ctx = {
     userId: id,

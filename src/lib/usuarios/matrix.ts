@@ -9,7 +9,6 @@ import {
   authAuditLog,
   authUser,
 } from "@/lib/auth/schema";
-import type { AppRole } from "@/lib/database.types";
 import { authDb } from "@/lib/db/auth-client";
 import { db } from "@/lib/db/client";
 import { people as peopleTable, profiles as profilesTable } from "@/lib/db/schema";
@@ -63,9 +62,9 @@ export type UsuarioRow = {
   superAdmin: boolean;
   // Explicit rows only: a super admin's are kept so demotion restores them.
   accesos: Record<string, UsuarioAcceso>;
-  // Portal Cuenta (Domain DB); its role is what the portal falls back to
-  // while the identity has no portal row (until basket#189).
-  cuenta: { role: AppRole; fichaName: string | null } | null;
+  // Portal Cuenta (Domain DB): the uuid domain rows point at, and the Ficha
+  // linked to it.
+  cuenta: { fichaName: string | null } | null;
 };
 
 // Every identity in the Auth DB, with or without an Acceso or a Cuenta,
@@ -93,7 +92,6 @@ export async function listUsuarios(): Promise<UsuarioRow[]> {
   const cuentas = await db
     .select({
       authUserId: profilesTable.authUserId,
-      role: profilesTable.role,
       fichaName: peopleTable.fullName,
     })
     .from(profilesTable)
@@ -134,7 +132,7 @@ export async function listUsuarios(): Promise<UsuarioRow[]> {
           ]),
       ),
       cuenta: cuenta
-        ? { role: cuenta.role, fichaName: cuenta.fichaName ?? null }
+        ? { fichaName: cuenta.fichaName ?? null }
         : null,
     };
   });

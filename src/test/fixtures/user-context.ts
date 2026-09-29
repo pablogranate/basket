@@ -4,17 +4,12 @@ import type { AppRole, ProfileRow } from "@/lib/database.types";
 type AuthedContext = Extract<UserContext, { userId: string }>;
 type GuestContext = Extract<UserContext, { userId: null }>;
 
-function buildProfile(
-  profileId: string,
-  authUserId: string,
-  role: AppRole,
-): ProfileRow {
+function buildProfile(profileId: string, authUserId: string): ProfileRow {
   const now = new Date().toISOString();
 
   return {
     id: profileId,
     full_name: "Editor de prueba",
-    role,
     email: "editor@basket-app.test",
     auth_user_id: authUserId,
     created_at: now,
@@ -38,7 +33,7 @@ export function makeUserContext(
     ...overrides,
     userId,
     profileId,
-    profile: overrides.profile ?? buildProfile(profileId, userId, role),
+    profile: overrides.profile ?? buildProfile(profileId, userId),
     role,
     hasAccess: true,
   };

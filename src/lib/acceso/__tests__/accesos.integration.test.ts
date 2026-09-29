@@ -1,16 +1,16 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import {
-  getAcceso,
-  grantAcceso,
-  listAccesosForUser,
-  listUsersWithAccesos,
-  revokeAcceso,
+  getEffectiveAccess,
+  grantRole,
+  grantRoleIfAbsent,
+  listEffectiveAccessForUser,
+  revokeRole,
 } from "@/lib/acceso/accesos";
 import { seedAuthUser, testSql, truncateAll } from "@/test/integration/db";
 
 // Acceso rows in the Auth DB: what a portal admin grants and what every App
-// gate reads (ADR 0009). Observed through the module's public surface only.
+// gate reads through auth_effective_access (ADR 0010).
 describe("accesos (integration)", () => {
   const sql = testSql();
 
@@ -26,79 +26,68 @@ describe("accesos (integration)", () => {
     await truncateAll(sql);
   });
 
-  it("grants an Acceso and answers the lookup with its Nivel", async () => {
+  async function grantRow(userId: string, app: string) {
+    const [row] = await sql<{ role: string; granted_by: string | null }[]>`
+      SELECT role, granted_by FROM auth_app_access
+      WHERE user_id = ${userId} AND app = ${app}`;
+    return row ?? null;
+  }
+
+  it("grants a role and answers the lookup with it", async () => {
     const admin = await seedAuthUser(sql, { email: "admin@basquetpass.tv" });
     const operator = await seedAuthUser(sql, { email: "op@basquetpass.tv" });
 
-    await grantAcceso({
-      userId: operator,
-      app: "incidencias",
-      level: "write",
-      grantedBy: admin,
-    });
+    await grantRole({ userId: operator, app: "incidencias", role: "write", grantedBy: admin });
 
-    const acceso = await getAcceso(operator, "incidencias");
-    expect(acceso).toMatchObject({
+    expect(await getEffectiveAccess(operator, "incidencias")).toMatchObject({
       userId: operator,
       app: "incidencias",
-      level: "write",
-      grantedBy: admin,
+      role: "write",
+      viaSuperadmin: false,
     });
-    expect(acceso?.grantedAt).toBeInstanceOf(Date);
+    expect(await grantRow(operator, "incidencias")).toEqual({ role: "write", granted_by: admin });
 
     // An Acceso admits to one app only.
-    expect(await getAcceso(operator, "ops")).toBeNull();
-    expect(await getAcceso(admin, "incidencias")).toBeNull();
+    expect(await getEffectiveAccess(operator, "ops")).toBeNull();
+    expect(await getEffectiveAccess(admin, "incidencias")).toBeNull();
   });
 
-  it("lists only the asking identity's Accesos, for the apex launcher", async () => {
+  it("lists only the asking identity's apps, for the apex launcher", async () => {
     const operator = await seedAuthUser(sql, { email: "op@basquetpass.tv" });
     const other = await seedAuthUser(sql, { email: "other@basquetpass.tv" });
 
-    await grantAcceso({ userId: operator, app: "ops", level: "read", grantedBy: null });
-    await grantAcceso({ userId: operator, app: "facturacion", level: "write", grantedBy: null });
-    await grantAcceso({ userId: other, app: "analytics", level: "admin", grantedBy: null });
+    await grantRole({ userId: operator, app: "ops", role: "read", grantedBy: null });
+    await grantRole({ userId: operator, app: "facturacion", role: "coordinador", grantedBy: null });
+    await grantRole({ userId: other, app: "analytics", role: "admin", grantedBy: null });
 
-    const accesos = await listAccesosForUser(operator);
-    expect(accesos).toHaveLength(2);
-    expect(accesos).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ app: "facturacion", level: "write" }),
-        expect.objectContaining({ app: "ops", level: "read" }),
-      ]),
-    );
+    const rows = await listEffectiveAccessForUser(operator);
+    expect(rows.map((row) => `${row.app}/${row.role}`).sort()).toEqual([
+      "facturacion/coordinador",
+      "ops/read",
+    ]);
 
     const nobody = await seedAuthUser(sql, { email: "none@basquetpass.tv" });
-    expect(await listAccesosForUser(nobody)).toEqual([]);
+    expect(await listEffectiveAccessForUser(nobody)).toEqual([]);
   });
 
-  it("grants facturacion coordinador and admin as the plain write/admin Niveles facturacion-bp reads", async () => {
-    const admin = await seedAuthUser(sql, { email: "admin@basquetpass.tv" });
-    const coordinador = await seedAuthUser(sql, { email: "coord@basquetpass.tv" });
+  it("rejects a role the app's catalog does not declare", async () => {
+    const operator = await seedAuthUser(sql, { email: "op@basquetpass.tv" });
 
-    await grantAcceso({ userId: coordinador, app: "facturacion", level: "write", grantedBy: admin });
-    await grantAcceso({ userId: admin, app: "facturacion", level: "admin", grantedBy: admin });
-
-    expect(await getAcceso(coordinador, "facturacion")).toMatchObject({
-      app: "facturacion",
-      level: "write",
-    });
-    expect(await getAcceso(admin, "facturacion")).toMatchObject({
-      app: "facturacion",
-      level: "admin",
-    });
+    await expect(
+      grantRole({ userId: operator, app: "facturacion", role: "write", grantedBy: null }),
+    ).rejects.toThrow();
+    expect(await grantRow(operator, "facturacion")).toBeNull();
   });
 
-  it("re-granting changes the Nivel and keeps a single row per identity and app", async () => {
+  it("re-granting changes the role and keeps a single row per identity and app", async () => {
     const admin = await seedAuthUser(sql, { email: "admin@basquetpass.tv" });
     const other = await seedAuthUser(sql, { email: "other@basquetpass.tv" });
     const operator = await seedAuthUser(sql, { email: "op@basquetpass.tv" });
 
-    await grantAcceso({ userId: operator, app: "ops", level: "read", grantedBy: admin });
-    await grantAcceso({ userId: operator, app: "ops", level: "write", grantedBy: other });
+    await grantRole({ userId: operator, app: "ops", role: "read", grantedBy: admin });
+    await grantRole({ userId: operator, app: "ops", role: "write", grantedBy: other });
 
-    const acceso = await getAcceso(operator, "ops");
-    expect(acceso).toMatchObject({ level: "write", grantedBy: other });
+    expect(await grantRow(operator, "ops")).toEqual({ role: "write", granted_by: other });
 
     const [{ count }] = await sql`
       SELECT count(*)::int AS count FROM auth_app_access
@@ -106,55 +95,42 @@ describe("accesos (integration)", () => {
     expect(count).toBe(1);
   });
 
-  it("revoking removes the Acceso so the next lookup answers null; revoking again is a no-op", async () => {
-    const admin = await seedAuthUser(sql, { email: "admin@basquetpass.tv" });
+  it("grantRoleIfAbsent never overrides an existing row, and a dry run writes nothing", async () => {
     const operator = await seedAuthUser(sql, { email: "op@basquetpass.tv" });
-    await grantAcceso({ userId: operator, app: "analytics", level: "read", grantedBy: admin });
-    await grantAcceso({ userId: operator, app: "ops", level: "read", grantedBy: admin });
+    const input = { userId: operator, app: "ops", role: "write", grantedBy: null };
 
-    await expect(revokeAcceso({ userId: operator, app: "analytics" })).resolves.toBe(true);
+    await expect(grantRoleIfAbsent(input, { dryRun: true })).resolves.toBe(true);
+    expect(await grantRow(operator, "ops")).toBeNull();
 
-    expect(await getAcceso(operator, "analytics")).toBeNull();
-    // Other apps untouched.
-    expect(await getAcceso(operator, "ops")).toMatchObject({ level: "read" });
-
-    await expect(revokeAcceso({ userId: operator, app: "analytics" })).resolves.toBe(false);
+    await grantRole({ ...input, role: "read" });
+    await expect(grantRoleIfAbsent(input)).resolves.toBe(false);
+    expect(await grantRow(operator, "ops")).toMatchObject({ role: "read" });
   });
 
-  it("deleting the identity cascades to its Accesos and nulls it as grantor elsewhere", async () => {
+  it("revoking removes the row so the next lookup answers null; revoking again is a no-op", async () => {
     const admin = await seedAuthUser(sql, { email: "admin@basquetpass.tv" });
     const operator = await seedAuthUser(sql, { email: "op@basquetpass.tv" });
-    await grantAcceso({ userId: operator, app: "ops", level: "write", grantedBy: admin });
-    await grantAcceso({ userId: admin, app: "ops", level: "admin", grantedBy: admin });
+    await grantRole({ userId: operator, app: "analytics", role: "read", grantedBy: admin });
+    await grantRole({ userId: operator, app: "ops", role: "read", grantedBy: admin });
+
+    await expect(revokeRole({ userId: operator, app: "analytics" })).resolves.toBe(true);
+
+    expect(await getEffectiveAccess(operator, "analytics")).toBeNull();
+    // Other apps untouched.
+    expect(await getEffectiveAccess(operator, "ops")).toMatchObject({ role: "read" });
+
+    await expect(revokeRole({ userId: operator, app: "analytics" })).resolves.toBe(false);
+  });
+
+  it("deleting the identity cascades to its rows and nulls it as grantor elsewhere", async () => {
+    const admin = await seedAuthUser(sql, { email: "admin@basquetpass.tv" });
+    const operator = await seedAuthUser(sql, { email: "op@basquetpass.tv" });
+    await grantRole({ userId: operator, app: "ops", role: "write", grantedBy: admin });
+    await grantRole({ userId: admin, app: "ops", role: "admin", grantedBy: admin });
 
     await sql`DELETE FROM auth_user WHERE id = ${admin}`;
 
-    expect(await getAcceso(admin, "ops")).toBeNull();
-    expect(await getAcceso(operator, "ops")).toMatchObject({ level: "write", grantedBy: null });
-  });
-
-  it("lists every identity, including those without any Acceso, with their Accesos keyed by app", async () => {
-    const admin = await seedAuthUser(sql, { email: "admin@basquetpass.tv", name: "Admin" });
-    const operator = await seedAuthUser(sql, { email: "op@basquetpass.tv", name: "Operador" });
-    const viewer = await seedAuthUser(sql, { email: "viewer@gmail.com", name: "Viewer" });
-    await grantAcceso({ userId: operator, app: "incidencias", level: "write", grantedBy: admin });
-    await grantAcceso({ userId: operator, app: "generator", level: "write", grantedBy: admin });
-    await grantAcceso({ userId: viewer, app: "ops", level: "read", grantedBy: admin });
-
-    const list = await listUsersWithAccesos();
-
-    // Sorted by email so the page is stable.
-    expect(list.map((u) => u.email)).toEqual([
-      "admin@basquetpass.tv",
-      "op@basquetpass.tv",
-      "viewer@gmail.com",
-    ]);
-    expect(list[0]).toMatchObject({ userId: admin, name: "Admin", accesos: {} });
-    expect(list[1].accesos).toMatchObject({
-      incidencias: { level: "write", grantedBy: admin },
-      generator: { level: "write", grantedBy: admin },
-    });
-    expect(list[1].accesos.ops).toBeUndefined();
-    expect(list[2].accesos).toMatchObject({ ops: { level: "read" } });
+    expect(await grantRow(admin, "ops")).toBeNull();
+    expect(await grantRow(operator, "ops")).toEqual({ role: "write", granted_by: null });
   });
 });

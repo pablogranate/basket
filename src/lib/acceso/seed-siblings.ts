@@ -3,7 +3,7 @@ import "server-only";
 import {
   createIdentity,
   findIdentityByEmail,
-  grantAccesoIfAbsent,
+  grantRoleIfAbsent,
 } from "@/lib/acceso/accesos";
 import type { PlannedAcceso } from "@/lib/acceso/seed-siblings-plan";
 
@@ -52,8 +52,8 @@ export async function applySiblingAccesoPlan(
       continue;
     }
 
-    const wouldGrant = await grantAccesoIfAbsent(
-      { userId, app: row.app, level: row.level, grantedBy: null },
+    const wouldGrant = await grantRoleIfAbsent(
+      { userId, app: row.app, role: row.role, grantedBy: null },
       { dryRun },
     );
     (wouldGrant ? report.granted : report.alreadyHad).push(row);

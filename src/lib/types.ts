@@ -112,7 +112,7 @@ export type MatchDetail = MatchRow & {
 };
 
 export type AuditEntry = AuditRow & {
-  actor: Pick<ProfileRow, "id" | "full_name" | "role"> | null;
+  actor: Pick<ProfileRow, "id" | "full_name"> | null;
 };
 
 export type MatchReportIncidentLevel = "sin" | "baja" | "alta" | "critica";

@@ -11,6 +11,7 @@ const h = vi.hoisted(() => ({
     throwOnQuery: false,
     selectSpy: vi.fn(),
   },
+  getPortalAccess: vi.fn(),
 }));
 
 vi.mock("@/lib/db/client", () => ({
@@ -30,6 +31,8 @@ vi.mock("@/lib/db/client", () => ({
     },
   },
 }));
+
+vi.mock("@/lib/acceso/portal", () => ({ getPortalAccess: h.getPortalAccess }));
 
 import {
   clearAnnouncementCache,
@@ -85,17 +88,28 @@ describe("personHasPlatformAccess", () => {
   });
 
   it.each(["admin", "editor", "collaborator"])(
-    "returns true for an access-granting role: %s",
+    "returns true when the Cuenta's identity holds a portal role: %s",
     async (role) => {
       // The ilike + limit(1) filter runs in SQL; the DB would return the match.
-      h.state.rows = [{ email: "grant@basket-app.test", role }];
+      h.state.rows = [{ authUserId: "user-grant" }];
+      h.getPortalAccess.mockResolvedValue({ role, superAdmin: false });
 
       const result = await personHasPlatformAccess("Grant@Basket-App.test");
 
       expect(result).toBe(true);
       expect(h.state.selectSpy).toHaveBeenCalledTimes(1);
+      expect(h.getPortalAccess).toHaveBeenCalledWith("user-grant");
     },
   );
+
+  it("returns false for a Cuenta without a portal Acceso or without an identity", async () => {
+    h.state.rows = [{ authUserId: "user-none" }];
+    h.getPortalAccess.mockResolvedValue(null);
+    expect(await personHasPlatformAccess("none@basket-app.test")).toBe(false);
+
+    h.state.rows = [{ authUserId: null }];
+    expect(await personHasPlatformAccess("unlinked@basket-app.test")).toBe(false);
+  });
 
   it("returns false when there is no matching profile", async () => {
     h.state.rows = [];
