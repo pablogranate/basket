@@ -1,10 +1,11 @@
 import { headers } from "next/headers";
-import { ArrowLeft, History, KeyRound, UserPlus } from "lucide-react";
+import { ArrowLeft, History, KeyRound, Mail, UserPlus } from "lucide-react";
 
 import {
   banIdentityAction,
   createIdentityAction,
   revokeSessionsAction,
+  setAppRequestRecipientsAction,
   setSuperAdminAction,
   unbanIdentityAction,
 } from "@/app/actions/usuarios";
@@ -15,6 +16,9 @@ import { Input } from "@/components/ui/input";
 import { PageMessage } from "@/components/ui/page-message";
 import { SectionTableCard } from "@/components/ui/section-table-card";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { Textarea } from "@/components/ui/textarea";
+import { PORTAL_APP } from "@/lib/acceso/portal";
+import { listAllAppRequestRecipients } from "@/lib/access-requests/app-recipients";
 import { buildApexUrl } from "@/lib/constants";
 import { formatMatchDate } from "@/lib/date";
 import { parseNotice } from "@/lib/search-params";
@@ -49,11 +53,12 @@ function formatDay(date: Date) {
 // both checks in every action.
 export default async function UsuariosPage({ searchParams }: PageProps) {
   const actor = await requireSuperAdmin();
-  const [resolvedSearchParams, apps, rows, events, host] = await Promise.all([
+  const [resolvedSearchParams, apps, rows, events, recipients, host] = await Promise.all([
     searchParams,
     getRoleCatalog(),
     listUsuarios(),
     listRecentIdentityEvents(),
+    listAllAppRequestRecipients(),
     headers().then((requestHeaders) => requestHeaders.get("host") ?? ""),
   ]);
   const { intent, notice } = parseNotice(resolvedSearchParams);
@@ -200,6 +205,39 @@ export default async function UsuariosPage({ searchParams }: PageProps) {
               })}
             </tbody>
           </table>
+        </div>
+      </SectionTableCard>
+
+      <SectionTableCard title="Avisos de solicitudes" icon={Mail}>
+        <p className="px-6 pt-6 text-sm text-[var(--n-500)]">
+          A quién le llega el correo cuando alguien pide acceso a cada app.
+          Separá los correos con comas. Las solicitudes del portal se avisan
+          según la función, desde Configuración.
+        </p>
+        <div className="grid gap-4 p-6 md:grid-cols-2">
+          {apps
+            .filter((app) => app.key !== PORTAL_APP)
+            .map((app) => (
+              <form
+                key={app.key}
+                action={setAppRequestRecipientsAction}
+                className="space-y-2"
+              >
+                <input type="hidden" name="app" value={app.key} />
+                <label className="block space-y-1 text-sm font-semibold">
+                  <span>{app.label}</span>
+                  <Textarea
+                    name="emails"
+                    rows={2}
+                    defaultValue={(recipients[app.key] ?? []).join(", ")}
+                    placeholder="nadie"
+                  />
+                </label>
+                <SubmitButton variant="ghost" pendingLabel="Guardando…" className="h-9 px-3 text-xs">
+                  Guardar
+                </SubmitButton>
+              </form>
+            ))}
         </div>
       </SectionTableCard>
 

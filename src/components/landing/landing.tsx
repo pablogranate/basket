@@ -11,39 +11,25 @@ import {
 
 import { LandingLogoutClient } from "@/components/landing/landing-logout-client";
 import { Card } from "@/components/ui/card";
-import { SIBLING_APP_LABELS, type LauncherApp } from "@/lib/acceso/catalog";
+import {
+  APP_SUBDOMAINS,
+  SIBLING_APP_LABELS,
+  type LauncherApp,
+} from "@/lib/acceso/catalog";
 import { buildSiblingAppUrl, USUARIOS_PATH } from "@/lib/constants";
 
 type LandingApp = {
-  subdomain: string;
   name: string;
   Icon: typeof Clapperboard;
 };
 
-// Subdomains are not always the app key: the ops hub lives at op.
 const LANDING_APPS: Record<LauncherApp, LandingApp> = {
-  portal: { subdomain: "portal", name: "Producción", Icon: Clapperboard },
-  analytics: {
-    subdomain: "analytics",
-    name: SIBLING_APP_LABELS.analytics,
-    Icon: BarChart3,
-  },
-  incidencias: {
-    subdomain: "incidencias",
-    name: SIBLING_APP_LABELS.incidencias,
-    Icon: AlertTriangle,
-  },
-  generator: {
-    subdomain: "generator",
-    name: SIBLING_APP_LABELS.generator,
-    Icon: ImageIcon,
-  },
-  ops: { subdomain: "op", name: SIBLING_APP_LABELS.ops, Icon: Radio },
-  facturacion: {
-    subdomain: "facturacion",
-    name: SIBLING_APP_LABELS.facturacion,
-    Icon: Receipt,
-  },
+  portal: { name: "Producción", Icon: Clapperboard },
+  analytics: { name: SIBLING_APP_LABELS.analytics, Icon: BarChart3 },
+  incidencias: { name: SIBLING_APP_LABELS.incidencias, Icon: AlertTriangle },
+  generator: { name: SIBLING_APP_LABELS.generator, Icon: ImageIcon },
+  ops: { name: SIBLING_APP_LABELS.ops, Icon: Radio },
+  facturacion: { name: SIBLING_APP_LABELS.facturacion, Icon: Receipt },
 };
 
 export function Landing({
@@ -89,10 +75,10 @@ export function Landing({
       </div>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
-        {apps.map((app) => LANDING_APPS[app]).map(({ subdomain, name, Icon }) => (
+        {apps.map((app) => ({ app, ...LANDING_APPS[app] })).map(({ app, name, Icon }) => (
           <a
-            key={subdomain}
-            href={buildSiblingAppUrl(host, subdomain)}
+            key={app}
+            href={buildSiblingAppUrl(host, APP_SUBDOMAINS[app])}
             className="group block rounded-[var(--panel-radius)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
           >
             <Card className="flex h-full items-center gap-4 transition-colors duration-200 group-hover:border-[var(--accent)]">

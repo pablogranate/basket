@@ -49,3 +49,37 @@ export function launcherApps({
 
   return siblings;
 }
+
+// Subdomains are not always the app key: the ops hub lives at op.
+export const APP_SUBDOMAINS: Record<LauncherApp, string> = {
+  portal: "portal",
+  analytics: "analytics",
+  incidencias: "incidencias",
+  generator: "generator",
+  ops: "op",
+  facturacion: "facturacion",
+};
+
+export function appSubdomain(app: string): string {
+  return APP_SUBDOMAINS[app as LauncherApp] ?? app;
+}
+
+export const REQUEST_DEFAULT_APP = "portal";
+
+// The app a Solicitud asks for comes from `/no-access?app=` and the form's
+// hidden field, both user-editable: anything the auth_app catalog doesn't know
+// falls back to the portal. Never an authorization input — every Solicitud
+// still needs an approval.
+export function resolveRequestApp(
+  raw: string | null | undefined,
+  knownApps: ReadonlyArray<string>,
+): string {
+  const app = raw?.trim().toLowerCase() ?? "";
+  return app && knownApps.includes(app) ? app : REQUEST_DEFAULT_APP;
+}
+
+// Función feeds the portal's grilla and its notification routing; no other app
+// asks for it.
+export function requestAsksFuncion(app: string): boolean {
+  return app === REQUEST_DEFAULT_APP;
+}

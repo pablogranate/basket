@@ -4,6 +4,7 @@ import { sql } from "drizzle-orm";
 import {
   bigserial,
   boolean,
+  check,
   foreignKey,
   index,
   integer,
@@ -14,6 +15,7 @@ import {
   text,
   timestamp,
   uniqueIndex,
+  uuid,
 } from "drizzle-orm/pg-core";
 
 export const authUser = pgTable("auth_user", {
@@ -164,4 +166,71 @@ export const authAuditLog = pgTable(
   (table) => [
     index("auth_audit_log_target_idx").on(table.targetUserId, table.createdAt),
   ],
+);
+
+// Solicitud de acceso (ADR 0011): one identity asking for one app. The status
+// vocabulary and every rule around it live in src/lib/access-requests/
+// requests.ts; the partial unique indexes below are what enforce "one pending
+// per identity (and per email) per app".
+export const authAccessRequest = pgTable(
+  "auth_access_request",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUser.id, { onDelete: "cascade" }),
+    app: text("app")
+      .notNull()
+      .references(() => authApp.key),
+    email: text("email").notNull(),
+    fullName: text("full_name").notNull(),
+    phone: text("phone").notNull(),
+    // Asked only for the portal.
+    funcion: text("funcion"),
+    ciudad: text("ciudad"),
+    mensaje: text("mensaje"),
+    status: text("status").notNull().default("pendiente"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    // An identity, not a Cuenta, so super admins without one are auditable.
+    decidedBy: text("decided_by").references(() => authUser.id, {
+      onDelete: "set null",
+    }),
+    grantedRole: text("granted_role"),
+    // Portal ficha (Domain DB people.id); cross-database, so no FK.
+    personId: uuid("person_id"),
+  },
+  (table) => [
+    uniqueIndex("auth_access_request_pending_user_app_key")
+      .on(table.userId, table.app)
+      .where(sql`status = 'pendiente'`),
+    uniqueIndex("auth_access_request_pending_email_app_key")
+      .on(sql`lower(${table.email})`, table.app)
+      .where(sql`status = 'pendiente'`),
+    index("auth_access_request_user_idx").on(table.userId, table.createdAt),
+    index("auth_access_request_app_status_idx").on(
+      table.app,
+      table.status,
+      table.createdAt,
+    ),
+    check(
+      "auth_access_request_status_check",
+      sql`status IN ('pendiente', 'aprobada', 'rechazada')`,
+    ),
+  ],
+);
+
+// Who gets the "new Solicitud" email for one app. The portal routes by
+// Función through app_settings instead; this table serves every other app.
+export const authAppRequestRecipients = pgTable(
+  "auth_app_request_recipients",
+  {
+    app: text("app")
+      .notNull()
+      .references(() => authApp.key, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.app, table.email] })],
 );

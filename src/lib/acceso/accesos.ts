@@ -1,9 +1,10 @@
 import "server-only";
 
-import { and, eq, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 
-import { authDb } from "@/lib/db/auth-client";
+import { authDb, type AuthDbExecutor } from "@/lib/db/auth-client";
 import {
+  authApp,
   authAppAccess,
   authEffectiveAccess,
   authUser,
@@ -52,9 +53,13 @@ export type RoleGrant = {
 };
 
 // Role-based grant for any app, the portal included. The composite FK rejects
-// a role the app's catalog doesn't declare.
-export async function grantRole(input: RoleGrant): Promise<void> {
-  await authDb
+// a role the app's catalog doesn't declare. Pass `exec` to join a caller's
+// Auth DB transaction.
+export async function grantRole(
+  input: RoleGrant,
+  exec: AuthDbExecutor = authDb,
+): Promise<void> {
+  await exec
     .insert(authAppAccess)
     .values({
       userId: input.userId,
@@ -67,7 +72,7 @@ export async function grantRole(input: RoleGrant): Promise<void> {
       target: [authAppAccess.userId, authAppAccess.app],
       set: {
         role: input.role,
-          grantedBy: input.grantedBy,
+        grantedBy: input.grantedBy,
         grantedAt: new Date(),
       },
     });
@@ -162,4 +167,13 @@ export async function createIdentity(input: {
     .returning({ id: authUser.id, email: authUser.email });
 
   return row;
+}
+
+// The auth_app catalog, in sort order: what an app key from a URL or a form is
+// checked against.
+export async function listCatalogApps(): Promise<{ key: string; label: string }[]> {
+  return authDb
+    .select({ key: authApp.key, label: authApp.label })
+    .from(authApp)
+    .orderBy(asc(authApp.sortOrder));
 }

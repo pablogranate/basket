@@ -10,6 +10,8 @@ import {
 } from "@/lib/access-requests/constants";
 import { listPendingAccessRequests } from "@/lib/access-requests/requests";
 import type { AccessRequestReviewItem } from "@/lib/access-requests/review-item";
+import { PORTAL_APP } from "@/lib/acceso/portal";
+import { authDb } from "@/lib/db/auth-client";
 import { db } from "@/lib/db/client";
 import { roles as rolesTable } from "@/lib/db/schema";
 import { listApprovalCandidates } from "@/lib/people/identity";
@@ -46,7 +48,7 @@ export async function getAccessRequestReview(): Promise<{
   items: AccessRequestReviewItem[];
   funcionOptions: { id: string; name: string }[];
 }> {
-  const requests = await listPendingAccessRequests(db);
+  const requests = await listPendingAccessRequests(authDb, { app: PORTAL_APP });
 
   if (!requests.length) {
     return { items: [], funcionOptions: [] };
@@ -72,9 +74,10 @@ export async function getAccessRequestReview(): Promise<{
         ? (candidates.find((candidate) => candidate.id === target.person.id) ??
           null)
         : null;
-    const defaultRoleName = isAccessRequestFuncion(request.funcion)
-      ? FUNCION_ROLE_NAME[request.funcion]
-      : null;
+    const defaultRoleName =
+      request.funcion && isAccessRequestFuncion(request.funcion)
+        ? FUNCION_ROLE_NAME[request.funcion]
+        : null;
 
     return {
       request,

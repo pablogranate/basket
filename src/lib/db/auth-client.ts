@@ -21,3 +21,10 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 export const authDb = drizzle(authConn, { schema: authSchema });
+
+// The query surface shared by `authDb` and an `authDb.transaction` callback's
+// `tx`. Modules that must run inside a caller's Auth DB transaction take this.
+export type AuthDbExecutor = Pick<
+  typeof authDb,
+  "select" | "insert" | "update" | "delete"
+>;

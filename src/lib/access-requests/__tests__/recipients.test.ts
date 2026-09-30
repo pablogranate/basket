@@ -5,6 +5,7 @@ import {
   isValidRecipientAddress,
   parseRecipientList,
   resolveAccessRequestRecipients,
+  resolveRequestRecipients,
 } from "@/lib/access-requests/recipients";
 
 describe("resolveAccessRequestRecipients", () => {
@@ -99,5 +100,42 @@ describe("isValidRecipientAddress", () => {
     expect(isValidRecipientAddress("wences.basquetpass.tv")).toBe(false);
     expect(isValidRecipientAddress("wences @basquetpass.tv")).toBe(false);
     expect(isValidRecipientAddress("")).toBe(false);
+  });
+});
+
+describe("resolveRequestRecipients", () => {
+  const portalConfig = DEFAULT_ACCESS_REQUEST_RECIPIENTS;
+
+  it("keeps per-Función routing for the portal, ignoring any app list", () => {
+    expect(
+      resolveRequestRecipients({
+        app: "portal",
+        funcion: "Relator",
+        portalConfig,
+        appRecipients: ["someone@basquetpass.tv"],
+      }),
+    ).toEqual(["carlos.altamirano@basquetpass.tv", "produccion@basquetpass.tv"]);
+  });
+
+  it("uses the app's own list for every other app, cleaned and deduped", () => {
+    expect(
+      resolveRequestRecipients({
+        app: "facturacion",
+        funcion: null,
+        portalConfig,
+        appRecipients: ["Admin@Basquetpass.tv", "admin@basquetpass.tv", "broken", ""],
+      }),
+    ).toEqual(["admin@basquetpass.tv"]);
+  });
+
+  it("notifies nobody for an app without a list", () => {
+    expect(
+      resolveRequestRecipients({
+        app: "incidencias",
+        funcion: null,
+        portalConfig,
+        appRecipients: [],
+      }),
+    ).toEqual([]);
   });
 });

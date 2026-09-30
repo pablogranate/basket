@@ -28,7 +28,9 @@ const RESET_TABLES = [
   "people",
   "roles",
   "profiles",
-  // Auth DB tables (same throwaway database): cascades to sessions and Accesos.
+  // Auth DB tables (same throwaway database): cascades to sessions, Accesos
+  // and Solicitudes.
+  "auth_app_request_recipients",
   "auth_user",
 ];
 

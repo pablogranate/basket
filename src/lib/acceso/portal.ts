@@ -7,6 +7,7 @@ import {
   revokeRole,
 } from "@/lib/acceso/accesos";
 import type { AppRole } from "@/lib/database.types";
+import type { AuthDbExecutor } from "@/lib/db/auth-client";
 import { isAppRole } from "@/lib/roles";
 
 // The portal's own Acceso (ADR 0010): Externo / Productor / Admin are catalog
@@ -35,12 +36,11 @@ export async function getPortalAccess(
   return { role: access.role, superAdmin: access.viaSuperadmin };
 }
 
-export async function grantPortalRole(input: {
-  userId: string;
-  role: AppRole;
-  grantedBy: string | null;
-}): Promise<void> {
-  await grantRole({ ...input, app: PORTAL_APP });
+export async function grantPortalRole(
+  input: { userId: string; role: AppRole; grantedBy: string | null },
+  exec?: AuthDbExecutor,
+): Promise<void> {
+  await grantRole({ ...input, app: PORTAL_APP }, exec);
 }
 
 export async function grantPortalRoleIfAbsent(
