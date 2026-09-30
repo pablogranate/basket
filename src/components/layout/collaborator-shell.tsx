@@ -1,4 +1,4 @@
-import { LogOut } from "lucide-react";
+import { ArrowLeft, LogOut } from "lucide-react";
 
 import { signOutAction } from "@/app/actions/auth";
 import { DashboardAnnouncementBell } from "@/components/layout/dashboard-announcement-bell";
@@ -14,10 +14,13 @@ export function CollaboratorShell({
   children,
   user,
   announcement,
+  landingUrl = null,
 }: {
   children: React.ReactNode;
   user: UserContext | null;
   announcement: AnnouncementSummary | null;
+  // The apex directory; null below two apps (basket#202).
+  landingUrl?: string | null;
 }) {
   const displayName =
     user?.profile?.full_name?.trim() ||
@@ -31,6 +34,16 @@ export function CollaboratorShell({
         <div className="flex h-20 items-center gap-4 px-4 sm:px-6 lg:px-8">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-3">
+              {landingUrl ? (
+                <a
+                  href={landingUrl}
+                  aria-label="Volver"
+                  title="Volver"
+                  className="inline-flex items-center justify-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-[var(--foreground)] transition hover:bg-[var(--background-soft)]"
+                >
+                  <ArrowLeft className="size-5" aria-hidden />
+                </a>
+              ) : null}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/Basket.tv horizontal rojo.png"

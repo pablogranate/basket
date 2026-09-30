@@ -50,6 +50,18 @@ export function launcherApps({
   return siblings;
 }
 
+// "Volver" and "Elegir aplicación" lead to the apex directory. With fewer than
+// two apps there is nothing to choose there, so no app shows them.
+export function directoryLinkFor({
+  apps,
+  apexUrl,
+}: {
+  apps: ReadonlyArray<LauncherApp>;
+  apexUrl: string | null;
+}): string | null {
+  return apps.length >= 2 ? apexUrl : null;
+}
+
 // Subdomains are not always the app key: the ops hub lives at op.
 export const APP_SUBDOMAINS: Record<LauncherApp, string> = {
   portal: "portal",

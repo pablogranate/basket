@@ -73,6 +73,26 @@ of their own.
 | Analytics | `analytics.…/financiero` goes to portal login and comes back | `read`/`write`: every dashboard, and the header shows viewer. `admin`: the header shows admin. No role: `/no-access` | Gets in as admin; once banned, denied | The next request with the same session goes to `/no-access` |
 | Facturación | `/` goes to `portal/login?redirectTo=…` and comes back | `coordinador`: `/api/yo` returns `rol: coordinador`, and `/admin` and `/api/admin/*` return `403`. `admin`: `/admin` loads. `periodista` with an active padrón row: `rol: periodista`. `periodista` without a padrón row: "Sin acceso" | `/api/yo` returns `rol: admin`; `/admin` opens | Remove the role, or unset the super admin: `/api/yo` returns `403 SIN_ACCESO`. A person with no role but an active padrón row still enters as periodista |
 
+## Smoke, portal shells: back link and ficha completion (#202)
+
+Before deploying, count the portal Cuentas without a ficha: all of them are
+candidates for the modal (portal Admins and super admins are then left out).
+
+```sql
+-- Domain DB
+SELECT count(*) FROM profiles p
+WHERE NOT EXISTS (SELECT 1 FROM people pe WHERE pe.profile_id = p.id);
+```
+
+| Identity | Expected |
+|----------|----------|
+| Two apps or more (portal + facturación) | "Volver" in the header of both shells (dashboard and collaborator), and "Elegir aplicación" in the sidebar |
+| Portal only | No "Volver", no "Elegir aplicación" |
+| Externo or Productor whose Cuenta has no ficha | The "Completá tus datos de producción" modal on every portal page, pre-filled from their latest Solicitud in any app. "Más tarde" hides it until the browser session ends |
+| Same, submitting | With an unlinked ficha under the same email: that ficha is linked and keeps its name. Otherwise a new ficha appears in Personal with the Función's role and `Ciudad:` in the notes. The modal stops showing |
+| Same, name matching an unlinked ficha under another email | No modal; the Cuenta shows under "Cuentas por vincular" in Registros → Solicitudes |
+| Portal Admin or super admin without a ficha | No modal |
+
 ## After the soak
 
 Delete the Supabase Auth users of the incidencias and ops projects (Postgres
