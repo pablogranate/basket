@@ -23,10 +23,9 @@ describe("launcherApps", () => {
     ).toEqual(["ops"]);
   });
 
-  it("falls back to the portal when nothing admits the person, so they can ask for access", () => {
-    expect(launcherApps({ hasPortalAccess: false, apps: [] })).toEqual([
-      "portal",
-    ]);
+  // basket#199: no fallback; the apex sends an empty list to the Solicitud form.
+  it("lists nothing when nothing admits the person", () => {
+    expect(launcherApps({ hasPortalAccess: false, apps: [] })).toEqual([]);
   });
 
   it("keeps the portal for a super admin without a Cuenta", () => {

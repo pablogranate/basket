@@ -73,6 +73,23 @@ of their own.
 | Analytics | `analytics.…/financiero` goes to portal login and comes back | `read`/`write`: every dashboard, and the header shows viewer. `admin`: the header shows admin. No role: `/no-access` | Gets in as admin; once banned, denied | The next request with the same session goes to `/no-access` |
 | Facturación | `/` goes to `portal/login?redirectTo=…` and comes back | `coordinador`: `/api/yo` returns `rol: coordinador`, and `/admin` and `/api/admin/*` return `403`. `admin`: `/admin` loads. `periodista` with an active padrón row: `rol: periodista`. `periodista` without a padrón row: "Sin acceso" | `/api/yo` returns `rol: admin`; `/admin` opens | Remove the role, or unset the super admin: `/api/yo` returns `403 SIN_ACCESO`. A person with no role but an active padrón row still enters as periodista |
 
+## Smoke, login lands on the apex directory (#199)
+
+Check it with four identities: one with no app, one with only a sibling app
+(say `facturacion`), one with two apps, and a super admin. Log out between
+identities. Dashboard redirects stream as a meta refresh (HTTP 200), not a 307.
+
+| Identity | Log in at `portal/login` | Open the apex `/` | Open portal `/` |
+|----------|--------------------------|-------------------|-----------------|
+| No app | Ends on `portal/no-access?app=portal`, with the Función field | Same | Same |
+| One sibling app | Ends inside that app (the apex forwards), never mi-jornada | Straight to the app | `/no-access?app=portal` with "Ir a mis aplicaciones" |
+| Two apps | The directory, listing only those two | The directory | Their dashboard if the portal is one of them, else `/no-access?app=portal` with "Ir a mis aplicaciones" |
+| Super admin | The directory, every app and "Usuarios y accesos" | The directory | Their dashboard, never `/no-access`; a super admin with no Cuenta gets one on this first visit (check `profiles.auth_user_id`) |
+
+An explicit target still wins: `analytics.…/financiero` without a session goes
+to `portal/login?redirectTo=…` and comes back to `/financiero`, not to the
+directory.
+
 ## After the soak
 
 Delete the Supabase Auth users of the incidencias and ops projects (Postgres
