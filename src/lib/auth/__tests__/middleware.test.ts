@@ -36,3 +36,15 @@ describe("updateSession /usuarios", () => {
     expect(response.headers.get("location")).toContain("portal.basket-app.com/login");
   });
 });
+
+// A second click on "Cerrar sesión" (or a stale tab) reaches /logout without a
+// session; it must not turn into /login?redirectTo=/logout (basket#203).
+describe("updateSession /logout", () => {
+  it("lets a session-less request reach the route handler", async () => {
+    const response = await updateSession(
+      request("portal.basket-app.com", "/logout", { session: false }),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+  });
+});
