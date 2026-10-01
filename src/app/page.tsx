@@ -43,7 +43,7 @@ export default async function Home() {
         host={host}
         userEmail={user.email}
         apps={apps}
-        showUsuarios={Boolean(superAdmin)}
+        superAdmin={Boolean(superAdmin)}
       />
     );
   }

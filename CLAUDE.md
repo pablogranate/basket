@@ -172,6 +172,15 @@ It is one of three sibling apps under `basket-app.com`: `portal.` (this), `analy
 - Shared base class strings are exported for reuse: `badgeBaseClassName` (`src/components/ui/badge.tsx`).
 - Component props extend native HTML attributes: `React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ... }`.
 
+## Styling comes from basket-tv-ui
+
+The shell and the look shared by the basket-app.com apps live in one package, [`basket-tv-ui`](https://github.com/WencesCapolo/basket-tv-ui): the design tokens (`--n-*`, `--accent*`, `--ok*`, `--navy*`, `--border`, `--panel-radius`, shadows, fonts), the `Marco` shell (navy sidebar, header, Volver / Elegir aplicación), `ChipDeUsuario`, `BotonDeSalir` and `urlDelLanzador`.
+
+- Use the package; don't add general styling here. That means no new `:root` colour, radius, shadow or font tokens, no hardcoded palette hex values (use `bg-accent`, `text-n-600`, `var(--border)`…), and no local copies or variants of the shell, the user chip or the logout button.
+- If something general is missing (a token or a shell slot that another app would also want), add it to `basket-tv-ui`: change `src/`, run `pnpm build`, commit `src` and `dist` together, tag `vX.Y.Z`, then bump the `#vX.Y.Z` in this app's `package.json`.
+- Only styling specific to this app belongs here, next to the `@import "basket-tv-ui/estilos.css"`.
+- The Portal's own styling: the `--page-canvas`, `--page-footer-bg`, `--surface-muted` and `--panel-shadow` tokens and the `.mc-*` match-card classes in `src/app/globals.css`; the primitives in `src/components/ui`; `MarcoDelPortal` (`src/components/layout/marco-del-portal.tsx`, which fills `Marco` with the role-filtered nav), `UserProfileChip` (photo upload) and the server-action logout form in the header; and `CollaboratorShell`, the limited-role shell with the bottom tab bar.
+
 ## Architecture
 
 ## System Overview
