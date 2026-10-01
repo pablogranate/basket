@@ -32,7 +32,7 @@ export function CollaboratorShell({
             <div className="flex items-center gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/Basket.tv horizontal rojo.png"
+                src="/basket-tv-horizontal-rojo.png"
                 alt="BasquetPass"
                 className="h-8 w-auto"
               />
@@ -44,7 +44,7 @@ export function CollaboratorShell({
             {user?.userId ? (
               <a
                 href={LOGOUT_PATH}
-                className="inline-flex h-11 items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-bold text-[#617187] transition hover:bg-[var(--background-soft)] hover:text-[var(--foreground)]"
+                className="inline-flex h-11 items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-bold text-[var(--muted)] transition hover:bg-[var(--background-soft)] hover:text-[var(--foreground)]"
               >
                 <LogOut className="size-4" />
                 Cerrar sesión

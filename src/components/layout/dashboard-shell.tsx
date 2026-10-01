@@ -1,17 +1,12 @@
-import { ArrowLeft, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 
 import { AccessRequestsBellClient } from "@/components/access-requests/access-requests-bell-client";
 import type { AccessRequestReviewItem } from "@/lib/access-requests/review-item";
 import { DashboardFooterMeta } from "@/components/layout/dashboard-footer-meta";
-import { DashboardMobileNav } from "@/components/layout/dashboard-mobile-nav";
-import { DashboardNav } from "@/components/layout/dashboard-nav";
-import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
+import { MarcoDelPortal } from "@/components/layout/marco-del-portal";
 import { UserProfileChip } from "@/components/layout/user-profile-chip";
+import { LOGOUT_PATH } from "@/lib/constants";
 import { can } from "@/lib/roles";
-import {
-  APP_PORTAL_LABEL,
-  LOGOUT_PATH,
-} from "@/lib/constants";
 import type { AnnouncementSummary } from "@/lib/data/announcements";
 import { getAppRoleDisplayName } from "@/lib/display";
 import type { UserContext } from "@/lib/auth";
@@ -32,108 +27,55 @@ export function DashboardShell(props: {
     user?.email?.split("@")[0] ||
     "Usuario";
   const roleLabel = getAppRoleDisplayName(user?.role).toUpperCase();
-  const brand = (
-    <div className="flex min-w-0 flex-col gap-2">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/Basket.tv horizontal rojo.png"
-        alt="Basquetpass"
-        className="h-9 w-auto"
-      />
-      <p className="text-[11px] font-black uppercase tracking-[0.28em] text-[#9eb0cc]">
-        {APP_PORTAL_LABEL}
-      </p>
-    </div>
-  );
 
   return (
-    <div className="min-h-screen bg-[var(--page-canvas)]">
-      <div className="flex min-h-screen">
-        <DashboardSidebar brand={brand}>
-          <DashboardNav
+    <MarcoDelPortal
+      role={user?.role ?? null}
+      superAdmin={user?.superAdmin ?? false}
+      lanzadorUrl={landingUrl ?? null}
+      cabecera={
+        <>
+          {accessRequests ? (
+            <AccessRequestsBellClient
+              items={accessRequests.items}
+              funcionOptions={accessRequests.funcionOptions}
+              canSelectAccessTier={can(user, "admin")}
+            />
+          ) : null}
+          <UserProfileChip
+            userId={user?.userId ?? null}
+            fullName={displayName}
+            email={user?.email ?? null}
+            roleLabel={roleLabel}
             role={user?.role ?? null}
-            superAdmin={user?.superAdmin ?? false}
+            mobileMenu
+            className="sm:hidden"
           />
-        </DashboardSidebar>
-
-        <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[rgba(255,255,255,0.88)] backdrop-blur-md">
-            <div className="flex h-20 items-center gap-4 px-4 sm:px-6 lg:px-8">
-              <div className="flex min-w-0 flex-1 items-center gap-4">
-                {landingUrl ? (
-                  <a
-                    href={landingUrl}
-                    aria-label="Volver"
-                    className="inline-flex items-center justify-center gap-2 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--background-soft)]"
-                  >
-                    <ArrowLeft className="size-5" aria-hidden />
-                  </a>
-                ) : null}
-                <div className="flex items-center gap-3 lg:hidden">
-                  <DashboardMobileNav
-                    brand={brand}
-                    role={user?.role ?? null}
-                    superAdmin={user?.superAdmin ?? false}
-                  />
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src="/Basket.tv horizontal rojo.png"
-                    alt="Basquetpass"
-                    className="h-7 w-auto"
-                  />
-                </div>
-              </div>
-
-              <div className="ml-auto flex items-center gap-4 sm:gap-5">
-                {accessRequests ? (
-                  <AccessRequestsBellClient
-                    items={accessRequests.items}
-                    funcionOptions={accessRequests.funcionOptions}
-                    canSelectAccessTier={
-                      can(user, "admin")
-                    }
-                  />
-                ) : null}
-                <UserProfileChip
-                  userId={user?.userId ?? null}
-                  fullName={displayName}
-                  email={user?.email ?? null}
-                  roleLabel={roleLabel}
-                  role={user?.role ?? null}
-                  mobileMenu
-                  className="sm:hidden"
-                />
-                <UserProfileChip
-                  userId={user?.userId ?? null}
-                  fullName={displayName}
-                  email={user?.email ?? null}
-                  roleLabel={roleLabel}
-                  role={user?.role ?? null}
-                  className="hidden sm:flex"
-                />
-                {user?.userId ? (
-                  <a
-                    href={LOGOUT_PATH}
-                    aria-label="Cerrar sesión"
-                    title="Cerrar sesión"
-                    className="hidden size-11 items-center justify-center rounded-2xl border border-transparent text-[var(--muted)] transition hover:bg-[var(--background-soft)] hover:text-[var(--foreground)] sm:inline-flex"
-                  >
-                    <LogOut className="size-4" />
-                  </a>
-                ) : null}
-              </div>
-            </div>
-          </header>
-
-          <main className="min-w-0 flex-1 bg-[var(--page-canvas)] px-4 py-5 sm:px-6 lg:px-8">
-            {children}
-          </main>
-
-          <footer className="border-t border-[var(--border)] bg-[var(--page-footer-bg)] px-4 py-6 backdrop-blur-sm sm:px-6 lg:px-8">
-            <DashboardFooterMeta userName={displayName} />
-          </footer>
-        </div>
-      </div>
-    </div>
+          <UserProfileChip
+            userId={user?.userId ?? null}
+            fullName={displayName}
+            email={user?.email ?? null}
+            roleLabel={roleLabel}
+            role={user?.role ?? null}
+            className="hidden sm:flex"
+          />
+          {user?.userId ? (
+            <a
+              href={LOGOUT_PATH}
+              aria-label="Cerrar sesión"
+              title="Cerrar sesión"
+              className="hidden size-11 items-center justify-center rounded-2xl border border-transparent text-[var(--muted)] transition hover:bg-[var(--background-soft)] hover:text-[var(--foreground)] sm:inline-flex"
+            >
+              <LogOut className="size-4" />
+            </a>
+          ) : null}
+        </>
+      }
+    >
+      {children}
+      <footer className="border-t border-[var(--border)] pt-6">
+        <DashboardFooterMeta userName={displayName} />
+      </footer>
+    </MarcoDelPortal>
   );
 }
