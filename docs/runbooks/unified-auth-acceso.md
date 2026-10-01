@@ -284,3 +284,35 @@ WHERE (table_name = 'auth_app_access' AND column_name = 'level')
 SELECT column_name FROM information_schema.columns
 WHERE table_name = 'profiles' AND column_name = 'role';
 ```
+
+## Generator deny path: the Solicitud form tagged `generator` (#201)
+
+A session without a `generator` Acceso gets `403` from `/api/gates/generator`,
+with `X-Gate-Redirect: https://portal.basket-app.com/no-access?app=generator`.
+nginx sends the browser there, so the Solicitud is tagged with the generator.
+Deploy the portal first. Then, in the generator vhost under
+`/etc/nginx/sites-enabled/`, inside the `server` block that has
+`auth_request /__gate`:
+
+```nginx
+location / {
+    auth_request     /__gate;
+    auth_request_set $gate_redirect $upstream_http_x_gate_redirect;
+    # ...the existing root/try_files lines stay
+}
+
+location @gate_forbidden {
+    if ($gate_redirect = "") {
+        return 302 https://portal.basket-app.com/no-access?app=generator;
+    }
+    return 302 $gate_redirect;
+}
+```
+
+Point the existing `error_page 403` at the new location
+(`error_page 403 = @gate_forbidden;`) and leave `error_page 401` (portal
+login) as it is. The `if` covers an old portal build that sends no header.
+Apply with `nginx -t && systemctl reload nginx`.
+
+The `auth_request` cache (key: cookie, TTL 60s) keeps the `403` with its
+headers, so a grant takes up to a minute to show.

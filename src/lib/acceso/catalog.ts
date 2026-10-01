@@ -28,8 +28,8 @@ export const SIBLING_APP_LABELS: Record<SiblingApp, string> = {
 
 // What the apex launcher lists for one person: the portal when their Cuenta
 // admits them, then each sibling they hold a role in. `apps` comes from
-// auth_effective_access, so a super admin already has every app. Nobody gets
-// an empty launcher: the portal stays as the door to a Solicitud de acceso.
+// auth_effective_access, so a super admin already has every app. Someone with
+// no app gets an empty list; the apex sends them to the Solicitud form.
 export type LauncherApp = "portal" | SiblingApp;
 
 export function launcherApps({
@@ -43,11 +43,23 @@ export function launcherApps({
 }): LauncherApp[] {
   const siblings = SIBLING_APPS.filter((app) => apps.includes(app));
 
-  if (hasPortalAccess || superAdmin || siblings.length === 0) {
+  if (hasPortalAccess || superAdmin) {
     return ["portal", ...siblings];
   }
 
   return siblings;
+}
+
+// "Volver" and "Elegir aplicación" lead to the apex directory. With fewer than
+// two apps there is nothing to choose there, so no app shows them.
+export function directoryLinkFor({
+  apps,
+  apexUrl,
+}: {
+  apps: ReadonlyArray<LauncherApp>;
+  apexUrl: string | null;
+}): string | null {
+  return apps.length >= 2 ? apexUrl : null;
 }
 
 // Subdomains are not always the app key: the ops hub lives at op.

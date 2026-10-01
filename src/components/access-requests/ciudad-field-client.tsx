@@ -9,6 +9,7 @@ import {
   countryFlag,
   findAccessRequestCountry,
   OTHER_CITY,
+  splitAccessRequestCiudad,
 } from "@/lib/access-requests/locations";
 
 const LABEL_CLASS =
@@ -17,9 +18,17 @@ const LABEL_CLASS =
 // Country first, then that country's cities. Changing the country resets the
 // city so a Uruguayan city can never travel with an Argentine code; the action
 // re-checks the pair anyway.
-export function CiudadFieldClient({ id }: { id: string }) {
-  const [pais, setPais] = useState("AR");
-  const [ciudad, setCiudad] = useState("");
+export function CiudadFieldClient({
+  id,
+  defaultValue,
+}: {
+  id: string;
+  // A stored "Ciudad, País" to start from.
+  defaultValue?: string | null;
+}) {
+  const [initial] = useState(() => splitAccessRequestCiudad(defaultValue));
+  const [pais, setPais] = useState(initial?.pais ?? "AR");
+  const [ciudad, setCiudad] = useState(initial?.ciudad ?? "");
   const country = findAccessRequestCountry(pais);
 
   return (
@@ -77,7 +86,8 @@ export function CiudadFieldClient({ id }: { id: string }) {
             maxLength={80}
             autoComplete="address-level2"
             placeholder="Escribí tu ciudad"
-            autoFocus
+            defaultValue={initial?.otraCiudad}
+            autoFocus={!initial?.otraCiudad}
           />
         ) : null}
       </div>

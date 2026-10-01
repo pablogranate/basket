@@ -5,18 +5,23 @@ import { redirect } from "next/navigation";
 import { CollaboratorShell } from "@/components/layout/collaborator-shell";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { NavLatencyReporter } from "@/components/perf/nav-latency-reporter";
+import { FichaCompletionModalClient } from "@/components/people/ficha-completion-modal-client";
 import { PwaInstallBanner } from "@/components/pwa/pwa-install-banner";
+import { listEffectiveAccessForUser } from "@/lib/acceso/accesos";
+import { directoryLinkFor, launcherApps } from "@/lib/acceso/catalog";
 import {
   buildApexUrl,
-  isAdminDashboardRole,
   isCollaboratorLimitedRole,
   isDashboardPathAllowedForRole,
 } from "@/lib/constants";
-import { getUserContext } from "@/lib/auth";
+import { PORTAL_APP } from "@/lib/acceso/portal";
+import { buildNoAccessPath } from "@/lib/access-requests/no-access";
+import { getUserContext, type UserContext } from "@/lib/auth";
 import { getAccessRequestReview } from "@/lib/access-requests/review";
 import { can } from "@/lib/roles";
 import { getActiveAnnouncement } from "@/lib/data/announcements";
 import { appEnv } from "@/lib/env";
+import { getFichaCompletionPrompt } from "@/lib/people/ficha-completion-data";
 
 export default async function DashboardLayout({
   children,
@@ -39,9 +44,9 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  // Authenticated but unprovisioned (no profiles row) -> dead-end (D-13).
+  // Authenticated without a portal Acceso: opening the portal is asking for it.
   if (user?.userId && !user.hasAccess) {
-    redirect("/no-access");
+    redirect(buildNoAccessPath(PORTAL_APP));
   }
 
   if (
@@ -52,13 +57,27 @@ export default async function DashboardLayout({
     redirect("/mi-jornada");
   }
 
+  const host = requestHeaders.get("host") ?? "";
+  const [landingUrl, fichaCompletion] = await Promise.all([
+    resolveDirectoryLink(user, host),
+    getFichaCompletionPrompt(user),
+  ]);
+  const fichaModal = fichaCompletion ? (
+    <FichaCompletionModalClient {...fichaCompletion} />
+  ) : null;
+
   const collaboratorExperience =
     allowsGuestMiJornada || isCollaboratorLimitedRole(user?.role);
 
   if (collaboratorExperience) {
     return (
-      <CollaboratorShell user={user} announcement={announcement}>
+      <CollaboratorShell
+        user={user}
+        announcement={announcement}
+        landingUrl={landingUrl}
+      >
         {children}
+        {fichaModal}
         <PwaInstallBanner />
         <Suspense fallback={null}>
           <NavLatencyReporter />
@@ -74,11 +93,6 @@ export default async function DashboardLayout({
       ? await getAccessRequestReview()
       : null;
 
-  const host = requestHeaders.get("host") ?? "";
-  const landingUrl = isAdminDashboardRole(user?.role)
-    ? buildApexUrl(host)
-    : null;
-
   return (
     <DashboardShell
       user={user}
@@ -87,10 +101,38 @@ export default async function DashboardLayout({
       accessRequests={accessRequests}
     >
       {children}
+      {fichaModal}
       <PwaInstallBanner />
       <Suspense fallback={null}>
         <NavLatencyReporter />
       </Suspense>
     </DashboardShell>
   );
+}
+
+// The back link to the apex directory, for people with two apps or more
+// (basket#202). Unreadable access hides it rather than failing the page.
+async function resolveDirectoryLink(
+  user: UserContext,
+  host: string,
+): Promise<string | null> {
+  const apexUrl = buildApexUrl(host);
+
+  if (!user.userId || !apexUrl) {
+    return null;
+  }
+
+  try {
+    const access = await listEffectiveAccessForUser(user.userId);
+    const apps = launcherApps({
+      hasPortalAccess: user.hasAccess,
+      superAdmin: user.superAdmin,
+      apps: access.map((row) => row.app),
+    });
+
+    return directoryLinkFor({ apps, apexUrl });
+  } catch (error) {
+    console.error("[acceso] failed to count the user's apps", error);
+    return null;
+  }
 }

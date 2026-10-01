@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { GET } from "@/app/api/gates/[app]/route";
 import { getEffectiveAccess } from "@/lib/acceso/accesos";
 import { getUserContext } from "@/lib/auth";
+import { appEnv } from "@/lib/env";
 import { makeGuestContext, makeUserContext } from "@/test/fixtures/user-context";
 
 vi.mock("@/lib/auth", () => ({
@@ -83,6 +84,27 @@ describe("GET /api/gates/[app]", () => {
 
     expect(response.status).toBe(403);
     expect(mockedGetAccess).toHaveBeenCalledWith("user-test-1", "generator");
+  });
+
+  it("names the generator's Solicitud form as the 403 redirect for nginx", async () => {
+    mockedGetUserContext.mockResolvedValue(makeUserContext({ role: "admin" }));
+    mockedGetAccess.mockResolvedValue(null);
+
+    const response = await callGate("generator");
+
+    expect(response.status).toBe(403);
+    expect(response.headers.get("X-Gate-Redirect")).toBe(
+      `${appEnv.appUrl}/no-access?app=generator`,
+    );
+  });
+
+  it("names no redirect on a 401: nginx sends that to the portal login", async () => {
+    mockedGetUserContext.mockResolvedValue(makeGuestContext());
+
+    const response = await callGate("generator");
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get("X-Gate-Redirect")).toBeNull();
   });
 
   it.each(["read", "write", "admin"] as const)(
