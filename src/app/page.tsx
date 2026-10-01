@@ -1,11 +1,13 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { ApexAccessRequestsBell } from "@/components/access-requests/apex-access-requests-bell";
 import { Landing } from "@/components/landing/landing";
 import { listEffectiveAccessForUser } from "@/lib/acceso/accesos";
 import { APP_SUBDOMAINS, launcherApps } from "@/lib/acceso/catalog";
 import { PORTAL_APP } from "@/lib/acceso/portal";
 import { buildNoAccessPath } from "@/lib/access-requests/no-access";
+import { getApexAccessRequestReview } from "@/lib/access-requests/review";
 import { getUserContext } from "@/lib/auth";
 import { findActiveSuperAdmin } from "@/lib/usuarios/super-admin";
 import {
@@ -14,8 +16,13 @@ import {
   isApexHost,
   resolveApexDestination,
 } from "@/lib/constants";
+import { parseNotice } from "@/lib/search-params";
 
-export default async function Home() {
+type PageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function Home({ searchParams }: PageProps) {
   const host = (await headers()).get("host") ?? "";
   const user = await getUserContext();
 
@@ -46,15 +53,26 @@ export default async function Home() {
         redirect(buildSiblingAppUrl(host, APP_SUBDOMAINS[destination.app]));
       case "request-access":
         redirect(`${portalUrl}${buildNoAccessPath(PORTAL_APP)}`);
-      case "render-landing":
+      case "render-landing": {
+        const [review, { intent, notice }] = await Promise.all([
+          superAdmin ? getApexAccessRequestReview() : null,
+          searchParams.then(parseNotice),
+        ]);
+
         return (
           <Landing
             host={host}
             userEmail={user.email}
             apps={apps}
             superAdmin={Boolean(superAdmin)}
+            accessRequestsBell={
+              review ? <ApexAccessRequestsBell review={review} /> : null
+            }
+            intent={intent}
+            notice={notice}
           />
         );
+      }
     }
   }
 

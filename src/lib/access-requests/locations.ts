@@ -219,3 +219,28 @@ export function composeAccessRequestCiudad({
 
   return `${city}, ${country.name}`;
 }
+
+// The inverse of composeAccessRequestCiudad, to pre-fill the field from a
+// stored "Ciudad, País". A city we don't list comes back as "Otra ciudad";
+// anything that doesn't name a known country comes back as null.
+export function splitAccessRequestCiudad(value: string | null | undefined) {
+  const separator = value?.lastIndexOf(", ") ?? -1;
+
+  if (!value || separator < 0) {
+    return null;
+  }
+
+  const city = value.slice(0, separator).trim();
+  const countryName = value.slice(separator + 2).trim();
+  const country = ACCESS_REQUEST_COUNTRIES.find(
+    (entry) => entry.name === countryName,
+  );
+
+  if (!country || !city) {
+    return null;
+  }
+
+  return country.cities.includes(city)
+    ? { pais: country.code, ciudad: city, otraCiudad: "" }
+    : { pais: country.code, ciudad: OTHER_CITY, otraCiudad: city };
+}

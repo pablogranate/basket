@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { Clock3, ShieldAlert, Video } from "lucide-react";
+import { Clock3, LogOut, ShieldAlert, Video } from "lucide-react";
 
 import { AccessRequestForm } from "@/components/access-requests/access-request-form";
 import { PageMessage } from "@/components/ui/page-message";
@@ -24,11 +24,10 @@ import {
   buildApexUrl,
   buildAppUrlFromAnyHost,
   getDefaultDashboardHrefForRole,
+  LOGOUT_PATH,
 } from "@/lib/constants";
 import { authDb } from "@/lib/db/auth-client";
 import { parseNotice } from "@/lib/search-params";
-
-import { LogoutButtonClient } from "./logout-button-client";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -149,7 +148,13 @@ export default async function NoAccessPage({ searchParams }: PageProps) {
                 Ir a mis aplicaciones
               </a>
             ) : null}
-            <LogoutButtonClient />
+            <a
+              href={LOGOUT_PATH}
+              className="inline-flex h-[52px] w-full items-center justify-center gap-2 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--foreground)] text-[15px] font-bold text-white transition hover:opacity-90"
+            >
+              <LogOut className="size-5" />
+              Cerrar sesión
+            </a>
           </div>
         </div>
       </div>

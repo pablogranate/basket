@@ -5,6 +5,7 @@ import {
   buildSiblingAppUrl,
   isApexHost,
   isUsuariosPath,
+  LOGOUT_PATH,
 } from "@/lib/constants";
 import { appEnv } from "@/lib/env";
 
@@ -19,6 +20,9 @@ function isPublicPath(pathname: string) {
   return (
     pathname === "/login" ||
     pathname === "/no-access" ||
+    // Public so a click without a session lands on /login, not on a
+    // redirectTo=/logout that signs the person out again after login.
+    pathname === LOGOUT_PATH ||
     pathname.startsWith("/api/auth/")
   );
 }
