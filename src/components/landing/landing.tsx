@@ -3,6 +3,7 @@ import {
   ArrowUpRight,
   BarChart3,
   Clapperboard,
+  LogOut,
   Image as ImageIcon,
   Radio,
   Receipt,
@@ -10,7 +11,6 @@ import {
   UsersRound,
 } from "lucide-react";
 
-import { LandingLogoutClient } from "@/components/landing/landing-logout-client";
 import { Card } from "@/components/ui/card";
 import { PageMessage } from "@/components/ui/page-message";
 import {
@@ -18,7 +18,11 @@ import {
   SIBLING_APP_LABELS,
   type LauncherApp,
 } from "@/lib/acceso/catalog";
-import { buildSiblingAppUrl, USUARIOS_PATH } from "@/lib/constants";
+import {
+  buildSiblingAppUrl,
+  LOGOUT_PATH,
+  USUARIOS_PATH,
+} from "@/lib/constants";
 
 type LandingApp = {
   subdomain: string;
@@ -60,7 +64,8 @@ export function Landing({
   intent?: string;
   notice?: string;
 }) {
-  const loginUrl = `${buildSiblingAppUrl(host, "portal")}/login`;
+  // The portal owns sign-out; the apex has no /logout of its own.
+  const logoutUrl = `${buildSiblingAppUrl(host, "portal")}${LOGOUT_PATH}`;
   const landingApps = [
     ...apps.map((app) => ({ subdomain: APP_SUBDOMAINS[app], ...LANDING_APPS[app] })),
     ...(superAdmin ? SUPER_ADMIN_APPS : []),
@@ -82,7 +87,13 @@ export function Landing({
               {userEmail}
             </span>
           ) : null}
-          <LandingLogoutClient loginUrl={loginUrl} />
+          <a
+            href={logoutUrl}
+            className="inline-flex items-center gap-2 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] transition hover:opacity-80"
+          >
+            <LogOut className="size-4" />
+            Cerrar sesión
+          </a>
         </div>
       </header>
 

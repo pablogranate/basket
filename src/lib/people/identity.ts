@@ -9,6 +9,10 @@ import {
 import { stampInsert, stampUpdate } from "@/lib/audit";
 import type { DbExecutor } from "@/lib/db/client";
 import {
+  buildPersonNotesMeta,
+  parsePersonNotesMeta,
+} from "@/lib/people-notes";
+import {
   assignments as assignmentsTable,
   matches as matchesTable,
   notificationLogs as notificationLogsTable,
@@ -193,6 +197,109 @@ export async function listProfileLinkReview(
       },
     ];
   });
+}
+
+export type OwnFichaInput = {
+  profileId: string;
+  email: string;
+  // Used only when a new ficha is created; a linked ficha keeps its name.
+  fullName: string;
+  phone: string;
+  roleId: string | null;
+  ciudad: string;
+  actor: Actor;
+};
+
+export type OwnFicha =
+  | { kind: "linked" | "created"; personId: string }
+  | { kind: "review" };
+
+// The portal user fills in their own ficha, with no approval: the ficha with
+// their exact email is linked (D-08), else a new one is created. A name-only
+// match writes nothing; the Cuenta stays in the admins' link-review list. Run
+// it in a transaction: the unique people.profile_id makes a double submit fail
+// instead of creating two fichas.
+export async function completeOwnFicha(
+  exec: DbExecutor,
+  input: OwnFichaInput,
+): Promise<OwnFicha> {
+  const existing = await exec
+    .select({ id: peopleTable.id })
+    .from(peopleTable)
+    .where(eq(peopleTable.profileId, input.profileId))
+    .limit(1);
+
+  if (existing[0]) {
+    throw new Error("Tu ficha ya está completa.");
+  }
+
+  const target = resolveApprovalTarget({
+    email: input.email,
+    fullName: input.fullName,
+    candidates: await listApprovalCandidates(exec),
+  });
+
+  if (target.kind === "suggest") {
+    return { kind: "review" };
+  }
+
+  if (target.kind === "link") {
+    const [person] = await exec
+      .select({ notes: peopleTable.notes })
+      .from(peopleTable)
+      .where(eq(peopleTable.id, target.person.id))
+      .limit(1);
+    const notes = parsePersonNotesMeta(person?.notes);
+    const stamped = stampUpdate(input.actor, {});
+    const linked = await exec
+      .update(peopleTable)
+      .set({
+        phone: input.phone,
+        roleId: input.roleId,
+        notes: buildPersonNotesMeta({ ...notes, city: input.ciudad }),
+        active: true,
+        profileId: input.profileId,
+        updatedBy: stamped.updated_by,
+        updatedAt: stamped.updated_at,
+      })
+      .where(
+        and(
+          eq(peopleTable.id, target.person.id),
+          isNull(peopleTable.profileId),
+        ),
+      )
+      .returning({ id: peopleTable.id });
+
+    if (!linked[0]) {
+      throw new Error("La ficha con tu correo ya está vinculada a otra cuenta.");
+    }
+
+    return { kind: "linked", personId: linked[0].id };
+  }
+
+  const stamped = stampInsert(input.actor, {});
+  const inserted = await exec
+    .insert(peopleTable)
+    .values({
+      fullName: input.fullName,
+      phone: input.phone,
+      email: input.email.trim().toLowerCase(),
+      roleId: input.roleId,
+      notes: buildPersonNotesMeta({ city: input.ciudad }),
+      active: true,
+      profileId: input.profileId,
+      createdBy: stamped.created_by,
+      updatedBy: stamped.updated_by,
+      createdAt: stamped.created_at,
+      updatedAt: stamped.updated_at,
+    })
+    .returning({ id: peopleTable.id });
+
+  if (!inserted[0]) {
+    throw new Error("No pudimos crear tu ficha.");
+  }
+
+  return { kind: "created", personId: inserted[0].id };
 }
 
 async function upsertProfile(
