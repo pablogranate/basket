@@ -4,7 +4,7 @@ import Image from "next/image";
 import { Camera, LogOut, UserRound } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { signOutAction } from "@/app/actions/auth";
+import { LOGOUT_PATH } from "@/lib/constants";
 import type { AppRole } from "@/lib/database.types";
 import {
   AVATAR_CHANGE_EVENT,
@@ -174,15 +174,13 @@ export function UserProfileChip({
 
         {menuOpen ? (
           <div className="panel-surface absolute right-0 top-[calc(100%+0.75rem)] z-50 w-56 border border-[var(--border)] bg-[var(--surface)] p-2 shadow-[var(--shadow-lift)]">
-            <form action={signOutAction}>
-              <button
-                type="submit"
-                className="flex w-full items-center gap-3 rounded-[calc(var(--panel-radius)-4px)] px-3 py-3 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--background-soft)]"
-              >
-                <LogOut className="size-4 text-[var(--n-600)]" />
-                Cerrar sesión
-              </button>
-            </form>
+            <a
+              href={LOGOUT_PATH}
+              className="flex w-full items-center gap-3 rounded-[calc(var(--panel-radius)-4px)] px-3 py-3 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--background-soft)]"
+            >
+              <LogOut className="size-4 text-[var(--n-600)]" />
+              Cerrar sesión
+            </a>
           </div>
         ) : null}
       </div>

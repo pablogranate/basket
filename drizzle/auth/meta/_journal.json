@@ -43,6 +43,13 @@
       "when": 1790628888727,
       "tag": "0005_contract_drop_nivel",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790791515929,
+      "tag": "0006_access_requests",
+      "breakpoints": true
     }
   ]
 }

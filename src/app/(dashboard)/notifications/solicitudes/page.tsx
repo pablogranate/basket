@@ -9,6 +9,8 @@ import {
   listPendingAccessRequests,
   type AccessRequestSummary,
 } from "@/lib/access-requests/requests";
+import { PORTAL_APP } from "@/lib/acceso/portal";
+import { authDb } from "@/lib/db/auth-client";
 import { db } from "@/lib/db/client";
 import { listProfileLinkReview } from "@/lib/people/identity";
 import { formatMatchDateTime } from "@/lib/date";
@@ -16,8 +18,8 @@ import { formatMatchDateTime } from "@/lib/date";
 export default async function AccessRequestsLogPage() {
   await requireAdmin();
   const [pending, decided, linkReview] = await Promise.all([
-    listPendingAccessRequests(db),
-    listDecidedAccessRequests(db),
+    listPendingAccessRequests(authDb, { app: PORTAL_APP }),
+    listDecidedAccessRequests(authDb, { app: PORTAL_APP }),
     listProfileLinkReview(db),
   ]);
 
@@ -158,7 +160,7 @@ function RequestTable({
                 {row.full_name}
               </td>
               <td className="py-2 pr-4 text-[var(--n-600)]">{row.email}</td>
-              <td className="py-2 pr-4 text-[var(--n-600)]">{row.funcion}</td>
+              <td className="py-2 pr-4 text-[var(--n-600)]">{row.funcion ?? "—"}</td>
               <td className="py-2 pr-4 text-[var(--n-600)]">{row.phone}</td>
               <td className="py-2 pr-4 text-[var(--n-600)]">{row.ciudad ?? "—"}</td>
               <td className="py-2 pr-4 text-[var(--n-500)]">

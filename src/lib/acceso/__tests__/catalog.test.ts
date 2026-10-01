@@ -1,6 +1,27 @@
 import { describe, expect, it } from "vitest";
 
-import { launcherApps } from "@/lib/acceso/catalog";
+import { directoryLinkFor, launcherApps } from "@/lib/acceso/catalog";
+
+// basket#202: "Volver" / "Elegir aplicación" only when there is a choice.
+describe("directoryLinkFor", () => {
+  const apexUrl = "https://basket-app.com";
+
+  it("links to the directory for two apps or more", () => {
+    expect(directoryLinkFor({ apps: ["portal", "facturacion"], apexUrl })).toBe(apexUrl);
+    expect(
+      directoryLinkFor({ apps: ["portal", "analytics", "ops"], apexUrl }),
+    ).toBe(apexUrl);
+  });
+
+  it("hides it with one app or none", () => {
+    expect(directoryLinkFor({ apps: ["portal"], apexUrl })).toBeNull();
+    expect(directoryLinkFor({ apps: [], apexUrl })).toBeNull();
+  });
+
+  it("hides it off the basket-app hosts, where there is no apex", () => {
+    expect(directoryLinkFor({ apps: ["portal", "facturacion"], apexUrl: null })).toBeNull();
+  });
+});
 
 // The apex launcher lists only the apps a person may enter: the portal by
 // Cuenta, each sibling by a row in auth_effective_access.
@@ -23,10 +44,9 @@ describe("launcherApps", () => {
     ).toEqual(["ops"]);
   });
 
-  it("falls back to the portal when nothing admits the person, so they can ask for access", () => {
-    expect(launcherApps({ hasPortalAccess: false, apps: [] })).toEqual([
-      "portal",
-    ]);
+  // basket#199: no fallback; the apex sends an empty list to the Solicitud form.
+  it("lists nothing when nothing admits the person", () => {
+    expect(launcherApps({ hasPortalAccess: false, apps: [] })).toEqual([]);
   });
 
   it("keeps the portal for a super admin without a Cuenta", () => {

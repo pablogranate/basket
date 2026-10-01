@@ -8,11 +8,18 @@ import {
   FUNCION_ROLE_NAME,
   isAccessRequestFuncion,
 } from "@/lib/access-requests/constants";
-import { listPendingAccessRequests } from "@/lib/access-requests/requests";
+import {
+  listAllPendingAccessRequests,
+  listPendingAccessRequests,
+  type AccessRequestSummary,
+} from "@/lib/access-requests/requests";
 import type { AccessRequestReviewItem } from "@/lib/access-requests/review-item";
+import { PORTAL_APP } from "@/lib/acceso/portal";
+import { authDb } from "@/lib/db/auth-client";
 import { db } from "@/lib/db/client";
 import { roles as rolesTable } from "@/lib/db/schema";
 import { listApprovalCandidates } from "@/lib/people/identity";
+import { getRoleCatalog, type CatalogRole } from "@/lib/usuarios/matrix";
 import { normalizeText } from "@/lib/utils";
 
 async function getActiveRoleOptions() {
@@ -42,12 +49,51 @@ function toFuncionOptions(roleOptions: { id: string; name: string }[]) {
 
 // Everything the approve modal needs, resolved server-side: the pending list,
 // the target each request would land on, and the pre-selected grid role.
-export async function getAccessRequestReview(): Promise<{
+export async function getAccessRequestReview(): Promise<PortalReview> {
+  return buildPortalReview(
+    await listPendingAccessRequests(authDb, { app: PORTAL_APP }),
+  );
+}
+
+type PortalReview = {
   items: AccessRequestReviewItem[];
   funcionOptions: { id: string; name: string }[];
-}> {
-  const requests = await listPendingAccessRequests(db);
+};
 
+export type SiblingReviewItem = {
+  request: AccessRequestSummary;
+  roles: Pick<CatalogRole, "key" | "label">[];
+};
+
+// The apex bell (super admins): every app's pending Solicitudes. Portal ones
+// get today's portal review; sibling ones the app's whole role catalog, a
+// super admin may grant any of them.
+export async function getApexAccessRequestReview(): Promise<{
+  portal: PortalReview;
+  siblings: SiblingReviewItem[];
+}> {
+  const requests = await listAllPendingAccessRequests(authDb);
+  const portalRequests = requests.filter((request) => request.app === PORTAL_APP);
+  const siblingRequests = requests.filter((request) => request.app !== PORTAL_APP);
+  const [portal, catalog] = await Promise.all([
+    buildPortalReview(portalRequests),
+    siblingRequests.length ? getRoleCatalog() : [],
+  ]);
+
+  return {
+    portal,
+    siblings: siblingRequests.map((request) => ({
+      request,
+      roles: (catalog.find((app) => app.key === request.app)?.roles ?? []).map(
+        ({ key, label }) => ({ key, label }),
+      ),
+    })),
+  };
+}
+
+async function buildPortalReview(
+  requests: AccessRequestSummary[],
+): Promise<PortalReview> {
   if (!requests.length) {
     return { items: [], funcionOptions: [] };
   }
@@ -72,9 +118,10 @@ export async function getAccessRequestReview(): Promise<{
         ? (candidates.find((candidate) => candidate.id === target.person.id) ??
           null)
         : null;
-    const defaultRoleName = isAccessRequestFuncion(request.funcion)
-      ? FUNCION_ROLE_NAME[request.funcion]
-      : null;
+    const defaultRoleName =
+      request.funcion && isAccessRequestFuncion(request.funcion)
+        ? FUNCION_ROLE_NAME[request.funcion]
+        : null;
 
     return {
       request,

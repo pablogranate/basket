@@ -5,6 +5,7 @@ import {
   buildSiblingAppUrl,
   isApexHost,
   isUsuariosPath,
+  LOGOUT_PATH,
 } from "@/lib/constants";
 import { appEnv } from "@/lib/env";
 
@@ -19,6 +20,9 @@ function isPublicPath(pathname: string) {
   return (
     pathname === "/login" ||
     pathname === "/no-access" ||
+    // Public so a click without a session lands on /login, not on a
+    // redirectTo=/logout that signs the person out again after login.
+    pathname === LOGOUT_PATH ||
     pathname.startsWith("/api/auth/")
   );
 }
@@ -39,8 +43,8 @@ export async function updateSession(request: NextRequest) {
   const hasSession = Boolean(getSessionCookie(request));
   const host = request.headers.get("host") ?? "";
 
-  // Apex launcher: the RSC page resolves the role-aware destination when a
-  // session exists. Without one, send the visitor to the centralized portal
+  // Apex directory: the RSC page resolves the destination (directory, the one
+  // app, or the Solicitud form) when a session exists. Without one, send the visitor to the centralized portal
   // login, carrying the apex URL so an Admin returns to the launcher.
   if (isApexHost(host)) {
     if (hasSession) {

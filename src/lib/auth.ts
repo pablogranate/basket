@@ -5,7 +5,12 @@ import { redirect } from "next/navigation";
 
 import { and, eq, isNull } from "drizzle-orm";
 
-import { getPortalAccess, type PortalAccess } from "@/lib/acceso/portal";
+import {
+  getPortalAccess,
+  PORTAL_APP,
+  type PortalAccess,
+} from "@/lib/acceso/portal";
+import { buildNoAccessPath } from "@/lib/access-requests/no-access";
 import { auth } from "@/lib/auth/server";
 import type { AppRole, ProfileRow } from "@/lib/database.types";
 import { db } from "@/lib/db/client";
@@ -239,7 +244,7 @@ export async function requireAccess() {
   }
 
   if (!context.hasAccess) {
-    redirect("/no-access");
+    redirect(buildNoAccessPath(PORTAL_APP));
   }
 
   return context;

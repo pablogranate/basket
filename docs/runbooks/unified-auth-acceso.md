@@ -183,6 +183,45 @@ survives a re-run; fix a wrongly seeded row from `/usuarios`. Users the
 mapping drops (unknown role, no incidencias profile) are listed in the output.
 Seeded rows have `granted_by = null`.
 
+## Solicitudes in the Auth DB (#198, ADR 0011)
+
+`0006_access_requests` adds `auth_access_request` (one Solicitud per identity
+and app, pending uniqueness by partial indexes) and
+`auth_app_request_recipients` (who gets the email for each app but the
+portal). Additive: the old build keeps using the Domain DB `access_requests`.
+
+Deploy order:
+
+1. Auth DB: `pnpm db:auth:migrate` (0006).
+2. Copy from the #198 checkout, before deploying it:
+
+   ```bash
+   pnpm db:auth:copy-access-requests -- --dry-run
+   pnpm db:auth:copy-access-requests
+   ```
+
+   Every Domain row becomes a portal Solicitud with the same id. The report
+   lists rows skipped because their applicant identity is gone, deciders whose
+   Cuenta had no identity (copied with `decided_by` null), and pending rows the
+   Auth DB already had.
+3. Deploy the portal. From here it reads and writes only the Auth DB.
+4. Run the copy again. It copies what the old build filed between steps 2 and
+   3 and carries over any decision it made on a row that was copied while
+   pending. Idempotent.
+5. Check the counts match, expecting equal numbers (Domain DB, then Auth DB):
+
+   ```sql
+   SELECT status, count(*) FROM access_requests GROUP BY 1;
+   SELECT status, count(*) FROM auth_access_request WHERE app = 'portal' GROUP BY 1;
+   ```
+
+   Any difference must be explained by the report's skipped rows.
+6. In `/usuarios` → "Avisos de solicitudes", set each app's recipients. An
+   app without any sends no email (the portal keeps its routing in
+   Configuración).
+
+The Domain DB `access_requests` stays until the contract step (#204).
+
 ## Integration tests
 
 `npm run test:integration` applies both journals to the throwaway Postgres
@@ -245,3 +284,35 @@ WHERE (table_name = 'auth_app_access' AND column_name = 'level')
 SELECT column_name FROM information_schema.columns
 WHERE table_name = 'profiles' AND column_name = 'role';
 ```
+
+## Generator deny path: the Solicitud form tagged `generator` (#201)
+
+A session without a `generator` Acceso gets `403` from `/api/gates/generator`,
+with `X-Gate-Redirect: https://portal.basket-app.com/no-access?app=generator`.
+nginx sends the browser there, so the Solicitud is tagged with the generator.
+Deploy the portal first. Then, in the generator vhost under
+`/etc/nginx/sites-enabled/`, inside the `server` block that has
+`auth_request /__gate`:
+
+```nginx
+location / {
+    auth_request     /__gate;
+    auth_request_set $gate_redirect $upstream_http_x_gate_redirect;
+    # ...the existing root/try_files lines stay
+}
+
+location @gate_forbidden {
+    if ($gate_redirect = "") {
+        return 302 https://portal.basket-app.com/no-access?app=generator;
+    }
+    return 302 $gate_redirect;
+}
+```
+
+Point the existing `error_page 403` at the new location
+(`error_page 403 = @gate_forbidden;`) and leave `error_page 401` (portal
+login) as it is. The `if` covers an old portal build that sends no header.
+Apply with `nginx -t && systemctl reload nginx`.
+
+The `auth_request` cache (key: cookie, TTL 60s) keeps the `403` with its
+headers, so a grant takes up to a minute to show.

@@ -3,6 +3,7 @@ import {
   ArrowUpRight,
   BarChart3,
   Clapperboard,
+  LogOut,
   Image as ImageIcon,
   Radio,
   Receipt,
@@ -10,10 +11,18 @@ import {
   UsersRound,
 } from "lucide-react";
 
-import { LandingLogoutClient } from "@/components/landing/landing-logout-client";
 import { Card } from "@/components/ui/card";
-import { SIBLING_APP_LABELS, type LauncherApp } from "@/lib/acceso/catalog";
-import { buildSiblingAppUrl, USUARIOS_PATH } from "@/lib/constants";
+import { PageMessage } from "@/components/ui/page-message";
+import {
+  APP_SUBDOMAINS,
+  SIBLING_APP_LABELS,
+  type LauncherApp,
+} from "@/lib/acceso/catalog";
+import {
+  buildSiblingAppUrl,
+  LOGOUT_PATH,
+  USUARIOS_PATH,
+} from "@/lib/constants";
 
 type LandingApp = {
   subdomain: string;
@@ -21,30 +30,13 @@ type LandingApp = {
   Icon: typeof Clapperboard;
 };
 
-// Subdomains are not always the app key: the ops hub lives at op.
-const LANDING_APPS: Record<LauncherApp, LandingApp> = {
-  portal: { subdomain: "portal", name: "Producción", Icon: Clapperboard },
-  analytics: {
-    subdomain: "analytics",
-    name: SIBLING_APP_LABELS.analytics,
-    Icon: BarChart3,
-  },
-  incidencias: {
-    subdomain: "incidencias",
-    name: SIBLING_APP_LABELS.incidencias,
-    Icon: AlertTriangle,
-  },
-  generator: {
-    subdomain: "generator",
-    name: SIBLING_APP_LABELS.generator,
-    Icon: ImageIcon,
-  },
-  ops: { subdomain: "op", name: SIBLING_APP_LABELS.ops, Icon: Radio },
-  facturacion: {
-    subdomain: "facturacion",
-    name: SIBLING_APP_LABELS.facturacion,
-    Icon: Receipt,
-  },
+const LANDING_APPS: Record<LauncherApp, Omit<LandingApp, "subdomain">> = {
+  portal: { name: "Producción", Icon: Clapperboard },
+  analytics: { name: SIBLING_APP_LABELS.analytics, Icon: BarChart3 },
+  incidencias: { name: SIBLING_APP_LABELS.incidencias, Icon: AlertTriangle },
+  generator: { name: SIBLING_APP_LABELS.generator, Icon: ImageIcon },
+  ops: { name: SIBLING_APP_LABELS.ops, Icon: Radio },
+  facturacion: { name: SIBLING_APP_LABELS.facturacion, Icon: Receipt },
 };
 
 // Not an Acceso app: server. has no auth yet, so only super admins see it.
@@ -57,16 +49,25 @@ export function Landing({
   userEmail,
   apps,
   superAdmin = false,
+  accessRequestsBell = null,
+  intent,
+  notice,
 }: {
   host: string;
   userEmail: string | null;
   apps: LauncherApp[];
   // Gates the users section (it lives on the apex itself) and SUPER_ADMIN_APPS.
   superAdmin?: boolean;
+  // Super admins only: every app's Solicitudes (ApexAccessRequestsBell).
+  accessRequestsBell?: React.ReactNode;
+  // The outcome of a decision taken from the bell.
+  intent?: string;
+  notice?: string;
 }) {
-  const loginUrl = `${buildSiblingAppUrl(host, "portal")}/login`;
+  // The portal owns sign-out; the apex has no /logout of its own.
+  const logoutUrl = `${buildSiblingAppUrl(host, "portal")}${LOGOUT_PATH}`;
   const landingApps = [
-    ...apps.map((app) => LANDING_APPS[app]),
+    ...apps.map((app) => ({ subdomain: APP_SUBDOMAINS[app], ...LANDING_APPS[app] })),
     ...(superAdmin ? SUPER_ADMIN_APPS : []),
   ];
 
@@ -80,14 +81,27 @@ export function Landing({
           className="h-8 w-auto max-w-[160px] object-contain object-left select-none"
         />
         <div className="flex items-center gap-4">
+          {accessRequestsBell}
           {userEmail ? (
             <span className="hidden text-sm text-[var(--muted)] sm:inline">
               {userEmail}
             </span>
           ) : null}
-          <LandingLogoutClient loginUrl={loginUrl} />
+          <a
+            href={logoutUrl}
+            className="inline-flex items-center gap-2 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] transition hover:opacity-80"
+          >
+            <LogOut className="size-4" />
+            Cerrar sesión
+          </a>
         </div>
       </header>
+
+      {notice ? (
+        <div className="mt-6">
+          <PageMessage intent={intent} message={notice} />
+        </div>
+      ) : null}
 
       <div className="mt-14">
         <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)]">

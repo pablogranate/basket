@@ -61,18 +61,20 @@ export async function sendMagicLinkEmail({
 export async function sendCollaboratorInviteEmail({
   to,
   loginUrl,
+  appName = APP_NAME,
 }: {
   to: string;
   loginUrl: string;
+  appName?: string;
 }) {
   try {
     await getTransport().sendMail({
       from: appEnv.mailFrom,
       to,
-      subject: `Tienes acceso a ${APP_NAME}`,
-      text: `Se habilitó tu acceso a ${APP_NAME}.\n\nIngresa desde:\n${loginUrl}\n\nUsa tu correo para recibir un enlace de acceso, o inicia sesión con Google si tu cuenta lo permite.`,
+      subject: `Tienes acceso a ${appName}`,
+      text: `Se habilitó tu acceso a ${appName}.\n\nIngresa desde:\n${loginUrl}\n\nUsa tu correo para recibir un enlace de acceso, o inicia sesión con Google si tu cuenta lo permite.`,
       html: `
-        <p>Se habilitó tu acceso a <strong>${APP_NAME}</strong>.</p>
+        <p>Se habilitó tu acceso a <strong>${appName}</strong>.</p>
         <p><a href="${loginUrl}">Ir a la plataforma</a></p>
         <p style="color:#666;font-size:13px">Usa tu correo para recibir un enlace de acceso, o inicia sesión con Google si tu cuenta lo permite.</p>
       `,
@@ -108,36 +110,39 @@ export async function sendMatchNotificationEmail({
 export async function sendAccessRequestEmail({
   to,
   request,
-  portalUrl,
+  reviewUrl,
 }: {
   to: string;
   request: {
+    appLabel: string;
     fullName: string;
     email: string;
     phone: string;
-    funcion: string;
+    funcion: string | null;
     ciudad: string | null;
     mensaje: string | null;
   };
-  portalUrl: string;
+  reviewUrl: string;
 }) {
   const lines = [
-    `${request.fullName} pidió acceso a ${APP_NAME}.`,
+    `${request.fullName} pidió acceso a ${request.appLabel}.`,
     "",
-    `Función: ${request.funcion}`,
+    request.funcion ? `Función: ${request.funcion}` : null,
     `Correo: ${request.email}`,
     `Teléfono: ${request.phone}`,
     request.ciudad ? `Ciudad: ${request.ciudad}` : null,
     request.mensaje ? `Mensaje: ${request.mensaje}` : null,
     "",
-    `Aprobá o rechazá la solicitud desde el portal: ${portalUrl}`,
+    `Aprobá o rechazá la solicitud desde acá: ${reviewUrl}`,
   ].filter((line) => line !== null);
 
   try {
     await getTransport().sendMail({
       from: appEnv.mailFrom,
       to,
-      subject: `Nueva solicitud de acceso: ${request.fullName} (${request.funcion})`,
+      subject: `Nueva solicitud de acceso a ${request.appLabel}: ${request.fullName}${
+        request.funcion ? ` (${request.funcion})` : ""
+      }`,
       text: lines.join("\n"),
     });
   } catch (error) {

@@ -13,10 +13,13 @@ export function AccessRequestDecisionForm({
   item,
   funcionOptions,
   canSelectAccessTier,
+  redirectTo = "/grid",
 }: {
   item: AccessRequestReviewItem;
   funcionOptions: { id: string; name: string }[];
   canSelectAccessTier: boolean;
+  // Where the decision lands: the dashboard, or the apex bell's directory.
+  redirectTo?: string;
 }) {
   const { request, target, linkedPerson, defaultRoleId } = item;
   // Pre-fill with the existing person's values where there is one; what the
@@ -36,7 +39,7 @@ export function AccessRequestDecisionForm({
     <div className="space-y-4 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] p-4">
       <dl className="space-y-1 text-sm">
         <Row label="Declaró" value={`${request.full_name} · ${request.phone}`} />
-        <Row label="Función" value={request.funcion} />
+        <Row label="Función" value={request.funcion ?? "—"} />
         {request.ciudad ? <Row label="Ciudad" value={request.ciudad} /> : null}
         {request.mensaje ? <Row label="Mensaje" value={request.mensaje} /> : null}
         <Row
@@ -53,7 +56,7 @@ export function AccessRequestDecisionForm({
 
       <form action={approveAccessRequestAction} className="space-y-3">
         <input type="hidden" name="requestId" value={request.id} />
-        <input type="hidden" name="redirectTo" value="/grid" />
+        <input type="hidden" name="redirectTo" value={redirectTo} />
         {target.kind === "link" && linkedPerson ? (
           <input type="hidden" name="personId" value={linkedPerson.id} />
         ) : null}
@@ -157,7 +160,7 @@ export function AccessRequestDecisionForm({
 
       <form action={rejectAccessRequestAction}>
         <input type="hidden" name="requestId" value={request.id} />
-        <input type="hidden" name="redirectTo" value="/grid" />
+        <input type="hidden" name="redirectTo" value={redirectTo} />
         <SubmitButton variant="ghost" pendingLabel="Rechazando...">
           Rechazar
         </SubmitButton>

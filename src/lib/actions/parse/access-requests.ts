@@ -3,7 +3,11 @@ import {
   parseFailure,
   type ParseResult,
 } from "@/lib/actions/define-action";
-import { isAccessRequestFuncion } from "@/lib/access-requests/constants";
+import { requestAsksFuncion } from "@/lib/acceso/catalog";
+import {
+  isAccessRequestFuncion,
+  type AccessRequestFuncion,
+} from "@/lib/access-requests/constants";
 import { composeAccessRequestCiudad } from "@/lib/access-requests/locations";
 import { isE164Phone } from "@/lib/access-requests/phone";
 import type { AppRole } from "@/lib/database.types";
@@ -11,12 +15,33 @@ import { normalizeAccessTier } from "@/lib/roles";
 import { maybeNull } from "@/lib/utils";
 
 export type SubmitAccessRequestInput = {
+  // As submitted; the action checks it against the auth_app catalog.
+  app: string | null;
   fullName: string;
   phone: string;
-  funcion: string;
+  // Null when the form didn't ask; whether the app needs one is the action's
+  // call, once the app is resolved (checkAccessRequestFuncion).
+  funcion: AccessRequestFuncion | null;
   ciudad: string;
   mensaje: string | null;
 };
+
+// Función is required for the portal and never stored for any other app.
+export function checkAccessRequestFuncion({
+  app,
+  funcion,
+}: {
+  app: string;
+  funcion: AccessRequestFuncion | null;
+}): { ok: true; funcion: AccessRequestFuncion | null } | { ok: false; error: string } {
+  if (!requestAsksFuncion(app)) {
+    return { ok: true, funcion: null };
+  }
+
+  return funcion
+    ? { ok: true, funcion }
+    : { ok: false, error: "Elegí una función de la lista." };
+}
 
 export function parseSubmitAccessRequest(
   formData: FormData,
@@ -33,7 +58,7 @@ export function parseSubmitAccessRequest(
     return parseFailure("Revisá el teléfono: falta el país o tiene caracteres.");
   }
 
-  if (!isAccessRequestFuncion(funcion)) {
+  if (funcion && !isAccessRequestFuncion(funcion)) {
     return parseFailure("Elegí una función de la lista.");
   }
 
@@ -48,9 +73,10 @@ export function parseSubmitAccessRequest(
   }
 
   return parsed({
+    app: maybeNull(String(formData.get("app") ?? "")),
     fullName,
     phone,
-    funcion,
+    funcion: funcion && isAccessRequestFuncion(funcion) ? funcion : null,
     ciudad,
     mensaje: maybeNull(String(formData.get("mensaje") ?? "")),
   });
@@ -62,6 +88,27 @@ export function parseRejectAccessRequest(
   formData: FormData,
 ): ParseResult<RejectAccessRequestInput> {
   return parsed({ requestId: String(formData.get("requestId") ?? "").trim() });
+}
+
+// The shared bell's decision forms (basket-tv-ui CampanaDeSolicitudes) post
+// solicitudId, app and, to approve, rol.
+export type AppAccessRequestDecisionInput = {
+  requestId: string;
+  app: string;
+  role: string;
+};
+
+export function parseAppAccessRequestDecision(
+  formData: FormData,
+): ParseResult<AppAccessRequestDecisionInput> {
+  const requestId = String(formData.get("solicitudId") ?? "").trim();
+  const app = String(formData.get("app") ?? "").trim().toLowerCase();
+
+  if (!requestId || !app) {
+    return parseFailure("Falta la solicitud a decidir.");
+  }
+
+  return parsed({ requestId, app, role: String(formData.get("rol") ?? "").trim() });
 }
 
 export type ApproveAccessRequestInput = {

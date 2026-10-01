@@ -5,7 +5,34 @@ import {
   composeAccessRequestCiudad,
   countryFlag,
   OTHER_CITY,
+  splitAccessRequestCiudad,
 } from "@/lib/access-requests/locations";
+
+// The ficha modal pre-fills the field from a stored Solicitud (basket#202).
+describe("splitAccessRequestCiudad", () => {
+  it("round-trips a listed city", () => {
+    const composed = composeAccessRequestCiudad({ pais: "AR", ciudad: "Córdoba", otraCiudad: "" });
+    expect(splitAccessRequestCiudad(composed)).toEqual({
+      pais: "AR",
+      ciudad: "Córdoba",
+      otraCiudad: "",
+    });
+  });
+
+  it("returns a city we don't list as Otra ciudad", () => {
+    expect(splitAccessRequestCiudad("Villa Gesell, Argentina")).toEqual({
+      pais: "AR",
+      ciudad: OTHER_CITY,
+      otraCiudad: "Villa Gesell",
+    });
+  });
+
+  it("gives nothing for an unknown country or an empty value", () => {
+    expect(splitAccessRequestCiudad("Lima, Perú de Ficción")).toBeNull();
+    expect(splitAccessRequestCiudad("Rosario")).toBeNull();
+    expect(splitAccessRequestCiudad(null)).toBeNull();
+  });
+});
 
 describe("countryFlag", () => {
   it("maps an ISO code to its regional-indicator emoji", () => {

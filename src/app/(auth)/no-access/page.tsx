@@ -1,20 +1,41 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { Clock3, ShieldAlert, Video } from "lucide-react";
+import { Clock3, LogOut, ShieldAlert, Video } from "lucide-react";
 
 import { AccessRequestForm } from "@/components/access-requests/access-request-form";
 import { PageMessage } from "@/components/ui/page-message";
-import { getUserContext } from "@/lib/auth";
-import { APP_NAME, getDefaultDashboardHrefForRole } from "@/lib/constants";
+import {
+  getEffectiveAccess,
+  listCatalogApps,
+  listEffectiveAccessForUser,
+} from "@/lib/acceso/accesos";
+import {
+  appSubdomain,
+  launcherApps,
+  requestAsksFuncion,
+  resolveRequestApp,
+} from "@/lib/acceso/catalog";
+import { PORTAL_APP } from "@/lib/acceso/portal";
+import { resolveNoAccessView } from "@/lib/access-requests/no-access";
 import { getOwnAccessRequest } from "@/lib/access-requests/requests";
-import { db } from "@/lib/db/client";
+import { getUserContext } from "@/lib/auth";
+import {
+  APP_NAME,
+  buildApexUrl,
+  buildAppUrlFromAnyHost,
+  getDefaultDashboardHrefForRole,
+  LOGOUT_PATH,
+} from "@/lib/constants";
+import { authDb } from "@/lib/db/auth-client";
 import { parseNotice } from "@/lib/search-params";
-
-import { LogoutButtonClient } from "./logout-button-client";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
+// The Solicitud form for every app (the portal is the only auth server, ADR
+// 0009). `?app=` comes from the sibling that sent the person here; it only
+// picks which Solicitud to show or file, never what anyone may enter.
 export default async function NoAccessPage({ searchParams }: PageProps) {
   const context = await getUserContext();
 
@@ -22,17 +43,42 @@ export default async function NoAccessPage({ searchParams }: PageProps) {
     redirect("/login");
   }
 
-  if (context.hasAccess) {
-    redirect(getDefaultDashboardHrefForRole(context.role));
+  const resolvedSearchParams = await searchParams;
+  const { intent, notice } = parseNotice(resolvedSearchParams);
+  const catalog = await listCatalogApps();
+  const app = resolveRequestApp(
+    typeof resolvedSearchParams.app === "string" ? resolvedSearchParams.app : null,
+    catalog.map((entry) => entry.key),
+  );
+  const appLabel = catalog.find((entry) => entry.key === app)?.label ?? app;
+  const isPortal = app === PORTAL_APP;
+
+  const [holdsApp, own, access] = await Promise.all([
+    isPortal
+      ? context.hasAccess
+      : getEffectiveAccess(context.userId, app).then(Boolean),
+    getOwnAccessRequest(authDb, { userId: context.userId, app }),
+    listEffectiveAccessForUser(context.userId),
+  ]);
+  const view = resolveNoAccessView({ holdsApp, pending: own.pending });
+  const host = (await headers()).get("host") ?? "";
+
+  if (view === "forward") {
+    redirect(
+      isPortal
+        ? getDefaultDashboardHrefForRole(context.role)
+        : (buildAppUrlFromAnyHost(host, appSubdomain(app)) ?? "/"),
+    );
   }
 
-  const { intent, notice } = parseNotice(await searchParams);
-  // Whether the applicant is "in review" is the lifecycle module's call, not a
-  // status comparison here: a resolved request must never read as pending,
-  // which is how a revoked user once ended up staring at a screen no approver saw.
-  const { request, pending: isPending } = await getOwnAccessRequest(db, {
-    authUserId: context.userId,
-  });
+  const request = view === "pending" ? own.request : null;
+  // Asking for one app never hides the others: the directory lists them.
+  const holdsOtherApps = launcherApps({
+    hasPortalAccess: context.hasAccess,
+    apps: access.map((row) => row.app),
+  }).some((held) => held !== app);
+  const directoryUrl = holdsOtherApps ? buildApexUrl(host) : null;
+  const deciders = isPortal ? "un productor o admin" : `un admin de ${appLabel}`;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[var(--background)] px-6 py-8">
@@ -48,7 +94,7 @@ export default async function NoAccessPage({ searchParams }: PageProps) {
 
         <div className="rounded-[22px] border border-[var(--border)] bg-[var(--surface)] p-7 text-center shadow-[0_12px_34px_rgba(28,13,16,0.05)] sm:p-8">
           <div className="mx-auto mb-5 flex size-14 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent)]">
-            {isPending && request ? (
+            {request ? (
               <Clock3 className="size-7" />
             ) : (
               <ShieldAlert className="size-7" />
@@ -56,24 +102,26 @@ export default async function NoAccessPage({ searchParams }: PageProps) {
           </div>
 
           <h1 className="text-[1.6rem] font-black leading-tight tracking-tight text-[var(--foreground)]">
-            {isPending ? "Solicitud en revisión" : "Pedí acceso a la plataforma"}
+            {request ? "Solicitud en revisión" : `Pedí acceso a ${appLabel}`}
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">
-            {isPending
-              ? "Un productor o admin tiene que aprobarla. Te avisamos por correo cuando esté lista."
-              : "Completá tus datos y un productor o admin va a revisar tu solicitud."}
+            {request
+              ? `La tiene que aprobar ${deciders}. Te avisamos por correo cuando esté lista.`
+              : `Completá tus datos y ${deciders} va a revisar tu solicitud.`}
           </p>
 
           <div className="mt-5 text-left">
             <PageMessage intent={intent} message={notice} />
           </div>
 
-          {isPending && request ? (
+          {request ? (
             <dl className="mt-5 space-y-2 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3 text-left text-sm">
               <PendingRow label="Nombre" value={request.full_name} />
               <PendingRow label="Correo" value={request.email} />
               <PendingRow label="Teléfono" value={request.phone} />
-              <PendingRow label="Función" value={request.funcion} />
+              {request.funcion ? (
+                <PendingRow label="Función" value={request.funcion} />
+              ) : null}
               {request.ciudad ? (
                 <PendingRow label="Ciudad" value={request.ciudad} />
               ) : null}
@@ -83,12 +131,30 @@ export default async function NoAccessPage({ searchParams }: PageProps) {
             </dl>
           ) : (
             <div className="mt-5">
-              <AccessRequestForm email={context.email ?? ""} />
+              <AccessRequestForm
+                email={context.email ?? ""}
+                app={app}
+                asksFuncion={requestAsksFuncion(app)}
+              />
             </div>
           )}
 
-          <div className="mt-6">
-            <LogoutButtonClient />
+          <div className="mt-6 flex flex-col items-center gap-3">
+            {directoryUrl ? (
+              <a
+                href={directoryUrl}
+                className="text-sm font-semibold text-[var(--accent)] hover:underline"
+              >
+                Ir a mis aplicaciones
+              </a>
+            ) : null}
+            <a
+              href={LOGOUT_PATH}
+              className="inline-flex h-[52px] w-full items-center justify-center gap-2 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--foreground)] text-[15px] font-bold text-white transition hover:opacity-90"
+            >
+              <LogOut className="size-5" />
+              Cerrar sesión
+            </a>
           </div>
         </div>
       </div>

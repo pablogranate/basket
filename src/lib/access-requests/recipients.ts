@@ -1,4 +1,5 @@
 import type { AccessRequestFuncion } from "@/lib/access-requests/constants";
+import { requestAsksFuncion } from "@/lib/acceso/catalog";
 
 export type AccessRequestRecipientConfig = {
   byFuncion: Partial<Record<string, string[]>>;
@@ -39,19 +40,11 @@ export function parseRecipientList(raw: string): string[] {
   return Array.from(seen);
 }
 
-// Función list first, then the always-notify list, deduped case-insensitively.
-// Malformed entries are dropped rather than handed to the transport.
-export function resolveAccessRequestRecipients({
-  funcion,
-  config,
-}: {
-  funcion: AccessRequestFuncion | string;
-  config: AccessRequestRecipientConfig;
-}): string[] {
+function cleanRecipients(addresses: ReadonlyArray<string>): string[] {
   const seen = new Set<string>();
   const recipients: string[] = [];
 
-  for (const raw of [...(config.byFuncion[funcion] ?? []), ...config.always]) {
+  for (const raw of addresses) {
     const address = raw.trim().toLowerCase();
 
     if (!address || seen.has(address) || !isValidRecipientAddress(address)) {
@@ -63,4 +56,40 @@ export function resolveAccessRequestRecipients({
   }
 
   return recipients;
+}
+
+// Función list first, then the always-notify list, deduped case-insensitively.
+// Malformed entries are dropped rather than handed to the transport.
+export function resolveAccessRequestRecipients({
+  funcion,
+  config,
+}: {
+  funcion: AccessRequestFuncion | string;
+  config: AccessRequestRecipientConfig;
+}): string[] {
+  return cleanRecipients([...(config.byFuncion[funcion] ?? []), ...config.always]);
+}
+
+// Who hears about a new Solicitud for one app. The portal keeps its
+// per-Función routing (app_settings); every other app has one flat list
+// (auth_app_request_recipients).
+export function resolveRequestRecipients({
+  app,
+  funcion,
+  portalConfig,
+  appRecipients,
+}: {
+  app: string;
+  funcion: string | null;
+  portalConfig: AccessRequestRecipientConfig;
+  appRecipients: ReadonlyArray<string>;
+}): string[] {
+  if (requestAsksFuncion(app)) {
+    return resolveAccessRequestRecipients({
+      funcion: funcion ?? "",
+      config: portalConfig,
+    });
+  }
+
+  return cleanRecipients(appRecipients);
 }

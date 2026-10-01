@@ -2,20 +2,23 @@
 
 import { eq } from "drizzle-orm";
 
-import { defineAction } from "@/lib/actions/define-action";
 import {
+  checkAccessRequestFuncion,
   parseApproveAccessRequest,
   parseLinkProfileToPerson,
   parseRejectAccessRequest,
   parseSubmitAccessRequest,
 } from "@/lib/actions/parse/access-requests";
-import { grantPortalRole } from "@/lib/acceso/portal";
+import { defineAction } from "@/lib/actions/define-action";
+import { listCatalogApps } from "@/lib/acceso/accesos";
+import { resolveRequestApp } from "@/lib/acceso/catalog";
+import { buildNoAccessPath } from "@/lib/access-requests/no-access";
 import { notifyAccessRequest } from "@/lib/access-requests/notify";
 import {
-  attachAccessRequestIdentity,
-  claimAccessRequest,
-  submitAccessRequest,
-} from "@/lib/access-requests/requests";
+  approvePortalAccessRequest,
+  rejectPortalAccessRequest,
+} from "@/lib/access-requests/portal-approval";
+import { submitAccessRequest } from "@/lib/access-requests/requests";
 import { clearProfileCache, requireUserContext } from "@/lib/auth";
 import {
   requireAccessRequestApprover,
@@ -24,13 +27,15 @@ import {
 import type { AppRole } from "@/lib/database.types";
 import { canGrantRole } from "@/lib/roles";
 import { writeAudit } from "@/lib/audit";
+import { authDb } from "@/lib/db/auth-client";
 import { db } from "@/lib/db/client";
 import { roles as rolesTable } from "@/lib/db/schema";
 import { sendCollaboratorInviteEmail } from "@/lib/email/mailer";
 import { appEnv } from "@/lib/env";
-import { linkProfileToPerson, settleApplicant } from "@/lib/people/identity";
+import { linkProfileToPerson } from "@/lib/people/identity";
 
 const REQUEST_REVALIDATE_PATHS = [
+  "/",
   "/no-access",
   "/notifications/solicitudes",
   "/people",
@@ -46,21 +51,43 @@ const submit = defineAction({
       throw new Error("Necesitás iniciar sesión para pedir acceso.");
     }
 
-    const { email } = await submitAccessRequest(db, {
-      authUserId: ctx.userId,
+    const apps = await listCatalogApps();
+    const app = resolveRequestApp(
+      input.app,
+      apps.map((entry) => entry.key),
+    );
+    const appLabel = apps.find((entry) => entry.key === app)?.label ?? app;
+    const funcion = checkAccessRequestFuncion({ app, funcion: input.funcion });
+    const redirectTo = buildNoAccessPath(app);
+
+    if (!funcion.ok) {
+      return { error: funcion.error, redirectTo };
+    }
+
+    const request = {
+      fullName: input.fullName,
+      phone: input.phone,
+      funcion: funcion.funcion,
+      ciudad: input.ciudad,
+      mensaje: input.mensaje,
+    };
+    const { email } = await submitAccessRequest(authDb, {
+      ...request,
+      userId: ctx.userId,
+      app,
       email: ctx.email,
-      ...input,
     });
 
     // The request is persisted; the notification is best-effort on purpose.
     try {
-      await notifyAccessRequest({ ...input, email });
+      await notifyAccessRequest({ ...request, app, appLabel, email });
     } catch (error) {
       console.error("[access-requests] notification failed", error);
     }
 
     return {
       notice: "Solicitud enviada. Te avisamos por correo cuando se apruebe.",
+      redirectTo,
     };
   },
 });
@@ -69,6 +96,8 @@ export async function submitAccessRequestAction(formData: FormData) {
   await submit(formData);
 }
 
+// The portal bell decides portal Solicitudes only: the claim is scoped to the
+// portal, so a request for another app can't be settled from here.
 const reject = defineAction({
   fallbackRedirect: "/grid",
   authz: requireAccessRequestApprover,
@@ -78,11 +107,7 @@ const reject = defineAction({
   parse: parseRejectAccessRequest,
   revalidate: REQUEST_REVALIDATE_PATHS,
   async run(ctx, { requestId }) {
-    await claimAccessRequest(db, {
-      id: requestId,
-      outcome: "rechazada",
-      actorProfileId: ctx.profileId,
-    });
+    await rejectPortalAccessRequest({ requestId, deciderId: ctx.userId });
 
     await writeAudit(ctx, {
       table: "access_requests",
@@ -128,42 +153,16 @@ const approve = defineAction({
       }
     }
 
-    // Claim first, inside the transaction: everything below runs only for the
-    // approver that won it.
-    const result = await db.transaction(async (tx) => {
-      const claimed = await claimAccessRequest(tx, {
-        id: requestId,
-        outcome: "aprobada",
-        actorProfileId: ctx.profileId,
-      });
-
-      const settled = await settleApplicant(tx, {
-        email: claimed.email,
-        fullName,
-        phone,
-        roleId,
-        authUserId: claimed.authUserId,
-        personId,
-        mergePersonId,
-        actor: ctx,
-      });
-
-      await attachAccessRequestIdentity(tx, {
-        id: requestId,
-        profileId: settled.profileId,
-        personId: settled.personId,
-      });
-
-      // The portal Acceso, written inside the transaction so a failing Auth DB
-      // rolls the approval back. The identity is the Cuenta's link: an
-      // existing one, else the applicant's session, linked just now.
-      await grantPortalRole({
-        userId: settled.authUserId,
-        role: accessRole,
-        grantedBy: ctx.userId,
-      });
-
-      return { ...settled, email: claimed.email };
+    const result = await approvePortalAccessRequest({
+      requestId,
+      deciderId: ctx.userId,
+      actor: ctx,
+      fullName,
+      phone,
+      roleId,
+      personId,
+      mergePersonId,
+      accessRole,
     });
 
     clearProfileCache();

@@ -53,7 +53,7 @@ _Avoid_: image generator app (when the sibling is meant)
 ### Access requests
 
 **Solicitud de acceso**:
-A self-signup request to enter the portal. Lifecycle: `pendiente` → `aprobada` | `rechazada`. One pending request per email and per account, enforced by the database; the first decision wins when two approvers act at once; a resolved request never blocks a new one (revoked access re-enters through the same door).
+A self-signup request to enter one app (the portal or a sibling), stored in the Auth DB (ADR 0011) and filed through the portal's `/no-access?app=<key>` form. Lifecycle: `pendiente` → `aprobada` | `rechazada`. One pending request per app, per email and per identity, enforced by the database; pending requests to two different apps never block each other; the first decision wins when two deciders act at once; a resolved request never blocks a new one (revoked access re-enters through the same door). Only a portal Solicitud asks for a Función and, once approved, creates a Cuenta and a ficha.
 _Avoid_: pedido de acceso, signup, registro
 
 **Ficha**:

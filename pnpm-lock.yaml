@@ -12,8 +12,8 @@ importers:
   .:
     dependencies:
       basket-tv-ui:
-        specifier: github:WencesCapolo/basket-tv-ui#v0.1.0
-        version: https://codeload.github.com/WencesCapolo/basket-tv-ui/tar.gz/adcd795b2c2258d910eae34921304a479fd66b23(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        specifier: github:WencesCapolo/basket-tv-ui#v0.2.0
+        version: https://codeload.github.com/WencesCapolo/basket-tv-ui/tar.gz/1072fe8d97ffe668b99f193b41126a3feb54ae7e(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       better-auth:
         specifier: 1.6.33
         version: 1.6.33(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(kysely@0.28.17)(postgres@3.4.9))(next@16.1.6(@babel/core@7.29.7)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vitest@4.1.8(@types/node@20.19.41)(vite@8.0.16(@types/node@20.19.41)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.23.13)))
@@ -1585,9 +1585,9 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
-  basket-tv-ui@https://codeload.github.com/WencesCapolo/basket-tv-ui/tar.gz/adcd795b2c2258d910eae34921304a479fd66b23:
-    resolution: {tarball: https://codeload.github.com/WencesCapolo/basket-tv-ui/tar.gz/adcd795b2c2258d910eae34921304a479fd66b23}
-    version: 0.1.0
+  basket-tv-ui@https://codeload.github.com/WencesCapolo/basket-tv-ui/tar.gz/1072fe8d97ffe668b99f193b41126a3feb54ae7e:
+    resolution: {tarball: https://codeload.github.com/WencesCapolo/basket-tv-ui/tar.gz/1072fe8d97ffe668b99f193b41126a3feb54ae7e}
+    version: 0.2.0
     peerDependencies:
       react: '>=19'
       react-dom: '>=19'
@@ -4397,7 +4397,7 @@ snapshots:
 
   baseline-browser-mapping@2.10.33: {}
 
-  basket-tv-ui@https://codeload.github.com/WencesCapolo/basket-tv-ui/tar.gz/adcd795b2c2258d910eae34921304a479fd66b23(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
+  basket-tv-ui@https://codeload.github.com/WencesCapolo/basket-tv-ui/tar.gz/1072fe8d97ffe668b99f193b41126a3feb54ae7e(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
     dependencies:
       react: 19.2.3
       react-dom: 19.2.3(react@19.2.3)
