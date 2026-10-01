@@ -188,39 +188,45 @@ Seeded rows have `granted_by = null`.
 `0006_access_requests` adds `auth_access_request` (one Solicitud per identity
 and app, pending uniqueness by partial indexes) and
 `auth_app_request_recipients` (who gets the email for each app but the
-portal). Additive: the old build keeps using the Domain DB `access_requests`.
+portal).
 
-Deploy order:
+Done on prod 2026-10-01: 0006 applied, then a one-off script (removed in
+#204, see `git log`) copied the 12 Domain DB `access_requests` rows as portal
+Solicitudes with the same ids, before and after the deploy. Counts matched:
+aprobada 7, pendiente 4, rechazada 1.
 
-1. Auth DB: `pnpm db:auth:migrate` (0006).
-2. Copy from the #198 checkout, before deploying it:
+In `/usuarios` → "Avisos de solicitudes", set each app's recipients. An app
+without any sends no email (the portal keeps its routing in Configuración).
 
-   ```bash
-   pnpm db:auth:copy-access-requests -- --dry-run
-   pnpm db:auth:copy-access-requests
-   ```
+### Contract: drop the Domain DB `access_requests` (#204)
 
-   Every Domain row becomes a portal Solicitud with the same id. The report
-   lists rows skipped because their applicant identity is gone, deciders whose
-   Cuenta had no identity (copied with `decided_by` null), and pending rows the
-   Auth DB already had.
-3. Deploy the portal. From here it reads and writes only the Auth DB.
-4. Run the copy again. It copies what the old build filed between steps 2 and
-   3 and carries over any decision it made on a row that was copied while
-   pending. Idempotent.
-5. Check the counts match, expecting equal numbers (Domain DB, then Auth DB):
+`supabase/migrations/0044_drop_access_requests.sql`. Non-reversible. The
+portal stopped reading the table with #198, so the order is free. First check
+that every Domain row has its copy, by id (Auth DB counts drift as
+Solicitudes are filed and decided, so they no longer have to match):
 
-   ```sql
-   SELECT status, count(*) FROM access_requests GROUP BY 1;
-   SELECT status, count(*) FROM auth_access_request WHERE app = 'portal' GROUP BY 1;
-   ```
+```bash
+cd /opt/basket-app && node --env-file=.env.local -e '
+const postgres = require("postgres");
+const domain = postgres(process.env.DATABASE_URL);
+const authDb = postgres(process.env.AUTH_DATABASE_URL);
+(async () => {
+  const ids = (await domain`SELECT id FROM access_requests`).map((r) => r.id);
+  const copied = await authDb`SELECT id FROM auth_access_request WHERE id = ANY(${ids}::uuid[])`;
+  console.log({ domain: ids.length, copied: copied.length });
+  await domain.end(); await authDb.end();
+})();'
+```
 
-   Any difference must be explained by the report's skipped rows.
-6. In `/usuarios` → "Avisos de solicitudes", set each app's recipients. An
-   app without any sends no email (the portal keeps its routing in
-   Configuración).
+`domain` and `copied` must be equal (12 on 2026-10-01). Then:
 
-The Domain DB `access_requests` stays until the contract step (#204).
+```bash
+docker exec -i basket-portal-db psql -U basket_portal -d basket_portal \
+  -v ON_ERROR_STOP=1 < /opt/basket-app/supabase/migrations/0044_drop_access_requests.sql
+```
+
+`audit_log` rows keep `table = 'access_requests'`: that labels history, it
+doesn't point at the table.
 
 ## Integration tests
 
@@ -294,25 +300,20 @@ Deploy the portal first. Then, in the generator vhost under
 `/etc/nginx/sites-enabled/`, inside the `server` block that has
 `auth_request /__gate`:
 
-```nginx
-location / {
-    auth_request     /__gate;
-    auth_request_set $gate_redirect $upstream_http_x_gate_redirect;
-    # ...the existing root/try_files lines stay
-}
+The vhost already sends every `403` to a named location, and every denial
+there is for the generator, so the change is that location's target
+(applied on prod 2026-10-01):
 
-location @gate_forbidden {
-    if ($gate_redirect = "") {
-        return 302 https://portal.basket-app.com/no-access?app=generator;
-    }
-    return 302 $gate_redirect;
+```nginx
+location @gate_denied {
+    return 302 https://portal.basket-app.com/no-access?app=generator;
 }
 ```
 
-Point the existing `error_page 403` at the new location
-(`error_page 403 = @gate_forbidden;`) and leave `error_page 401` (portal
-login) as it is. The `if` covers an old portal build that sends no header.
-Apply with `nginx -t && systemctl reload nginx`.
+`error_page 401 = @gate_login` (portal login) stays. The gate location also
+sets `proxy_set_header X-Forwarded-Host portal.basket-app.com;` next to its
+`Host`, like `portal.conf` and the apex vhost set `X-Forwarded-Host $host`
+(see #216). Apply with `nginx -t && systemctl reload nginx`.
 
-The `auth_request` cache (key: cookie, TTL 60s) keeps the `403` with its
-headers, so a grant takes up to a minute to show.
+The `auth_request` cache (key: cookie) stores only `204`, so a denial is
+never cached and a grant shows on the next request.

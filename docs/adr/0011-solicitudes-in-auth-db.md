@@ -20,4 +20,4 @@ A Solicitud de acceso used to live in the portal's Domain DB (`access_requests`)
 - A sibling approval is one Auth DB transaction: the claim and `grantRole(user, app, role)`. No Cuenta, no ficha.
 - First decision wins across every place that can decide (the apex directory, the portal, the app itself), because each one claims the same row with the same compare-and-set on `status`.
 - The `app` in `/no-access?app=` is user input. It is checked against `auth_app` and falls back to `portal`, and it only picks which Solicitud to show or file: every Solicitud still needs an approval.
-- The Domain DB `access_requests` is copied once (`pnpm db:auth:copy-access-requests`, rows become `app = 'portal'`, ids kept) and dropped in a later contract step (#204).
+- The Domain DB `access_requests` was copied once (rows became `app = 'portal'`, ids kept; prod on 2026-10-01: 12 rows, aprobada 7, pendiente 4, rechazada 1 in both tables) and dropped by `0044_drop_access_requests.sql` (#204). The copy script went with it; `git log` keeps it.

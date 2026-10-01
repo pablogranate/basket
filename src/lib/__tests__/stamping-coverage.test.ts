@@ -47,17 +47,12 @@ const DOMAIN_TABLES = [
 //   created_by/updated_by columns — stampInsert/stampUpdate would be rejected by
 //   the generated types — and are reference data mutated only through the
 //   requireEditor-gated upsertTeamAction.
-// - "access_requests": the signup request itself. It carries no
-//   created_by/updated_by columns by design — the applicant is not an actor, and
-//   the approver is recorded in decided_by — so stampInsert/stampUpdate do not
-//   apply. Every decision still writes a writeAudit row (access-requests.ts).
 // - "notification_logs": the notification sink, appended by the scheduler. The
 //   only action-side write is the merge repointing person_id onto the surviving
 //   person inside the audited approval (access-requests.ts); the table has no
 //   actor columns.
 const ALLOWLISTED_TABLES = [
   "profiles",
-  "access_requests",
   "notification_logs",
   "audit_log",
   "person_functions",
