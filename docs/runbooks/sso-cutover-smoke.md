@@ -156,6 +156,26 @@ Run these checks in every app:
 | Ops hub | `ops` | `op.…/clubs` | None: the notice says "Operaciones no envía correos…" | A non-admin POST to approve or reject redirects with "No tenés permisos para decidir Solicitudes." and the row stays pending |
 | Generator | `generator` | Any path, with a session and no `generator` role | — | Needs the nginx change in `unified-auth-acceso.md`. `curl -sI -b '<cookie>' portal/api/gates/generator` gives `403` with `X-Gate-Redirect: …/no-access?app=generator`; the browser lands on the form. Its Solicitudes are decided on the apex |
 
+## Smoke, portal shells: back link and ficha completion (#202)
+
+Before deploying, count the portal Cuentas without a ficha: all of them are
+candidates for the modal (portal Admins and super admins are then left out).
+
+```sql
+-- Domain DB
+SELECT count(*) FROM profiles p
+WHERE NOT EXISTS (SELECT 1 FROM people pe WHERE pe.profile_id = p.id);
+```
+
+| Identity | Expected |
+|----------|----------|
+| Two apps or more (portal + facturación) | "Volver" in the header of both shells (dashboard and collaborator), and "Elegir aplicación" in the sidebar |
+| Portal only | No "Volver", no "Elegir aplicación" |
+| Externo or Productor whose Cuenta has no ficha | The "Completá tus datos de producción" modal on every portal page, pre-filled from their latest Solicitud in any app. "Más tarde" hides it until the browser session ends |
+| Same, submitting | With an unlinked ficha under the same email: that ficha is linked and keeps its name. Otherwise a new ficha appears in Personal with the Función's role and `Ciudad:` in the notes. The modal stops showing |
+| Same, name matching an unlinked ficha under another email | No modal; the Cuenta shows under "Cuentas por vincular" in Registros → Solicitudes |
+| Portal Admin or super admin without a ficha | No modal |
+
 ## After the soak
 
 Delete the Supabase Auth users of the incidencias and ops projects (Postgres

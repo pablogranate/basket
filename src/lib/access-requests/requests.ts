@@ -263,6 +263,22 @@ export async function getOwnAccessRequest(
   return { request, pending: isPendingAccessRequest(request) };
 }
 
+// The applicant's newest Solicitud in any app: someone granted the portal
+// after joining through another app pre-fills their ficha from it.
+export async function getLatestOwnAccessRequest(
+  exec: AuthDbExecutor,
+  input: { userId: string },
+): Promise<OwnAccessRequest | null> {
+  const rows = await exec
+    .select(requestColumns)
+    .from(authAccessRequest)
+    .where(eq(authAccessRequest.userId, input.userId))
+    .orderBy(desc(authAccessRequest.createdAt))
+    .limit(1);
+
+  return rows[0] ? toSummary(rows[0]) : null;
+}
+
 export async function listPendingAccessRequests(
   exec: AuthDbExecutor,
   input: { app: string },

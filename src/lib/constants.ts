@@ -287,6 +287,11 @@ export function resolveApexDestination<App extends string>({
 // a 404 so the route is invisible off basket-app.com.
 export const USUARIOS_PATH = "/usuarios";
 
+// The one sign-out path (#203). A full navigation, never a server action: an
+// action's redirect renders with the request's old cookies, which the
+// cookieCache still accepts.
+export const LOGOUT_PATH = "/logout";
+
 export function isUsuariosPath(pathname: string) {
   return pathname === USUARIOS_PATH || pathname.startsWith(`${USUARIOS_PATH}/`);
 }

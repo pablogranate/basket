@@ -1,12 +1,11 @@
 import { LogOut } from "lucide-react";
 
-import { signOutAction } from "@/app/actions/auth";
 import { AccessRequestsBellClient } from "@/components/access-requests/access-requests-bell-client";
 import type { AccessRequestReviewItem } from "@/lib/access-requests/review-item";
 import { DashboardFooterMeta } from "@/components/layout/dashboard-footer-meta";
 import { MarcoDelPortal } from "@/components/layout/marco-del-portal";
 import { UserProfileChip } from "@/components/layout/user-profile-chip";
-import { SubmitButton } from "@/components/ui/submit-button";
+import { LOGOUT_PATH } from "@/lib/constants";
 import { can } from "@/lib/roles";
 import type { AnnouncementSummary } from "@/lib/data/announcements";
 import { getAppRoleDisplayName } from "@/lib/display";
@@ -61,15 +60,14 @@ export function DashboardShell(props: {
             className="hidden sm:flex"
           />
           {user?.userId ? (
-            <form action={signOutAction} className="hidden sm:block">
-              <SubmitButton
-                variant="ghost"
-                pendingLabel="Saliendo..."
-                className="size-11 rounded-2xl px-0"
-              >
-                <LogOut className="size-4" />
-              </SubmitButton>
-            </form>
+            <a
+              href={LOGOUT_PATH}
+              aria-label="Cerrar sesión"
+              title="Cerrar sesión"
+              className="hidden size-11 items-center justify-center rounded-2xl border border-transparent text-[var(--muted)] transition hover:bg-[var(--background-soft)] hover:text-[var(--foreground)] sm:inline-flex"
+            >
+              <LogOut className="size-4" />
+            </a>
           ) : null}
         </>
       }

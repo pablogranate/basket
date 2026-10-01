@@ -1,11 +1,10 @@
-import { LogOut } from "lucide-react";
+import { ArrowLeft, LogOut } from "lucide-react";
 
-import { signOutAction } from "@/app/actions/auth";
 import { DashboardAnnouncementBell } from "@/components/layout/dashboard-announcement-bell";
 import { CollaboratorNav } from "@/components/layout/collaborator-nav";
 import { DashboardFooterMeta } from "@/components/layout/dashboard-footer-meta";
 import { UserProfileChip } from "@/components/layout/user-profile-chip";
-import { SubmitButton } from "@/components/ui/submit-button";
+import { LOGOUT_PATH } from "@/lib/constants";
 import { getAppRoleDisplayName } from "@/lib/display";
 import type { AnnouncementSummary } from "@/lib/data/announcements";
 import type { UserContext } from "@/lib/auth";
@@ -14,10 +13,13 @@ export function CollaboratorShell({
   children,
   user,
   announcement,
+  landingUrl = null,
 }: {
   children: React.ReactNode;
   user: UserContext | null;
   announcement: AnnouncementSummary | null;
+  // The apex directory; null below two apps (basket#202).
+  landingUrl?: string | null;
 }) {
   const displayName =
     user?.profile?.full_name?.trim() ||
@@ -31,6 +33,16 @@ export function CollaboratorShell({
         <div className="flex h-20 items-center gap-4 px-4 sm:px-6 lg:px-8">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-3">
+              {landingUrl ? (
+                <a
+                  href={landingUrl}
+                  aria-label="Volver"
+                  title="Volver"
+                  className="inline-flex items-center justify-center rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-[var(--foreground)] transition hover:bg-[var(--background-soft)]"
+                >
+                  <ArrowLeft className="size-5" aria-hidden />
+                </a>
+              ) : null}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/basket-tv-horizontal-rojo.png"
@@ -43,16 +55,13 @@ export function CollaboratorShell({
           <div className="hidden items-center gap-3 lg:flex">
             <CollaboratorNav />
             {user?.userId ? (
-              <form action={signOutAction}>
-                <SubmitButton
-                  variant="ghost"
-                  pendingLabel="Saliendo..."
-                  className="inline-flex h-11 items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-bold text-[var(--muted)] hover:bg-[var(--background-soft)] hover:text-[var(--foreground)]"
-                >
-                  <LogOut className="size-4" />
-                  Cerrar sesión
-                </SubmitButton>
-              </form>
+              <a
+                href={LOGOUT_PATH}
+                className="inline-flex h-11 items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-bold text-[var(--muted)] transition hover:bg-[var(--background-soft)] hover:text-[var(--foreground)]"
+              >
+                <LogOut className="size-4" />
+                Cerrar sesión
+              </a>
             ) : null}
           </div>
 
