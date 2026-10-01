@@ -15,6 +15,8 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
+            # A failed step must not reach pm2 restart: a broken .next serves 502s.
+            set -e
             cd /opt/basket-app
             git pull
             npm install --no-save --no-package-lock
