@@ -194,38 +194,6 @@ export async function recordAccessRequestDecision(
   });
 }
 
-// The Domain DB copy (copy-domain.ts) carries over a decision the old portal
-// build made after a row was copied. Still a compare-and-set: a decision made
-// since in the Auth DB wins.
-export async function carryOverAccessRequestDecision(
-  exec: AuthDbExecutor,
-  input: {
-    id: string;
-    outcome: string;
-    decidedAt: Date | null;
-    deciderId: string | null;
-    personId: string | null;
-  },
-): Promise<boolean> {
-  const updated = await exec
-    .update(authAccessRequest)
-    .set({
-      status: input.outcome,
-      decidedAt: input.decidedAt,
-      decidedBy: input.deciderId,
-      personId: input.personId,
-    })
-    .where(
-      and(
-        eq(authAccessRequest.id, input.id),
-        eq(authAccessRequest.status, PENDING),
-      ),
-    )
-    .returning({ id: authAccessRequest.id });
-
-  return updated.length > 0;
-}
-
 // Records which ficha an approved portal request ended up as.
 export async function attachAccessRequestPerson(
   exec: AuthDbExecutor,

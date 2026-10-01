@@ -19,7 +19,6 @@
     "db:auth:bootstrap-superadmin": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/auth/bootstrap-superadmin.mts",
     "db:auth:seed-generator": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/auth/seed-generator-acceso.mts",
     "db:auth:seed-portal": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/auth/seed-portal-accesos.mts",
-    "db:auth:copy-access-requests": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/auth/copy-access-requests.mts",
     "db:auth:seed-siblings": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/auth/seed-sibling-accesos.mts",
     "db:portal:generate": "drizzle-kit generate --config drizzle.portal.config.ts",
     "db:portal:migrate": "drizzle-kit migrate --config drizzle.portal.config.ts",
