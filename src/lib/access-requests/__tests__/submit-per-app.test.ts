@@ -38,8 +38,8 @@ describe("resolveNoAccessView", () => {
     expect(resolveNoAccessView({ holdsApp: false, pending: false })).toBe("form");
   });
 
-  it("keeps the app in the path, except for the portal", () => {
-    expect(buildNoAccessPath("portal")).toBe("/no-access");
+  it("keeps the app in the path", () => {
+    expect(buildNoAccessPath("portal")).toBe("/no-access?app=portal");
     expect(buildNoAccessPath("facturacion")).toBe("/no-access?app=facturacion");
   });
 });

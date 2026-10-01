@@ -4,7 +4,6 @@ import {
   resolvePostLoginDestination,
   sanitizeRedirectTo,
 } from "@/lib/constants";
-import type { AppRole } from "@/lib/database.types";
 
 describe("sanitizeRedirectTo", () => {
   it("keeps a relative in-app path but rejects an external absolute URL", () => {
@@ -51,27 +50,27 @@ describe("sanitizeRedirectTo", () => {
 const APEX_LANDING = "https://basket-app.com/";
 
 describe("resolvePostLoginDestination", () => {
-  it.each<AppRole>(["admin", "editor", "collaborator"])(
-    "returns %s to the apex launcher they came from",
-    (role) => {
-      expect(
-        resolvePostLoginDestination({ role, redirectTo: APEX_LANDING }),
-      ).toBe(APEX_LANDING);
-    },
-  );
-
-  it("honors a safe non-apex deep link for any role", () => {
+  it("honors a safe explicit target over the apex", () => {
     expect(
-      resolvePostLoginDestination({ role: "collaborator", redirectTo: "/mi-jornada/m1/reportar" }),
+      resolvePostLoginDestination({ redirectTo: "/mi-jornada/m1/reportar", apexUrl: APEX_LANDING }),
     ).toBe("/mi-jornada/m1/reportar");
+    expect(
+      resolvePostLoginDestination({
+        redirectTo: "https://facturacion.basket-app.com/admin",
+        apexUrl: APEX_LANDING,
+      }),
+    ).toBe("https://facturacion.basket-app.com/admin");
   });
 
-  it("falls back to the role default when there is no safe redirect", () => {
+  // basket#199: the directory, never a role dashboard.
+  it("defaults to the apex directory when there is no safe target", () => {
+    expect(resolvePostLoginDestination({ redirectTo: null, apexUrl: APEX_LANDING })).toBe(APEX_LANDING);
     expect(
-      resolvePostLoginDestination({ role: "admin", redirectTo: "https://evil.com" }),
-    ).toBe("/grid");
-    expect(
-      resolvePostLoginDestination({ role: "collaborator", redirectTo: null }),
-    ).toBe("/mi-jornada");
+      resolvePostLoginDestination({ redirectTo: "https://evil.com", apexUrl: APEX_LANDING }),
+    ).toBe(APEX_LANDING);
+  });
+
+  it("falls back to portal / off the basket-app hosts, where there is no apex", () => {
+    expect(resolvePostLoginDestination({ redirectTo: null, apexUrl: null })).toBe("/");
   });
 });

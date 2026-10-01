@@ -200,14 +200,17 @@ export function isApexHost(host: string) {
   return APEX_HOSTS.has(hostname);
 }
 
+// An explicit target (the page the login interrupted) wins; otherwise the apex
+// directory, which forwards to the person's only app. Off basket-app hosts
+// there is no apex: portal `/` forwards by role.
 export function resolvePostLoginDestination({
-  role,
   redirectTo,
+  apexUrl,
 }: {
-  role?: AppRole | null;
   redirectTo?: string | null;
+  apexUrl: string | null;
 }): string {
-  return sanitizeRedirectTo(redirectTo) ?? getDefaultDashboardHrefForRole(role);
+  return sanitizeRedirectTo(redirectTo) ?? apexUrl ?? "/";
 }
 
 export function buildSiblingAppUrl(host: string, subdomain: string) {
@@ -250,21 +253,34 @@ export function buildAppUrlFromAnyHost(host: string, subdomain: string): string 
   return url.origin;
 }
 
-export type ApexDestination =
+export type ApexDestination<App extends string = string> =
+  | { kind: "redirect"; path: string }
   | { kind: "render-landing" }
-  | { kind: "redirect"; path: string };
+  | { kind: "open-app"; app: App }
+  | { kind: "request-access" };
 
-// Any session gets the launcher; what it lists is per person (launcherApps).
-export function resolveApexDestination({
+// `apps` is what the directory would list (launcherApps). A directory with one
+// app is a detour and an empty one a dead end, so both skip it; super admins
+// always get it, it holds their users section.
+export function resolveApexDestination<App extends string>({
   hasSession,
+  superAdmin = false,
+  apps = [],
 }: {
   hasSession: boolean;
-}): ApexDestination {
+  superAdmin?: boolean;
+  apps?: ReadonlyArray<App>;
+}): ApexDestination<App> {
   if (!hasSession) {
     return { kind: "redirect", path: "/login" };
   }
 
-  return { kind: "render-landing" };
+  if (superAdmin || apps.length >= 2) {
+    return { kind: "render-landing" };
+  }
+
+  const [only] = apps;
+  return only ? { kind: "open-app", app: only } : { kind: "request-access" };
 }
 
 // The users section (ADR 0010) exists on the apex only; everywhere else it is

@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 
 import { getEffectiveAccess } from "@/lib/acceso/accesos";
 import type { SiblingApp } from "@/lib/acceso/catalog";
+import { buildNoAccessPath } from "@/lib/access-requests/no-access";
 import { withAuth } from "@/lib/api/with-auth";
+import { appEnv } from "@/lib/env";
 
 // App gate consumed by infrastructure (nginx auth_request) — see ADR 0006 for
 // the nginx shape and ADRs 0009/0010 for the decision: the gate answers from the
@@ -10,6 +12,12 @@ import { withAuth } from "@/lib/api/with-auth";
 // incidencias, ops) gate themselves in-process, so only the static generator
 // is served here. Must never live under /api/auth/*: the Better Auth catch-all
 // owns that prefix.
+//
+// A 403 names where nginx sends the browser (`X-Gate-Redirect`, read with
+// `auth_request_set`): the Solicitud form for this app, so the request is
+// tagged with it.
+const GATE_REDIRECT_HEADER = "X-Gate-Redirect";
+
 const NGINX_GATED_APPS: ReadonlyArray<SiblingApp> = ["generator"];
 
 function parseGatedApp(app: string): SiblingApp | null {
@@ -42,7 +50,12 @@ export async function GET(
       });
       return NextResponse.json(
         { error: "No tenés acceso a esta app." },
-        { status: 403 },
+        {
+          status: 403,
+          headers: {
+            [GATE_REDIRECT_HEADER]: `${appEnv.appUrl}${buildNoAccessPath(app)}`,
+          },
+        },
       );
     }
 

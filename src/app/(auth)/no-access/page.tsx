@@ -4,9 +4,14 @@ import { Clock3, LogOut, ShieldAlert, Video } from "lucide-react";
 
 import { AccessRequestForm } from "@/components/access-requests/access-request-form";
 import { PageMessage } from "@/components/ui/page-message";
-import { getEffectiveAccess, listCatalogApps } from "@/lib/acceso/accesos";
+import {
+  getEffectiveAccess,
+  listCatalogApps,
+  listEffectiveAccessForUser,
+} from "@/lib/acceso/accesos";
 import {
   appSubdomain,
+  launcherApps,
   requestAsksFuncion,
   resolveRequestApp,
 } from "@/lib/acceso/catalog";
@@ -16,6 +21,7 @@ import { getOwnAccessRequest } from "@/lib/access-requests/requests";
 import { getUserContext } from "@/lib/auth";
 import {
   APP_NAME,
+  buildApexUrl,
   buildAppUrlFromAnyHost,
   getDefaultDashboardHrefForRole,
   LOGOUT_PATH,
@@ -47,16 +53,17 @@ export default async function NoAccessPage({ searchParams }: PageProps) {
   const appLabel = catalog.find((entry) => entry.key === app)?.label ?? app;
   const isPortal = app === PORTAL_APP;
 
-  const [holdsApp, own] = await Promise.all([
+  const [holdsApp, own, access] = await Promise.all([
     isPortal
       ? context.hasAccess
       : getEffectiveAccess(context.userId, app).then(Boolean),
     getOwnAccessRequest(authDb, { userId: context.userId, app }),
+    listEffectiveAccessForUser(context.userId),
   ]);
   const view = resolveNoAccessView({ holdsApp, pending: own.pending });
+  const host = (await headers()).get("host") ?? "";
 
   if (view === "forward") {
-    const host = (await headers()).get("host") ?? "";
     redirect(
       isPortal
         ? getDefaultDashboardHrefForRole(context.role)
@@ -65,6 +72,12 @@ export default async function NoAccessPage({ searchParams }: PageProps) {
   }
 
   const request = view === "pending" ? own.request : null;
+  // Asking for one app never hides the others: the directory lists them.
+  const holdsOtherApps = launcherApps({
+    hasPortalAccess: context.hasAccess,
+    apps: access.map((row) => row.app),
+  }).some((held) => held !== app);
+  const directoryUrl = holdsOtherApps ? buildApexUrl(host) : null;
   const deciders = isPortal ? "un productor o admin" : `un admin de ${appLabel}`;
 
   return (
@@ -126,7 +139,15 @@ export default async function NoAccessPage({ searchParams }: PageProps) {
             </div>
           )}
 
-          <div className="mt-6">
+          <div className="mt-6 flex flex-col items-center gap-3">
+            {directoryUrl ? (
+              <a
+                href={directoryUrl}
+                className="text-sm font-semibold text-[var(--accent)] hover:underline"
+              >
+                Ir a mis aplicaciones
+              </a>
+            ) : null}
             <a
               href={LOGOUT_PATH}
               className="inline-flex h-[52px] w-full items-center justify-center gap-2 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--foreground)] text-[15px] font-bold text-white transition hover:opacity-90"

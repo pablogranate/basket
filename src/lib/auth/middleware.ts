@@ -43,8 +43,8 @@ export async function updateSession(request: NextRequest) {
   const hasSession = Boolean(getSessionCookie(request));
   const host = request.headers.get("host") ?? "";
 
-  // Apex launcher: the RSC page resolves the role-aware destination when a
-  // session exists. Without one, send the visitor to the centralized portal
+  // Apex directory: the RSC page resolves the destination (directory, the one
+  // app, or the Solicitud form) when a session exists. Without one, send the visitor to the centralized portal
   // login, carrying the apex URL so an Admin returns to the launcher.
   if (isApexHost(host)) {
     if (hasSession) {
