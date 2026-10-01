@@ -12,6 +12,7 @@ import {
 
 import { LandingLogoutClient } from "@/components/landing/landing-logout-client";
 import { Card } from "@/components/ui/card";
+import { PageMessage } from "@/components/ui/page-message";
 import {
   APP_SUBDOMAINS,
   SIBLING_APP_LABELS,
@@ -44,12 +45,20 @@ export function Landing({
   userEmail,
   apps,
   superAdmin = false,
+  accessRequestsBell = null,
+  intent,
+  notice,
 }: {
   host: string;
   userEmail: string | null;
   apps: LauncherApp[];
   // Gates the users section (it lives on the apex itself) and SUPER_ADMIN_APPS.
   superAdmin?: boolean;
+  // Super admins only: every app's Solicitudes (ApexAccessRequestsBell).
+  accessRequestsBell?: React.ReactNode;
+  // The outcome of a decision taken from the bell.
+  intent?: string;
+  notice?: string;
 }) {
   const loginUrl = `${buildSiblingAppUrl(host, "portal")}/login`;
   const landingApps = [
@@ -67,6 +76,7 @@ export function Landing({
           className="h-8 w-auto max-w-[160px] object-contain object-left select-none"
         />
         <div className="flex items-center gap-4">
+          {accessRequestsBell}
           {userEmail ? (
             <span className="hidden text-sm text-[var(--muted)] sm:inline">
               {userEmail}
@@ -75,6 +85,12 @@ export function Landing({
           <LandingLogoutClient loginUrl={loginUrl} />
         </div>
       </header>
+
+      {notice ? (
+        <div className="mt-6">
+          <PageMessage intent={intent} message={notice} />
+        </div>
+      ) : null}
 
       <div className="mt-14">
         <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)]">

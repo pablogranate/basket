@@ -90,6 +90,33 @@ An explicit target still wins: `analytics.…/financiero` without a session goes
 to `portal/login?redirectTo=…` and comes back to `/financiero`, not to the
 directory.
 
+## Smoke, apex bell for super admins (#200)
+
+Needs a pending Solicitud for the portal and one for a sibling (sign up from
+`portal/no-access?app=facturacion` with a throwaway identity).
+
+1. **Super admin on the apex:** the bell next to the email shows the count and
+   the modal opens on its own once per tab. Each item has its app badge
+   (Producción, Facturación…).
+2. **Sibling approval:** open the facturación item, pick a role, Aprobar. The
+   notice on the directory names the person, the role and the app; the invite
+   email links to `https://facturacion.basket-app.com`. In the Auth DB, the
+   applicant has exactly one `auth_app_access` row (facturación), the
+   Solicitud is `aprobada` with `decided_by` = the super admin, and
+   `auth_audit_log` has an `access-request.aprobada` row. No `profiles` or
+   `people` row for that email.
+3. **Sibling rejection:** reject another one. No email, no Acceso,
+   `access-request.rechazada` in `auth_audit_log`.
+4. **Portal item from the apex:** today's form (ficha link or merge, Función,
+   Nivel). Aprobar lands back on the directory, not on `/grid`; the Cuenta,
+   ficha and portal Acceso exist, and both `audit_log` and `auth_audit_log`
+   have the decision.
+5. **First decision wins:** open the same portal Solicitud in the portal bell
+   and on the apex; decide on one, then the other. The second says "Esta
+   solicitud ya fue resuelta."
+6. **Nobody else sees it:** a user with two apps and no super admin gets the
+   directory without the bell.
+
 ## After the soak
 
 Delete the Supabase Auth users of the incidencias and ops projects (Postgres

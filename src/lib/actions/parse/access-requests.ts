@@ -90,6 +90,27 @@ export function parseRejectAccessRequest(
   return parsed({ requestId: String(formData.get("requestId") ?? "").trim() });
 }
 
+// The shared bell's decision forms (basket-tv-ui CampanaDeSolicitudes) post
+// solicitudId, app and, to approve, rol.
+export type AppAccessRequestDecisionInput = {
+  requestId: string;
+  app: string;
+  role: string;
+};
+
+export function parseAppAccessRequestDecision(
+  formData: FormData,
+): ParseResult<AppAccessRequestDecisionInput> {
+  const requestId = String(formData.get("solicitudId") ?? "").trim();
+  const app = String(formData.get("app") ?? "").trim().toLowerCase();
+
+  if (!requestId || !app) {
+    return parseFailure("Falta la solicitud a decidir.");
+  }
+
+  return parsed({ requestId, app, role: String(formData.get("rol") ?? "").trim() });
+}
+
 export type ApproveAccessRequestInput = {
   requestId: string;
   fullName: string;
