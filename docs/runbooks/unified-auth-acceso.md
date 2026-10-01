@@ -183,6 +183,45 @@ survives a re-run; fix a wrongly seeded row from `/usuarios`. Users the
 mapping drops (unknown role, no incidencias profile) are listed in the output.
 Seeded rows have `granted_by = null`.
 
+## Solicitudes in the Auth DB (#198, ADR 0011)
+
+`0006_access_requests` adds `auth_access_request` (one Solicitud per identity
+and app, pending uniqueness by partial indexes) and
+`auth_app_request_recipients` (who gets the email for each app but the
+portal). Additive: the old build keeps using the Domain DB `access_requests`.
+
+Deploy order:
+
+1. Auth DB: `pnpm db:auth:migrate` (0006).
+2. Copy from the #198 checkout, before deploying it:
+
+   ```bash
+   pnpm db:auth:copy-access-requests -- --dry-run
+   pnpm db:auth:copy-access-requests
+   ```
+
+   Every Domain row becomes a portal Solicitud with the same id. The report
+   lists rows skipped because their applicant identity is gone, deciders whose
+   Cuenta had no identity (copied with `decided_by` null), and pending rows the
+   Auth DB already had.
+3. Deploy the portal. From here it reads and writes only the Auth DB.
+4. Run the copy again. It copies what the old build filed between steps 2 and
+   3 and carries over any decision it made on a row that was copied while
+   pending. Idempotent.
+5. Check the counts match, expecting equal numbers (Domain DB, then Auth DB):
+
+   ```sql
+   SELECT status, count(*) FROM access_requests GROUP BY 1;
+   SELECT status, count(*) FROM auth_access_request WHERE app = 'portal' GROUP BY 1;
+   ```
+
+   Any difference must be explained by the report's skipped rows.
+6. In `/usuarios` → "Avisos de solicitudes", set each app's recipients. An
+   app without any sends no email (the portal keeps its routing in
+   Configuración).
+
+The Domain DB `access_requests` stays until the contract step (#204).
+
 ## Integration tests
 
 `npm run test:integration` applies both journals to the throwaway Postgres

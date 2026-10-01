@@ -12,7 +12,11 @@ import {
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
-import { SIBLING_APP_LABELS, type LauncherApp } from "@/lib/acceso/catalog";
+import {
+  APP_SUBDOMAINS,
+  SIBLING_APP_LABELS,
+  type LauncherApp,
+} from "@/lib/acceso/catalog";
 import {
   buildSiblingAppUrl,
   LOGOUT_PATH,
@@ -25,30 +29,13 @@ type LandingApp = {
   Icon: typeof Clapperboard;
 };
 
-// Subdomains are not always the app key: the ops hub lives at op.
-const LANDING_APPS: Record<LauncherApp, LandingApp> = {
-  portal: { subdomain: "portal", name: "Producción", Icon: Clapperboard },
-  analytics: {
-    subdomain: "analytics",
-    name: SIBLING_APP_LABELS.analytics,
-    Icon: BarChart3,
-  },
-  incidencias: {
-    subdomain: "incidencias",
-    name: SIBLING_APP_LABELS.incidencias,
-    Icon: AlertTriangle,
-  },
-  generator: {
-    subdomain: "generator",
-    name: SIBLING_APP_LABELS.generator,
-    Icon: ImageIcon,
-  },
-  ops: { subdomain: "op", name: SIBLING_APP_LABELS.ops, Icon: Radio },
-  facturacion: {
-    subdomain: "facturacion",
-    name: SIBLING_APP_LABELS.facturacion,
-    Icon: Receipt,
-  },
+const LANDING_APPS: Record<LauncherApp, Omit<LandingApp, "subdomain">> = {
+  portal: { name: "Producción", Icon: Clapperboard },
+  analytics: { name: SIBLING_APP_LABELS.analytics, Icon: BarChart3 },
+  incidencias: { name: SIBLING_APP_LABELS.incidencias, Icon: AlertTriangle },
+  generator: { name: SIBLING_APP_LABELS.generator, Icon: ImageIcon },
+  ops: { name: SIBLING_APP_LABELS.ops, Icon: Radio },
+  facturacion: { name: SIBLING_APP_LABELS.facturacion, Icon: Receipt },
 };
 
 // Not an Acceso app: server. has no auth yet, so only super admins see it.
@@ -71,7 +58,7 @@ export function Landing({
   // The portal owns sign-out; the apex has no /logout of its own.
   const logoutUrl = `${buildSiblingAppUrl(host, "portal")}${LOGOUT_PATH}`;
   const landingApps = [
-    ...apps.map((app) => LANDING_APPS[app]),
+    ...apps.map((app) => ({ subdomain: APP_SUBDOMAINS[app], ...LANDING_APPS[app] })),
     ...(superAdmin ? SUPER_ADMIN_APPS : []),
   ];
 

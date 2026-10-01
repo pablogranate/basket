@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 
 import { findIdentityByEmail, grantRole, revokeRole } from "@/lib/acceso/accesos";
 import { PORTAL_APP } from "@/lib/acceso/portal";
+import { setAppRequestRecipients } from "@/lib/access-requests/app-recipients";
 import {
   grantPortalRoleWithCuenta,
   revokePortalRoleWithCuenta,
@@ -12,6 +13,7 @@ import { defineAction } from "@/lib/actions/define-action";
 import {
   parseCreateIdentity,
   parseIdentityTarget,
+  parseSetAppRequestRecipients,
   parseSetAppRole,
   parseSetSuperAdmin,
 } from "@/lib/actions/parse/usuarios";
@@ -252,4 +254,33 @@ const setSuperAdminFlag = defineAction({
 
 export async function setSuperAdminAction(formData: FormData) {
   await setSuperAdminFlag(formData);
+}
+
+// Who hears about a new Solicitud for one app. The portal is not editable here:
+// it routes by Función from Configuración.
+const setRequestRecipients = defineAction({
+  fallbackRedirect: USUARIOS_REDIRECT,
+  authz: requireSuperAdmin,
+  parse: parseSetAppRequestRecipients,
+  revalidate: [USUARIOS_REDIRECT],
+  onError: (error) => console.error("[usuarios] recipients change failed", error),
+  async run(_actor, { app, emails }) {
+    const catalogApp = (await getRoleCatalog()).find((entry) => entry.key === app);
+
+    if (!catalogApp || app === PORTAL_APP) {
+      return { error: "App desconocida." };
+    }
+
+    await setAppRequestRecipients({ app, emails });
+
+    return {
+      notice: emails.length
+        ? `Avisos de ${catalogApp.label}: ${emails.length} correo${emails.length === 1 ? "" : "s"}.`
+        : `${catalogApp.label} ya no avisa a nadie por correo.`,
+    };
+  },
+});
+
+export async function setAppRequestRecipientsAction(formData: FormData) {
+  await setRequestRecipients(formData);
 }

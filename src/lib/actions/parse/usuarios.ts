@@ -4,6 +4,10 @@ import {
   type ParseResult,
 } from "@/lib/actions/define-action";
 import { NO_ROLE_OPTION } from "@/lib/acceso/catalog";
+import {
+  isValidRecipientAddress,
+  parseRecipientList,
+} from "@/lib/access-requests/recipients";
 
 // One matrix cell. Whether the app and role exist is the catalog's call, read
 // in the action: parsing stays pure.
@@ -81,4 +85,26 @@ export function parseSetSuperAdmin(
   }
 
   return parsed({ userId, superAdmin: superAdmin === "true" });
+}
+
+export type SetAppRequestRecipientsInput = { app: string; emails: string[] };
+
+// One app's "new Solicitud" list. Every address has to look like one: a typo
+// saved here is a Solicitud nobody hears about.
+export function parseSetAppRequestRecipients(
+  formData: FormData,
+): ParseResult<SetAppRequestRecipientsInput> {
+  const app = String(formData.get("app") ?? "").trim();
+  const emails = parseRecipientList(String(formData.get("emails") ?? ""));
+  const invalid = emails.filter((email) => !isValidRecipientAddress(email));
+
+  if (!app) {
+    return parseFailure("Falta la app.");
+  }
+
+  if (invalid.length) {
+    return parseFailure(`Revisá estos correos: ${invalid.join(", ")}.`);
+  }
+
+  return parsed({ app, emails });
 }

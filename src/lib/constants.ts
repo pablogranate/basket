@@ -235,6 +235,21 @@ export function buildApexUrl(host: string): string | null {
   return `${protocol}://${apex}${suffix}`;
 }
 
+// One app's origin from any basket-app host (apex or a sibling subdomain), so
+// a portal page can link to facturación without building
+// facturacion.portal.basket-app.com. Null for unrecognized hosts.
+export function buildAppUrlFromAnyHost(host: string, subdomain: string): string | null {
+  const apexUrl = buildApexUrl(host);
+
+  if (!apexUrl) {
+    return null;
+  }
+
+  const url = new URL(apexUrl);
+  url.hostname = `${subdomain}.${url.hostname}`;
+  return url.origin;
+}
+
 export type ApexDestination =
   | { kind: "render-landing" }
   | { kind: "redirect"; path: string };
