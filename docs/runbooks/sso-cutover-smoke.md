@@ -117,6 +117,45 @@ Needs a pending Solicitud for the portal and one for a sibling (sign up from
 6. **Nobody else sees it:** a user with two apps and no super admin gets the
    directory without the bell.
 
+## Smoke, Solicitudes inside each app (#201)
+
+Each app's admins decide their own app's Solicitudes from a bell in that app.
+For each app you need a throwaway identity with no Acceso to it, an admin of
+that app who is not a super admin, a non-admin holder, and a super admin. In
+the Auth DB, approving one writes `auth_access_request.status = 'aprobada'`
+with `granted_role` and `decided_by`, an `auth_app_access` row, and one
+`auth_audit_log` row `access-request.aprobada`. Rejecting writes `rechazada`,
+an `access-request.rechazada` row, no Acceso and no email.
+
+Run these checks in every app:
+
+1. **Redirect:** without the Acceso, open the app. You land on
+   `portal/no-access?app=<key>`, the form is titled for that app and doesn't
+   ask for Función. Submit it.
+2. **Bell:** the app's admin and a super admin see the bell with the count, and
+   the modal opens by itself once per tab, listing only this app's
+   Solicitudes. A non-admin holder sees no bell.
+3. **Approve:** only roles up to the admin's own rank are offered. Aprobar
+   shows "Solicitud aprobada: <email> es <rol> en <app>." and the applicant
+   gets in.
+4. **Reject:** Rechazar shows "Solicitud rechazada.".
+5. **First decision wins:** open the same Solicitud in the app and on the apex
+   bell. Decide in one, then in the other. The second shows "Esta solicitud ya
+   fue resuelta." and nothing else changes.
+6. **Volver:** someone holding only this app sees no Volver. Grant them a
+   second app (the portal counts) and reload: Volver appears and leads to
+   `https://basket-app.com`.
+7. **Sign-out:** one click goes to `portal/logout` and leaves every subdomain
+   signed out.
+
+| App | Key | Open without the Acceso | Invite email on approval | Notes |
+|-----|-----|-------------------------|--------------------------|-------|
+| Facturación | `facturacion` | `/`; `curl -sI -H 'Accept: text/html' -b '<cookie>' …/admin` gives `302` to the form | "Tienes acceso a Facturación", linking to `https://facturacion.basket-app.com` | Roles Periodista, Coordinador, Admin. A coordinador gets `403 NO_AUTORIZADO` from `GET /api/solicitudes`. The "Cerrar sesión" link is new |
+| Analytics | `analytics` | `/` | "Tienes acceso a Analytics", linking to `https://analytics.basket-app.com` | The bell sits in the landing header and on `/basket`, `/partidos`, `/financiero`; the notice shows next to it, so the dashboard filters stay |
+| Incidencias | `incidencias` | `/ar` | None: the notice ends "Incidencias no envía correo de aviso: avisale vos." | |
+| Ops hub | `ops` | `op.…/clubs` | None: the notice says "Operaciones no envía correos…" | A non-admin POST to approve or reject redirects with "No tenés permisos para decidir Solicitudes." and the row stays pending |
+| Generator | `generator` | Any path, with a session and no `generator` role | — | Needs the nginx change in `unified-auth-acceso.md`. `curl -sI -b '<cookie>' portal/api/gates/generator` gives `403` with `X-Gate-Redirect: …/no-access?app=generator`; the browser lands on the form. Its Solicitudes are decided on the apex |
+
 ## After the soak
 
 Delete the Supabase Auth users of the incidencias and ops projects (Postgres
