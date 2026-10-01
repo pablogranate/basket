@@ -195,6 +195,14 @@ export function sanitizeRedirectTo(raw?: string | null): string | null {
 
 const APEX_HOSTS = new Set(["basket-app.com", "basket-app.localhost"]);
 
+// The public host of the request. After a Server Action redirect, Next renders
+// the target through an internal fetch to localhost that drops Host but keeps
+// x-forwarded-host (set by Next from the original Host), so read that first.
+export function getRequestHost(requestHeaders: Pick<Headers, "get">) {
+  const forwarded = requestHeaders.get("x-forwarded-host")?.split(",")[0]?.trim();
+  return forwarded || requestHeaders.get("host") || "";
+}
+
 export function isApexHost(host: string) {
   const hostname = host.split(":")[0];
   return APEX_HOSTS.has(hostname);

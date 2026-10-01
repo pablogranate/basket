@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import {
   buildSiblingAppUrl,
+  getRequestHost,
   isApexHost,
   isUsuariosPath,
   LOGOUT_PATH,
@@ -41,7 +42,7 @@ export async function updateSession(request: NextRequest) {
   // Optimistic cookie-presence check only (no DB). Role/profile gating stays in
   // getUserContext + the dashboard layout.
   const hasSession = Boolean(getSessionCookie(request));
-  const host = request.headers.get("host") ?? "";
+  const host = getRequestHost(request.headers);
 
   // Apex directory: the RSC page resolves the destination (directory, the one
   // app, or the Solicitud form) when a session exists. Without one, send the visitor to the centralized portal

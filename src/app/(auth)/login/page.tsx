@@ -8,6 +8,7 @@ import { PRODUCT_COPY } from "@/lib/copy";
 import {
   APP_NAME,
   buildApexUrl,
+  getRequestHost,
   resolvePostLoginDestination,
 } from "@/lib/constants";
 import {
@@ -35,7 +36,7 @@ export default async function LoginPage({ searchParams }: PageProps) {
   const redirectTarget = resolveLoginRedirectTarget(resolvedSearchParams);
 
   if (user.userId) {
-    const host = (await headers()).get("host") ?? "";
+    const host = getRequestHost(await headers());
     redirect(
       resolvePostLoginDestination({
         redirectTo: redirectTarget,

@@ -24,6 +24,7 @@ import {
   buildApexUrl,
   buildAppUrlFromAnyHost,
   getDefaultDashboardHrefForRole,
+  getRequestHost,
   LOGOUT_PATH,
 } from "@/lib/constants";
 import { authDb } from "@/lib/db/auth-client";
@@ -61,7 +62,7 @@ export default async function NoAccessPage({ searchParams }: PageProps) {
     listEffectiveAccessForUser(context.userId),
   ]);
   const view = resolveNoAccessView({ holdsApp, pending: own.pending });
-  const host = (await headers()).get("host") ?? "";
+  const host = getRequestHost(await headers());
 
   if (view === "forward") {
     redirect(

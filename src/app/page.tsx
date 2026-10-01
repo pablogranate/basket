@@ -13,6 +13,7 @@ import { findActiveSuperAdmin } from "@/lib/usuarios/super-admin";
 import {
   buildSiblingAppUrl,
   getDefaultDashboardHrefForRole,
+  getRequestHost,
   isApexHost,
   resolveApexDestination,
 } from "@/lib/constants";
@@ -23,7 +24,7 @@ type PageProps = {
 };
 
 export default async function Home({ searchParams }: PageProps) {
-  const host = (await headers()).get("host") ?? "";
+  const host = getRequestHost(await headers());
   const user = await getUserContext();
 
   if (isApexHost(host)) {
