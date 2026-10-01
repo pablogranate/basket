@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Radio, UsersRound, Video } from "lucide-react";
 
@@ -6,6 +7,7 @@ import { PageMessage } from "@/components/ui/page-message";
 import { PRODUCT_COPY } from "@/lib/copy";
 import {
   APP_NAME,
+  buildApexUrl,
   resolvePostLoginDestination,
 } from "@/lib/constants";
 import {
@@ -33,14 +35,17 @@ export default async function LoginPage({ searchParams }: PageProps) {
   const redirectTarget = resolveLoginRedirectTarget(resolvedSearchParams);
 
   if (user.userId) {
+    const host = (await headers()).get("host") ?? "";
     redirect(
-      resolvePostLoginDestination({ role: user.role, redirectTo: redirectTarget }),
+      resolvePostLoginDestination({
+        redirectTo: redirectTarget,
+        apexUrl: buildApexUrl(host),
+      }),
     );
   }
 
   // Route the OAuth / magic-link callback back through this page so the
-  // role-aware destination is resolved once the session exists (the role is
-  // unknown before authentication completes).
+  // destination is resolved once the session exists.
   const callbackURL = buildLoginCallbackURL(redirectTarget);
 
   return (

@@ -3,7 +3,7 @@ import "server-only";
 import { and, desc, eq, ne } from "drizzle-orm";
 
 import type { AccessRequestStatus } from "@/lib/access-requests/constants";
-import { authAccessRequest, authUser } from "@/lib/auth/schema";
+import { authAccessRequest, authAuditLog, authUser } from "@/lib/auth/schema";
 import type { AuthDbExecutor } from "@/lib/db/auth-client";
 import { isUniqueViolation } from "@/lib/db/errors";
 
@@ -169,6 +169,31 @@ export async function claimAccessRequest(
   };
 }
 
+// Every decision, from any decider, lands in auth_audit_log (ADR 0011). Pass
+// the claim's transaction so the row commits or rolls back with the decision.
+export async function recordAccessRequestDecision(
+  exec: AuthDbExecutor,
+  input: {
+    deciderId: string | null;
+    claimed: { id: string; userId: string; email: string };
+    app: string;
+    outcome: AccessRequestOutcome;
+    grantedRole?: string | null;
+  },
+): Promise<void> {
+  await exec.insert(authAuditLog).values({
+    actorId: input.deciderId,
+    targetUserId: input.claimed.userId,
+    action: `access-request.${input.outcome}`,
+    detail: {
+      requestId: input.claimed.id,
+      app: input.app,
+      email: input.claimed.email,
+      grantedRole: input.grantedRole ?? null,
+    },
+  });
+}
+
 // The Domain DB copy (copy-domain.ts) carries over a decision the old portal
 // build made after a row was copied. Still a compare-and-set: a decision made
 // since in the Auth DB wins.
@@ -268,6 +293,20 @@ export async function listPendingAccessRequests(
         eq(authAccessRequest.status, PENDING),
       ),
     )
+    .orderBy(desc(authAccessRequest.createdAt));
+
+  return rows.map(toSummary);
+}
+
+// Every app's pending Solicitudes, for the super admins' bell on the apex.
+export async function listAllPendingAccessRequests(
+  exec: AuthDbExecutor,
+): Promise<AccessRequestSummary[]> {
+  const rows = await exec
+    .select({ ...requestColumns, decided_by_name: authUser.name })
+    .from(authAccessRequest)
+    .leftJoin(authUser, eq(authAccessRequest.decidedBy, authUser.id))
+    .where(eq(authAccessRequest.status, PENDING))
     .orderBy(desc(authAccessRequest.createdAt));
 
   return rows.map(toSummary);

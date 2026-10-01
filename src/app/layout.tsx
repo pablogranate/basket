@@ -59,10 +59,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es">
-      <body
-        className={`${poppins.variable} ${oswald.variable} ${plexMono.variable} min-h-screen antialiased`}
-      >
+    <html
+      lang="es"
+      className={`${poppins.variable} ${oswald.variable} ${plexMono.variable}`}
+    >
+      <body className="min-h-screen antialiased">
         {children}
       </body>
     </html>

@@ -38,12 +38,36 @@ describe("resolveApexDestination", () => {
     });
   });
 
-  // Every signed-in identity gets the launcher; what it lists is per person
-  // (launcherApps), so nobody is bounced into the portal from the apex.
-  it("renders the landing for any session", () => {
-    expect(resolveApexDestination({ hasSession: true })).toEqual({
-      kind: "render-landing",
+  // basket#199: 0 apps → the Solicitud form, 1 → straight in, 2+ → directory.
+  it("sends someone with no app to the Solicitud form", () => {
+    expect(resolveApexDestination({ hasSession: true, apps: [] })).toEqual({
+      kind: "request-access",
     });
+  });
+
+  it("opens the only app someone holds", () => {
+    expect(resolveApexDestination({ hasSession: true, apps: ["facturacion"] })).toEqual({
+      kind: "open-app",
+      app: "facturacion",
+    });
+    expect(resolveApexDestination({ hasSession: true, apps: ["portal"] })).toEqual({
+      kind: "open-app",
+      app: "portal",
+    });
+  });
+
+  it("renders the directory for two apps or more", () => {
+    expect(
+      resolveApexDestination({ hasSession: true, apps: ["portal", "facturacion"] }),
+    ).toEqual({ kind: "render-landing" });
+  });
+
+  it("always renders the directory for a super admin", () => {
+    for (const apps of [[], ["portal"], ["portal", "analytics", "ops"]]) {
+      expect(
+        resolveApexDestination({ hasSession: true, superAdmin: true, apps }),
+      ).toEqual({ kind: "render-landing" });
+    }
   });
 });
 

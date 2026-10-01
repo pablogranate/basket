@@ -14,6 +14,8 @@ import {
   isCollaboratorLimitedRole,
   isDashboardPathAllowedForRole,
 } from "@/lib/constants";
+import { PORTAL_APP } from "@/lib/acceso/portal";
+import { buildNoAccessPath } from "@/lib/access-requests/no-access";
 import { getUserContext, type UserContext } from "@/lib/auth";
 import { getAccessRequestReview } from "@/lib/access-requests/review";
 import { can } from "@/lib/roles";
@@ -42,9 +44,9 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  // Authenticated but unprovisioned (no profiles row) -> dead-end (D-13).
+  // Authenticated without a portal Acceso: opening the portal is asking for it.
   if (user?.userId && !user.hasAccess) {
-    redirect("/no-access");
+    redirect(buildNoAccessPath(PORTAL_APP));
   }
 
   if (

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { resolvePostLoginDestination } from "@/lib/constants";
-import type { AppRole } from "@/lib/database.types";
 import {
   buildLoginCallbackURL,
   decodeLoginRedirect,
@@ -160,9 +159,9 @@ describe("resolveLoginRedirectTarget", () => {
 describe("apex-originated magic link for an external user", () => {
   const APEX_URL = "https://basket-app.com/login";
 
-  it.each<AppRole>(["collaborator"])(
-    "verifies and returns %s to the apex launcher",
-    (role) => {
+  it(
+    "verifies and returns an external user to the apex launcher",
+    () => {
       const callbackURL = buildLoginCallbackURL(
         resolveLoginRedirectTarget({ redirectTo: APEX_URL }),
       );
@@ -175,8 +174,8 @@ describe("apex-originated magic link for an external user", () => {
       );
       expect(
         resolvePostLoginDestination({
-          role,
           redirectTo: resolveLoginRedirectTarget(params),
+          apexUrl: null,
         }),
       ).toBe(APEX_URL);
     },
@@ -190,8 +189,8 @@ describe("apex-originated magic link for an external user", () => {
     );
     expect(
       resolvePostLoginDestination({
-        role: "admin",
         redirectTo: resolveLoginRedirectTarget(params),
+        apexUrl: null,
       }),
     ).toBe(APEX_URL);
   });

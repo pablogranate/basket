@@ -1,62 +1,17 @@
 @import "tailwindcss";
 
+@import "basket-tv-ui/estilos.css";
+
+/* Portal-only tokens; the shared ones come from basket-tv-ui. */
 :root {
-  /* Warm-neutral scale (de-blued, faint warm tint) — BasquetPass identity */
-  --n-50: #faf9f8;
-  --n-100: #f4f2f1;
-  --n-200: #e7e4e2;
-  --n-300: #d6d1ce;
-  --n-400: #a8a09d;
-  --n-500: #847b78;
-  --n-600: #6b615f;
-  --n-700: #4a423f;
-  --n-800: #2e2826;
-  --n-900: #1c0d10;
-
-  /* Brand red ramp (Manual de Identidad: #E31B23) */
-  --accent: #e31b23;
-  --accent-strong: #c0141b;
-  --accent-soft: #fff0f1;
-  --accent-border: #f4cdcf;
-
-  /* Structural (re-based on the warm scale) */
-  --background: var(--n-50);
-  --background-soft: var(--n-100);
   --page-canvas: var(--background);
   --page-footer-bg: rgba(255, 255, 255, 0.72);
-  --foreground: var(--n-900);
-  --surface: #ffffff;
   --surface-muted: #fdfcfc;
-  --muted: var(--n-600);
-  --border: var(--n-200);
-  --panel-radius: 10px;
-  --shadow-rest: 0 1px 2px rgba(28, 13, 16, 0.04), 0 1px 3px rgba(28, 13, 16, 0.06);
-  --shadow-lift: 0 10px 30px rgba(28, 13, 16, 0.1);
   --panel-shadow: var(--shadow-lift);
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-poppins);
-  --font-display: var(--font-oswald);
-  --font-mono: var(--font-plex-mono);
 }
 
 * {
   box-sizing: border-box;
-}
-
-html {
-  color-scheme: light;
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-poppins), system-ui, sans-serif;
-  background-image: linear-gradient(180deg, #ffffff 0%, var(--n-50) 100%);
-  min-height: 100vh;
 }
 
 a {
@@ -75,7 +30,6 @@ select option {
 }
 
 ::selection {
-  background: rgba(227, 27, 35, 0.18);
   color: white;
 }
 

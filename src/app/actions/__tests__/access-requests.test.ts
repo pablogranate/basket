@@ -109,7 +109,7 @@ describe("submitAccessRequestAction", () => {
       expect.objectContaining({
         intent: "error",
         notice: "Elegí una función de la lista.",
-        redirectTo: "/no-access",
+        redirectTo: "/no-access?app=portal",
       }),
     );
   });

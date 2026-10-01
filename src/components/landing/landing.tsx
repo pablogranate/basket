@@ -6,11 +6,13 @@ import {
   Image as ImageIcon,
   Radio,
   Receipt,
+  Server,
   UsersRound,
 } from "lucide-react";
 
 import { LandingLogoutClient } from "@/components/landing/landing-logout-client";
 import { Card } from "@/components/ui/card";
+import { PageMessage } from "@/components/ui/page-message";
 import {
   APP_SUBDOMAINS,
   SIBLING_APP_LABELS,
@@ -19,11 +21,12 @@ import {
 import { buildSiblingAppUrl, USUARIOS_PATH } from "@/lib/constants";
 
 type LandingApp = {
+  subdomain: string;
   name: string;
   Icon: typeof Clapperboard;
 };
 
-const LANDING_APPS: Record<LauncherApp, LandingApp> = {
+const LANDING_APPS: Record<LauncherApp, Omit<LandingApp, "subdomain">> = {
   portal: { name: "Producción", Icon: Clapperboard },
   analytics: { name: SIBLING_APP_LABELS.analytics, Icon: BarChart3 },
   incidencias: { name: SIBLING_APP_LABELS.incidencias, Icon: AlertTriangle },
@@ -32,19 +35,36 @@ const LANDING_APPS: Record<LauncherApp, LandingApp> = {
   facturacion: { name: SIBLING_APP_LABELS.facturacion, Icon: Receipt },
 };
 
+// Not an Acceso app: server. has no auth yet, so only super admins see it.
+const SUPER_ADMIN_APPS: LandingApp[] = [
+  { subdomain: "server", name: "Servidor", Icon: Server },
+];
+
 export function Landing({
   host,
   userEmail,
   apps,
-  showUsuarios = false,
+  superAdmin = false,
+  accessRequestsBell = null,
+  intent,
+  notice,
 }: {
   host: string;
   userEmail: string | null;
   apps: LauncherApp[];
-  // Super admins only: the users section lives on the apex itself.
-  showUsuarios?: boolean;
+  // Gates the users section (it lives on the apex itself) and SUPER_ADMIN_APPS.
+  superAdmin?: boolean;
+  // Super admins only: every app's Solicitudes (ApexAccessRequestsBell).
+  accessRequestsBell?: React.ReactNode;
+  // The outcome of a decision taken from the bell.
+  intent?: string;
+  notice?: string;
 }) {
   const loginUrl = `${buildSiblingAppUrl(host, "portal")}/login`;
+  const landingApps = [
+    ...apps.map((app) => ({ subdomain: APP_SUBDOMAINS[app], ...LANDING_APPS[app] })),
+    ...(superAdmin ? SUPER_ADMIN_APPS : []),
+  ];
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col px-6 py-8">
@@ -56,6 +76,7 @@ export function Landing({
           className="h-8 w-auto max-w-[160px] object-contain object-left select-none"
         />
         <div className="flex items-center gap-4">
+          {accessRequestsBell}
           {userEmail ? (
             <span className="hidden text-sm text-[var(--muted)] sm:inline">
               {userEmail}
@@ -64,6 +85,12 @@ export function Landing({
           <LandingLogoutClient loginUrl={loginUrl} />
         </div>
       </header>
+
+      {notice ? (
+        <div className="mt-6">
+          <PageMessage intent={intent} message={notice} />
+        </div>
+      ) : null}
 
       <div className="mt-14">
         <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)]">
@@ -75,10 +102,10 @@ export function Landing({
       </div>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
-        {apps.map((app) => ({ app, ...LANDING_APPS[app] })).map(({ app, name, Icon }) => (
+        {landingApps.map(({ subdomain, name, Icon }) => (
           <a
-            key={app}
-            href={buildSiblingAppUrl(host, APP_SUBDOMAINS[app])}
+            key={subdomain}
+            href={buildSiblingAppUrl(host, subdomain)}
             className="group block rounded-[var(--panel-radius)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
           >
             <Card className="flex h-full items-center gap-4 transition-colors duration-200 group-hover:border-[var(--accent)]">
@@ -97,7 +124,7 @@ export function Landing({
         ))}
       </div>
 
-      {showUsuarios ? (
+      {superAdmin ? (
         <a
           href={USUARIOS_PATH}
           className="mt-8 inline-flex items-center gap-2 self-start text-sm font-semibold text-[var(--accent)] hover:underline"

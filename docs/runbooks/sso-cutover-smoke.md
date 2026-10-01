@@ -73,6 +73,89 @@ of their own.
 | Analytics | `analytics.…/financiero` goes to portal login and comes back | `read`/`write`: every dashboard, and the header shows viewer. `admin`: the header shows admin. No role: `/no-access` | Gets in as admin; once banned, denied | The next request with the same session goes to `/no-access` |
 | Facturación | `/` goes to `portal/login?redirectTo=…` and comes back | `coordinador`: `/api/yo` returns `rol: coordinador`, and `/admin` and `/api/admin/*` return `403`. `admin`: `/admin` loads. `periodista` with an active padrón row: `rol: periodista`. `periodista` without a padrón row: "Sin acceso" | `/api/yo` returns `rol: admin`; `/admin` opens | Remove the role, or unset the super admin: `/api/yo` returns `403 SIN_ACCESO`. A person with no role but an active padrón row still enters as periodista |
 
+## Smoke, login lands on the apex directory (#199)
+
+Check it with four identities: one with no app, one with only a sibling app
+(say `facturacion`), one with two apps, and a super admin. Log out between
+identities. Dashboard redirects stream as a meta refresh (HTTP 200), not a 307.
+
+| Identity | Log in at `portal/login` | Open the apex `/` | Open portal `/` |
+|----------|--------------------------|-------------------|-----------------|
+| No app | Ends on `portal/no-access?app=portal`, with the Función field | Same | Same |
+| One sibling app | Ends inside that app (the apex forwards), never mi-jornada | Straight to the app | `/no-access?app=portal` with "Ir a mis aplicaciones" |
+| Two apps | The directory, listing only those two | The directory | Their dashboard if the portal is one of them, else `/no-access?app=portal` with "Ir a mis aplicaciones" |
+| Super admin | The directory, every app and "Usuarios y accesos" | The directory | Their dashboard, never `/no-access`; a super admin with no Cuenta gets one on this first visit (check `profiles.auth_user_id`) |
+
+An explicit target still wins: `analytics.…/financiero` without a session goes
+to `portal/login?redirectTo=…` and comes back to `/financiero`, not to the
+directory.
+
+## Smoke, apex bell for super admins (#200)
+
+Needs a pending Solicitud for the portal and one for a sibling (sign up from
+`portal/no-access?app=facturacion` with a throwaway identity).
+
+1. **Super admin on the apex:** the bell next to the email shows the count and
+   the modal opens on its own once per tab. Each item has its app badge
+   (Producción, Facturación…).
+2. **Sibling approval:** open the facturación item, pick a role, Aprobar. The
+   notice on the directory names the person, the role and the app; the invite
+   email links to `https://facturacion.basket-app.com`. In the Auth DB, the
+   applicant has exactly one `auth_app_access` row (facturación), the
+   Solicitud is `aprobada` with `decided_by` = the super admin, and
+   `auth_audit_log` has an `access-request.aprobada` row. No `profiles` or
+   `people` row for that email.
+3. **Sibling rejection:** reject another one. No email, no Acceso,
+   `access-request.rechazada` in `auth_audit_log`.
+4. **Portal item from the apex:** today's form (ficha link or merge, Función,
+   Nivel). Aprobar lands back on the directory, not on `/grid`; the Cuenta,
+   ficha and portal Acceso exist, and both `audit_log` and `auth_audit_log`
+   have the decision.
+5. **First decision wins:** open the same portal Solicitud in the portal bell
+   and on the apex; decide on one, then the other. The second says "Esta
+   solicitud ya fue resuelta."
+6. **Nobody else sees it:** a user with two apps and no super admin gets the
+   directory without the bell.
+
+## Smoke, Solicitudes inside each app (#201)
+
+Each app's admins decide their own app's Solicitudes from a bell in that app.
+For each app you need a throwaway identity with no Acceso to it, an admin of
+that app who is not a super admin, a non-admin holder, and a super admin. In
+the Auth DB, approving one writes `auth_access_request.status = 'aprobada'`
+with `granted_role` and `decided_by`, an `auth_app_access` row, and one
+`auth_audit_log` row `access-request.aprobada`. Rejecting writes `rechazada`,
+an `access-request.rechazada` row, no Acceso and no email.
+
+Run these checks in every app:
+
+1. **Redirect:** without the Acceso, open the app. You land on
+   `portal/no-access?app=<key>`, the form is titled for that app and doesn't
+   ask for Función. Submit it.
+2. **Bell:** the app's admin and a super admin see the bell with the count, and
+   the modal opens by itself once per tab, listing only this app's
+   Solicitudes. A non-admin holder sees no bell.
+3. **Approve:** only roles up to the admin's own rank are offered. Aprobar
+   shows "Solicitud aprobada: <email> es <rol> en <app>." and the applicant
+   gets in.
+4. **Reject:** Rechazar shows "Solicitud rechazada.".
+5. **First decision wins:** open the same Solicitud in the app and on the apex
+   bell. Decide in one, then in the other. The second shows "Esta solicitud ya
+   fue resuelta." and nothing else changes.
+6. **Volver:** someone holding only this app sees no Volver. Grant them a
+   second app (the portal counts) and reload: Volver appears and leads to
+   `https://basket-app.com`.
+7. **Sign-out:** one click goes to `portal/logout` and leaves every subdomain
+   signed out.
+
+| App | Key | Open without the Acceso | Invite email on approval | Notes |
+|-----|-----|-------------------------|--------------------------|-------|
+| Facturación | `facturacion` | `/`; `curl -sI -H 'Accept: text/html' -b '<cookie>' …/admin` gives `302` to the form | "Tienes acceso a Facturación", linking to `https://facturacion.basket-app.com` | Roles Periodista, Coordinador, Admin. A coordinador gets `403 NO_AUTORIZADO` from `GET /api/solicitudes`. The "Cerrar sesión" link is new |
+| Analytics | `analytics` | `/` | "Tienes acceso a Analytics", linking to `https://analytics.basket-app.com` | The bell sits in the landing header and on `/basket`, `/partidos`, `/financiero`; the notice shows next to it, so the dashboard filters stay |
+| Incidencias | `incidencias` | `/ar` | None: the notice ends "Incidencias no envía correo de aviso: avisale vos." | |
+| Ops hub | `ops` | `op.…/clubs` | None: the notice says "Operaciones no envía correos…" | A non-admin POST to approve or reject redirects with "No tenés permisos para decidir Solicitudes." and the row stays pending |
+| Generator | `generator` | Any path, with a session and no `generator` role | — | Needs the nginx change in `unified-auth-acceso.md`. `curl -sI -b '<cookie>' portal/api/gates/generator` gives `403` with `X-Gate-Redirect: …/no-access?app=generator`; the browser lands on the form. Its Solicitudes are decided on the apex |
+
 ## Smoke, portal shells: back link and ficha completion (#202)
 
 Before deploying, count the portal Cuentas without a ficha: all of them are

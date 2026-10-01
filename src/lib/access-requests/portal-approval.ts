@@ -4,6 +4,7 @@ import { grantPortalRole, PORTAL_APP } from "@/lib/acceso/portal";
 import {
   attachAccessRequestPerson,
   claimAccessRequest,
+  recordAccessRequestDecision,
 } from "@/lib/access-requests/requests";
 import type { AppRole } from "@/lib/database.types";
 import { authDb } from "@/lib/db/auth-client";
@@ -78,10 +79,39 @@ export async function approvePortalAccessRequest(
         id: input.requestId,
         personId: applicant.personId,
       });
+      await recordAccessRequestDecision(authTx, {
+        deciderId: input.deciderId,
+        claimed,
+        app: PORTAL_APP,
+        outcome: "aprobada",
+        grantedRole: input.accessRole,
+      });
 
       return applicant;
     });
 
     return { ...settled, email: claimed.email };
+  });
+}
+
+// Silent (D-16). The claim and its audit row commit together.
+export async function rejectPortalAccessRequest(input: {
+  requestId: string;
+  deciderId: string | null;
+}): Promise<void> {
+  await authDb.transaction(async (tx) => {
+    const claimed = await claimAccessRequest(tx, {
+      id: input.requestId,
+      app: PORTAL_APP,
+      outcome: "rechazada",
+      deciderId: input.deciderId,
+    });
+
+    await recordAccessRequestDecision(tx, {
+      deciderId: input.deciderId,
+      claimed,
+      app: PORTAL_APP,
+      outcome: "rechazada",
+    });
   });
 }

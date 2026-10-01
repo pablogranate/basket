@@ -12,14 +12,13 @@ import {
 import { defineAction } from "@/lib/actions/define-action";
 import { listCatalogApps } from "@/lib/acceso/accesos";
 import { resolveRequestApp } from "@/lib/acceso/catalog";
-import { PORTAL_APP } from "@/lib/acceso/portal";
 import { buildNoAccessPath } from "@/lib/access-requests/no-access";
 import { notifyAccessRequest } from "@/lib/access-requests/notify";
-import { approvePortalAccessRequest } from "@/lib/access-requests/portal-approval";
 import {
-  claimAccessRequest,
-  submitAccessRequest,
-} from "@/lib/access-requests/requests";
+  approvePortalAccessRequest,
+  rejectPortalAccessRequest,
+} from "@/lib/access-requests/portal-approval";
+import { submitAccessRequest } from "@/lib/access-requests/requests";
 import { clearProfileCache, requireUserContext } from "@/lib/auth";
 import {
   requireAccessRequestApprover,
@@ -36,6 +35,7 @@ import { appEnv } from "@/lib/env";
 import { linkProfileToPerson } from "@/lib/people/identity";
 
 const REQUEST_REVALIDATE_PATHS = [
+  "/",
   "/no-access",
   "/notifications/solicitudes",
   "/people",
@@ -107,12 +107,7 @@ const reject = defineAction({
   parse: parseRejectAccessRequest,
   revalidate: REQUEST_REVALIDATE_PATHS,
   async run(ctx, { requestId }) {
-    await claimAccessRequest(authDb, {
-      id: requestId,
-      app: PORTAL_APP,
-      outcome: "rechazada",
-      deciderId: ctx.userId,
-    });
+    await rejectPortalAccessRequest({ requestId, deciderId: ctx.userId });
 
     await writeAudit(ctx, {
       table: "access_requests",
