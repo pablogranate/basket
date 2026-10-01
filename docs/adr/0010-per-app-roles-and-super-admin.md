@@ -26,4 +26,6 @@ ADR 0009 gave every sibling one shared Nivel scale (`read | write | admin`), so 
 - In-app grants (portal access requests, `canGrantTier`, facturación) write the Auth DB. The rank rule, "you may grant only roles ranked below yours in your app; an app's `is_admin` role also grants its own rank; super admins grant anything", replaces `canGrantTier` (`canGrantRole`). The `is_admin` exception (basket#186) keeps portal Admins able to mint and revoke other Admins, as they could before; super admin itself stays `/usuarios`-only.
 - Super admin can be granted and revoked only from `/usuarios`, and the last super admin can't be demoted.
 - `auth_app` holds no URLs: hosts differ per environment and stay in portal config.
-- `/access` is replaced by `/usuarios` on the apex; the old path redirects.
+- `/access` is replaced by `/usuarios` on the apex. The old path redirected at
+  first and was later removed: in the portal, access is changed only from the
+  Editar personal modal in `/people`.

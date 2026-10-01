@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 
 import Link from "next/link";
-import { KeyRound, ShieldCheck, X } from "lucide-react";
+import { ShieldCheck, X } from "lucide-react";
 
 import { upsertPersonAction } from "@/app/actions/people";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
@@ -112,14 +112,6 @@ export default async function PeoplePage({ searchParams }: PageProps) {
             <>
               <PeopleSearchField className="hidden sm:flex" />
               <PeopleHeaderExtras />
-              {user.superAdmin ? (
-                <Link href="/access">
-                  <Button variant="secondary" className="h-11 gap-2">
-                    <KeyRound className="size-4" />
-                    Accesos a apps
-                  </Button>
-                </Link>
-              ) : null}
               {user.canEdit ? (
                 <Suspense fallback={null}>
                   <PeopleCreateSlot
@@ -477,16 +469,6 @@ async function PeopleEditModal({
                       admin o productor aprueba su solicitud.
                     </p>
                   )
-                ) : null}
-
-                {user.superAdmin && selectedPerson.email ? (
-                  <Link
-                    href={`/access?email=${encodeURIComponent(selectedPerson.email)}`}
-                    className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[var(--accent)] hover:underline"
-                  >
-                    <KeyRound className="size-4" />
-                    Accesos a apps hermanas
-                  </Link>
                 ) : null}
               </div>
             </section>

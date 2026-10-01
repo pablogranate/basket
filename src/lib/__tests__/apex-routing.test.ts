@@ -150,6 +150,6 @@ describe("isUsuariosPath", () => {
     expect(isUsuariosPath("/usuarios")).toBe(true);
     expect(isUsuariosPath("/usuarios/x")).toBe(true);
     expect(isUsuariosPath("/usuarios-old")).toBe(false);
-    expect(isUsuariosPath("/access")).toBe(false);
+    expect(isUsuariosPath("/people")).toBe(false);
   });
 });

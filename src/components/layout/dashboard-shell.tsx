@@ -31,7 +31,6 @@ export function DashboardShell(props: {
   return (
     <MarcoDelPortal
       role={user?.role ?? null}
-      superAdmin={user?.superAdmin ?? false}
       lanzadorUrl={landingUrl ?? null}
       cabecera={
         <>

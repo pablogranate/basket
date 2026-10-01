@@ -19,9 +19,7 @@ const PRODUCTOR_CONTENT_PATHS = [
   "/teams",
 ] as const;
 
-// /access: the Accesos matrix is admins-only (ADR 0009, editors never manage
-// sibling access).
-const PRODUCTOR_DENIED_PATHS = ["/roles", "/settings", "/access"] as const;
+const PRODUCTOR_DENIED_PATHS = ["/roles", "/settings"] as const;
 
 const EXTERNO_DENIED_PATHS = [
   "/teams",
@@ -31,7 +29,6 @@ const EXTERNO_DENIED_PATHS = [
   "/reports",
   "/roles",
   "/settings",
-  "/access",
 ] as const;
 
 describe("three-tier dashboard access policy", () => {
