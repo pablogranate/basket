@@ -29,6 +29,7 @@
     "test:integration": "bash scripts/db/with-test-db.sh vitest run --config vitest.integration.config.mts"
   },
   "dependencies": {
+    "basket-tv-ui": "github:WencesCapolo/basket-tv-ui#v0.1.0",
     "better-auth": "1.6.33",
     "clsx": "^2.1.1",
     "csv-parse": "^6.1.0",
