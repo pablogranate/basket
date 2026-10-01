@@ -1,11 +1,10 @@
 import { ArrowLeft, LogOut } from "lucide-react";
 
-import { signOutAction } from "@/app/actions/auth";
 import { DashboardAnnouncementBell } from "@/components/layout/dashboard-announcement-bell";
 import { CollaboratorNav } from "@/components/layout/collaborator-nav";
 import { DashboardFooterMeta } from "@/components/layout/dashboard-footer-meta";
 import { UserProfileChip } from "@/components/layout/user-profile-chip";
-import { SubmitButton } from "@/components/ui/submit-button";
+import { LOGOUT_PATH } from "@/lib/constants";
 import { getAppRoleDisplayName } from "@/lib/display";
 import type { AnnouncementSummary } from "@/lib/data/announcements";
 import type { UserContext } from "@/lib/auth";
@@ -56,16 +55,13 @@ export function CollaboratorShell({
           <div className="hidden items-center gap-3 lg:flex">
             <CollaboratorNav />
             {user?.userId ? (
-              <form action={signOutAction}>
-                <SubmitButton
-                  variant="ghost"
-                  pendingLabel="Saliendo..."
-                  className="inline-flex h-11 items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-bold text-[var(--muted)] hover:bg-[var(--background-soft)] hover:text-[var(--foreground)]"
-                >
-                  <LogOut className="size-4" />
-                  Cerrar sesión
-                </SubmitButton>
-              </form>
+              <a
+                href={LOGOUT_PATH}
+                className="inline-flex h-11 items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-bold text-[var(--muted)] transition hover:bg-[var(--background-soft)] hover:text-[var(--foreground)]"
+              >
+                <LogOut className="size-4" />
+                Cerrar sesión
+              </a>
             ) : null}
           </div>
 
