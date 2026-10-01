@@ -2,11 +2,40 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildSiblingAppUrl,
+  getRequestHost,
   isApexHost,
   isUsuariosPath,
   resolveApexDestination,
   resolveUsuariosDestination,
 } from "@/lib/constants";
+
+// basket#200: after a Server Action redirect, Next renders the target through
+// an internal fetch to localhost; only x-forwarded-host keeps the real host.
+describe("getRequestHost", () => {
+  it("prefers x-forwarded-host over the Host header", () => {
+    const requestHeaders = new Headers({
+      host: "localhost:3000",
+      "x-forwarded-host": "basket-app.com",
+    });
+
+    expect(getRequestHost(requestHeaders)).toBe("basket-app.com");
+  });
+
+  it("takes the first host of a forwarded list", () => {
+    const requestHeaders = new Headers({
+      "x-forwarded-host": "basket-app.com, localhost:3000",
+    });
+
+    expect(getRequestHost(requestHeaders)).toBe("basket-app.com");
+  });
+
+  it("falls back to Host, then to an empty string", () => {
+    expect(getRequestHost(new Headers({ host: "portal.basket-app.com" }))).toBe(
+      "portal.basket-app.com",
+    );
+    expect(getRequestHost(new Headers())).toBe("");
+  });
+});
 
 describe("isApexHost", () => {
   it("recognizes the apex host but not the portal subdomain", () => {

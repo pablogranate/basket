@@ -19,7 +19,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { Textarea } from "@/components/ui/textarea";
 import { PORTAL_APP } from "@/lib/acceso/portal";
 import { listAllAppRequestRecipients } from "@/lib/access-requests/app-recipients";
-import { buildApexUrl } from "@/lib/constants";
+import { buildApexUrl, getRequestHost } from "@/lib/constants";
 import { formatMatchDate } from "@/lib/date";
 import { parseNotice } from "@/lib/search-params";
 import {
@@ -59,7 +59,7 @@ export default async function UsuariosPage({ searchParams }: PageProps) {
     listUsuarios(),
     listRecentIdentityEvents(),
     listAllAppRequestRecipients(),
-    headers().then((requestHeaders) => requestHeaders.get("host") ?? ""),
+    headers().then(getRequestHost),
   ]);
   const { intent, notice } = parseNotice(resolvedSearchParams);
   // Deep link from a person's Cuenta block in Personal.

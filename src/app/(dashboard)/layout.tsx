@@ -11,6 +11,7 @@ import { listEffectiveAccessForUser } from "@/lib/acceso/accesos";
 import { directoryLinkFor, launcherApps } from "@/lib/acceso/catalog";
 import {
   buildApexUrl,
+  getRequestHost,
   isCollaboratorLimitedRole,
   isDashboardPathAllowedForRole,
 } from "@/lib/constants";
@@ -57,7 +58,7 @@ export default async function DashboardLayout({
     redirect("/mi-jornada");
   }
 
-  const host = requestHeaders.get("host") ?? "";
+  const host = getRequestHost(requestHeaders);
   const [landingUrl, fichaCompletion] = await Promise.all([
     resolveDirectoryLink(user, host),
     getFichaCompletionPrompt(user),

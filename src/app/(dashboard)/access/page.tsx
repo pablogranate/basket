@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { buildApexUrl, USUARIOS_PATH } from "@/lib/constants";
+import { buildApexUrl, getRequestHost, USUARIOS_PATH } from "@/lib/constants";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -11,7 +11,7 @@ type PageProps = {
 // deep link from Personal keep working. /usuarios does its own guarding.
 export default async function AccessPage({ searchParams }: PageProps) {
   const [host, resolvedSearchParams] = await Promise.all([
-    headers().then((requestHeaders) => requestHeaders.get("host") ?? ""),
+    headers().then(getRequestHost),
     searchParams,
   ]);
   const email =

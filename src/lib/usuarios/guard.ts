@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth/server";
-import { resolveUsuariosDestination } from "@/lib/constants";
+import { getRequestHost, resolveUsuariosDestination } from "@/lib/constants";
 import { findActiveSuperAdmin, type SuperAdmin } from "@/lib/usuarios/super-admin";
 
 // The /usuarios gate for the page and every action: 404 off the apex, login
@@ -12,7 +12,7 @@ import { findActiveSuperAdmin, type SuperAdmin } from "@/lib/usuarios/super-admi
 // the Cuenta, so a super admin with no portal profile still gets in.
 export async function requireSuperAdmin(): Promise<SuperAdmin> {
   const requestHeaders = await headers();
-  const host = requestHeaders.get("host") ?? "";
+  const host = getRequestHost(requestHeaders);
   const session = await auth.api.getSession({ headers: requestHeaders });
   const superAdmin = session?.user
     ? await findActiveSuperAdmin(session.user.id)
