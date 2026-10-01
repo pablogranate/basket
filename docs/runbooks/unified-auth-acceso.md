@@ -116,9 +116,9 @@ grant anything. Productores stay limited to Externo.
 
 ## Users section at basket-app.com/usuarios (#187)
 
-Replaces `/access` (which now redirects there, `?email=` kept). Served on the
-apex host only: every other host gets a 404 (middleware, page and every
-action). Only active super admins get in; anyone else lands on `/no-access`.
+Replaced the portal's `/access`, now removed (no redirect, no links). Served
+on the apex host only: every other host gets a 404 (middleware, page and
+every action). Only active super admins get in; anyone else lands on `/no-access`.
 The check reads `auth_user` uncached, so it doesn't need a portal Cuenta.
 
 - Matrix: every identity × every app of the catalog, one select per cell with
@@ -151,7 +151,7 @@ The bootstrap script is idempotent. It exits 1 and lists any email with no
 identity yet: have that person sign in once, then re-run it. Its audit rows
 have `actor_id = null`. Smoke: a super admin opens `basket-app.com/usuarios`;
 a non-super-admin is sent to `/no-access`; `portal.basket-app.com/usuarios`
-is a 404; `portal.basket-app.com/access` redirects to the apex.
+is a 404.
 
 ## Cutover seed: incidencias, ops hub and analytics users
 

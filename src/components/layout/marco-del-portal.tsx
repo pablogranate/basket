@@ -8,7 +8,6 @@ import {
   CalendarDays,
   CircleHelp,
   ClipboardList,
-  KeyRound,
   ListOrdered,
   ScrollText,
   Settings2,
@@ -38,8 +37,6 @@ const navItems = [
     label: "Registros",
     icon: ScrollText,
   },
-  // Super admins only: redirects to the apex users section (ADR 0010).
-  { href: "/access", label: "Accesos", icon: KeyRound },
   { href: "/settings", label: "Configuración", icon: Settings2 },
   { href: "/support", label: "Soporte", icon: CircleHelp },
 ] as const;
@@ -50,34 +47,24 @@ function getNavPrefix(item: NavItem) {
   return "activePrefix" in item ? item.activePrefix : item.href;
 }
 
-function isNavItemAllowed(
-  item: NavItem,
-  role: AppRole | null | undefined,
-  superAdmin: boolean,
-) {
-  if (item.href === "/access" && !superAdmin) {
-    return false;
-  }
-
+function isNavItemAllowed(item: NavItem, role: AppRole | null | undefined) {
   return isDashboardNavHrefAllowedForRole(getNavPrefix(item), role);
 }
 
 export function MarcoDelPortal({
   children,
   role,
-  superAdmin,
   lanzadorUrl,
   cabecera,
 }: {
   children: React.ReactNode;
   role: AppRole | null;
-  superAdmin: boolean;
   lanzadorUrl: string | null;
   cabecera: React.ReactNode;
 }) {
   const pathname = usePathname();
   const secciones: EnlaceDeNavegacion[] = navItems
-    .filter((item) => isNavItemAllowed(item, role, superAdmin))
+    .filter((item) => isNavItemAllowed(item, role))
     .map((item) => {
       const Icon = item.icon;
 
