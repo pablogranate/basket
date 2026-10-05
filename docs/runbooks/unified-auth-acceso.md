@@ -83,6 +83,10 @@ The portal reads its own role (Externo / Productor / Admin) from
 path (solicitud approval, re-tier, revoke, delete-with-revoke) writes the Auth
 DB first and still dual-writes `profiles.role` until #189.
 
+> `db:auth:seed-portal` was removed on 2026-10-05: it read `profiles.role`,
+> which 0043 dropped on prod on 2026-09-29. The steps below that run it are a
+> record of the rollout, not something to repeat.
+
 Deploy order:
 
 1. `pnpm db:auth:migrate` — `0003_role_catalog` (already applied with #185).
