@@ -4,6 +4,9 @@ Companion to `unified-auth-acceso.md` (migrations, seeds) and ADR 0009. This is
 the checklist for the day the Session readers go live (spec #172, ticket #175)
 and for any later rollout that touches the session cookie or an Acceso gate.
 
+> The `db:auth:seed-*` scripts this order runs were removed on 2026-10-05,
+> after the cutover; see `unified-auth-acceso.md`.
+
 ## Order
 
 1. Portal: merge, deploy, `pnpm db:auth:migrate`, `pnpm db:auth:seed-generator`

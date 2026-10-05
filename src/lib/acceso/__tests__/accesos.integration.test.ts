@@ -3,7 +3,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   getEffectiveAccess,
   grantRole,
-  grantRoleIfAbsent,
   listEffectiveAccessForUser,
   revokeRole,
 } from "@/lib/acceso/accesos";
@@ -93,18 +92,6 @@ describe("accesos (integration)", () => {
       SELECT count(*)::int AS count FROM auth_app_access
       WHERE user_id = ${operator} AND app = 'ops'`;
     expect(count).toBe(1);
-  });
-
-  it("grantRoleIfAbsent never overrides an existing row, and a dry run writes nothing", async () => {
-    const operator = await seedAuthUser(sql, { email: "op@basquetpass.tv" });
-    const input = { userId: operator, app: "ops", role: "write", grantedBy: null };
-
-    await expect(grantRoleIfAbsent(input, { dryRun: true })).resolves.toBe(true);
-    expect(await grantRow(operator, "ops")).toBeNull();
-
-    await grantRole({ ...input, role: "read" });
-    await expect(grantRoleIfAbsent(input)).resolves.toBe(false);
-    expect(await grantRow(operator, "ops")).toMatchObject({ role: "read" });
   });
 
   it("revoking removes the row so the next lookup answers null; revoking again is a no-op", async () => {
