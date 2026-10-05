@@ -3,6 +3,7 @@ import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 
 import { GridExportButton } from "@/components/grid/grid-export-button";
+import { GridPhoneCardsRedirect } from "@/components/grid/grid-phone-cards-redirect";
 import { GridStatsButton } from "@/components/grid/grid-stats-button";
 import { GridSyncButton } from "@/components/grid/grid-sync-button";
 import { GridTable } from "@/components/grid/grid-table";
@@ -292,6 +293,34 @@ export async function GridContent({
   const { todayKey, pastGroups, upcomingGroups, shouldSplitPastDays } =
     splitPastDayGroups(sortedDayGroups, filters);
 
+  // The table is a wide multi-column grid that never fits a phone, and the
+  // Tarjetas/Grilla toggle is hidden below `sm`. So when the table view is
+  // selected, phones are sent to the cards view instead of shipping both.
+  if (filters.display === "table") {
+    const tableRows = sortedDayGroups.flatMap((group) =>
+      group.items.map((match: MatchListItem) => ({
+        dayLabel: formatDayHeading(match.kickoff_at, match.timezone),
+        match,
+      })),
+    );
+
+    return (
+      <>
+        <div className="hidden sm:block">
+          <GridTable
+            rows={tableRows}
+            canEdit={user.canEdit}
+            redirectTo={redirectTo}
+            people={owners}
+            roles={roles}
+            todayKey={todayKey}
+          />
+        </div>
+        <GridPhoneCardsRedirect />
+      </>
+    );
+  }
+
   // The toggle button lives in the desktop toolbar's left column, so here we
   // only render a mobile-only button (paired with the date-order sort) plus,
   // when `past=1`, the past-day cards themselves. Collapsed months never
@@ -374,34 +403,6 @@ export async function GridContent({
       </TeamLogoResolutionProvider>
     </PeopleProvider>
   );
-
-  // The table is a wide multi-column grid that never fits a phone, and the
-  // Tarjetas/Grilla toggle is hidden below `sm`. So even when the table view is
-  // selected, phones fall back to cards — the table only renders from `sm` up.
-  if (filters.display === "table") {
-    const tableRows = sortedDayGroups.flatMap((group) =>
-      group.items.map((match: MatchListItem) => ({
-        dayLabel: formatDayHeading(match.kickoff_at, match.timezone),
-        match,
-      })),
-    );
-
-    return (
-      <>
-        <div className="hidden sm:block">
-          <GridTable
-            rows={tableRows}
-            canEdit={user.canEdit}
-            redirectTo={redirectTo}
-            people={owners}
-            roles={roles}
-            todayKey={todayKey}
-          />
-        </div>
-        <div className="sm:hidden">{cardsContent}</div>
-      </>
-    );
-  }
 
   return cardsContent;
 }
