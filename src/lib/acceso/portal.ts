@@ -3,7 +3,6 @@ import "server-only";
 import {
   getEffectiveAccess,
   grantRole,
-  grantRoleIfAbsent,
   revokeRole,
 } from "@/lib/acceso/accesos";
 import type { AppRole } from "@/lib/database.types";
@@ -41,13 +40,6 @@ export async function grantPortalRole(
   exec?: AuthDbExecutor,
 ): Promise<void> {
   await grantRole({ ...input, app: PORTAL_APP }, exec);
-}
-
-export async function grantPortalRoleIfAbsent(
-  input: { userId: string; role: AppRole; grantedBy: string | null },
-  options: { dryRun?: boolean } = {},
-): Promise<boolean> {
-  return grantRoleIfAbsent({ ...input, app: PORTAL_APP }, options);
 }
 
 export async function revokePortalRole(userId: string): Promise<boolean> {
