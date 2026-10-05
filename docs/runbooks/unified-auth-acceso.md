@@ -3,6 +3,13 @@
 Companion to ADR 0009 and `CONTEXT.md` "Unified auth". Applies to the portal
 (Auth server); readers have their own pointer ADRs.
 
+> **The seeds are gone.** `db:auth:seed-generator`, `db:auth:seed-siblings` and
+> `db:auth:seed-portal` were one-time rollout scripts, removed on 2026-10-05:
+> they read `profiles.role` (dropped by 0043) and the Supabase Auth users of
+> incidencias and ops (being decommissioned). The sections below that run them
+> are a record of the rollout, not steps to repeat. Accesos are managed from
+> the apex `/usuarios` page.
+
 ## Pinned Better Auth version
 
 The portal pins `better-auth` **exactly** (no caret) in `package.json`:
@@ -82,10 +89,6 @@ The portal reads its own role (Externo / Productor / Admin) from
 `auth_effective_access`, app `portal`, instead of `profiles.role`. Every grant
 path (solicitud approval, re-tier, revoke, delete-with-revoke) writes the Auth
 DB first and still dual-writes `profiles.role` until #189.
-
-> `db:auth:seed-portal` was removed on 2026-10-05: it read `profiles.role`,
-> which 0043 dropped on prod on 2026-09-29. The steps below that run it are a
-> record of the rollout, not something to repeat.
 
 Deploy order:
 

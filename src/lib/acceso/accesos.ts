@@ -78,42 +78,6 @@ export async function grantRole(
     });
 }
 
-// Seeds and first-login links grant without overriding an existing row.
-// Returns whether a row was (or, in dryRun, would be) written.
-export async function grantRoleIfAbsent(
-  input: RoleGrant,
-  options: { dryRun?: boolean } = {},
-): Promise<boolean> {
-  if (options.dryRun) {
-    const existing = await authDb
-      .select({ userId: authAppAccess.userId })
-      .from(authAppAccess)
-      .where(
-        and(
-          eq(authAppAccess.userId, input.userId),
-          eq(authAppAccess.app, input.app),
-        ),
-      )
-      .limit(1);
-
-    return existing.length === 0;
-  }
-
-  const inserted = await authDb
-    .insert(authAppAccess)
-    .values({
-      userId: input.userId,
-      app: input.app,
-      role: input.role,
-      grantedBy: input.grantedBy,
-      grantedAt: new Date(),
-    })
-    .onConflictDoNothing({ target: [authAppAccess.userId, authAppAccess.app] })
-    .returning({ userId: authAppAccess.userId });
-
-  return inserted.length > 0;
-}
-
 // Returns whether a row was removed. Denial is immediate: gates read per request.
 export async function revokeRole(input: {
   userId: string;
