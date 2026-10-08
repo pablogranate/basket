@@ -8,8 +8,8 @@ export type LeagueSnapshot = {
 
 // Grid "Liga" texts that differ from the league's own name, keyed by
 // normalizeLeagueName. Texts equal to a league name resolve without an entry
-// here. Anything else (e.g. "Grabacion Contenido", "LPB Ecuador", which is
-// not "LPB Fem Ecuador") deliberately stays without a league.
+// here. Anything else (e.g. "Grabacion Contenido") deliberately stays without
+// a league.
 const COMPETITION_LEAGUE_SLUGS: Record<string, string> = {
   "liga metro": "liga-metropolitana",
   "liga desarrollo": "liga-proximo",
@@ -17,6 +17,7 @@ const COMPETITION_LEAGUE_SLUGS: Record<string, string> = {
   "endesa acb": "liga-endesa-acb",
   "liga endesa": "liga-endesa-acb",
   sudamericana: "liga-sudamericana",
+  "lpb ecuador": "liga-basquetpro-ecuador",
   "pre metropolina": "pre-metropolitana",
   "liga nacional / liga proximo": "liga-nacional",
 };

@@ -323,9 +323,9 @@ describe("planGridSync league_id from competition", () => {
     const plan = planGridSync(
       makeInput({
         leagues,
-        entries: [makeEntry({ competition: "LPB Ecuador" })],
+        entries: [makeEntry({ competition: "Americup Femenina" })],
         windowMatches: [
-          makeMatchSnapshot({ competition: "LPB Ecuador", league_id: "id-set-by-hand" }),
+          makeMatchSnapshot({ competition: "Americup Femenina", league_id: "id-set-by-hand" }),
         ],
       }),
     );

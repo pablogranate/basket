@@ -14,6 +14,7 @@ const LEAGUES = [
   { id: "id-sudamericana", slug: "liga-sudamericana", name: "Liga Sudamericana" },
   { id: "id-febamba", slug: "febamba", name: "Febamba" },
   { id: "id-lpb-fem", slug: "lpb-fem-ecuador", name: "LPB Fem Ecuador" },
+  { id: "id-basquetpro", slug: "liga-basquetpro-ecuador", name: "Liga BasquetPro (Ecuador)" },
   { id: "id-lnb-chile", slug: "lnb-chile", name: "LNB Chile" },
   { id: "id-pre-metro", slug: "pre-metropolitana", name: "Pre Metropolitana" },
 ];
@@ -32,6 +33,7 @@ describe("createCompetitionLeagueResolver", () => {
     ["Endesa ACB", "id-acb"],
     ["Sudamericana", "id-sudamericana"],
     ["Febamba", "id-febamba"],
+    ["LPB Ecuador", "id-basquetpro"],
     ["Pre Metropolina", "id-pre-metro"],
     ["Liga Nacional / Liga Próximo", "id-nacional"],
   ])("maps grid text %s to its league", (competition, leagueId) => {
@@ -49,8 +51,8 @@ describe("createCompetitionLeagueResolver", () => {
     expect(resolve("Grabación Contenido")).toBeNull();
   });
 
-  it("does not map LPB Ecuador onto the women's league", () => {
-    expect(resolve("LPB Ecuador")).toBeNull();
+  it("keeps the women's Ecuador league apart from LPB Ecuador", () => {
+    expect(resolve("LPB Fem Ecuador")).toBe("id-lpb-fem");
   });
 
   it("returns null for unknown, empty or missing text", () => {
