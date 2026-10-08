@@ -53,3 +53,6 @@ tools/import/periodistas.raw.csv
 tools/sheets/*.csv
 
 .claude/*
+
+# CABB gesdeportiva CSV exports (live match data)
+tools/cabb/samples/

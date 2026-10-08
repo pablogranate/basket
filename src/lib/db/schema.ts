@@ -279,6 +279,7 @@ export const matches = pgTable("matches", {
 	transport: text(),
 	dayNotifiedAt: timestamptz("day_notified_at"),
 	leagueId: uuid("league_id"),
+	fixtureId: text("fixture_id"),
 }, (table) => [
 	index("idx_matches_away_team_trgm").using("gin", table.awayTeam.asc().nullsLast().op("gin_trgm_ops")),
 	index("idx_matches_competition").using("btree", table.competition.asc().nullsLast()).where(sql`(competition IS NOT NULL)`),
@@ -290,6 +291,7 @@ export const matches = pgTable("matches", {
 	index("matches_league_id_idx").using("btree", table.leagueId.asc().nullsLast()),
 	index("matches_owner_idx").using("btree", table.ownerId.asc().nullsLast()),
 	uniqueIndex("matches_production_code_key").using("btree", table.productionCode.asc().nullsLast()).where(sql`(production_code IS NOT NULL)`),
+	uniqueIndex("matches_fixture_id_key").using("btree", table.fixtureId.asc().nullsLast()).where(sql`(fixture_id IS NOT NULL)`),
 	foreignKey({
 			columns: [table.createdBy],
 			foreignColumns: [profiles.id],
@@ -299,6 +301,11 @@ export const matches = pgTable("matches", {
 			columns: [table.leagueId],
 			foreignColumns: [leagues.id],
 			name: "matches_league_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.fixtureId],
+			foreignColumns: [fixtures.id],
+			name: "matches_fixture_id_fkey"
 		}).onDelete("set null"),
 	foreignKey({
 			columns: [table.ownerId],

@@ -30,6 +30,16 @@ export const appEnv = {
   intakeApiKey: process.env.INTAKE_API_KEY ?? "",
   gridSyncEnabled: process.env.GRID_SYNC_ENABLED !== "false",
   gridSyncCron: process.env.GRID_SYNC_CRON ?? "*/30 * * * *",
+  fixturesSyncEnabled: process.env.FIXTURES_SYNC_ENABLED !== "false",
+  fixturesSyncCron: process.env.FIXTURES_SYNC_CRON ?? "0 6 * * *",
+  // Two Gesdeportiva accounts with disjoint data (ADC: Liga Nacional,
+  // Argentina, Femenina, Desarrollo; CAB: Mayores, 3x3, Formativas). One
+  // password is shared unless CABB_PASS_<ACCOUNT> overrides it.
+  cabbAccounts: ["ADC", "CAB"].map((key) => ({
+    key,
+    user: process.env[`CABB_USER_${key}`] ?? "",
+    password: process.env[`CABB_PASS_${key}`] ?? process.env.CABB_PASS ?? "",
+  })),
   openwaApiUrl: process.env.OPENWA_API_URL ?? "",
   openwaApiKey: process.env.OPENWA_API_KEY ?? "",
   openwaNotifyEnabled: process.env.OPENWA_NOTIFY_ENABLED !== "false",

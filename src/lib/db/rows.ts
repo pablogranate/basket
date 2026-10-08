@@ -44,6 +44,7 @@ export const matchColumns = {
   transport: matches.transport,
   day_notified_at: matches.dayNotifiedAt,
   league_id: matches.leagueId,
+  fixture_id: matches.fixtureId,
 } as const;
 
 // The /grid read path only. A month view multiplies every column by every match
