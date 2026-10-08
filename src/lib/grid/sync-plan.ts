@@ -1,3 +1,5 @@
+import { createCompetitionLeagueResolver } from "@/lib/competition-league";
+import type { LeagueSnapshot } from "@/lib/competition-league";
 import type { Database } from "@/lib/database.types";
 import { roleNameToFunctionKey } from "@/lib/functions";
 import type { SheetEntry } from "@/lib/grid/sheet-parse";
@@ -32,6 +34,7 @@ export type MatchSnapshot = {
   commentary_plan: string | null;
   transport: string | null;
   notes: string | null;
+  league_id: string | null;
 };
 
 export type AssignmentSnapshot = {
@@ -70,6 +73,7 @@ export type MatchFieldPatch = Partial<{
   transport: string | null;
   notes: string | null;
   status: MatchStatus;
+  leagueId: string | null;
 }>;
 
 export type SyncPlanCreate = {
@@ -87,6 +91,7 @@ export type SyncPlanCreate = {
     transport: string | null;
     notes: string | null;
     status: MatchStatus;
+    leagueId: string | null;
   };
   owner: PersonRef | null;
   assignments: SyncAssignmentUpsert[];
@@ -131,6 +136,7 @@ export type PlanGridSyncInput = {
   roleIdByName: Map<string, string>;
   people: PersonSnapshot[];
   personFunctions: PersonFunctionSnapshot[];
+  leagues: LeagueSnapshot[];
   deleteCandidates: DeleteCandidateSnapshot[] | null;
   deleteCandidatesError?: string;
   now: Date;
@@ -237,6 +243,8 @@ export function planGridSync(input: PlanGridSyncInput): SyncPlan {
   for (const match of input.windowMatches) {
     matchByTriple.set(tripleKey(match.home_team, match.away_team, match.kickoff_at), match);
   }
+
+  const resolveLeagueId = createCompetitionLeagueResolver(input.leagues);
 
   const roleIdByName = input.roleIdByName;
   const managedRoleIds = new Set<string>(roleIdByName.values());
@@ -390,6 +398,7 @@ export function planGridSync(input: PlanGridSyncInput): SyncPlan {
           transport: sheet.transport,
           notes: sheet.notes,
           status: isPast ? "Realizado" : "Pendiente",
+          leagueId: resolveLeagueId(sheet.competition),
         },
         owner,
         assignments: Array.from(desired, ([roleId, { person }]) => ({ roleId, person })),
@@ -402,8 +411,19 @@ export function planGridSync(input: PlanGridSyncInput): SyncPlan {
     // Sheet owns roster fields; compare instant-wise for kickoff.
     // Keys are camelCase to feed Drizzle .set() directly.
     const patch: MatchFieldPatch = {};
-    if (nullableText(existing.competition) !== nullableText(sheet.competition)) {
+    const competitionChanged =
+      nullableText(existing.competition) !== nullableText(sheet.competition);
+    if (competitionChanged) {
       patch.competition = sheet.competition;
+    }
+
+    // The league follows the competition text. An unresolvable text clears it
+    // only when the text itself changed: an unchanged text keeps a league set
+    // by hand or by a backfill, and an empty leagues read never wipes one.
+    const leagueId = resolveLeagueId(sheet.competition);
+    const existingLeagueId = existing.league_id ?? null;
+    if (leagueId ? leagueId !== existingLeagueId : competitionChanged && existingLeagueId) {
+      patch.leagueId = leagueId;
     }
     if (nullableText(existing.production_mode) !== nullableText(sheet.production_mode)) {
       patch.productionMode = sheet.production_mode;
