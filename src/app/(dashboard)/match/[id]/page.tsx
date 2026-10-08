@@ -38,6 +38,7 @@ import {
 import { CollaboratorReportsPanel } from "@/components/match/collaborator-reports-panel";
 import { GroupActions } from "@/components/match/group-actions";
 import { HistoryTimeline } from "@/components/match/history-timeline";
+import { MatchCabbFixture } from "@/components/match/match-cabb-fixture";
 import { TeamLogoMark } from "@/components/team-logo-mark";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -736,6 +737,12 @@ async function MatchDetailContent({
           </div>
         </div>
       </section>
+
+      {match.fixture_id ? (
+        <Suspense fallback={null}>
+          <MatchCabbFixture user={user} fixtureId={match.fixture_id} kickoffAt={match.kickoff_at} />
+        </Suspense>
+      ) : null}
 
       <PageMessage intent={intent} message={notice} />
 

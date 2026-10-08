@@ -678,6 +678,7 @@ export type Database = {
           id: string
           kickoff_at: string
           league_id: string | null
+          fixture_id: string | null
           notes: string | null
           owner_id: string | null
           production_code: string | null
@@ -701,6 +702,7 @@ export type Database = {
           id?: string
           kickoff_at: string
           league_id?: string | null
+          fixture_id?: string | null
           notes?: string | null
           owner_id?: string | null
           production_code?: string | null
@@ -724,6 +726,7 @@ export type Database = {
           id?: string
           kickoff_at?: string
           league_id?: string | null
+          fixture_id?: string | null
           notes?: string | null
           owner_id?: string | null
           production_code?: string | null
@@ -741,6 +744,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_fixture_id_fkey"
+            columns: ["fixture_id"]
+            isOneToOne: true
+            referencedRelation: "fixtures"
             referencedColumns: ["id"]
           },
           {

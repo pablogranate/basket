@@ -11,6 +11,8 @@
     "test": "vitest run",
     "check": "npm run lint && npm run typecheck && npm run test && npm run build",
     "import:csv": "node tools/import/index.mjs",
+    "cabb:fetch": "node tools/cabb/fetch-partidos.mjs",
+    "fixtures:sync": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/fixtures/sync.mts",
     "sync:grid": "node tools/import/grilla.mjs",
     "perf:grid": "node scripts/perf/grid-payload.mjs",
     "perf:mi-jornada": "node scripts/perf/mi-jornada-stream.mjs",
