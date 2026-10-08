@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { ToolbarSearchField } from "@/components/ui/toolbar-search-field";
-import type { FixtureListItem, FixturePartido } from "@/lib/data/fixtures";
+import type { FixtureListItem } from "@/lib/data/fixtures";
 import { FIXTURE_COMPETITION_ORDER, resolveFixtureCompetition } from "@/lib/fixtures/competitions";
 import {
   fixtureCategoryLabel,
@@ -80,7 +80,7 @@ export function FixturesAgenda({
   const needle = normalizeQuery(query);
   const matching = needle ? rows.filter((row) => row.searchText.includes(needle)) : rows;
   const coveredCount = matching.filter((row) => row.partido).length;
-  const scheduleDiffCount = matching.filter((row) => row.partido && scheduleDiffers(row, row.partido)).length;
+  const scheduleDiffCount = matching.filter((row) => row.partido?.scheduleDiffers).length;
   const searched = onlyCovered ? matching.filter((row) => row.partido) : matching;
   const visible = competition ? searched.filter((row) => row.competitionLabel === competition) : searched;
 
@@ -203,12 +203,6 @@ export function FixturesAgenda({
   );
 }
 
-function scheduleDiffers(row: AgendaRow, partido: FixturePartido) {
-  return (
-    row.matchDate !== partido.argDate || (row.matchTime !== null && row.matchTime !== partido.argTime)
-  );
-}
-
 function formatShortDate(isoDate: string) {
   return `${isoDate.slice(8, 10)}/${isoDate.slice(5, 7)}`;
 }
@@ -220,8 +214,9 @@ function GridCell({ row }: { row: AgendaRow }) {
     return <span className="text-xs text-[var(--n-400)]">No cubierto</span>;
   }
 
-  const differs = scheduleDiffers(row, partido);
-  const gridSchedule = `${row.matchDate === partido.argDate ? "" : `${formatShortDate(partido.argDate)} `}${partido.argTime}`;
+  const differs = partido.scheduleDiffers;
+  const { date, time } = partido.schedule;
+  const gridSchedule = `${row.matchDate === date ? "" : `${formatShortDate(date)} `}${time}`;
 
   return (
     <span className="flex flex-col items-start gap-0.5 text-xs leading-snug">

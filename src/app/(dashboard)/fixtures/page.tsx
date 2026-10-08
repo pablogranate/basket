@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { requireUserContext } from "@/lib/auth";
 import { getFixturesAgenda } from "@/lib/data/fixtures";
-import { FIXTURE_TIMEZONE } from "@/lib/fixtures/link-plan";
+import { FIXTURE_TIMEZONE } from "@/lib/fixtures/schedule";
 import { getLastFixturesSync } from "@/lib/fixtures/sync";
 import { addFixtureMonths, parseFixtureMonth } from "@/lib/fixtures/window";
 import { cn } from "@/lib/utils";

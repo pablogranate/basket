@@ -10,7 +10,7 @@ import {
   hasFixtureScore,
   titleCaseFixtureText,
 } from "@/lib/fixtures/display";
-import { FIXTURE_TIMEZONE } from "@/lib/fixtures/link-plan";
+import { compareFixtureSchedule, FIXTURE_TIMEZONE } from "@/lib/fixtures/schedule";
 
 function formatFixtureDate(isoDate: string) {
   const [year, month, day] = isoDate.split("-");
@@ -32,11 +32,7 @@ export async function MatchCabbFixture({
     return null;
   }
 
-  const gridDate = formatInTimeZone(kickoffAt, FIXTURE_TIMEZONE, "yyyy-MM-dd");
-  const gridTime = formatInTimeZone(kickoffAt, FIXTURE_TIMEZONE, "HH:mm");
-  const scheduleDiffers =
-    (fixture.matchDate !== null && fixture.matchDate !== gridDate) ||
-    (fixture.matchTime !== null && fixture.matchTime !== gridTime);
+  const { grid, differs: scheduleDiffers } = compareFixtureSchedule(fixture, kickoffAt);
   const phase = fixturePhaseLabel(fixture.phase, fixture.group);
   const place = [fixture.venue, fixture.city, fixture.province]
     .filter(Boolean)
@@ -77,7 +73,7 @@ export async function MatchCabbFixture({
       {scheduleDiffers ? (
         <p className="flex items-start gap-2 rounded-lg border border-[var(--accent-border)] bg-[var(--accent-soft)] px-3 py-2 text-sm text-[var(--accent)]">
           <CircleAlert className="mt-0.5 size-4 shrink-0" />
-          La grilla tiene {formatFixtureDate(gridDate)} {gridTime} (hora argentina) y la CABB{" "}
+          La grilla tiene {formatFixtureDate(grid.date)} {grid.time} (hora argentina) y la CABB{" "}
           {fixture.matchDate ? formatFixtureDate(fixture.matchDate) : "sin fecha"} {fixture.matchTime ?? ""}.
         </p>
       ) : null}

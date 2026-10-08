@@ -7,7 +7,7 @@ import type { UserContext } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { fixtures as fixturesTable, matches as matchesTable } from "@/lib/db/schema";
 import { DEFAULT_TIMEZONE } from "@/lib/constants";
-import { FIXTURE_TIMEZONE } from "@/lib/fixtures/link-plan";
+import { compareFixtureSchedule, type FixtureSchedule } from "@/lib/fixtures/schedule";
 import { fixtureMonthRange, fixtureToday } from "@/lib/fixtures/window";
 
 // ADR 0005: fixtures accumulate every season, so the page reads one month at a
@@ -36,13 +36,13 @@ export type FixtureListItem = {
 };
 
 // gridDate is the day the /grid day view files the Partido under (grid
-// timezone); argDate/argTime compare against the CABB schedule.
+// timezone); schedule is its kickoff in Argentine time, as CABB writes it.
 export type FixturePartido = {
   id: string;
   productionCode: string | null;
   gridDate: string;
-  argDate: string;
-  argTime: string;
+  schedule: FixtureSchedule;
+  scheduleDiffers: boolean;
 };
 
 export async function getFixturesAgenda(ctx: UserContext, { now, month }: { now: Date; month: string }) {
@@ -85,20 +85,24 @@ export async function getFixturesAgenda(ctx: UserContext, { now, month }: { now:
     .limit(FIXTURE_ROW_LIMIT);
 
   const fixtures: FixtureListItem[] = rows.map(
-    ({ partidoId, productionCode, kickoffAt, matchDate, ...fixture }) => ({
-      ...fixture,
-      matchDate: matchDate ?? today,
-      partido:
-        partidoId && kickoffAt
-          ? {
-              id: partidoId,
-              productionCode,
-              gridDate: formatInTimeZone(kickoffAt, DEFAULT_TIMEZONE, "yyyy-MM-dd"),
-              argDate: formatInTimeZone(kickoffAt, FIXTURE_TIMEZONE, "yyyy-MM-dd"),
-              argTime: formatInTimeZone(kickoffAt, FIXTURE_TIMEZONE, "HH:mm"),
-            }
-          : null,
-    }),
+    ({ partidoId, productionCode, kickoffAt, matchDate, ...fixture }) => {
+      const comparison = kickoffAt ? compareFixtureSchedule({ matchDate, matchTime: fixture.matchTime }, kickoffAt) : null;
+
+      return {
+        ...fixture,
+        matchDate: matchDate ?? today,
+        partido:
+          partidoId && kickoffAt && comparison
+            ? {
+                id: partidoId,
+                productionCode,
+                gridDate: formatInTimeZone(kickoffAt, DEFAULT_TIMEZONE, "yyyy-MM-dd"),
+                schedule: comparison.grid,
+                scheduleDiffers: comparison.differs,
+              }
+            : null,
+      };
+    },
   );
 
   return { today, fixtures, truncated: rows.length === FIXTURE_ROW_LIMIT };

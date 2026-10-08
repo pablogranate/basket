@@ -1,6 +1,6 @@
 import { formatInTimeZone } from "date-fns-tz";
 
-import { FIXTURE_TIMEZONE } from "@/lib/fixtures/link-plan";
+import { FIXTURE_TIMEZONE } from "@/lib/fixtures/schedule";
 
 export const SYNC_DAYS_BEFORE = 7;
 export const SYNC_DAYS_AFTER = 45;

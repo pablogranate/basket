@@ -1,14 +1,10 @@
-import { formatInTimeZone } from "date-fns-tz";
-
 import {
   isFixtureLeagueSlug,
   resolveFixtureCompetition,
   resolveGridCompetitionLeague,
   type FixtureLeagueSlug,
 } from "@/lib/fixtures/competitions";
-
-// CABB publishes Argentine local dates and times; the grid stores UTC instants.
-export const FIXTURE_TIMEZONE = "America/Argentina/Buenos_Aires";
+import { argentineSchedule, compareFixtureSchedule } from "@/lib/fixtures/schedule";
 
 export type LinkFixture = {
   id: string;
@@ -93,7 +89,7 @@ export function planFixtureLinks({
       continue;
     }
 
-    const date = formatInTimeZone(candidate.kickoffAt, FIXTURE_TIMEZONE, "yyyy-MM-dd");
+    const { date } = argentineSchedule(candidate.kickoffAt);
     const key = [league, date, normalizeTeamName(candidate.homeTeam), normalizeTeamName(candidate.awayTeam)].join("|");
     const matches = fixturesByKey.get(key) ?? [];
 
@@ -123,9 +119,9 @@ export function planFixtureLinks({
     const { candidate, fixture } = claims[0]!;
     links.push({ matchId: candidate.id, fixtureId });
 
-    const gridTime = formatInTimeZone(candidate.kickoffAt, FIXTURE_TIMEZONE, "HH:mm");
-    if (fixture.matchTime && fixture.matchTime !== gridTime) {
-      warnings.push(`horario distinto en ${describe(candidate)}: grilla ${gridTime}, CABB ${fixture.matchTime}`);
+    const { grid, differs } = compareFixtureSchedule(fixture, candidate.kickoffAt);
+    if (differs) {
+      warnings.push(`horario distinto en ${describe(candidate)}: grilla ${grid.time}, CABB ${fixture.matchTime}`);
     }
   }
 

@@ -3,7 +3,7 @@ import "server-only";
 import cron from "node-cron";
 
 import { appEnv } from "@/lib/env";
-import { FIXTURE_TIMEZONE } from "@/lib/fixtures/link-plan";
+import { FIXTURE_TIMEZONE } from "@/lib/fixtures/schedule";
 import { runFixturesSync } from "@/lib/fixtures/sync";
 import { defaultFixturesSyncWindow } from "@/lib/fixtures/window";
 
