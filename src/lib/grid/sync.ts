@@ -7,11 +7,13 @@ import { assignmentColumns, gridSyncRunColumns, matchColumns } from "@/lib/db/ro
 import {
   assignments as assignmentsTable,
   gridSyncRuns as gridSyncRunsTable,
+  leagues as leaguesTable,
   matches as matchesTable,
   people as peopleTable,
   personFunctions as personFunctionsTable,
   roles as rolesTable,
 } from "@/lib/db/schema";
+import type { LeagueSnapshot } from "@/lib/competition-league";
 import type { Database } from "@/lib/database.types";
 import {
   endOfSyncWindow,
@@ -134,6 +136,7 @@ async function buildGridSyncPlan(now: Date, source: SheetSource): Promise<SyncPl
   const roleIdByName = new Map<string, string>();
   let people: Array<{ id: string; full_name: string; deleted_at: string | null }> = [];
   let personFunctions: Array<{ person_id: string; function_key: string }> = [];
+  let leagues: LeagueSnapshot[] = [];
 
   if (selected.entries.length) {
     // Existing matches in the synced kickoff window.
@@ -187,9 +190,10 @@ async function buildGridSyncPlan(now: Date, source: SheetSource): Promise<SyncPl
       roleIdByName.set(role.name, role.id);
     }
 
-    // People (incl. soft-deleted, see people sync PRD) and their funciones for
-    // the mismatch warnings — one extra bulk select, concurrent per ADR 0005.
-    [people, personFunctions] = await Promise.all([
+    // People (incl. soft-deleted, see people sync PRD), their funciones for
+    // the mismatch warnings and the leagues for league_id — bulk selects,
+    // concurrent per ADR 0005.
+    [people, personFunctions, leagues] = await Promise.all([
       db
         .select({
           id: peopleTable.id,
@@ -203,6 +207,9 @@ async function buildGridSyncPlan(now: Date, source: SheetSource): Promise<SyncPl
           function_key: personFunctionsTable.functionKey,
         })
         .from(personFunctionsTable),
+      db
+        .select({ id: leaguesTable.id, slug: leaguesTable.slug, name: leaguesTable.name })
+        .from(leaguesTable),
     ]);
   }
 
@@ -245,6 +252,7 @@ async function buildGridSyncPlan(now: Date, source: SheetSource): Promise<SyncPl
     roleIdByName,
     people,
     personFunctions,
+    leagues,
     deleteCandidates,
     now,
   };

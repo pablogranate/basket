@@ -66,6 +66,7 @@ function makeMatchSnapshot(overrides: Partial<MatchSnapshot> = {}): MatchSnapsho
     commentary_plan: null,
     transport: null,
     notes: null,
+    league_id: null,
     ...overrides,
   };
 }
@@ -91,6 +92,7 @@ function makeInput(overrides: Partial<PlanGridSyncInput> = {}): PlanGridSyncInpu
     roleIdByName: new Map(ROLE_IDS),
     people: [],
     personFunctions: [],
+    leagues: [],
     deleteCandidates: [],
     now: NOW,
     ...overrides,
@@ -236,6 +238,112 @@ describe("planGridSync field patches", () => {
     );
     expect(plan.updates).toHaveLength(0);
     expect(plan.unchanged).toBe(1);
+  });
+});
+
+describe("planGridSync league_id from competition", () => {
+  const leagues = [
+    { id: "id-nacional", slug: "liga-nacional", name: "Liga Nacional" },
+    { id: "id-femenina", slug: "liga-femenina", name: "Liga Femenina" },
+    { id: "id-metro", slug: "liga-metropolitana", name: "Liga Metropolitana" },
+  ];
+
+  it("creates a match with the league its competition maps to", () => {
+    const plan = planGridSync(
+      makeInput({ leagues, entries: [makeEntry({ competition: "Liga Metro" })] }),
+    );
+    expect(plan.creates[0].values.leagueId).toBe("id-metro");
+  });
+
+  it("creates a content recording without a league", () => {
+    const plan = planGridSync(
+      makeInput({ leagues, entries: [makeEntry({ competition: "Grabacion Contenido" })] }),
+    );
+    expect(plan.creates[0].values.leagueId).toBeNull();
+  });
+
+  it("fills a missing league on an otherwise unchanged match", () => {
+    const plan = planGridSync(
+      makeInput({
+        leagues,
+        entries: [makeEntry({ competition: "Liga Nacional" })],
+        windowMatches: [makeMatchSnapshot({ competition: "Liga Nacional", league_id: null })],
+      }),
+    );
+    expect(plan.updates[0].patch).toEqual({ leagueId: "id-nacional" });
+  });
+
+  it("leaves a match whose league already matches unchanged", () => {
+    const plan = planGridSync(
+      makeInput({
+        leagues,
+        entries: [makeEntry({ competition: "Liga Nacional" })],
+        windowMatches: [
+          makeMatchSnapshot({ competition: "Liga Nacional", league_id: "id-nacional" }),
+        ],
+      }),
+    );
+    expect(plan.updates).toHaveLength(0);
+    expect(plan.unchanged).toBe(1);
+  });
+
+  it("moves the league when the competition text moves to another league", () => {
+    const plan = planGridSync(
+      makeInput({
+        leagues,
+        entries: [makeEntry({ competition: "Liga Femenina" })],
+        windowMatches: [
+          makeMatchSnapshot({ competition: "Liga Nacional", league_id: "id-nacional" }),
+        ],
+      }),
+    );
+    expect(plan.updates[0].patch).toEqual({
+      competition: "Liga Femenina",
+      leagueId: "id-femenina",
+    });
+  });
+
+  it("clears the league when the competition text moves to one with no league", () => {
+    const plan = planGridSync(
+      makeInput({
+        leagues,
+        entries: [makeEntry({ competition: "Grabacion Contenido" })],
+        windowMatches: [
+          makeMatchSnapshot({ competition: "Liga Nacional", league_id: "id-nacional" }),
+        ],
+      }),
+    );
+    expect(plan.updates[0].patch).toEqual({
+      competition: "Grabacion Contenido",
+      leagueId: null,
+    });
+  });
+
+  it("keeps a league the resolver cannot derive while the text is unchanged", () => {
+    const plan = planGridSync(
+      makeInput({
+        leagues,
+        entries: [makeEntry({ competition: "LPB Ecuador" })],
+        windowMatches: [
+          makeMatchSnapshot({ competition: "LPB Ecuador", league_id: "id-set-by-hand" }),
+        ],
+      }),
+    );
+    expect(plan.updates).toHaveLength(0);
+    expect(plan.unchanged).toBe(1);
+  });
+
+  it("never clears a league when the leagues snapshot is empty", () => {
+    const plan = planGridSync(
+      makeInput({
+        leagues: [],
+        entries: [makeEntry({ competition: "Liga Nacional" })],
+        windowMatches: [
+          makeMatchSnapshot({ competition: "Liga Nacional", league_id: "id-nacional" }),
+        ],
+      }),
+    );
+    expect(plan.updates).toHaveLength(0);
   });
 });
 

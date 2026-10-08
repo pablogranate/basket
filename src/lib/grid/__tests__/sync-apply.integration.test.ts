@@ -40,6 +40,7 @@ function makeCreate(overrides: Partial<SyncPlanCreate> = {}): SyncPlanCreate {
       transport: null,
       notes: null,
       status: "Pendiente",
+      leagueId: null,
     },
     owner: null,
     assignments: [],
@@ -153,6 +154,43 @@ describe("applyGridSync (integration)", () => {
     expect(assignments[0].role_id).toBe(role.id);
     expect(assignments[0].person_id).toBe(ana.id);
     expect(assignments[0].confirmed).toBe(false);
+  });
+
+  it("writes league_id on create and on a league patch", async () => {
+    const [league] = await sql`
+      INSERT INTO leagues ${sql({ name: "Liga Nacional", slug: "liga-nacional" })}
+      ON CONFLICT (slug) DO UPDATE SET name = excluded.name
+      RETURNING id`;
+    const [existing] = await sql`
+      INSERT INTO matches ${sql({ home_team: "Obras", away_team: "Boca", kickoff_at: KICKOFF, competition: "Liga Nacional" })}
+      RETURNING id`;
+
+    const create = makeCreate();
+    create.values.competition = "Liga Nacional";
+    create.values.leagueId = league.id;
+
+    const result = await applyGridSync(
+      makePlan({
+        creates: [create],
+        updates: [
+          {
+            id: existing.id,
+            label: "Obras vs Boca",
+            patch: { leagueId: league.id },
+            assignmentUpserts: [],
+            assignmentDeletes: [],
+          },
+        ],
+      }),
+      NOW,
+    );
+
+    expect(result.errors).toEqual([]);
+    const rows = await sql`SELECT home_team, league_id FROM matches ORDER BY home_team`;
+    expect(rows.map((row) => [row.home_team, row.league_id])).toEqual([
+      ["Boca", league.id],
+      ["Obras", league.id],
+    ]);
   });
 
   it("executes the delete pass on a clean run", async () => {

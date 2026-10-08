@@ -33,7 +33,7 @@ const GRID_LEAGUE_COLORS: Record<string, string> = {
   "3x3": "#753800",
 };
 
-function normalizeLeagueName(value: string) {
+export function normalizeLeagueName(value: string) {
   return value
     .normalize("NFD")
     .replaceAll(/[̀-ͯ]/g, "")
