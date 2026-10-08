@@ -3,17 +3,33 @@ import { Suspense } from "react";
 import { formatInTimeZone } from "date-fns-tz";
 
 import { FixturesAgenda } from "@/components/fixtures/fixtures-agenda";
+import { GridDateStepper } from "@/components/grid/grid-date-stepper";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { requireUserContext } from "@/lib/auth";
 import { getFixturesAgenda } from "@/lib/data/fixtures";
 import { FIXTURE_TIMEZONE } from "@/lib/fixtures/link-plan";
 import { getLastFixturesSync } from "@/lib/fixtures/sync";
+import { addFixtureMonths, parseFixtureMonth } from "@/lib/fixtures/window";
 import { cn } from "@/lib/utils";
+
+type PageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
 // The daily run is at 06:00; past 30 h the pill flags a missed run.
 const STALE_AFTER_MS = 30 * 60 * 60 * 1000;
 
-export default function FixturesPage() {
+function formatMonthLabel(month: string) {
+  return new Date(`${month}-15T12:00:00Z`)
+    .toLocaleDateString("es-AR", { month: "long", year: "numeric", timeZone: "UTC" })
+    .toUpperCase();
+}
+
+export default async function FixturesPage({ searchParams }: PageProps) {
+  const month = parseFixtureMonth((await searchParams).month, new Date());
+
   return (
     <div className="space-y-6 p-6">
       <SectionPageHeader
@@ -26,16 +42,23 @@ export default function FixturesPage() {
         }
       />
 
-      <Suspense fallback={<FixturesAgendaSkeleton />}>
-        <FixturesAgendaSection />
+      <GridDateStepper
+        prevHref={`/fixtures?month=${addFixtureMonths(month, -1)}`}
+        nextHref={`/fixtures?month=${addFixtureMonths(month, 1)}`}
+        dateLabel={formatMonthLabel(month)}
+        className="max-w-xs"
+      />
+
+      <Suspense key={month} fallback={<FixturesAgendaSkeleton />}>
+        <FixturesAgendaSection month={month} />
       </Suspense>
     </div>
   );
 }
 
-async function FixturesAgendaSection() {
+async function FixturesAgendaSection({ month }: { month: string }) {
   const user = await requireUserContext();
-  const { today, fixtures, truncated } = await getFixturesAgenda(user, new Date());
+  const { today, fixtures, truncated } = await getFixturesAgenda(user, { now: new Date(), month });
 
   return <FixturesAgenda fixtures={fixtures} today={today} truncated={truncated} />;
 }
@@ -47,10 +70,7 @@ async function FixturesSyncPill() {
   const nextRun = formatInTimeZone(now, FIXTURE_TIMEZONE, "HH:mm") < "06:00" ? "hoy 06:00" : "mañana 06:00";
 
   return (
-    <span
-      title="Sincronización automática diaria desde Gesdeportiva (CABB)"
-      className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--n-600)]"
-    >
+    <Badge className="gap-2 bg-[var(--surface)] text-xs font-normal normal-case tracking-normal text-[var(--n-600)]">
       <span
         className={cn(
           "size-2 rounded-full",
@@ -67,8 +87,8 @@ async function FixturesSyncPill() {
       ) : (
         "Sin sincronizar todavía"
       )}
-      <span>· próxima {nextRun}</span>
-    </span>
+      <span title="Sincronización automática diaria desde Gesdeportiva (CABB)">· próxima {nextRun}</span>
+    </Badge>
   );
 }
 
@@ -77,10 +97,7 @@ function FixturesAgendaSkeleton() {
     <div className="space-y-6" aria-busy="true" aria-live="polite">
       <div className="h-10 w-full max-w-xl animate-pulse rounded-[var(--panel-radius)] bg-[var(--background-soft)]" />
       {Array.from({ length: 3 }).map((_, index) => (
-        <div
-          key={index}
-          className="h-40 animate-pulse rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)]"
-        />
+        <Card key={index} className="h-40 animate-pulse" />
       ))}
     </div>
   );

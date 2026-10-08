@@ -1,16 +1,17 @@
 import "server-only";
 
 import { and, asc, eq, gte, lte } from "drizzle-orm";
+import { formatInTimeZone } from "date-fns-tz";
 
 import type { UserContext } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { fixtures as fixturesTable, matches as matchesTable } from "@/lib/db/schema";
-import { addIsoDays, fixtureToday } from "@/lib/fixtures/window";
+import { DEFAULT_TIMEZONE } from "@/lib/constants";
+import { FIXTURE_TIMEZONE } from "@/lib/fixtures/link-plan";
+import { fixtureMonthRange, fixtureToday } from "@/lib/fixtures/window";
 
-// ADR 0005: fixtures accumulate every season, so the page reads a bounded
-// window (recent days collapsed, the next weeks open) with a row cap.
-const DAYS_BEFORE = 21;
-const DAYS_AFTER = 60;
+// ADR 0005: fixtures accumulate every season, so the page reads one month at a
+// time with a row cap.
 export const FIXTURE_ROW_LIMIT = 1000;
 
 export type FixtureListItem = {
@@ -31,12 +32,23 @@ export type FixtureListItem = {
   venue: string | null;
   city: string | null;
   province: string | null;
-  partido: { id: string; productionCode: string | null } | null;
+  partido: FixturePartido | null;
 };
 
-export async function getFixturesAgenda(ctx: UserContext, now: Date) {
+// gridDate is the day the /grid day view files the Partido under (grid
+// timezone); argDate/argTime compare against the CABB schedule.
+export type FixturePartido = {
+  id: string;
+  productionCode: string | null;
+  gridDate: string;
+  argDate: string;
+  argTime: string;
+};
+
+export async function getFixturesAgenda(ctx: UserContext, { now, month }: { now: Date; month: string }) {
   void ctx;
   const today = fixtureToday(now);
+  const { from, to } = fixtureMonthRange(month);
 
   const rows = await db
     .select({
@@ -59,23 +71,35 @@ export async function getFixturesAgenda(ctx: UserContext, now: Date) {
       province: fixturesTable.province,
       partidoId: matchesTable.id,
       productionCode: matchesTable.productionCode,
+      kickoffAt: matchesTable.kickoffAt,
     })
     .from(fixturesTable)
     .leftJoin(matchesTable, eq(matchesTable.fixtureId, fixturesTable.id))
     .where(
       and(
-        gte(fixturesTable.matchDate, addIsoDays(today, -DAYS_BEFORE)),
-        lte(fixturesTable.matchDate, addIsoDays(today, DAYS_AFTER)),
+        gte(fixturesTable.matchDate, from),
+        lte(fixturesTable.matchDate, to),
       ),
     )
     .orderBy(asc(fixturesTable.matchDate), asc(fixturesTable.matchTime), asc(fixturesTable.id))
     .limit(FIXTURE_ROW_LIMIT);
 
-  const fixtures: FixtureListItem[] = rows.map(({ partidoId, productionCode, matchDate, ...fixture }) => ({
-    ...fixture,
-    matchDate: matchDate ?? today,
-    partido: partidoId ? { id: partidoId, productionCode } : null,
-  }));
+  const fixtures: FixtureListItem[] = rows.map(
+    ({ partidoId, productionCode, kickoffAt, matchDate, ...fixture }) => ({
+      ...fixture,
+      matchDate: matchDate ?? today,
+      partido:
+        partidoId && kickoffAt
+          ? {
+              id: partidoId,
+              productionCode,
+              gridDate: formatInTimeZone(kickoffAt, DEFAULT_TIMEZONE, "yyyy-MM-dd"),
+              argDate: formatInTimeZone(kickoffAt, FIXTURE_TIMEZONE, "yyyy-MM-dd"),
+              argTime: formatInTimeZone(kickoffAt, FIXTURE_TIMEZONE, "HH:mm"),
+            }
+          : null,
+    }),
+  );
 
   return { today, fixtures, truncated: rows.length === FIXTURE_ROW_LIMIT };
 }

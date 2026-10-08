@@ -3,10 +3,13 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { ToolbarSearchField } from "@/components/ui/toolbar-search-field";
-import type { FixtureListItem } from "@/lib/data/fixtures";
+import type { FixtureListItem, FixturePartido } from "@/lib/data/fixtures";
 import { FIXTURE_COMPETITION_ORDER, resolveFixtureCompetition } from "@/lib/fixtures/competitions";
 import {
   fixtureCategoryLabel,
@@ -71,10 +74,14 @@ export function FixturesAgenda({
   const [competition, setCompetition] = useState("");
   const [query, setQuery] = useState("");
   const [showPast, setShowPast] = useState(false);
+  const [onlyCovered, setOnlyCovered] = useState(false);
 
   const rows = useMemo(() => fixtures.map(toAgendaRow), [fixtures]);
   const needle = normalizeQuery(query);
-  const searched = needle ? rows.filter((row) => row.searchText.includes(needle)) : rows;
+  const matching = needle ? rows.filter((row) => row.searchText.includes(needle)) : rows;
+  const coveredCount = matching.filter((row) => row.partido).length;
+  const scheduleDiffCount = matching.filter((row) => row.partido && scheduleDiffers(row, row.partido)).length;
+  const searched = onlyCovered ? matching.filter((row) => row.partido) : matching;
   const visible = competition ? searched.filter((row) => row.competitionLabel === competition) : searched;
 
   const tabs = useMemo(() => {
@@ -94,7 +101,9 @@ export function FixturesAgenda({
     days.set(row.matchDate, bucket);
   }
   const pastDays = [...days.keys()].filter((day) => day < today);
-  const shownDays = [...days.keys()].filter((day) => showPast || day >= today);
+  // Only a month with days still ahead collapses its past; a past month shows whole.
+  const collapsePast = !showPast && pastDays.length < days.size;
+  const shownDays = [...days.keys()].filter((day) => !collapsePast || day >= today);
 
   return (
     <div className="space-y-4">
@@ -128,20 +137,41 @@ export function FixturesAgenda({
         />
       </div>
 
-      {pastDays.length > 0 && !showPast ? (
-        <button
-          type="button"
-          onClick={() => setShowPast(true)}
-          className="w-full rounded-[var(--panel-radius)] border border-dashed border-[var(--n-300)] px-3 py-2 text-sm text-[var(--n-600)] transition hover:bg-[var(--surface)]"
-        >
+      <div className="flex flex-wrap items-center gap-3">
+        <SegmentedControl
+          size="sm"
+          items={[
+            { key: "all", label: "Todos", count: matching.length, active: !onlyCovered, covered: false },
+            { key: "covered", label: "Cubiertos por BP", count: coveredCount, active: onlyCovered, covered: true },
+          ].map((item) => ({
+            key: item.key,
+            active: item.active,
+            onClick: () => setOnlyCovered(item.covered),
+            label: (
+              <span className="inline-flex items-center gap-2">
+                {item.label}
+                <span className="font-mono text-[11px] text-[var(--n-500)]">{item.count}</span>
+              </span>
+            ),
+          }))}
+        />
+        {scheduleDiffCount > 0 ? (
+          <Badge className="border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]">
+            {scheduleDiffCount} con horario distinto en la grilla
+          </Badge>
+        ) : null}
+      </div>
+
+      {collapsePast && pastDays.length > 0 ? (
+        <Button variant="secondary" className="w-full border-dashed font-medium" onClick={() => setShowPast(true)}>
           Ver {pastDays.length} {pastDays.length === 1 ? "día anterior" : "días anteriores"}
-        </button>
+        </Button>
       ) : null}
 
       {shownDays.length === 0 ? (
         <EmptyState
           title="Sin partidos para este filtro."
-          description="La sincronización con la CABB corre todos los días a las 06:00."
+          description="Probá otro mes. La sincronización con la CABB corre todos los días a las 06:00."
         />
       ) : (
         shownDays.map((day) => (
@@ -151,27 +181,61 @@ export function FixturesAgenda({
                 {formatDayHeading(day)}
               </h3>
               {day === today ? (
-                <span className="rounded bg-[var(--accent)] px-1.5 py-0.5 text-[10.5px] font-semibold tracking-wider text-white">
-                  HOY
-                </span>
+                <Badge className="border-[var(--accent)] bg-[var(--accent)] text-white">Hoy</Badge>
               ) : null}
               <span className="text-sm text-[var(--n-500)]">{days.get(day)!.length} partidos</span>
             </div>
-            <div className="overflow-hidden rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] shadow-sm">
+            <Card className="overflow-hidden p-0">
               {days.get(day)!.map((row) => (
                 <FixtureRow key={row.id} row={row} />
               ))}
-            </div>
+            </Card>
           </section>
         ))
       )}
 
       {truncated ? (
         <p className="text-xs text-[var(--n-500)]">
-          Se muestran los primeros {fixtures.length} partidos de la ventana.
+          Se muestran los primeros {fixtures.length} partidos del mes.
         </p>
       ) : null}
     </div>
+  );
+}
+
+function scheduleDiffers(row: AgendaRow, partido: FixturePartido) {
+  return (
+    row.matchDate !== partido.argDate || (row.matchTime !== null && row.matchTime !== partido.argTime)
+  );
+}
+
+function formatShortDate(isoDate: string) {
+  return `${isoDate.slice(8, 10)}/${isoDate.slice(5, 7)}`;
+}
+
+function GridCell({ row }: { row: AgendaRow }) {
+  const partido = row.partido;
+
+  if (!partido) {
+    return <span className="text-xs text-[var(--n-400)]">No cubierto</span>;
+  }
+
+  const differs = scheduleDiffers(row, partido);
+  const gridSchedule = `${row.matchDate === partido.argDate ? "" : `${formatShortDate(partido.argDate)} `}${partido.argTime}`;
+
+  return (
+    <span className="flex flex-col items-start gap-0.5 text-xs leading-snug">
+      <Link
+        href={`/grid?view=day&date=${partido.gridDate}`}
+        title="Ver el día en la grilla"
+        className="font-mono font-semibold text-[var(--accent)] underline-offset-2 hover:underline"
+      >
+        {partido.productionCode ?? "Partido"} →
+      </Link>
+      <span className={differs ? "font-medium text-[var(--accent)]" : "text-[var(--n-500)]"}>
+        {differs ? `Grilla ${gridSchedule} · distinto` : `Grilla ${gridSchedule}`}
+      </span>
+    </span>
   );
 }
 
@@ -182,7 +246,7 @@ function FixtureRow({ row }: { row: AgendaRow }) {
   const competitionName = row.competitionLabel === "Formativas" ? fixtureCategoryLabel(row.category) : row.competitionLabel;
 
   return (
-    <div className="grid grid-cols-[44px_4px_minmax(0,1fr)] items-center gap-x-3 gap-y-1 border-t border-[var(--n-100)] px-4 py-3 first:border-t-0 hover:bg-[var(--n-50)] md:grid-cols-[52px_4px_minmax(0,1fr)_200px_220px] md:gap-x-4">
+    <div className="grid grid-cols-[44px_4px_minmax(0,1fr)] items-center gap-x-3 gap-y-1 border-t border-[var(--n-100)] px-4 py-3 first:border-t-0 hover:bg-[var(--n-50)] md:grid-cols-[52px_4px_minmax(0,1fr)_180px_200px_150px] md:gap-x-4">
       <span className={cn("font-mono text-sm font-medium", struck)}>{row.matchTime ?? "—"}</span>
       <span className="h-9 w-1 rounded-sm md:row-span-1" style={{ background: row.color }} />
 
@@ -190,9 +254,7 @@ function FixtureRow({ row }: { row: AgendaRow }) {
         <span className={cn("truncate md:text-right", struck)}>{fixtureTeamLabel(row.homeTeam, row.homeClub)}</span>
         <span className="text-xs text-[var(--n-400)] md:text-center md:text-sm">
           {row.suspended ? (
-            <span className="rounded border border-dashed border-[var(--n-400)] bg-[var(--n-100)] px-1.5 py-px text-[10.5px] font-semibold uppercase text-[var(--n-700)]">
-              Susp.
-            </span>
+            <Badge className="px-1.5 py-0.5">Susp.</Badge>
           ) : hasFixtureScore(row) ? (
             <span className="font-mono font-medium text-[var(--foreground)]">
               {row.homePoints} – {row.awayPoints}
@@ -208,20 +270,16 @@ function FixtureRow({ row }: { row: AgendaRow }) {
         <span className="font-semibold" style={{ color: row.color === NEUTRAL_COLOR ? "var(--n-700)" : row.color }}>
           {competitionName}
         </span>
-        {row.partido ? (
-          <Link
-            href={`/match/${row.partido.id}`}
-            className="ml-2 rounded-full border border-[var(--accent)] px-2 py-px text-[10.5px] font-semibold uppercase tracking-wide text-[var(--accent)] hover:bg-[var(--accent)] hover:text-white"
-          >
-            BP{row.partido.productionCode ? ` · ${row.partido.productionCode}` : ""}
-          </Link>
-        ) : null}
         {phase ? <span className="block truncate text-[var(--n-500)]">{phase}</span> : null}
       </div>
 
       <div className="col-start-3 min-w-0 text-xs leading-snug md:col-start-auto">
         <span className="block truncate">{titleCaseFixtureText(row.venue) || "—"}</span>
         {place ? <span className="block truncate text-[var(--n-500)]">{place}</span> : null}
+      </div>
+
+      <div className="col-start-3 min-w-0 md:col-start-auto md:border-l md:border-dashed md:border-[var(--n-200)] md:pl-3">
+        <GridCell row={row} />
       </div>
     </div>
   );
