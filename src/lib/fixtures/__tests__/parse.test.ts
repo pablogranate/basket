@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   resolveFixtureCompetition,
+  resolveFixtureLeagueSlug,
   resolveGridCompetitionLeague,
   splitCompetitionSeason,
 } from "@/lib/fixtures/competitions";
@@ -132,6 +133,19 @@ describe("competitions", () => {
   it("maps grid competition text to leagues", () => {
     expect(resolveGridCompetitionLeague("Liga Desarrollo")).toBe("liga-proximo");
     expect(resolveGridCompetitionLeague("Liga Próximo")).toBe("liga-proximo");
-    expect(resolveGridCompetitionLeague("Liga Metro")).toBeNull();
+    expect(resolveGridCompetitionLeague("BCLA")).toBeNull();
+  });
+
+  it("maps the grid names of the non-CABB leagues", () => {
+    expect(resolveGridCompetitionLeague("Liga Endesa")).toBe("liga-endesa-acb");
+    expect(resolveGridCompetitionLeague("NBB CAIXA")).toBe("nbb");
+    expect(resolveGridCompetitionLeague("Sel. Argentina")).toBe("seleccion-argentina");
+    expect(resolveGridCompetitionLeague("Liga de Ascenso")).toBe("liga-de-ascenso");
+    expect(resolveFixtureCompetition("LIGA ENDESA 2026/2027").leagueSlug).toBe("liga-endesa-acb");
+  });
+
+  it("treats the Liga Chery league as LNB Chile", () => {
+    expect(resolveFixtureLeagueSlug("liga-chery")).toBe("lnb-chile");
+    expect(resolveFixtureLeagueSlug("bcla")).toBeNull();
   });
 });

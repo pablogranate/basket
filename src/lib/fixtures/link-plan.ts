@@ -1,6 +1,6 @@
 import {
-  isFixtureLeagueSlug,
   resolveFixtureCompetition,
+  resolveFixtureLeagueSlug,
   resolveGridCompetitionLeague,
   type FixtureLeagueSlug,
 } from "@/lib/fixtures/competitions";
@@ -48,9 +48,13 @@ export function normalizeTeamName(value: string | null | undefined) {
     .replaceAll(/[^A-Z0-9]/g, "");
 }
 
+// Leagues without their own row (Copa del Rey, Primera FEB…) are filed under
+// the catch-all "Exterior" league; their competition text names them.
+const CATCH_ALL_LEAGUES = new Set(["exterior"]);
+
 function candidateLeague(candidate: LinkCandidate): FixtureLeagueSlug | null {
-  if (candidate.leagueSlug) {
-    return isFixtureLeagueSlug(candidate.leagueSlug) ? candidate.leagueSlug : null;
+  if (candidate.leagueSlug && !CATCH_ALL_LEAGUES.has(candidate.leagueSlug)) {
+    return resolveFixtureLeagueSlug(candidate.leagueSlug);
   }
   return resolveGridCompetitionLeague(candidate.competition);
 }
@@ -94,11 +98,11 @@ export function planFixtureLinks({
     const matches = fixturesByKey.get(key) ?? [];
 
     if (matches.length === 0) {
-      warnings.push(`sin partido CABB para ${describe(candidate)} (${league}, ${date})`);
+      warnings.push(`sin partido oficial para ${describe(candidate)} (${league}, ${date})`);
       continue;
     }
     if (matches.length > 1) {
-      warnings.push(`varios partidos CABB para ${describe(candidate)}: ${matches.map((fixture) => fixture.id).join(", ")}`);
+      warnings.push(`varios partidos oficiales para ${describe(candidate)}: ${matches.map((fixture) => fixture.id).join(", ")}`);
       continue;
     }
 
@@ -112,7 +116,7 @@ export function planFixtureLinks({
 
   for (const [fixtureId, claims] of proposals) {
     if (claims.length > 1) {
-      warnings.push(`partido CABB ${fixtureId} coincide con varios partidos: ${claims.map(({ candidate }) => describe(candidate)).join(" / ")}`);
+      warnings.push(`partido oficial ${fixtureId} coincide con varios partidos: ${claims.map(({ candidate }) => describe(candidate)).join(" / ")}`);
       continue;
     }
 
@@ -121,7 +125,7 @@ export function planFixtureLinks({
 
     const { grid, differs } = compareFixtureSchedule(fixture, candidate.kickoffAt);
     if (differs) {
-      warnings.push(`horario distinto en ${describe(candidate)}: grilla ${grid.time}, CABB ${fixture.matchTime}`);
+      warnings.push(`horario distinto en ${describe(candidate)}: grilla ${grid.time}, oficial ${fixture.matchTime}`);
     }
   }
 

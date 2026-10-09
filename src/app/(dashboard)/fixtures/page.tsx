@@ -34,7 +34,7 @@ export default async function FixturesPage({ searchParams }: PageProps) {
     <div className="space-y-6 p-6">
       <SectionPageHeader
         title="Fixtures"
-        description="Todos los partidos de la CABB, los cubra BP o no. Los que cubrimos están en la grilla."
+        description="Todos los partidos de las ligas que seguimos (CABB, ACB y otras), los cubra BP o no. Los que cubrimos están en la grilla."
         actions={
           <Suspense fallback={null}>
             <FixturesSyncPill />
@@ -87,7 +87,7 @@ async function FixturesSyncPill() {
       ) : (
         "Sin sincronizar todavía"
       )}
-      <span title="Sincronización automática diaria desde Gesdeportiva (CABB)">· próxima {nextRun}</span>
+      <span title="Sincronización automática diaria desde Gesdeportiva (CABB), acb.com, Flashscore y otras ligas">· próxima {nextRun}</span>
     </Badge>
   );
 }

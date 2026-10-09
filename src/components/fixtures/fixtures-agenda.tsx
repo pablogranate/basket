@@ -171,7 +171,7 @@ export function FixturesAgenda({
       {shownDays.length === 0 ? (
         <EmptyState
           title="Sin partidos para este filtro."
-          description="Probá otro mes. La sincronización con la CABB corre todos los días a las 06:00."
+          description="Probá otro mes. La sincronización corre todos los días a las 06:00."
         />
       ) : (
         shownDays.map((day) => (

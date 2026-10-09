@@ -534,6 +534,7 @@ export type Database = {
           match_time: string | null
           phase: string | null
           province: string | null
+          source: string
           suspended: boolean
           synced_at: string
           venue: string | null
@@ -556,6 +557,7 @@ export type Database = {
           match_time?: string | null
           phase?: string | null
           province?: string | null
+          source: string
           suspended?: boolean
           synced_at?: string
           venue?: string | null
@@ -578,6 +580,7 @@ export type Database = {
           match_time?: string | null
           phase?: string | null
           province?: string | null
+          source?: string
           suspended?: boolean
           synced_at?: string
           venue?: string | null
