@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,18 @@ type AgendaRow = FixtureListItem & {
 };
 
 const NEUTRAL_COLOR = "var(--n-400)";
+
+// Pale league fills (Endesa's #c6dbe1) mark the bar and dot but are unreadable
+// as text on white.
+function competitionTextColor(color: string) {
+  const hex = color.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+  if (!hex) {
+    return "var(--n-700)";
+  }
+  const [r, g, b] = hex.slice(1).map((part) => parseInt(part, 16));
+  const luminance = (0.299 * r! + 0.587 * g! + 0.114 * b!) / 255;
+  return luminance > 0.7 ? "var(--n-700)" : color;
+}
 
 function toAgendaRow(fixture: FixtureListItem): AgendaRow {
   const competition = resolveFixtureCompetition(fixture.competition);
@@ -66,12 +78,14 @@ export function FixturesAgenda({
   fixtures,
   today,
   truncated,
+  monthNav,
 }: {
   fixtures: FixtureListItem[];
   today: string;
   truncated: boolean;
+  monthNav: ReactNode;
 }) {
-  const [competition, setCompetition] = useState("");
+  const [competitions, setCompetitions] = useState<ReadonlySet<string>>(new Set());
   const [query, setQuery] = useState("");
   const [showPast, setShowPast] = useState(false);
   const [onlyCovered, setOnlyCovered] = useState(false);
@@ -82,7 +96,17 @@ export function FixturesAgenda({
   const coveredCount = matching.filter((row) => row.partido).length;
   const scheduleDiffCount = matching.filter((row) => row.partido?.scheduleDiffers).length;
   const searched = onlyCovered ? matching.filter((row) => row.partido) : matching;
-  const visible = competition ? searched.filter((row) => row.competitionLabel === competition) : searched;
+  const visible = competitions.size ? searched.filter((row) => competitions.has(row.competitionLabel)) : searched;
+
+  function toggleCompetition(label: string) {
+    setCompetitions((current) => {
+      const next = new Set(current);
+      if (!next.delete(label)) {
+        next.add(label);
+      }
+      return next;
+    });
+  }
 
   const tabs = useMemo(() => {
     const present = new Set(rows.map((row) => row.competitionLabel));
@@ -107,59 +131,63 @@ export function FixturesAgenda({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <SegmentedControl
-          size="sm"
-          className="h-auto flex-wrap"
-          items={[{ label: "Todas", color: null }, ...tabs].map((tab) => {
-            const key = tab.label === "Todas" ? "" : tab.label;
-            const count = key ? searched.filter((row) => row.competitionLabel === key).length : searched.length;
-            return {
-              key: key || "all",
-              active: competition === key,
-              onClick: () => setCompetition(key),
+      <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
+        {monthNav}
+        <div className="flex flex-wrap items-center gap-3">
+          <SegmentedControl
+            size="sm"
+            className="w-full sm:w-auto [&>*]:flex-1 sm:[&>*]:flex-none"
+            items={[
+              { key: "all", label: "Todos", count: matching.length, active: !onlyCovered, covered: false },
+              { key: "covered", label: "Cubiertos por BP", count: coveredCount, active: onlyCovered, covered: true },
+            ].map((item) => ({
+              key: item.key,
+              active: item.active,
+              onClick: () => setOnlyCovered(item.covered),
               label: (
-                <span className="inline-flex items-center gap-2 py-1.5">
-                  {tab.color ? <span className="size-2 rounded-full" style={{ background: tab.color }} /> : null}
-                  {tab.label}
-                  <span className="font-mono text-[11px] text-[var(--n-500)]">{count}</span>
+                <span className="inline-flex w-full items-center justify-center gap-2">
+                  {item.label}
+                  <span className="font-mono text-[11px] text-[var(--n-500)]">{item.count}</span>
                 </span>
               ),
-            };
-          })}
-        />
+            }))}
+          />
+          {scheduleDiffCount > 0 ? (
+            <Badge className="border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]">
+              {scheduleDiffCount} con horario distinto en la grilla
+            </Badge>
+          ) : null}
+        </div>
         <ToolbarSearchField
           as="div"
-          className="lg:max-w-sm"
+          className="md:min-w-64 md:flex-1 lg:ml-auto lg:max-w-xs lg:flex-none"
           placeholder="Equipo, club o ciudad"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <SegmentedControl
-          size="sm"
-          items={[
-            { key: "all", label: "Todos", count: matching.length, active: !onlyCovered, covered: false },
-            { key: "covered", label: "Cubiertos por BP", count: coveredCount, active: onlyCovered, covered: true },
-          ].map((item) => ({
-            key: item.key,
-            active: item.active,
-            onClick: () => setOnlyCovered(item.covered),
-            label: (
-              <span className="inline-flex items-center gap-2">
-                {item.label}
-                <span className="font-mono text-[11px] text-[var(--n-500)]">{item.count}</span>
-              </span>
-            ),
-          }))}
+      <div
+        role="group"
+        aria-label="Ligas"
+        className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:-mx-6 sm:px-6 md:mx-0 md:flex-wrap md:overflow-visible md:px-0 md:pb-0"
+      >
+        <LeagueChip
+          label="Todas"
+          count={searched.length}
+          active={competitions.size === 0}
+          onClick={() => setCompetitions(new Set())}
         />
-        {scheduleDiffCount > 0 ? (
-          <Badge className="border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]">
-            {scheduleDiffCount} con horario distinto en la grilla
-          </Badge>
-        ) : null}
+        {tabs.map((tab) => (
+          <LeagueChip
+            key={tab.label}
+            label={tab.label}
+            color={tab.color}
+            count={searched.filter((row) => row.competitionLabel === tab.label).length}
+            active={competitions.has(tab.label)}
+            onClick={() => toggleCompetition(tab.label)}
+          />
+        ))}
       </div>
 
       {collapsePast && pastDays.length > 0 ? (
@@ -203,6 +231,38 @@ export function FixturesAgenda({
   );
 }
 
+function LeagueChip({
+  label,
+  color,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  color?: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "inline-flex h-9 shrink-0 items-center gap-2 rounded-full border px-3 text-xs font-bold transition",
+        active
+          ? "border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--foreground)]"
+          : "border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]",
+      )}
+    >
+      {color ? <span className="size-2 rounded-full" style={{ background: color }} /> : null}
+      {label}
+      <span className="font-mono text-[11px] font-medium text-[var(--n-500)]">{count}</span>
+    </button>
+  );
+}
+
 function formatShortDate(isoDate: string) {
   return `${isoDate.slice(8, 10)}/${isoDate.slice(5, 7)}`;
 }
@@ -238,43 +298,86 @@ function FixtureRow({ row }: { row: AgendaRow }) {
   const struck = row.suspended && "text-[var(--n-500)] line-through";
   const phase = fixturePhaseLabel(row.phase, row.group);
   const place = [row.city, row.province].filter(Boolean).map(titleCaseFixtureText).join(", ");
+  const venue = titleCaseFixtureText(row.venue);
   const competitionName = row.competitionLabel === "Formativas" ? fixtureCategoryLabel(row.category) : row.competitionLabel;
+  const competitionColor = competitionTextColor(row.color);
+  const home = fixtureTeamLabel(row.homeTeam, row.homeClub);
+  const away = fixtureTeamLabel(row.awayTeam, row.awayClub);
+  const scored = hasFixtureScore(row);
 
   return (
-    <div className="grid grid-cols-[44px_4px_minmax(0,1fr)] items-center gap-x-3 gap-y-1 border-t border-[var(--n-100)] px-4 py-3 first:border-t-0 hover:bg-[var(--n-50)] md:grid-cols-[52px_4px_minmax(0,1fr)_180px_200px_150px] md:gap-x-4">
-      <span className={cn("font-mono text-sm font-medium", struck)}>{row.matchTime ?? "—"}</span>
-      <span className="h-9 w-1 rounded-sm md:row-span-1" style={{ background: row.color }} />
-
-      <div className="grid min-w-0 grid-cols-1 gap-0.5 text-sm font-medium md:grid-cols-[minmax(0,1fr)_72px_minmax(0,1fr)] md:items-center md:gap-3">
-        <span className={cn("truncate md:text-right", struck)}>{fixtureTeamLabel(row.homeTeam, row.homeClub)}</span>
-        <span className="text-xs text-[var(--n-400)] md:text-center md:text-sm">
-          {row.suspended ? (
-            <Badge className="px-1.5 py-0.5">Susp.</Badge>
-          ) : hasFixtureScore(row) ? (
-            <span className="font-mono font-medium text-[var(--foreground)]">
-              {row.homePoints} – {row.awayPoints}
+    <div className="border-t border-[var(--n-100)] first:border-t-0 hover:bg-[var(--n-50)]">
+      <div className="flex gap-3 px-4 py-3 lg:hidden">
+        <span className="w-1 shrink-0 self-stretch rounded-sm" style={{ background: row.color }} />
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <div className="flex items-baseline justify-between gap-3 text-xs">
+            <span className="min-w-0 truncate">
+              <span className="font-semibold" style={{ color: competitionColor }}>
+                {competitionName}
+              </span>
+              {phase ? <span className="text-[var(--n-500)]"> · {phase}</span> : null}
             </span>
-          ) : (
-            "vs"
-          )}
-        </span>
-        <span className={cn("truncate", struck)}>{fixtureTeamLabel(row.awayTeam, row.awayClub)}</span>
+            <span className={cn("shrink-0 font-mono text-sm font-medium", struck)}>{row.matchTime ?? "—"}</span>
+          </div>
+
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-0.5 text-sm font-medium">
+            <span className={cn("truncate", struck)}>{home}</span>
+            <span className="font-mono">{scored ? row.homePoints : null}</span>
+            <span className={cn("truncate", struck)}>{away}</span>
+            <span className="font-mono">{scored ? row.awayPoints : null}</span>
+          </div>
+
+          {row.suspended || venue || place || row.partido ? (
+            <div className="flex items-end justify-between gap-3 text-xs">
+              <span className="min-w-0 truncate text-[var(--n-500)]">
+                {row.suspended ? <Badge className="mr-2 px-1.5 py-0.5">Susp.</Badge> : null}
+                {[venue, place].filter(Boolean).join(" · ")}
+              </span>
+              {row.partido ? (
+                <span className="shrink-0">
+                  <GridCell row={row} />
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       </div>
 
-      <div className="col-start-3 min-w-0 text-xs leading-snug md:col-start-auto">
-        <span className="font-semibold" style={{ color: row.color === NEUTRAL_COLOR ? "var(--n-700)" : row.color }}>
-          {competitionName}
-        </span>
-        {phase ? <span className="block truncate text-[var(--n-500)]">{phase}</span> : null}
-      </div>
+      <div className="hidden grid-cols-[52px_4px_minmax(0,1fr)_180px_200px_150px] items-center gap-x-4 px-4 py-3 lg:grid">
+        <span className={cn("font-mono text-sm font-medium", struck)}>{row.matchTime ?? "—"}</span>
+        <span className="h-9 w-1 rounded-sm" style={{ background: row.color }} />
 
-      <div className="col-start-3 min-w-0 text-xs leading-snug md:col-start-auto">
-        <span className="block truncate">{titleCaseFixtureText(row.venue) || "—"}</span>
-        {place ? <span className="block truncate text-[var(--n-500)]">{place}</span> : null}
-      </div>
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_72px_minmax(0,1fr)] items-center gap-3 text-sm font-medium">
+          <span className={cn("truncate text-right", struck)}>{home}</span>
+          <span className="text-center text-sm text-[var(--n-400)]">
+            {row.suspended ? (
+              <Badge className="px-1.5 py-0.5">Susp.</Badge>
+            ) : scored ? (
+              <span className="font-mono font-medium text-[var(--foreground)]">
+                {row.homePoints} – {row.awayPoints}
+              </span>
+            ) : (
+              "vs"
+            )}
+          </span>
+          <span className={cn("truncate", struck)}>{away}</span>
+        </div>
 
-      <div className="col-start-3 min-w-0 md:col-start-auto md:border-l md:border-dashed md:border-[var(--n-200)] md:pl-3">
-        <GridCell row={row} />
+        <div className="min-w-0 text-xs leading-snug">
+          <span className="font-semibold" style={{ color: competitionColor }}>
+            {competitionName}
+          </span>
+          {phase ? <span className="block truncate text-[var(--n-500)]">{phase}</span> : null}
+        </div>
+
+        <div className="min-w-0 text-xs leading-snug">
+          <span className="block truncate">{venue || "—"}</span>
+          {place ? <span className="block truncate text-[var(--n-500)]">{place}</span> : null}
+        </div>
+
+        <div className="min-w-0 border-l border-dashed border-[var(--n-200)] pl-3">
+          <GridCell row={row} />
+        </div>
       </div>
     </div>
   );
