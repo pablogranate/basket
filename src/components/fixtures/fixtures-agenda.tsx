@@ -167,28 +167,26 @@ export function FixturesAgenda({
         />
       </div>
 
-      <div
-        role="group"
-        aria-label="Ligas"
-        className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:-mx-6 sm:px-6 md:mx-0 md:flex-wrap md:overflow-visible md:px-0 md:pb-0"
-      >
-        <LeagueChip
-          label="Todas"
-          count={searched.length}
-          active={competitions.size === 0}
-          onClick={() => setCompetitions(new Set())}
-        />
-        {tabs.map((tab) => (
-          <LeagueChip
-            key={tab.label}
-            label={tab.label}
-            color={tab.color}
-            count={searched.filter((row) => row.competitionLabel === tab.label).length}
-            active={competitions.has(tab.label)}
-            onClick={() => toggleCompetition(tab.label)}
-          />
-        ))}
-      </div>
+      <SegmentedControl
+        size="sm"
+        className="h-auto flex-wrap"
+        items={[{ label: "Todas", color: null }, ...tabs].map((tab) => {
+          const all = tab.label === "Todas";
+          const count = all ? searched.length : searched.filter((row) => row.competitionLabel === tab.label).length;
+          return {
+            key: all ? "all" : tab.label,
+            active: all ? competitions.size === 0 : competitions.has(tab.label),
+            onClick: () => (all ? setCompetitions(new Set()) : toggleCompetition(tab.label)),
+            label: (
+              <span className="inline-flex items-center gap-2 py-1.5">
+                {tab.color ? <span className="size-2 rounded-full" style={{ background: tab.color }} /> : null}
+                {tab.label}
+                <span className="font-mono text-[11px] text-[var(--n-500)]">{count}</span>
+              </span>
+            ),
+          };
+        })}
+      />
 
       {collapsePast && pastDays.length > 0 ? (
         <Button variant="secondary" className="w-full border-dashed font-medium" onClick={() => setShowPast(true)}>
@@ -228,38 +226,6 @@ export function FixturesAgenda({
         </p>
       ) : null}
     </div>
-  );
-}
-
-function LeagueChip({
-  label,
-  color,
-  count,
-  active,
-  onClick,
-}: {
-  label: string;
-  color?: string;
-  count: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={cn(
-        "inline-flex h-9 shrink-0 items-center gap-2 rounded-full border px-3 text-xs font-bold transition",
-        active
-          ? "border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--foreground)]"
-          : "border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]",
-      )}
-    >
-      {color ? <span className="size-2 rounded-full" style={{ background: color }} /> : null}
-      {label}
-      <span className="font-mono text-[11px] font-medium text-[var(--n-500)]">{count}</span>
-    </button>
   );
 }
 
