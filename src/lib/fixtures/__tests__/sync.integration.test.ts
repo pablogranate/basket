@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { runFixturesSync, type FixturesSource } from "@/lib/fixtures/sync";
+import { parseCabbCsv } from "@/lib/fixtures/parse";
+import type { FixtureSource } from "@/lib/fixtures/sources";
+import { runFixturesSync } from "@/lib/fixtures/sync";
 import { testSql, truncateAll } from "@/test/integration/db";
 
 const HEADER =
@@ -11,14 +13,13 @@ const FORMATIVAS =
   "697166;FORMATIVAS;LA LIGA FEDERAL MINI FEMENINA;QUINTA FASE;FINAL FOUR;LIBRE;- EQUIPO POR DETERMINAR -;LIBRE;- EQUIPO POR DETERMINAR -;0;0;0;11/10/2026;17:00;TEMPLO DEL ROCK;;C.A.B.A.;CIUDAD AUTONOMA DE BUENOS AIRES;0;1;1;0;;";
 
 const WINDOW = { from: "2026-10-01", to: "2026-10-31" };
-const ACCOUNTS = [
-  { key: "ADC", user: "adc", password: "x" },
-  { key: "CAB", user: "cab", password: "x" },
-];
 const OLD_SYNC = "2026-09-01T09:00:00.000Z";
 
-const source: FixturesSource = async ({ account }) =>
-  [HEADER, account.key === "ADC" ? BOCA_OBERA : FORMATIVAS].join("\r\n");
+function csvSource(key: string, row: string): FixtureSource {
+  return { key, load: async () => parseCabbCsv([HEADER, row].join("\r\n")) };
+}
+
+const SOURCES = [csvSource("cabb-adc", BOCA_OBERA), csvSource("cabb-cab", FORMATIVAS)];
 
 describe("runFixturesSync (integration)", () => {
   const sql = testSql();
@@ -36,10 +37,10 @@ describe("runFixturesSync (integration)", () => {
     await sql.end();
   });
 
-  async function seedFixture(id: string, matchDate: string) {
+  async function seedFixture(id: string, matchDate: string, source = "cabb-adc") {
     await sql`
-      INSERT INTO fixtures (id, competition, home_team, away_team, match_date, match_time, synced_at)
-      VALUES (${id}, 'LIGA NACIONAL 2026/2027', 'A', 'B', ${matchDate}, '20:00', ${OLD_SYNC})`;
+      INSERT INTO fixtures (id, competition, home_team, away_team, match_date, match_time, source, synced_at)
+      VALUES (${id}, 'LIGA NACIONAL 2026/2027', 'A', 'B', ${matchDate}, '20:00', ${source}, ${OLD_SYNC})`;
   }
 
   async function seedMatch(values: { code: string; home: string; away: string; kickoffAt: string; fixtureId?: string }) {
@@ -57,7 +58,7 @@ describe("runFixturesSync (integration)", () => {
     const keptPartido = await seedMatch({ code: "1", home: "A", away: "B", kickoffAt: "2026-10-06T23:00:00Z", fixtureId: "gone-but-linked" });
     const bocaPartido = await seedMatch({ code: "31049", home: "BOCA", away: "OBERA", kickoffAt: "2026-10-08T00:05:00Z" });
 
-    const result = await runFixturesSync({ ...WINDOW, source, accounts: ACCOUNTS });
+    const result = await runFixturesSync({ ...WINDOW, sources: SOURCES });
 
     expect(result).toMatchObject({ skipped: false, upserted: 2, deleted: 1, linked: 1, errors: [] });
     const ids = (await sql<{ id: string }[]>`SELECT id FROM fixtures ORDER BY id`).map((row) => row.id);
@@ -73,25 +74,47 @@ describe("runFixturesSync (integration)", () => {
     expect(boca).toEqual({ home_points: 96, away_points: 73 });
   });
 
-  it("skips the delete pass when an account fails", async () => {
-    await seedFixture("gone", "2026-10-05");
-    const failing: FixturesSource = async (args) => {
-      if (args.account.key === "CAB") throw new Error("timeout");
-      return source(args);
+  it("only deletes the rows of feeds that were fetched", async () => {
+    await seedFixture("gone-from-adc", "2026-10-05", "cabb-adc");
+    await seedFixture("kept-cab", "2026-10-05", "cabb-cab");
+    const failing: FixtureSource = {
+      key: "cabb-cab",
+      load: async () => {
+        throw new Error("timeout");
+      },
     };
 
-    const result = await runFixturesSync({ ...WINDOW, source: failing, accounts: ACCOUNTS });
+    const result = await runFixturesSync({ ...WINDOW, sources: [SOURCES[0]!, failing] });
 
-    expect(result).toMatchObject({ upserted: 1, deleted: 0, errors: ["CAB: timeout"] });
-    const [gone] = await sql`SELECT id FROM fixtures WHERE id = 'gone'`;
-    expect(gone).toBeDefined();
+    expect(result).toMatchObject({ upserted: 1, deleted: 1, errors: ["cabb-cab: timeout"] });
+    const ids = (await sql<{ id: string }[]>`SELECT id FROM fixtures ORDER BY id`).map((row) => row.id);
+    expect(ids).toEqual(["696086", "kept-cab"]);
+  });
+
+  it("keeps only the fetched window and tags each row with its feed", async () => {
+    const wide: FixtureSource = {
+      key: "acb-liga-endesa",
+      load: async () => ({
+        fixtures: [
+          { ...parseCabbCsv([HEADER, BOCA_OBERA].join("\r\n")).fixtures[0]!, id: "acb-1" },
+          { ...parseCabbCsv([HEADER, BOCA_OBERA].join("\r\n")).fixtures[0]!, id: "acb-2", matchDate: "2027-05-01" },
+        ],
+        errors: [],
+      }),
+    };
+
+    const result = await runFixturesSync({ ...WINDOW, sources: [wide] });
+
+    expect(result.fetched).toEqual({ "acb-liga-endesa": 1 });
+    const rows = await sql`SELECT id, source FROM fixtures`;
+    expect(rows).toEqual([{ id: "acb-1", source: "acb-liga-endesa" }]);
   });
 
   it("never overwrites an existing link", async () => {
     await seedFixture("manual", "2026-10-07");
     const partido = await seedMatch({ code: "31049", home: "BOCA", away: "OBERA", kickoffAt: "2026-10-08T00:05:00Z", fixtureId: "manual" });
 
-    const result = await runFixturesSync({ ...WINDOW, source, accounts: ACCOUNTS });
+    const result = await runFixturesSync({ ...WINDOW, sources: SOURCES });
 
     expect(result.linked).toBe(0);
     const [row] = await sql`SELECT fixture_id FROM matches WHERE id = ${partido}`;
@@ -99,10 +122,10 @@ describe("runFixturesSync (integration)", () => {
   });
 
   it("waits out the cooldown unless forced", async () => {
-    await runFixturesSync({ ...WINDOW, source, accounts: ACCOUNTS });
+    await runFixturesSync({ ...WINDOW, sources: SOURCES });
 
-    const again = await runFixturesSync({ ...WINDOW, source, accounts: ACCOUNTS });
-    const forced = await runFixturesSync({ ...WINDOW, source, accounts: ACCOUNTS, force: true });
+    const again = await runFixturesSync({ ...WINDOW, sources: SOURCES });
+    const forced = await runFixturesSync({ ...WINDOW, sources: SOURCES, force: true });
 
     expect(again).toMatchObject({ skipped: true, reason: "cooldown" });
     expect(forced.skipped).toBe(false);

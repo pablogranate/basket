@@ -11,8 +11,9 @@ import { compareFixtureSchedule, type FixtureSchedule } from "@/lib/fixtures/sch
 import { fixtureMonthRange, fixtureToday } from "@/lib/fixtures/window";
 
 // ADR 0005: fixtures accumulate every season, so the page reads one month at a
-// time with a row cap.
-export const FIXTURE_ROW_LIMIT = 1000;
+// time with a row cap sized for every feed (CABB, ACB, Euroliga, LBA, NBB,
+// FeBAMBA…) in a month.
+export const FIXTURE_ROW_LIMIT = 3000;
 
 export type FixtureListItem = {
   id: string;
@@ -126,6 +127,7 @@ export async function getFixtureForMatch(ctx: UserContext, fixtureId: string) {
       venue: fixturesTable.venue,
       city: fixturesTable.city,
       province: fixturesTable.province,
+      source: fixturesTable.source,
       syncedAt: fixturesTable.syncedAt,
     })
     .from(fixturesTable)

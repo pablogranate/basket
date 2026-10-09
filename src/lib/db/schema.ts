@@ -198,9 +198,11 @@ export const fixtures = pgTable("fixtures", {
 	court: text(),
 	city: text(),
 	province: text(),
+	source: text().notNull(),
 	syncedAt: timestamptz("synced_at").default(sql`timezone('utc'::text, now())`).notNull(),
 	createdAt: timestamptz("created_at").default(sql`timezone('utc'::text, now())`).notNull(),
 }, (table) => [
+	index("fixtures_source_match_date_idx").using("btree", table.source.asc().nullsLast(), table.matchDate.asc().nullsLast()),
 	index("fixtures_category_idx").using("btree", table.category.asc().nullsLast()),
 	index("fixtures_match_date_idx").using("btree", table.matchDate.asc().nullsLast()),
 ]);

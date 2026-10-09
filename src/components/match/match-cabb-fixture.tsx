@@ -6,6 +6,7 @@ import { getFixtureForMatch } from "@/lib/data/fixtures";
 import { resolveFixtureCompetition } from "@/lib/fixtures/competitions";
 import {
   fixturePhaseLabel,
+  fixtureSourceLabel,
   fixtureTeamLabel,
   hasFixtureScore,
   titleCaseFixtureText,
@@ -44,7 +45,7 @@ export async function MatchCabbFixture({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
           <Trophy className="size-4 text-[var(--accent)]" />
-          Partido CABB · {resolveFixtureCompetition(fixture.competition).label}
+          Partido {fixtureSourceLabel(fixture.source)} · {resolveFixtureCompetition(fixture.competition).label}
           {phase ? <span className="font-normal text-[var(--muted)]">· {phase}</span> : null}
         </h2>
         <span className="font-mono text-xs text-[var(--muted)]">
@@ -73,7 +74,7 @@ export async function MatchCabbFixture({
       {scheduleDiffers ? (
         <p className="flex items-start gap-2 rounded-lg border border-[var(--accent-border)] bg-[var(--accent-soft)] px-3 py-2 text-sm text-[var(--accent)]">
           <CircleAlert className="mt-0.5 size-4 shrink-0" />
-          La grilla tiene {formatFixtureDate(grid.date)} {grid.time} (hora argentina) y la CABB{" "}
+          La grilla tiene {formatFixtureDate(grid.date)} {grid.time} (hora argentina) y {fixtureSourceLabel(fixture.source)}{" "}
           {fixture.matchDate ? formatFixtureDate(fixture.matchDate) : "sin fecha"} {fixture.matchTime ?? ""}.
         </p>
       ) : null}

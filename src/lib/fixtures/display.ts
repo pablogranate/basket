@@ -32,3 +32,13 @@ export function fixtureCategoryLabel(category: string | null | undefined) {
 export function hasFixtureScore(fixture: { homePoints: number | null; awayPoints: number | null }) {
   return fixture.homePoints !== null && fixture.awayPoints !== null;
 }
+
+const SOURCE_LABELS: Array<[prefix: string, label: string]> = [
+  ["cabb-", "CABB"],
+  ["acb-", "ACB"],
+  ["fs-", "Flashscore"],
+];
+
+export function fixtureSourceLabel(source: string | null | undefined) {
+  return SOURCE_LABELS.find(([prefix]) => source?.startsWith(prefix))?.[1] ?? "oficial";
+}

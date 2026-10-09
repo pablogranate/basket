@@ -4,18 +4,17 @@ import { and, eq, gte, inArray, isNotNull, isNull, lt, lte, max, notInArray, sql
 
 import { db, type DbExecutor } from "@/lib/db/client";
 import { fixtures as fixturesTable, leagues as leaguesTable, matches as matchesTable } from "@/lib/db/schema";
-import { appEnv } from "@/lib/env";
-import { downloadCabbPartidos, type CabbAccount } from "@/lib/fixtures/cabb-client";
 import { planFixtureLinks, type LinkCandidate } from "@/lib/fixtures/link-plan";
-import { parseCabbCsv, type FixtureRecord } from "@/lib/fixtures/parse";
+import type { FixtureRecord } from "@/lib/fixtures/parse";
+import { defaultFixtureSources, type FixtureSource } from "@/lib/fixtures/sources";
 import { addIsoDays } from "@/lib/fixtures/window";
 
 // Cross-process guard on top of the in-memory one: a CLI backfill and the cron
-// never hit Gesdeportiva twice within this gap unless forced.
+// never hit the official sites twice within this gap unless forced.
 const MIN_GAP_MS = 30 * 60 * 1000;
 const WRITE_CHUNK = 500;
 
-export type FixturesSource = (args: { account: CabbAccount; from: string; to: string }) => Promise<string>;
+type SourcedFixture = FixtureRecord & { source: string };
 
 export type FixturesSyncResult = {
   skipped: boolean;
@@ -53,7 +52,7 @@ export async function getLastFixturesSync(): Promise<string | null> {
   return row?.last ?? null;
 }
 
-async function upsertFixtures(tx: DbExecutor, records: FixtureRecord[], syncedAt: string) {
+async function upsertFixtures(tx: DbExecutor, records: SourcedFixture[], syncedAt: string) {
   for (const batch of chunk(records, WRITE_CHUNK)) {
     await tx
       .insert(fixturesTable)
@@ -78,15 +77,19 @@ async function upsertFixtures(tx: DbExecutor, records: FixtureRecord[], syncedAt
           court: sql`excluded.court`,
           city: sql`excluded.city`,
           province: sql`excluded.province`,
+          source: sql`excluded.source`,
           syncedAt: sql`excluded.synced_at`,
         },
       });
   }
 }
 
-// Games CABB no longer lists inside the fetched window. A fixture a Partido
+// Games a feed no longer lists inside the fetched window. A fixture a Partido
 // points at is kept: losing the link is worse than a stale row.
-async function deleteRemovedFixtures(tx: DbExecutor, { from, to, syncedAt }: { from: string; to: string; syncedAt: string }) {
+async function deleteRemovedFixtures(
+  tx: DbExecutor,
+  { sources, from, to, syncedAt }: { sources: string[]; from: string; to: string; syncedAt: string },
+) {
   const linked = tx
     .select({ id: matchesTable.fixtureId })
     .from(matchesTable)
@@ -96,6 +99,7 @@ async function deleteRemovedFixtures(tx: DbExecutor, { from, to, syncedAt }: { f
     .delete(fixturesTable)
     .where(
       and(
+        inArray(fixturesTable.source, sources),
         gte(fixturesTable.matchDate, from),
         lte(fixturesTable.matchDate, to),
         lt(fixturesTable.syncedAt, syncedAt),
@@ -117,7 +121,7 @@ async function linkPartidos(tx: DbExecutor, { records, from, to }: { records: Fi
     rows.forEach((row) => row.id && alreadyLinked.add(row.id));
   }
 
-  // A day of slack on both ends: CABB dates are Argentine, kickoff_at is UTC.
+  // A day of slack on both ends: fixture dates are Argentine, kickoff_at is UTC.
   const candidates: LinkCandidate[] = await tx
     .select({
       id: matchesTable.id,
@@ -161,14 +165,12 @@ export async function runFixturesSync({
   from,
   to,
   force = false,
-  source = downloadCabbPartidos,
-  accounts = appEnv.cabbAccounts,
+  sources = defaultFixtureSources(),
 }: {
   from: string;
   to: string;
   force?: boolean;
-  source?: FixturesSource;
-  accounts?: CabbAccount[];
+  sources?: FixtureSource[];
 }): Promise<FixturesSyncResult> {
   const result: FixturesSyncResult = {
     skipped: false,
@@ -197,24 +199,28 @@ export async function runFixturesSync({
     }
 
     const syncedAt = new Date().toISOString();
-    const records = new Map<string, FixtureRecord>();
-    let complete = true;
+    const records = new Map<string, SourcedFixture>();
+    const complete: string[] = [];
 
-    // One account at a time: never two concurrent sessions against the site.
-    for (const account of accounts) {
+    // One feed at a time: never two concurrent sessions against a site.
+    for (const source of sources) {
       try {
-        const parsed = parseCabbCsv(await source({ account, from, to }));
+        const parsed = await source.load({ from, to });
         if (parsed.errors.length) {
-          result.warnings.push(...parsed.errors.map((error) => `${account.key}: ${error}`));
+          result.warnings.push(...parsed.errors.map((error) => `${source.key}: ${error}`));
         }
-        if (parsed.fixtures.length === 0 && parsed.errors.length) {
-          complete = false;
+        const inWindow = parsed.fixtures.filter(
+          (record) => record.matchDate !== null && record.matchDate >= from && record.matchDate <= to,
+        );
+        // An empty parse with errors means the page changed shape, not that
+        // every game left the feed.
+        if (parsed.fixtures.length > 0 || parsed.errors.length === 0) {
+          complete.push(source.key);
         }
-        parsed.fixtures.forEach((record) => records.set(record.id, record));
-        result.fetched[account.key] = parsed.fixtures.length;
+        inWindow.forEach((record) => records.set(record.id, { ...record, source: source.key }));
+        result.fetched[source.key] = inWindow.length;
       } catch (error) {
-        complete = false;
-        result.errors.push(`${account.key}: ${toErrorMessage(error)}`);
+        result.errors.push(`${source.key}: ${toErrorMessage(error)}`);
       }
     }
 
@@ -227,9 +233,9 @@ export async function runFixturesSync({
       await upsertFixtures(tx, fetched, syncedAt);
       result.upserted = fetched.length;
 
-      // A partial fetch says nothing about what left CABB.
-      if (complete) {
-        result.deleted = await deleteRemovedFixtures(tx, { from, to, syncedAt });
+      // A failed feed says nothing about what left it.
+      if (complete.length) {
+        result.deleted = await deleteRemovedFixtures(tx, { sources: complete, from, to, syncedAt });
       }
 
       const links = await linkPartidos(tx, { records: fetched, from, to });

@@ -94,7 +94,7 @@ describe("planFixtureLinks", () => {
     });
 
     expect(plan.links).toEqual([{ matchId: "m1", fixtureId: "f1" }]);
-    expect(plan.warnings).toEqual([expect.stringContaining("grilla 14:30, CABB 15:30")]);
+    expect(plan.warnings).toEqual([expect.stringContaining("grilla 14:30, oficial 15:30")]);
   });
 
   it("uses the Argentine date for late games", () => {
@@ -104,7 +104,7 @@ describe("planFixtureLinks", () => {
     });
 
     expect(plan.links).toEqual([]);
-    expect(plan.warnings).toEqual([expect.stringContaining("sin partido CABB")]);
+    expect(plan.warnings).toEqual([expect.stringContaining("sin partido oficial")]);
   });
 
   it("skips a Partido with several CABB games", () => {
@@ -114,7 +114,7 @@ describe("planFixtureLinks", () => {
     });
 
     expect(plan.links).toEqual([]);
-    expect(plan.warnings).toEqual([expect.stringContaining("varios partidos CABB")]);
+    expect(plan.warnings).toEqual([expect.stringContaining("varios partidos oficiales")]);
   });
 
   it("skips a CABB game claimed by several Partidos", () => {
@@ -127,13 +127,22 @@ describe("planFixtureLinks", () => {
     expect(plan.warnings).toEqual([expect.stringContaining("coincide con varios partidos")]);
   });
 
-  it("ignores Partidos outside CABB leagues", () => {
+  it("ignores Partidos outside fixture leagues", () => {
     const plan = planFixtureLinks({
       fixtures: [fixture({ id: "f1" })],
-      candidates: [candidate({ id: "m1", competition: "Liga Metro" }), candidate({ id: "m2", leagueSlug: "liga-metropolitana" })],
+      candidates: [candidate({ id: "m1", competition: "BCLA" }), candidate({ id: "m2", leagueSlug: "bcla" })],
     });
 
     expect(plan).toEqual({ links: [], warnings: [] });
+  });
+
+  it("reads the competition of Partidos filed under Exterior", () => {
+    const plan = planFixtureLinks({
+      fixtures: [fixture({ id: "acb-1", competition: "COPA DEL REY 2026/2027" })],
+      candidates: [candidate({ id: "m1", competition: "Copa del Rey", leagueSlug: "exterior" })],
+    });
+
+    expect(plan.links).toEqual([{ matchId: "m1", fixtureId: "acb-1" }]);
   });
 
   it("never links a FORMATIVAS game", () => {
