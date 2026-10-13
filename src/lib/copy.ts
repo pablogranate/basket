@@ -35,7 +35,7 @@ export const SECTION_COPY = {
   myDay: {
     title: "Mi jornada",
     description:
-      "Revisa tus partidos del día, abre el grupo y reporta conexión, pago, incidencias y speedtest desde el celular.",
+      "Revisa tus partidos del día, confirma tu asistencia y abre el grupo desde el celular.",
   },
   teams: {
     title: "Equipos",

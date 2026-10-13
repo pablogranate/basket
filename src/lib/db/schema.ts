@@ -282,6 +282,7 @@ export const matches = pgTable("matches", {
 	dayNotifiedAt: timestamptz("day_notified_at"),
 	leagueId: uuid("league_id"),
 	fixtureId: text("fixture_id"),
+	source: text({ enum: ["grilla", "manual"] }).default("manual").notNull(),
 }, (table) => [
 	index("idx_matches_away_team_trgm").using("gin", table.awayTeam.asc().nullsLast().op("gin_trgm_ops")),
 	index("idx_matches_competition").using("btree", table.competition.asc().nullsLast()).where(sql`(competition IS NOT NULL)`),
@@ -320,6 +321,7 @@ export const matches = pgTable("matches", {
 			name: "matches_updated_by_fkey"
 		}).onDelete("set null"),
 	check("matches_duration_minutes_check", sql`duration_minutes > 0`),
+	check("matches_source_check", sql`source = ANY (ARRAY['grilla'::text, 'manual'::text])`),
 ]);
 
 export const announcements = pgTable("announcements", {

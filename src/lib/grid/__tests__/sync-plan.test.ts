@@ -67,6 +67,7 @@ function makeMatchSnapshot(overrides: Partial<MatchSnapshot> = {}): MatchSnapsho
     transport: null,
     notes: null,
     league_id: null,
+    source: "grilla",
     ...overrides,
   };
 }
@@ -181,6 +182,49 @@ describe("planGridSync match identity", () => {
   });
 });
 
+describe("planGridSync manual Partidos (ADR 0013)", () => {
+  it("leaves a manual Partido with the sheet's production code untouched, with a warning", () => {
+    const manual = makeMatchSnapshot({
+      id: "hand-made",
+      home_team: "Peñarol",
+      production_code: "P1",
+      source: "manual",
+    });
+    const plan = planGridSync(
+      makeInput({
+        entries: [makeEntry({ production_code: "P1" }, { responsable: "Ana" })],
+        codedMatches: [manual],
+      }),
+    );
+
+    expect(plan.creates).toHaveLength(0);
+    expect(plan.updates).toHaveLength(0);
+    expect(plan.peopleToCreate).toHaveLength(0);
+    expect(plan.errors).toHaveLength(0);
+    expect(plan.warnings).toEqual([
+      'Boca vs River: el ID "P1" es de un partido cargado a mano; la grilla no lo modifica.',
+    ]);
+  });
+
+  it("does not take over a manual Partido matched by teams and kickoff", () => {
+    const manual = makeMatchSnapshot({ id: "hand-made", source: "manual" });
+    const plan = planGridSync(
+      makeInput({ entries: [makeEntry()], windowMatches: [manual] }),
+    );
+
+    expect(plan.creates).toHaveLength(0);
+    expect(plan.updates).toHaveLength(0);
+    expect(plan.warnings).toEqual([
+      "Boca vs River: ya existe como partido cargado a mano; la grilla no lo modifica.",
+    ]);
+  });
+
+  it("creates every new Partido as grilla", () => {
+    const plan = planGridSync(makeInput({ entries: [makeEntry()] }));
+    expect(plan.creates[0].values.source).toBe("grilla");
+  });
+});
+
 describe("planGridSync duplicate production codes", () => {
   it("excludes every duplicated-code row, reports both labels, and cancels the delete pass", () => {
     const candidate = {
@@ -188,6 +232,7 @@ describe("planGridSync duplicate production codes", () => {
       home_team: "Lanús",
       away_team: "Banfield",
       kickoff_at: FUTURE_KICKOFF,
+      source: "grilla" as const,
     };
     const plan = planGridSync(
       makeInput({
@@ -598,7 +643,7 @@ describe("planGridSync función-mismatch warnings", () => {
       makeInput({
         entries: [entryWithRealizador],
         deleteCandidates: [
-          { id: "victim", home_team: "Lanús", away_team: "Banfield", kickoff_at: FUTURE_KICKOFF },
+          { id: "victim", home_team: "Lanús", away_team: "Banfield", kickoff_at: FUTURE_KICKOFF, source: "grilla" },
         ],
       }),
     );
@@ -615,6 +660,7 @@ describe("planGridSync delete pass", () => {
     home_team: "Lanús",
     away_team: "Banfield",
     kickoff_at: FUTURE_KICKOFF,
+    source: "grilla" as const,
   };
 
   it("selects an untouched candidate in a covered month, with its label", () => {
@@ -631,7 +677,7 @@ describe("planGridSync delete pass", () => {
         entries: [makeEntry()],
         windowMatches: [makeMatchSnapshot()],
         deleteCandidates: [
-          { id: "match-1", home_team: "Boca", away_team: "River", kickoff_at: FUTURE_KICKOFF },
+          { id: "match-1", home_team: "Boca", away_team: "River", kickoff_at: FUTURE_KICKOFF, source: "grilla" },
         ],
       }),
     );
@@ -670,6 +716,13 @@ describe("planGridSync delete pass", () => {
     );
     expect(plan.deletes).toHaveLength(0);
     expect(plan.deletePassSkipped).toBe("plan_errors");
+  });
+
+  it("never deletes a manual Partido the sheet does not list (ADR 0013)", () => {
+    const plan = planGridSync(
+      makeInput({ deleteCandidates: [victim, { ...victim, id: "hand-made", source: "manual" }] }),
+    );
+    expect(plan.deletes.map((match) => match.id)).toEqual(["victim"]);
   });
 
   it("records the read failure and skips when candidates are unavailable", () => {
