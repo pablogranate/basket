@@ -4,8 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Marco, type EnlaceDeNavegacion } from "basket-tv-ui";
 import {
-  BriefcaseBusiness,
   CalendarDays,
+  ChartColumn,
   ClipboardList,
   ListOrdered,
   ScrollText,
@@ -17,6 +17,8 @@ import {
 import type { AppRole } from "@/lib/database.types";
 import {
   APP_PORTAL_LABEL,
+  INCIDENCIAS_REPORTES_URL,
+  hasFullDashboardAccessRole,
   isDashboardNavHrefAllowedForRole,
 } from "@/lib/constants";
 
@@ -24,7 +26,12 @@ const navItems = [
   { href: "/grid", label: "Producción", icon: CalendarDays },
   { href: "/fixtures", label: "Fixtures", icon: ListOrdered },
   { href: "/mi-jornada", label: "Mi jornada", icon: ClipboardList },
-  { href: "/reports", label: "Operaciones", icon: BriefcaseBusiness },
+  {
+    href: INCIDENCIAS_REPORTES_URL,
+    external: true,
+    label: "Incidencias",
+    icon: ChartColumn,
+  },
   { href: "/teams", label: "Equipos", icon: Shield },
   { href: "/people", label: "Personal", icon: Users },
   // Points straight at the destination: /notifications only redirects here, so
@@ -46,6 +53,10 @@ function getNavPrefix(item: NavItem) {
 }
 
 function isNavItemAllowed(item: NavItem, role: AppRole | null | undefined) {
+  if ("external" in item) {
+    return hasFullDashboardAccessRole(role);
+  }
+
   return isDashboardNavHrefAllowedForRole(getNavPrefix(item), role);
 }
 

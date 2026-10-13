@@ -15,7 +15,6 @@ const PRODUCTOR_CONTENT_PATHS = [
   "/grid",
   "/people",
   "/incidents",
-  "/reports",
   "/teams",
 ] as const;
 
@@ -26,7 +25,6 @@ const EXTERNO_DENIED_PATHS = [
   "/grid",
   "/people",
   "/incidents",
-  "/reports",
   "/roles",
   "/settings",
 ] as const;

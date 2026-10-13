@@ -17,7 +17,6 @@ const DOMAIN_TABLES = [
   "roles",
   "app_settings",
   "announcements",
-  "collaborator_reports",
 ];
 
 // EXPLICIT allowlist of legitimate mutations that must NOT be treated as
@@ -152,8 +151,8 @@ describe("stamping-coverage predicate self-check", () => {
 
   it("resolves multi-word table aliases to snake_case", () => {
     const src =
-      'import { collaboratorReports as t } from "@/lib/db/schema";\nawait db.insert(t).values(x);';
-    expect(findMutations(src, "sample")[0].table).toBe("collaborator_reports");
+      'import { appSettings as t } from "@/lib/db/schema";\nawait db.insert(t).values(x);';
+    expect(findMutations(src, "sample")[0].table).toBe("app_settings");
   });
 });
 

@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { profiles, people, roles, auditLog, matches, clubContacts, notificationLogs, assignments, leagues, announcements, collaboratorReports, appSettings, personFunctions, peopleTeams, clubs, teams, clubAliases, teamLeagueMemberships } from "./schema";
+import { profiles, people, roles, auditLog, matches, clubContacts, notificationLogs, assignments, leagues, announcements, appSettings, personFunctions, peopleTeams, clubs, teams, clubAliases, teamLeagueMemberships } from "./schema";
 
 export const peopleRelations = relations(people, ({one, many}) => ({
 	profile_createdBy: one(profiles, {
@@ -54,15 +54,6 @@ export const profilesRelations = relations(profiles, ({many}) => ({
 	}),
 	announcements_updatedBy: many(announcements, {
 		relationName: "announcements_updatedBy_profiles_id"
-	}),
-	collaboratorReports_createdBy: many(collaboratorReports, {
-		relationName: "collaboratorReports_createdBy_profiles_id"
-	}),
-	collaboratorReports_reporterProfileId: many(collaboratorReports, {
-		relationName: "collaboratorReports_reporterProfileId_profiles_id"
-	}),
-	collaboratorReports_updatedBy: many(collaboratorReports, {
-		relationName: "collaboratorReports_updatedBy_profiles_id"
 	}),
 	appSettings_createdBy: many(appSettings, {
 		relationName: "appSettings_createdBy_profiles_id"
@@ -127,7 +118,6 @@ export const matchesRelations = relations(matches, ({one, many}) => ({
 		references: [profiles.id],
 		relationName: "matches_updatedBy_profiles_id"
 	}),
-	collaboratorReports: many(collaboratorReports),
 }));
 
 export const clubContactsRelations = relations(clubContacts, ({one}) => ({
@@ -154,7 +144,7 @@ export const notificationLogsRelations = relations(notificationLogs, ({one}) => 
 	}),
 }));
 
-export const assignmentsRelations = relations(assignments, ({one, many}) => ({
+export const assignmentsRelations = relations(assignments, ({one}) => ({
 	profile_createdBy: one(profiles, {
 		fields: [assignments.createdBy],
 		references: [profiles.id],
@@ -177,7 +167,6 @@ export const assignmentsRelations = relations(assignments, ({one, many}) => ({
 		references: [profiles.id],
 		relationName: "assignments_updatedBy_profiles_id"
 	}),
-	collaboratorReports: many(collaboratorReports),
 }));
 
 export const leaguesRelations = relations(leagues, ({many}) => ({
@@ -195,32 +184,6 @@ export const announcementsRelations = relations(announcements, ({one}) => ({
 		fields: [announcements.updatedBy],
 		references: [profiles.id],
 		relationName: "announcements_updatedBy_profiles_id"
-	}),
-}));
-
-export const collaboratorReportsRelations = relations(collaboratorReports, ({one}) => ({
-	assignment: one(assignments, {
-		fields: [collaboratorReports.assignmentId],
-		references: [assignments.id]
-	}),
-	profile_createdBy: one(profiles, {
-		fields: [collaboratorReports.createdBy],
-		references: [profiles.id],
-		relationName: "collaboratorReports_createdBy_profiles_id"
-	}),
-	match: one(matches, {
-		fields: [collaboratorReports.matchId],
-		references: [matches.id]
-	}),
-	profile_reporterProfileId: one(profiles, {
-		fields: [collaboratorReports.reporterProfileId],
-		references: [profiles.id],
-		relationName: "collaboratorReports_reporterProfileId_profiles_id"
-	}),
-	profile_updatedBy: one(profiles, {
-		fields: [collaboratorReports.updatedBy],
-		references: [profiles.id],
-		relationName: "collaboratorReports_updatedBy_profiles_id"
 	}),
 }));
 

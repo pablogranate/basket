@@ -16,7 +16,6 @@ import {
   History,
   Mail,
   MapPin,
-  Megaphone,
   MessageCircleMore,
   Mic2,
   ShieldUser,
@@ -39,7 +38,6 @@ import {
 } from "@/lib/attendance";
 import { LeagueLogoMarkClient } from "@/components/league-logo-mark-client";
 import { ClientTeamLogoMark } from "@/components/team-logo-mark-client";
-import dynamic from "next/dynamic";
 import { badgeBaseClassName } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { HoverAvatarBadge } from "@/components/ui/hover-avatar-badge";
@@ -56,16 +54,6 @@ import { getProductionModeLabel } from "@/lib/constants";
 import { getRoleDisplayName } from "@/lib/display";
 import { buildAssignmentCalendarLink } from "@/lib/integrations";
 import { buildWhatsAppUrl, cn, normalizeText } from "@/lib/utils";
-
-// Lazy: the report form (~49KB) only mounts when a collaborator opens the
-// reporting flow, so keep it out of the initial /mi-jornada bundle.
-const CollaboratorReportForm = dynamic(
-  () =>
-    import("@/components/collaborators/collaborator-report-form").then(
-      (mod) => mod.CollaboratorReportForm,
-    ),
-  { ssr: false },
-);
 
 type MyDayAssignmentsPanelProps = {
   hasLinkedPerson: boolean;
@@ -460,17 +448,15 @@ function openAssignmentCalendar(assignment: CollaboratorAssignmentItem) {
 
 const CARD_ACTION_TONE_CLASS = {
   group: "bg-[#1faa52] shadow-[0_14px_28px_rgba(31,170,82,0.18)]",
-  report: "bg-[var(--accent)] shadow-[0_14px_28px_rgba(227,27,35,0.22)]",
   calendar: "bg-[#1a73e8] shadow-[0_14px_28px_rgba(26,115,232,0.2)]",
 } as const;
 
 const CARD_ACTION_ICON_CLASS = {
   group: "text-[#1faa52]",
-  report: "text-[var(--accent)]",
   calendar: "text-[#1a73e8]",
 } as const;
 
-// Three of these share one card row. The card is 330px wide from `sm` up
+// Two of these share one card row. The card is 330px wide from `sm` up
 // (298px inner), where only the text label fits. Below `sm` the card is
 // full-width, so on phones wider than 420px each cell has room for the icon
 // bubble as well; narrower than that the bubble is dropped again.
@@ -512,12 +498,10 @@ function AssignmentCardActionButton({
 function AssignmentCard({
   assignment,
   onOpenGroup,
-  onOpenReport,
   onOpenDetail,
 }: {
   assignment: CollaboratorAssignmentItem;
   onOpenGroup: (assignmentId: string) => void;
-  onOpenReport: (assignmentId: string) => void;
   onOpenDetail: (assignmentId: string) => void;
 }) {
   const leagueLabel = assignment.competition ?? "Sin liga";
@@ -634,18 +618,12 @@ function AssignmentCard({
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 border-t border-[#efe7e1] bg-[#fbfaf7] p-3 sm:p-4">
+      <div className="grid grid-cols-2 gap-2 border-t border-[#efe7e1] bg-[#fbfaf7] p-3 sm:p-4">
         <AssignmentCardActionButton
           label="Grupo"
           icon={MessageCircleMore}
           tone="group"
           onClick={() => onOpenGroup(assignment.assignmentId)}
-        />
-        <AssignmentCardActionButton
-          label="Reportar"
-          icon={Megaphone}
-          tone="report"
-          onClick={() => onOpenReport(assignment.assignmentId)}
         />
         <AssignmentCardActionButton
           label="Agenda"
@@ -663,12 +641,10 @@ function AssignmentTable({
   assignments,
   selectedAssignmentId,
   onOpenGroup,
-  onOpenReport,
 }: {
   assignments: CollaboratorAssignmentItem[];
   selectedAssignmentId: string | null;
   onOpenGroup: (assignmentId: string) => void;
-  onOpenReport: (assignmentId: string) => void;
 }) {
   return (
     <div className="flex min-h-[42rem] flex-col gap-3 rounded-[var(--panel-radius)]">
@@ -926,18 +902,6 @@ function AssignmentTable({
                     type="button"
                     onClick={(event) => {
                       event.stopPropagation();
-                      onOpenReport(assignment.assignmentId);
-                    }}
-                    className="inline-flex size-10 items-center justify-center rounded-full bg-[var(--accent)] text-white shadow-[0_12px_24px_rgba(227,27,35,0.22)] transition hover:brightness-105"
-                    aria-label="Abrir reporte"
-                    title="Abrir reporte"
-                  >
-                    <Megaphone className="size-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
                       openAssignmentCalendar(assignment);
                     }}
                     className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[#1a73e8] text-white shadow-[0_12px_24px_rgba(26,115,232,0.22)] transition hover:brightness-105"
@@ -1083,50 +1047,6 @@ function DrawerInfoCard({
           {value}
         </p>
       </div>
-    </div>
-  );
-}
-
-function DrawerStatusCard({
-  confirmed,
-}: {
-  confirmed: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "panel-radius flex min-h-[84px] items-center justify-between gap-3 border px-4 py-3",
-        confirmed
-          ? "border-[#d7eadf] bg-[#f3fcf6]"
-          : "border-[var(--n-200)] bg-[var(--n-50)]",
-      )}
-    >
-      <div>
-        <p
-          className={cn(
-            "text-[10px] font-black uppercase tracking-[0.16em]",
-            confirmed ? "text-[#178a56]" : "text-[var(--n-600)]",
-          )}
-        >
-          Estado del reporte
-        </p>
-        <p
-          className={cn(
-            "mt-2 text-sm font-bold",
-            confirmed ? "text-[#178a56]" : "text-[var(--foreground)]",
-          )}
-        >
-          {confirmed ? "Reportado" : "Pendiente de reporte"}
-        </p>
-      </div>
-      <span
-        className={cn(
-          "inline-flex size-10 items-center justify-center rounded-full",
-          confirmed ? "bg-[#dcfce7] text-[#12b76a]" : "bg-[var(--n-100)] text-[var(--n-500)]",
-        )}
-      >
-        {confirmed ? <CheckCircle2 className="size-7" /> : <Clock3 className="size-5" />}
-      </span>
     </div>
   );
 }
@@ -1724,7 +1644,6 @@ function GroupAssistantDrawer({
                 </div>
               </div>
               <AttendanceInlineControl assignment={assignment} />
-              <DrawerStatusCard confirmed={assignment.confirmed} />
             </section>
 
             {[
@@ -1759,82 +1678,6 @@ function GroupAssistantDrawer({
             ) : null}
           </div>
         )}
-      </div>
-    </div>
-  );
-
-  return <AssignmentAssistantShell onClose={onClose}>{drawerContent}</AssignmentAssistantShell>;
-}
-
-function ReportAssistantDrawer({
-  assignment,
-  onClose,
-}: {
-  assignment: CollaboratorAssignmentItem;
-  onClose: () => void;
-}) {
-  const leagueAccent = getAssignmentLeagueAccentColor(assignment.competition);
-  const drawerContent = (
-    <div className="min-w-0 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] shadow-[0_18px_40px_rgba(28,13,16,0.08)]">
-      <div className="relative border-b border-[var(--border)] p-6">
-        <div className="mb-4 flex items-center justify-center gap-4 xl:justify-between">
-          <div className="flex flex-wrap items-center justify-center gap-2 xl:justify-start">
-            {assignment.productionMode ? (
-              <span className="inline-flex rounded-full border border-[var(--accent-border)] bg-[var(--accent-soft)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--accent)]">
-                {getProductionModeLabel(assignment.productionMode)}
-              </span>
-            ) : null}
-            <span
-              className="inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em]"
-              style={{
-                backgroundColor: `${leagueAccent}14`,
-                color: leagueAccent,
-              }}
-            >
-              {assignment.competition ?? "Sin liga"}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="absolute right-3 top-3 inline-flex size-10 items-center justify-center rounded-full bg-[var(--background-soft)] text-[var(--n-400)] sm:right-4 sm:top-4"
-            aria-label="Cerrar reporte"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-
-        <div className="space-y-1 text-center xl:text-left">
-          <p className="text-[1.6rem] font-black leading-[1.05] tracking-[-0.04em] text-[var(--foreground)]">
-            {assignment.homeTeam}
-          </p>
-          <div className="flex flex-wrap items-baseline justify-center gap-x-2 gap-y-1 text-[1.6rem] font-black leading-[1.05] tracking-[-0.04em] text-[var(--foreground)] xl:justify-start">
-            <span className="text-[var(--accent)]">vs</span>
-            <span>{assignment.awayTeam}</span>
-          </div>
-        </div>
-
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm text-[var(--n-500)] xl:justify-start">
-          <span className="inline-flex items-center gap-2">
-            <CalendarDays className="size-4 text-[var(--n-300)]" />
-            {formatAssignmentDrawerDate(assignment)}
-          </span>
-          <span className="inline-flex items-center gap-2">
-            <Clock3 className="size-4 text-[var(--n-300)]" />
-            {assignment.timeLabel}
-          </span>
-        </div>
-        <div className="mt-2 inline-flex w-full items-start justify-center gap-2 text-sm text-[var(--n-500)] xl:w-auto xl:justify-start">
-          <MapPin className="mt-0.5 size-4 shrink-0 text-[var(--n-300)]" />
-          <span>{assignment.venue ?? "Sede por definir"}</span>
-        </div>
-      </div>
-
-      <div className="space-y-5 px-5 py-5">
-        <CollaboratorReportForm
-          assignment={assignment}
-          showMatchSummary={false}
-        />
       </div>
     </div>
   );
@@ -1883,9 +1726,6 @@ export function MyDayAssignmentsPanel({
   const [selectedGroupAssignmentId, setSelectedGroupAssignmentId] = useState<string | null>(
     null,
   );
-  const [selectedReportAssignmentId, setSelectedReportAssignmentId] = useState<string | null>(
-    null,
-  );
   const [drawerTab, setDrawerTab] = useState<GroupDrawerTab>("group");
   // Desktop (≥1280px) shows only the table; below that, only the fichas. No
   // user-facing toggle — the breakpoint decides.
@@ -1898,11 +1738,6 @@ export function MyDayAssignmentsPanel({
   const selectedGroupAssignment =
     allAssignments.find((assignment) => assignment.assignmentId === selectedGroupAssignmentId) ??
     null;
-  const selectedReportAssignment =
-    allAssignments.find((assignment) => assignment.assignmentId === selectedReportAssignmentId) ??
-    null;
-  const selectedPanelAssignmentId =
-    selectedReportAssignmentId ?? selectedGroupAssignmentId ?? null;
   const effectiveViewMode: MyDayViewMode = tableViewEnabled ? "table" : "cards";
 
   useEffect(() => {
@@ -1916,19 +1751,12 @@ export function MyDayAssignmentsPanel({
   }, []);
 
   function handleOpenGroup(assignmentId: string) {
-    setSelectedReportAssignmentId(null);
     setSelectedGroupAssignmentId(assignmentId);
     setDrawerTab("group");
   }
 
-  function handleOpenReport(assignmentId: string) {
-    setSelectedGroupAssignmentId(null);
-    setSelectedReportAssignmentId(assignmentId);
-  }
-
   // Tapping a card opens the full match detail (the drawer's "Planilla" tab).
   function handleOpenDetail(assignmentId: string) {
-    setSelectedReportAssignmentId(null);
     setSelectedGroupAssignmentId(assignmentId);
     setDrawerTab("context");
   }
@@ -1953,7 +1781,6 @@ export function MyDayAssignmentsPanel({
             key={`${assignment.assignmentId}-${assignment.matchId}`}
             assignment={assignment}
             onOpenGroup={handleOpenGroup}
-            onOpenReport={handleOpenReport}
             onOpenDetail={handleOpenDetail}
           />
         ))}
@@ -1961,9 +1788,8 @@ export function MyDayAssignmentsPanel({
     ) : (
       <AssignmentTable
         assignments={items}
-        selectedAssignmentId={selectedPanelAssignmentId}
+        selectedAssignmentId={selectedGroupAssignmentId}
         onOpenGroup={handleOpenGroup}
-        onOpenReport={handleOpenReport}
       />
     );
   }
@@ -2056,12 +1882,6 @@ export function MyDayAssignmentsPanel({
           tab={drawerTab}
           onChangeTab={setDrawerTab}
           onClose={() => setSelectedGroupAssignmentId(null)}
-        />
-      ) : null}
-      {selectedReportAssignment ? (
-        <ReportAssistantDrawer
-          assignment={selectedReportAssignment}
-          onClose={() => setSelectedReportAssignmentId(null)}
         />
       ) : null}
     </div>

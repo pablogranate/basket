@@ -57,7 +57,6 @@ const ANNOUNCEMENT_REVALIDATE_PATHS = [
   "/settings",
   "/mi-jornada",
   "/grid",
-  "/reports",
   "/incidents",
 ];
 
@@ -67,7 +66,7 @@ const saveGeminiSettings = defineAction({
   parse: parseSaveGeminiSettings,
   errorNotice: "No pudimos guardar la configuración de Gemini.",
   // Scope revalidation to where the Gemini key is actually read. The AI
-  // gating on grid/mi-jornada/reports/incidents/people/teams reads the settings
+  // gating on grid/mi-jornada/incidents/people/teams reads the settings
   // snapshot fresh on every real navigation (those routes are dynamic and
   // prefetch only warms their shell, not the data loaders), so re-rendering
   // them here just made an unrelated settings tweak slow. No layout/header

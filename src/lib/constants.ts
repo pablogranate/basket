@@ -86,7 +86,6 @@ export const DASHBOARD_NAV = [
   { href: "/grid", label: SECTION_COPY.grid.title },
   { href: "/mi-jornada", label: SECTION_COPY.myDay.title },
   { href: "/incidents", label: "Incidencias" },
-  { href: "/reports", label: "Reportes" },
   { href: "/teams", label: SECTION_COPY.teams.title },
   { href: "/people", label: SECTION_COPY.people.title },
   { href: "/roles", label: SECTION_COPY.roles.title },
@@ -383,3 +382,6 @@ export const ROLE_CATEGORY_ORDER = [
   "Transmision",
   "Camaras",
 ] as const;
+
+// The transmission reports live in incidencias; the portal nav links out to them.
+export const INCIDENCIAS_REPORTES_URL = "https://incidencias.basket-app.com/reportes";
