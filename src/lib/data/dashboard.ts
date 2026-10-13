@@ -38,7 +38,6 @@ import {
 import {
   assignments as assignmentsTable,
   auditLog as auditLogTable,
-  collaboratorReports as collaboratorReportsTable,
   matches as matchesTable,
   people as peopleTable,
   peopleTeams as peopleTeamsTable,
@@ -52,10 +51,8 @@ import type { MatchRow, PersonRow, RoleRow } from "@/lib/database.types";
 import type {
   AuditEntry,
   GridOwner,
-  MatchCollaboratorReport,
   MatchDetail,
   MatchListItem,
-  MatchReportIncidentLevel,
   PersonListItem,
 } from "@/lib/types";
 
@@ -280,7 +277,6 @@ export async function getMatchDetailData(ctx: UserContext, matchId: string) {
     rolesData,
     historyData,
     functionsData,
-    reportRows,
   ] = await Promise.all([
       db
         .select({
@@ -359,40 +355,6 @@ export async function getMatchDetailData(ctx: UserContext, matchId: string) {
           function_key: personFunctionsTable.functionKey,
         })
         .from(personFunctionsTable),
-      db
-        .select({
-          id: collaboratorReportsTable.id,
-          incidentLevel: collaboratorReportsTable.incidentLevel,
-          roleName: rolesTable.name,
-          reporterName: profilesTable.fullName,
-          signalLabel: collaboratorReportsTable.signalLabel,
-          aptoLineal: collaboratorReportsTable.aptoLineal,
-          feedDetected: collaboratorReportsTable.feedDetected,
-          testTime: collaboratorReportsTable.testTime,
-          testCheck: collaboratorReportsTable.testCheck,
-          soundCheck: collaboratorReportsTable.soundCheck,
-          graphicsCheck: collaboratorReportsTable.graphicsCheck,
-          internetCheck: collaboratorReportsTable.internetCheck,
-          cameraCheck: collaboratorReportsTable.cameraCheck,
-          speedtestValue: collaboratorReportsTable.speedtestValue,
-          pingValue: collaboratorReportsTable.pingValue,
-          gpuValue: collaboratorReportsTable.gpuValue,
-          generalObservations: collaboratorReportsTable.generalObservations,
-          problems: collaboratorReportsTable.problems,
-          submittedAt: collaboratorReportsTable.submittedAt,
-        })
-        .from(collaboratorReportsTable)
-        .leftJoin(
-          profilesTable,
-          eq(collaboratorReportsTable.reporterProfileId, profilesTable.id),
-        )
-        .leftJoin(
-          assignmentsTable,
-          eq(collaboratorReportsTable.assignmentId, assignmentsTable.id),
-        )
-        .leftJoin(rolesTable, eq(assignmentsTable.roleId, rolesTable.id))
-        .where(eq(collaboratorReportsTable.matchId, matchId))
-        .orderBy(desc(collaboratorReportsTable.submittedAt)),
     ]);
 
   // supabase-js `.single()` errored on a missing match; preserve the throw.
@@ -483,41 +445,6 @@ export async function getMatchDetailData(ctx: UserContext, matchId: string) {
       actor: entry.actor?.id ? entry.actor : null,
     })) as unknown as AuditEntry[],
     conflicts,
-    reports: reportRows.map(normalizeCollaboratorReport),
-  };
-}
-
-const REPORT_INCIDENT_LEVELS: MatchReportIncidentLevel[] = [
-  "sin",
-  "baja",
-  "alta",
-  "critica",
-];
-
-function normalizeCollaboratorReport(
-  row: {
-    incidentLevel: string;
-    problems: unknown;
-  } & Omit<MatchCollaboratorReport, "incidentLevel" | "problems">,
-): MatchCollaboratorReport {
-  const problems: Record<string, boolean> = {};
-
-  if (row.problems && typeof row.problems === "object") {
-    for (const [key, value] of Object.entries(row.problems)) {
-      if (typeof value === "boolean") {
-        problems[key] = value;
-      }
-    }
-  }
-
-  return {
-    ...row,
-    incidentLevel: REPORT_INCIDENT_LEVELS.includes(
-      row.incidentLevel as MatchReportIncidentLevel,
-    )
-      ? (row.incidentLevel as MatchReportIncidentLevel)
-      : "sin",
-    problems,
   };
 }
 
