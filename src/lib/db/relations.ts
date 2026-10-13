@@ -144,7 +144,7 @@ export const notificationLogsRelations = relations(notificationLogs, ({one}) => 
 	}),
 }));
 
-export const assignmentsRelations = relations(assignments, ({one, many}) => ({
+export const assignmentsRelations = relations(assignments, ({one}) => ({
 	profile_createdBy: one(profiles, {
 		fields: [assignments.createdBy],
 		references: [profiles.id],
