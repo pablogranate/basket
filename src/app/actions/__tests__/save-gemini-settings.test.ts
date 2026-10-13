@@ -39,7 +39,6 @@ const mockedRedirectWithNotice = vi.mocked(redirectWithNotice);
 const PREVIOUSLY_REVALIDATED = [
   "/mi-jornada",
   "/grid",
-  "/reports",
   "/incidents",
   "/people",
   "/teams",

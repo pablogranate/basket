@@ -47,15 +47,9 @@ This checklist covers what those can't: end-to-end UI flows and role gating.
 - [ ] Team detail page (logo, memberships) renders.
 - [ ] Upsert a team (admin) → reference tables update (no stamp columns — expected).
 
-### Reports / exports (`/reports`)
-- [ ] Report stats aggregate correctly.
-- [ ] PDF and CSV exports generate and open.
-- [ ] Collaborator-reports API (`/api/collaborator-reports`) returns data for a real assignment.
-
 ### Attendance (`/mi-jornada`)
 - [ ] Collaborator sees only their own assignments.
 - [ ] Confirm / decline attendance → `attendance_response` + `attendance_confirmed_at` persist.
-- [ ] Report submission (`/mi-jornada/[matchId]/reportar`) writes a collaborator_report (stamped + audited).
 
 ### Announcements
 - [ ] Active announcement shows in the dashboard shell.

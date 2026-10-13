@@ -53,8 +53,8 @@ function repoRel(absPath: string): string {
 // --- Route coverage ----------------------------------------------------------
 
 // A route is guarded when its source contains either the session/role wrapper
-// marker `withAuth(` (the 4 ai/* routes, team-logo, grid/calendar,
-// collaborator-reports) OR the machine-auth wrapper marker `withApiKey(`
+// marker `withAuth(` (the 4 ai/* routes, team-logo, grid/calendar)
+// OR the machine-auth wrapper marker `withApiKey(`
 // (matches/intake — Open Q1, shared-secret header). Both are first-class
 // guards; the coverage predicate accepts either.
 const ROUTE_GUARD_MARKERS = ["withAuth(", "withApiKey("];
@@ -68,8 +68,8 @@ const ROUTE_GUARD_MARKERS = ["withAuth(", "withApiKey("];
 //   It IS the auth provider (login, callback, magic-link, session) and must be
 //   reachable without a prior session; Better Auth enforces its own gating.
 //
-// All three formerly inline-guarded routes (team-logo, grid/calendar,
-// collaborator-reports) now carry the `withAuth(` marker and must NOT be
+// Both formerly inline-guarded routes (team-logo, grid/calendar) now carry
+// the `withAuth(` marker and must NOT be
 // allowlisted.
 const ROUTE_ALLOWLIST = [
   "src/app/api/health/route.ts",
