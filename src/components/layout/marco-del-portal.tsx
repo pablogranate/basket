@@ -6,7 +6,6 @@ import { Marco, type EnlaceDeNavegacion } from "basket-tv-ui";
 import {
   BriefcaseBusiness,
   CalendarDays,
-  CircleHelp,
   ClipboardList,
   ListOrdered,
   ScrollText,
@@ -38,7 +37,6 @@ const navItems = [
     icon: ScrollText,
   },
   { href: "/settings", label: "Configuración", icon: Settings2 },
-  { href: "/support", label: "Soporte", icon: CircleHelp },
 ] as const;
 
 type NavItem = (typeof navItems)[number];
