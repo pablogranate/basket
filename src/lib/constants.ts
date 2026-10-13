@@ -14,6 +14,13 @@ export const DEFAULT_MATCH_DURATION_MINUTES = 150;
 export const ADMIN_DEFAULT_DASHBOARD_HREF = "/grid";
 export const COLLABORATOR_DEFAULT_DASHBOARD_HREF = "/mi-jornada";
 
+// Where a Partido came from (ADR 0013). The Grilla sync only creates, patches
+// and deletes `grilla` rows; a `manual` one, made by hand in the portal or in
+// incidencias, is never touched by it.
+export const MATCH_SOURCES = ["grilla", "manual"] as const;
+
+export type MatchSource = (typeof MATCH_SOURCES)[number];
+
 export const MATCH_STATUS_OPTIONS: Database["public"]["Enums"]["match_status"][] =
   ["Pendiente", "Confirmado", "Realizado"];
 

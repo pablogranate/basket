@@ -41,6 +41,7 @@ function makeCreate(overrides: Partial<SyncPlanCreate> = {}): SyncPlanCreate {
       notes: null,
       status: "Pendiente",
       leagueId: null,
+      source: "grilla",
     },
     owner: null,
     assignments: [],
@@ -91,13 +92,21 @@ describe("applyGridSync (integration)", () => {
     const [person] = await sql`SELECT id, full_name FROM people`;
     expect(person.full_name).toBe("José Pérez");
 
-    const [match] = await sql`SELECT owner_id, status, home_team FROM matches`;
+    const [match] = await sql`SELECT owner_id, status, home_team, source FROM matches`;
     expect(match.owner_id).toBe(person.id);
     expect(match.status).toBe("Pendiente");
+    expect(match.source).toBe("grilla");
 
     const [assignment] = await sql`SELECT person_id, confirmed FROM assignments`;
     expect(assignment.person_id).toBe(person.id);
     expect(assignment.confirmed).toBe(false);
+  });
+
+  it("marks a match inserted outside the sync as manual (ADR 0013)", async () => {
+    const [match] = await sql`
+      INSERT INTO matches ${sql({ home_team: "Peñarol", away_team: "Nacional", kickoff_at: KICKOFF })}
+      RETURNING source`;
+    expect(match.source).toBe("manual");
   });
 
   it("resurrects a soft-deleted person", async () => {

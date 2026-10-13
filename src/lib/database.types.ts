@@ -682,6 +682,7 @@ export type Database = {
           kickoff_at: string
           league_id: string | null
           fixture_id: string | null
+          source: "grilla" | "manual"
           notes: string | null
           owner_id: string | null
           production_code: string | null
@@ -706,6 +707,7 @@ export type Database = {
           kickoff_at: string
           league_id?: string | null
           fixture_id?: string | null
+          source?: "grilla" | "manual"
           notes?: string | null
           owner_id?: string | null
           production_code?: string | null
@@ -730,6 +732,7 @@ export type Database = {
           kickoff_at?: string
           league_id?: string | null
           fixture_id?: string | null
+          source?: "grilla" | "manual"
           notes?: string | null
           owner_id?: string | null
           production_code?: string | null

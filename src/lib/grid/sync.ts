@@ -228,6 +228,7 @@ async function buildGridSyncPlan(now: Date, source: SheetSource): Promise<SyncPl
           home_team: matchesTable.homeTeam,
           away_team: matchesTable.awayTeam,
           kickoff_at: matchesTable.kickoffAt,
+          source: matchesTable.source,
         })
         .from(matchesTable)
         .where(

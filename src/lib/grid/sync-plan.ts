@@ -1,5 +1,6 @@
 import { createCompetitionLeagueResolver } from "@/lib/competition-league";
 import type { LeagueSnapshot } from "@/lib/competition-league";
+import type { MatchSource } from "@/lib/constants";
 import type { Database } from "@/lib/database.types";
 import { roleNameToFunctionKey } from "@/lib/functions";
 import type { SheetEntry } from "@/lib/grid/sheet-parse";
@@ -35,6 +36,7 @@ export type MatchSnapshot = {
   transport: string | null;
   notes: string | null;
   league_id: string | null;
+  source: MatchSource;
 };
 
 export type AssignmentSnapshot = {
@@ -60,6 +62,7 @@ export type DeleteCandidateSnapshot = {
   home_team: string;
   away_team: string;
   kickoff_at: string;
+  source: MatchSource;
 };
 
 export type MatchFieldPatch = Partial<{
@@ -92,6 +95,7 @@ export type SyncPlanCreate = {
     notes: string | null;
     status: MatchStatus;
     leagueId: string | null;
+    source: "grilla";
   };
   owner: PersonRef | null;
   assignments: SyncAssignmentUpsert[];
@@ -333,14 +337,28 @@ export function planGridSync(input: PlanGridSyncInput): SyncPlan {
     const sheet = entry.match;
     const label = `${sheet.home_team} vs ${sheet.away_team}`;
 
+    const codedMatch = sheet.production_code
+      ? matchByProductionCode.get(sheet.production_code)
+      : undefined;
+    const existing =
+      codedMatch ??
+      matchByTriple.get(tripleKey(sheet.home_team, sheet.away_team, sheet.kickoff_at));
+
+    // A hand-made Partido belongs to whoever made it, never to the sheet.
+    if (existing?.source === "manual") {
+      plan.warnings.push(
+        codedMatch
+          ? `${label}: el ID "${sheet.production_code}" es de un partido cargado a mano; la grilla no lo modifica.`
+          : `${label}: ya existe como partido cargado a mano; la grilla no lo modifica.`,
+      );
+      touchedMatchIds.add(existing.id);
+      continue;
+    }
+
     // Owner resolution happens before the duplicate-code rejection, exactly as
     // today: a rejected entry still creates/resurrects its responsable.
     const owner = resolvePerson(entry.responsable);
     const isPast = new Date(sheet.kickoff_at).getTime() < now.getTime();
-
-    const existing =
-      (sheet.production_code ? matchByProductionCode.get(sheet.production_code) : undefined) ??
-      matchByTriple.get(tripleKey(sheet.home_team, sheet.away_team, sheet.kickoff_at));
 
     // Desired sheet assignments, resolved lazily below so a rejected create
     // never records its assignment people (matches today's ordering).
@@ -399,6 +417,7 @@ export function planGridSync(input: PlanGridSyncInput): SyncPlan {
           notes: sheet.notes,
           status: isPast ? "Realizado" : "Pendiente",
           leagueId: resolveLeagueId(sheet.competition),
+          source: "grilla",
         },
         owner,
         assignments: Array.from(desired, ([roleId, { person }]) => ({ roleId, person })),
@@ -542,7 +561,7 @@ export function planGridSync(input: PlanGridSyncInput): SyncPlan {
   }
 
   for (const match of input.deleteCandidates) {
-    if (touchedMatchIds.has(match.id)) {
+    if (touchedMatchIds.has(match.id) || match.source !== "grilla") {
       continue;
     }
     const { year, month } = zonedYearMonth(new Date(match.kickoff_at));
