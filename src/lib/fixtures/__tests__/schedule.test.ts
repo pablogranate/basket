@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { argentineSchedule, compareFixtureSchedule } from "@/lib/fixtures/schedule";
+import { argentineSchedule, compareFixtureSchedule, isPastMatchDay } from "@/lib/fixtures/schedule";
 
 describe("argentineSchedule", () => {
   it("reads a UTC kickoff as Argentine date and time", () => {
@@ -29,5 +29,22 @@ describe("compareFixtureSchedule", () => {
   it("does not flag what CABB has not published", () => {
     expect(compareFixtureSchedule({ matchDate: null, matchTime: null }, kickoffAt).differs).toBe(false);
     expect(compareFixtureSchedule({ matchDate: "2026-10-10", matchTime: null }, kickoffAt).differs).toBe(false);
+  });
+});
+
+describe("isPastMatchDay", () => {
+  const today = "2026-10-14";
+
+  it("is past when every date is before today", () => {
+    expect(isPastMatchDay(["2026-10-12", "2026-10-13"], today)).toBe(true);
+  });
+
+  it("is not past while the match day is today or later", () => {
+    expect(isPastMatchDay(["2026-10-14", "2026-10-14"], today)).toBe(false);
+    expect(isPastMatchDay(["2026-10-13", "2026-10-15"], today)).toBe(false);
+  });
+
+  it("ignores a date CABB has not published", () => {
+    expect(isPastMatchDay([null, "2026-10-13"], today)).toBe(true);
   });
 });

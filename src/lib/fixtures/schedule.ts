@@ -28,3 +28,9 @@ export function compareFixtureSchedule(
 
   return { grid, differs };
 }
+
+// Once the match day is over, a schedule mismatch is history, not something to
+// fix. The day counts from the later of the official and the grid dates.
+export function isPastMatchDay(dates: (string | null)[], today: string) {
+  return dates.every((date) => date === null || date < today);
+}
