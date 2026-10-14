@@ -11,7 +11,8 @@ import {
   hasFixtureScore,
   titleCaseFixtureText,
 } from "@/lib/fixtures/display";
-import { compareFixtureSchedule, FIXTURE_TIMEZONE } from "@/lib/fixtures/schedule";
+import { compareFixtureSchedule, FIXTURE_TIMEZONE, isPastMatchDay } from "@/lib/fixtures/schedule";
+import { fixtureToday } from "@/lib/fixtures/window";
 
 function formatFixtureDate(isoDate: string) {
   const [year, month, day] = isoDate.split("-");
@@ -33,7 +34,8 @@ export async function MatchCabbFixture({
     return null;
   }
 
-  const { grid, differs: scheduleDiffers } = compareFixtureSchedule(fixture, kickoffAt);
+  const { grid, differs } = compareFixtureSchedule(fixture, kickoffAt);
+  const scheduleDiffers = differs && !isPastMatchDay([fixture.matchDate, grid.date], fixtureToday(new Date()));
   const phase = fixturePhaseLabel(fixture.phase, fixture.group);
   const place = [fixture.venue, fixture.city, fixture.province]
     .filter(Boolean)

@@ -7,7 +7,7 @@ import type { UserContext } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { fixtures as fixturesTable, matches as matchesTable } from "@/lib/db/schema";
 import { DEFAULT_TIMEZONE } from "@/lib/constants";
-import { compareFixtureSchedule, type FixtureSchedule } from "@/lib/fixtures/schedule";
+import { compareFixtureSchedule, isPastMatchDay, type FixtureSchedule } from "@/lib/fixtures/schedule";
 import { fixtureMonthRange, fixtureToday } from "@/lib/fixtures/window";
 
 // ADR 0005: fixtures accumulate every season, so the page reads one month at a
@@ -99,7 +99,7 @@ export async function getFixturesAgenda(ctx: UserContext, { now, month }: { now:
                 productionCode,
                 gridDate: formatInTimeZone(kickoffAt, DEFAULT_TIMEZONE, "yyyy-MM-dd"),
                 schedule: comparison.grid,
-                scheduleDiffers: comparison.differs,
+                scheduleDiffers: comparison.differs && !isPastMatchDay([matchDate, comparison.grid.date], today),
               }
             : null,
       };
