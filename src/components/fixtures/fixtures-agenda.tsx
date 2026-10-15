@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, type ReactNode } from "react";
+import { ChevronDown } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { Badge } from "@/components/ui/badge";
+import { Badge, badgeBaseClassName } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { ToolbarSearchField } from "@/components/ui/toolbar-search-field";
-import type { FixtureListItem } from "@/lib/data/fixtures";
+import type { FixtureListItem, FixturePartido } from "@/lib/data/fixtures";
 import { FIXTURE_COMPETITION_ORDER, resolveFixtureCompetition } from "@/lib/fixtures/competitions";
 import {
   fixtureCategoryLabel,
@@ -89,14 +90,36 @@ export function FixturesAgenda({
   const [query, setQuery] = useState("");
   const [showPast, setShowPast] = useState(false);
   const [onlyCovered, setOnlyCovered] = useState(false);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
 
   const rows = useMemo(() => fixtures.map(toAgendaRow), [fixtures]);
   const needle = normalizeQuery(query);
   const matching = needle ? rows.filter((row) => row.searchText.includes(needle)) : rows;
   const coveredCount = matching.filter((row) => row.partido).length;
-  const scheduleDiffCount = matching.filter((row) => row.partido?.scheduleDiffers).length;
+  const scheduleDiffs = matching.filter((row) => row.partido?.scheduleDiffers);
   const searched = onlyCovered ? matching.filter((row) => row.partido) : matching;
   const visible = competitions.size ? searched.filter((row) => competitions.has(row.competitionLabel)) : searched;
+
+  // Clears whatever filter would hide the row, then the effect scrolls to it.
+  function revealRow(row: AgendaRow) {
+    setOnlyCovered(false);
+    if (competitions.size && !competitions.has(row.competitionLabel)) {
+      setCompetitions(new Set());
+    }
+    if (row.matchDate < today) {
+      setShowPast(true);
+    }
+    setFocusedId(row.id);
+  }
+
+  useEffect(() => {
+    if (!focusedId) {
+      return;
+    }
+    document.getElementById(fixtureRowId(focusedId))?.scrollIntoView({ behavior: "smooth", block: "center" });
+    const timeout = window.setTimeout(() => setFocusedId(null), 1600);
+    return () => window.clearTimeout(timeout);
+  }, [focusedId]);
 
   function toggleCompetition(label: string) {
     setCompetitions((current) => {
@@ -152,11 +175,7 @@ export function FixturesAgenda({
               ),
             }))}
           />
-          {scheduleDiffCount > 0 ? (
-            <Badge className="border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]">
-              {scheduleDiffCount} con horario distinto en la grilla
-            </Badge>
-          ) : null}
+          {scheduleDiffs.length > 0 ? <ScheduleDiffMenu rows={scheduleDiffs} onSelect={revealRow} /> : null}
         </div>
         <ToolbarSearchField
           as="div"
@@ -213,7 +232,7 @@ export function FixturesAgenda({
             </div>
             <Card className="overflow-hidden p-0">
               {days.get(day)!.map((row) => (
-                <FixtureRow key={row.id} row={row} />
+                <FixtureRow key={row.id} row={row} focused={row.id === focusedId} />
               ))}
             </Card>
           </section>
@@ -233,6 +252,109 @@ function formatShortDate(isoDate: string) {
   return `${isoDate.slice(8, 10)}/${isoDate.slice(5, 7)}`;
 }
 
+function formatShortWeekday(isoDate: string) {
+  return new Date(`${isoDate}T12:00:00Z`).toLocaleDateString("es-AR", { weekday: "short", timeZone: "UTC" });
+}
+
+function fixtureRowId(id: string) {
+  return `fixture-${id}`;
+}
+
+function formatGridSchedule(row: AgendaRow, partido: FixturePartido) {
+  const { date, time } = partido.schedule;
+  return `${row.matchDate === date ? "" : `${formatShortDate(date)} `}${time}`;
+}
+
+function ScheduleDiffMenu({ rows, onSelect }: { rows: AgendaRow[]; onSelect: (row: AgendaRow) => void }) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    };
+
+    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [open]);
+
+  return (
+    <div ref={menuRef} className="relative">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+        className={cn(
+          badgeBaseClassName,
+          "gap-1.5 border transition",
+          open
+            ? "border-[var(--accent)] bg-[var(--accent)] text-white"
+            : "border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)] hover:border-[var(--accent)]",
+        )}
+      >
+        {rows.length} con horario distinto en la grilla
+        <ChevronDown className={cn("size-3.5 transition", open && "rotate-180")} />
+      </button>
+
+      {open ? (
+        <div className="panel-surface absolute left-0 top-[calc(100%+0.5rem)] z-50 w-[min(26rem,calc(100vw-2rem))] overflow-hidden border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-lift)]">
+          <div className="flex items-baseline justify-between gap-3 border-b border-[var(--n-100)] px-4 py-2.5 text-sm font-semibold">
+            Horario distinto en la grilla
+            <span className="text-xs font-normal text-[var(--n-500)]">Oficial → Grilla</span>
+          </div>
+          <ul className="max-h-80 overflow-y-auto">
+            {rows.map((row) => {
+              const partido = row.partido!;
+              return (
+                <li key={row.id} className="border-t border-[var(--n-100)] first:border-t-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpen(false);
+                      onSelect(row);
+                    }}
+                    className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-0.5 px-4 py-2.5 text-left hover:bg-[var(--n-50)]"
+                  >
+                    <span className="truncate text-sm font-medium">
+                      {fixtureTeamLabel(row.homeTeam, row.homeClub)} vs {fixtureTeamLabel(row.awayTeam, row.awayClub)}
+                    </span>
+                    <span className="font-mono text-xs">
+                      <span className="text-[var(--n-400)] line-through">{row.matchTime ?? "—"}</span>
+                      {" → "}
+                      <span className="font-semibold text-[var(--accent)]">{formatGridSchedule(row, partido)}</span>
+                    </span>
+                    <span className="col-span-2 truncate text-xs text-[var(--n-500)]">
+                      {formatShortWeekday(row.matchDate)} {formatShortDate(row.matchDate)} · {row.competitionLabel}
+                      {partido.productionCode ? <span className="font-mono"> · {partido.productionCode}</span> : null}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function GridCell({ row }: { row: AgendaRow }) {
   const partido = row.partido;
 
@@ -241,8 +363,7 @@ function GridCell({ row }: { row: AgendaRow }) {
   }
 
   const differs = partido.scheduleDiffers;
-  const { date, time } = partido.schedule;
-  const gridSchedule = `${row.matchDate === date ? "" : `${formatShortDate(date)} `}${time}`;
+  const gridSchedule = formatGridSchedule(row, partido);
 
   return (
     <span className="flex flex-col items-start gap-0.5 text-xs leading-snug">
@@ -260,7 +381,7 @@ function GridCell({ row }: { row: AgendaRow }) {
   );
 }
 
-function FixtureRow({ row }: { row: AgendaRow }) {
+function FixtureRow({ row, focused }: { row: AgendaRow; focused: boolean }) {
   const struck = row.suspended && "text-[var(--n-500)] line-through";
   const phase = fixturePhaseLabel(row.phase, row.group);
   const place = [row.city, row.province].filter(Boolean).map(titleCaseFixtureText).join(", ");
@@ -272,7 +393,13 @@ function FixtureRow({ row }: { row: AgendaRow }) {
   const scored = hasFixtureScore(row);
 
   return (
-    <div className="border-t border-[var(--n-100)] first:border-t-0 hover:bg-[var(--n-50)]">
+    <div
+      id={fixtureRowId(row.id)}
+      className={cn(
+        "scroll-mt-16 border-t border-[var(--n-100)] transition-colors duration-700 first:border-t-0",
+        focused ? "bg-[var(--accent-soft)]" : "hover:bg-[var(--n-50)]",
+      )}
+    >
       <div className="flex gap-3 px-4 py-3 lg:hidden">
         <span className="w-1 shrink-0 self-stretch rounded-sm" style={{ background: row.color }} />
         <div className="min-w-0 flex-1 space-y-1.5">
