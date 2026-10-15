@@ -356,6 +356,7 @@ async function upsertPerson(
         roleId: input.roleId,
         active: true,
         deletedAt: null,
+        mergedIntoId: null,
         profileId: input.profileId,
         updatedBy: stamped.updated_by,
         updatedAt: stamped.updated_at,
@@ -461,6 +462,14 @@ async function mergePersonInto(
     .set({ personId: intoPersonId })
     .where(eq(personFunctionsTable.personId, fromPersonId));
 
+  // The merged row keeps pointing at the survivor so the Grilla sync, which
+  // matches by name, sends its old name there instead of resurrecting it.
+  // Rows merged into it earlier follow along, so the chain stays one hop.
+  await exec
+    .update(peopleTable)
+    .set({ mergedIntoId: intoPersonId })
+    .where(eq(peopleTable.mergedIntoId, fromPersonId));
+
   const stamped = stampUpdate(input.actor, {});
   await exec
     .update(peopleTable)
@@ -468,6 +477,7 @@ async function mergePersonInto(
       deletedAt: stamped.updated_at,
       active: false,
       profileId: null,
+      mergedIntoId: intoPersonId,
       updatedBy: stamped.updated_by,
       updatedAt: stamped.updated_at,
     })

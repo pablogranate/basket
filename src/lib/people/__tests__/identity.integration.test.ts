@@ -199,9 +199,27 @@ describe("people identity (integration)", () => {
     const [{ count: leftovers }] = await sql`SELECT count(*)::int AS count FROM person_functions WHERE person_id = ${duplicate}`;
     expect(leftovers).toBe(0);
 
-    const [old] = await sql`SELECT deleted_at, active, profile_id, updated_by FROM people WHERE id = ${duplicate}`;
+    const [old] = await sql`SELECT deleted_at, active, profile_id, updated_by, merged_into_id FROM people WHERE id = ${duplicate}`;
     expect(old.deleted_at).not.toBeNull();
-    expect(old).toMatchObject({ active: false, profile_id: null, updated_by: actor });
+    expect(old).toMatchObject({ active: false, profile_id: null, updated_by: actor, merged_into_id: survivor });
+  });
+
+  it("repoints earlier merges onto the new survivor so the chain stays one hop", async () => {
+    const { profileId: actor } = await seedActor(sql);
+    const survivor = await seedPerson(sql, { full_name: "Laureano David Gonzalez Posca" });
+    const duplicate = await seedPerson(sql, { full_name: "David Posca" });
+    const older = await seedPerson(sql, { full_name: "D. Posca" });
+    await sql`UPDATE people SET merged_into_id = ${duplicate}, deleted_at = now(), active = false WHERE id = ${older}`;
+
+    await settleApplicant(db, {
+      ...base,
+      personId: survivor,
+      mergePersonId: duplicate,
+      actor: { profileId: actor },
+    });
+
+    const rows = await sql`SELECT id, merged_into_id FROM people WHERE id IN (${duplicate}, ${older})`;
+    expect(rows.map((row) => row.merged_into_id)).toEqual([survivor, survivor]);
   });
 
   it("ignores a merge onto itself", async () => {

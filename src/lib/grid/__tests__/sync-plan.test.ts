@@ -447,8 +447,8 @@ describe("planGridSync assignment mirroring", () => {
         windowMatches: [makeMatchSnapshot()],
         assignmentsByMatch: new Map([["match-1", [makeAssignment()]]]),
         people: [
-          { id: "person-1", full_name: "Pedro", deleted_at: null },
-          { id: "person-2", full_name: "Ana", deleted_at: null },
+          { id: "person-1", full_name: "Pedro", deleted_at: null, merged_into_id: null },
+          { id: "person-2", full_name: "Ana", deleted_at: null, merged_into_id: null },
         ],
       }),
     );
@@ -465,7 +465,7 @@ describe("planGridSync assignment mirroring", () => {
         entries: [makeEntry({}, { assignments: [{ roleName: "Realizador", personName: "Pedro" }] })],
         windowMatches: [makeMatchSnapshot()],
         assignmentsByMatch: new Map([["match-1", [makeAssignment()]]]),
-        people: [{ id: "person-1", full_name: "Pedro", deleted_at: null }],
+        people: [{ id: "person-1", full_name: "Pedro", deleted_at: null, merged_into_id: null }],
       }),
     );
     expect(plan.updates).toHaveLength(0);
@@ -542,7 +542,7 @@ describe("planGridSync people", () => {
       makeInput({
         entries: [makeEntry({}, { responsable: "Pedro" })],
         windowMatches: [makeMatchSnapshot({ owner_id: "person-1" })],
-        people: [{ id: "person-1", full_name: "Pedro", deleted_at: "2026-08-01T00:00:00.000Z" }],
+        people: [{ id: "person-1", full_name: "Pedro", deleted_at: "2026-08-01T00:00:00.000Z", merged_into_id: null }],
       }),
     );
     expect(plan.peopleToResurrect).toEqual([{ id: "person-1", name: "Pedro" }]);
@@ -557,7 +557,7 @@ describe("planGridSync people", () => {
           makeEntry({}, { responsable: "Pedro" }),
           makeEntry({ home_team: "Colón", away_team: "Unión" }, { responsable: "Pedro" }),
         ],
-        people: [{ id: "person-1", full_name: "Pedro", deleted_at: "2026-08-01T00:00:00.000Z" }],
+        people: [{ id: "person-1", full_name: "Pedro", deleted_at: "2026-08-01T00:00:00.000Z", merged_into_id: null }],
       }),
     );
     expect(plan.peopleToResurrect).toEqual([{ id: "person-1", name: "Pedro" }]);
@@ -568,11 +568,64 @@ describe("planGridSync people", () => {
       makeInput({
         entries: [makeEntry({}, { responsable: "" })],
         windowMatches: [makeMatchSnapshot({ owner_id: "person-1" })],
-        people: [{ id: "person-1", full_name: "Pedro", deleted_at: null }],
+        people: [{ id: "person-1", full_name: "Pedro", deleted_at: null, merged_into_id: null }],
       }),
     );
     expect(plan.updates).toHaveLength(1);
     expect(plan.updates[0].owner).toBeNull();
+  });
+
+  it("sends a merged person's name to the person it was merged into, without resurrecting it", () => {
+    const plan = planGridSync(
+      makeInput({
+        entries: [
+          makeEntry(
+            {},
+            {
+              responsable: "David Posca",
+              assignments: [{ roleName: "Realizador", personName: "David Posca" }],
+            },
+          ),
+        ],
+        windowMatches: [makeMatchSnapshot({ owner_id: "person-1" })],
+        people: [
+          {
+            id: "person-1",
+            full_name: "David Posca",
+            deleted_at: "2026-10-15T18:28:01.000Z",
+            merged_into_id: "person-2",
+          },
+          {
+            id: "person-2",
+            full_name: "Laureano David Gonzalez Posca",
+            deleted_at: null,
+            merged_into_id: null,
+          },
+        ],
+      }),
+    );
+    expect(plan.peopleToResurrect).toEqual([]);
+    expect(plan.peopleToCreate).toEqual([]);
+    expect(plan.updates).toHaveLength(1);
+    expect(plan.updates[0].owner).toEqual({ kind: "id", id: "person-2" });
+    expect(plan.updates[0].assignmentUpserts).toContainEqual({
+      roleId: "role-realizador",
+      person: { kind: "id", id: "person-2" },
+    });
+  });
+
+  it("follows a merge chain to the last survivor and resurrects only it", () => {
+    const plan = planGridSync(
+      makeInput({
+        entries: [makeEntry({}, { responsable: "Pedro" })],
+        people: [
+          { id: "person-1", full_name: "Pedro", deleted_at: "2026-08-01T00:00:00.000Z", merged_into_id: "person-2" },
+          { id: "person-2", full_name: "Pedro P", deleted_at: "2026-08-02T00:00:00.000Z", merged_into_id: "person-3" },
+          { id: "person-3", full_name: "Pedro Pérez", deleted_at: "2026-08-03T00:00:00.000Z", merged_into_id: null },
+        ],
+      }),
+    );
+    expect(plan.peopleToResurrect).toEqual([{ id: "person-3", name: "Pedro" }]);
   });
 });
 
@@ -586,7 +639,7 @@ describe("planGridSync función-mismatch warnings", () => {
     const plan = planGridSync(
       makeInput({
         entries: [entryWithRealizador],
-        people: [{ id: "person-2", full_name: "Ana", deleted_at: null }],
+        people: [{ id: "person-2", full_name: "Ana", deleted_at: null, merged_into_id: null }],
       }),
     );
     expect(plan.warnings).toEqual([
@@ -599,7 +652,7 @@ describe("planGridSync función-mismatch warnings", () => {
     const plan = planGridSync(
       makeInput({
         entries: [entryWithRealizador],
-        people: [{ id: "person-2", full_name: "Ana", deleted_at: null }],
+        people: [{ id: "person-2", full_name: "Ana", deleted_at: null, merged_into_id: null }],
         personFunctions: [{ person_id: "person-2", function_key: "Realizador" }],
       }),
     );
@@ -610,7 +663,7 @@ describe("planGridSync función-mismatch warnings", () => {
     const plan = planGridSync(
       makeInput({
         entries: [makeEntry({}, { assignments: [{ roleName: "Camara 2", personName: "Ana" }] })],
-        people: [{ id: "person-2", full_name: "Ana", deleted_at: null }],
+        people: [{ id: "person-2", full_name: "Ana", deleted_at: null, merged_into_id: null }],
         personFunctions: [{ person_id: "person-2", function_key: "Camara" }],
       }),
     );
@@ -632,7 +685,7 @@ describe("planGridSync función-mismatch warnings", () => {
             { assignments: [{ roleName: "Realizador", personName: "Ana" }] },
           ),
         ],
-        people: [{ id: "person-2", full_name: "Ana", deleted_at: null }],
+        people: [{ id: "person-2", full_name: "Ana", deleted_at: null, merged_into_id: null }],
       }),
     );
     expect(plan.warnings).toHaveLength(1);

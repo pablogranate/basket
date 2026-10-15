@@ -29,6 +29,7 @@ import type {
   AssignmentSnapshot,
   DeleteCandidateSnapshot,
   MatchSnapshot,
+  PersonSnapshot,
   PlanGridSyncInput,
   SyncPlan,
 } from "@/lib/grid/sync-plan";
@@ -134,7 +135,7 @@ async function buildGridSyncPlan(now: Date, source: SheetSource): Promise<SyncPl
   let codedMatches: MatchSnapshot[] = [];
   const assignmentsByMatch = new Map<string, AssignmentSnapshot[]>();
   const roleIdByName = new Map<string, string>();
-  let people: Array<{ id: string; full_name: string; deleted_at: string | null }> = [];
+  let people: PersonSnapshot[] = [];
   let personFunctions: Array<{ person_id: string; function_key: string }> = [];
   let leagues: LeagueSnapshot[] = [];
 
@@ -199,6 +200,7 @@ async function buildGridSyncPlan(now: Date, source: SheetSource): Promise<SyncPl
           id: peopleTable.id,
           full_name: peopleTable.fullName,
           deleted_at: peopleTable.deletedAt,
+          merged_into_id: peopleTable.mergedIntoId,
         })
         .from(peopleTable),
       db

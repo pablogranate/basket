@@ -50,6 +50,7 @@ export type PersonSnapshot = {
   id: string;
   full_name: string;
   deleted_at: string | null;
+  merged_into_id: string | null;
 };
 
 export type PersonFunctionSnapshot = {
@@ -255,15 +256,32 @@ export function planGridSync(input: PlanGridSyncInput): SyncPlan {
 
   // People keyed by normalized name (matches people-import dedupe). Soft-deleted
   // people map too so a name that reappears in the grilla resurrects the same
-  // row instead of duplicating (see people sync PRD).
+  // row instead of duplicating (see people sync PRD). A merged person's name
+  // maps to the person it was merged into, so the merge survives the sync.
+  const personById = new Map(input.people.map((person) => [person.id, person]));
+  const resolveMerged = (person: PersonSnapshot) => {
+    let current = person;
+    const seen = new Set<string>();
+    while (current.merged_into_id && !seen.has(current.id)) {
+      seen.add(current.id);
+      const survivor = personById.get(current.merged_into_id);
+      if (!survivor) {
+        break;
+      }
+      current = survivor;
+    }
+    return current;
+  };
+
   const personIdByName = new Map<string, string>();
   const softDeletedPersonIds = new Set<string>();
   for (const person of input.people) {
     const key = normalizeText(person.full_name);
     if (key && !personIdByName.has(key)) {
-      personIdByName.set(key, person.id);
-      if (person.deleted_at) {
-        softDeletedPersonIds.add(person.id);
+      const target = resolveMerged(person);
+      personIdByName.set(key, target.id);
+      if (target.deleted_at) {
+        softDeletedPersonIds.add(target.id);
       }
     }
   }

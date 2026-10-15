@@ -33,6 +33,7 @@ export const people = pgTable("people", {
 	roleId: uuid("role_id"),
 	deletedAt: timestamptz("deleted_at"),
 	profileId: uuid("profile_id"),
+	mergedIntoId: uuid("merged_into_id"),
 }, (table) => [
 	uniqueIndex("people_profile_id_key").using("btree", table.profileId.asc().nullsLast()),
 	index("people_category_idx").using("btree", table.category.asc().nullsLast()),
@@ -56,6 +57,11 @@ export const people = pgTable("people", {
 			columns: [table.profileId],
 			foreignColumns: [profiles.id],
 			name: "people_profile_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.mergedIntoId],
+			foreignColumns: [table.id],
+			name: "people_merged_into_id_fkey"
 		}).onDelete("set null"),
 ]);
 
