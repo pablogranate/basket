@@ -11,6 +11,7 @@ import {
 import { composeAccessRequestCiudad } from "@/lib/access-requests/locations";
 import { isE164Phone } from "@/lib/access-requests/phone";
 import type { AppRole } from "@/lib/database.types";
+import type { ExistingAccountResolution } from "@/lib/access-requests/existing-account";
 import { normalizeAccessTier } from "@/lib/roles";
 import { maybeNull } from "@/lib/utils";
 
@@ -119,7 +120,22 @@ export type ApproveAccessRequestInput = {
   personId: string | null;
   mergePersonId: string | null;
   requestedTier: AppRole;
+  // Set only when the card flagged another login of the same person.
+  existingAccount: {
+    personId: string;
+    resolution: ExistingAccountResolution;
+  } | null;
 };
+
+const EXISTING_ACCOUNT_RESOLUTIONS: ReadonlyArray<ExistingAccountResolution> = [
+  "keepExisting",
+  "keepNew",
+  "separate",
+];
+
+function isExistingAccountResolution(value: string): value is ExistingAccountResolution {
+  return (EXISTING_ACCOUNT_RESOLUTIONS as ReadonlyArray<string>).includes(value);
+}
 
 export function parseApproveAccessRequest(
   formData: FormData,
@@ -136,6 +152,13 @@ export function parseApproveAccessRequest(
     return parseFailure("Revisá el teléfono antes de aprobar.");
   }
 
+  const existingPersonId = String(formData.get("existingPersonId") ?? "").trim();
+  const resolution = String(formData.get("resolution") ?? "").trim();
+
+  if (existingPersonId && !isExistingAccountResolution(resolution)) {
+    return parseFailure("Elegí con qué cuenta va a entrar.");
+  }
+
   return parsed({
     requestId: String(formData.get("requestId") ?? "").trim(),
     fullName,
@@ -146,6 +169,10 @@ export function parseApproveAccessRequest(
     requestedTier: normalizeAccessTier(
       String(formData.get("accessRole") ?? "collaborator"),
     ),
+    existingAccount:
+      existingPersonId && isExistingAccountResolution(resolution)
+        ? { personId: existingPersonId, resolution }
+        : null,
   });
 }
 

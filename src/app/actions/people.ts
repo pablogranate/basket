@@ -61,7 +61,10 @@ async function getCurrentPortalRole(profile: ProfileRow): Promise<AppRole> {
 
 // Revoke cuts both the portal Acceso (Auth DB, written first: it is what
 // getUserContext reads) and the Cuenta (Domain DB).
-async function revokePlatformAccessByEmail(email: string, manager: Actor) {
+async function revokePlatformAccessByEmail(
+  email: string,
+  manager: Actor & { userId: string | null },
+) {
   const profile = await findProfileByEmail(email);
 
   if (!profile) {
@@ -75,7 +78,7 @@ async function revokePlatformAccessByEmail(email: string, manager: Actor) {
   }
 
   if (profile.auth_user_id) {
-    await revokePortalRole(profile.auth_user_id);
+    await revokePortalRole(profile.auth_user_id, manager.userId);
   }
 
   // Deleting the profiles row removes authorization: getUserContext now returns

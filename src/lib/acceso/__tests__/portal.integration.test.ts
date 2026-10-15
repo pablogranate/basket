@@ -52,9 +52,9 @@ describe("portal Acceso (integration)", () => {
     await grantPortalRole({ userId: ana, role: "editor", grantedBy: admin });
     expect(await getPortalAccess(ana)).toEqual({ role: "editor", superAdmin: false });
 
-    expect(await revokePortalRole(ana)).toBe(true);
+    expect(await revokePortalRole(ana, null)).toBe(true);
     expect(await getPortalAccess(ana)).toBeNull();
-    expect(await revokePortalRole(ana)).toBe(false);
+    expect(await revokePortalRole(ana, null)).toBe(false);
   });
 
   it("resolves a super admin to admin without a portal row", async () => {

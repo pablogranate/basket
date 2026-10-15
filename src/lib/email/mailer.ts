@@ -85,6 +85,35 @@ export async function sendCollaboratorInviteEmail({
   }
 }
 
+export async function sendUseExistingAccountEmail({
+  to,
+  existingEmail,
+  loginUrl,
+  appName = APP_NAME,
+}: {
+  to: string;
+  existingEmail: string;
+  loginUrl: string;
+  appName?: string;
+}) {
+  try {
+    await getTransport().sendMail({
+      from: appEnv.mailFrom,
+      to,
+      subject: `Tu acceso a ${appName} está en otra cuenta`,
+      text: `Ya tenés acceso a ${appName} con la cuenta ${existingEmail}.\n\nIngresá con ese correo desde:\n${loginUrl}\n\nNo hace falta pedir acceso de nuevo.`,
+      html: `
+        <p>Ya tenés acceso a <strong>${appName}</strong> con la cuenta <strong>${existingEmail}</strong>.</p>
+        <p><a href="${loginUrl}">Ingresar con ese correo</a></p>
+        <p style="color:#666;font-size:13px">No hace falta pedir acceso de nuevo.</p>
+      `,
+    });
+  } catch (error) {
+    console.error("[mailer] failed to send use-existing-account email", error);
+    throw error;
+  }
+}
+
 export async function sendMatchNotificationEmail({
   to,
   subject,

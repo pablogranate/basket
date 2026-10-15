@@ -16,6 +16,8 @@ import { buildNoAccessPath } from "@/lib/access-requests/no-access";
 import { notifyAccessRequest } from "@/lib/access-requests/notify";
 import {
   approvePortalAccessRequest,
+  approvePortalAccessRequestMovingFicha,
+  rejectInFavorOfExistingAccount,
   rejectPortalAccessRequest,
 } from "@/lib/access-requests/portal-approval";
 import { submitAccessRequest } from "@/lib/access-requests/requests";
@@ -30,7 +32,10 @@ import { writeAudit } from "@/lib/audit";
 import { authDb } from "@/lib/db/auth-client";
 import { db } from "@/lib/db/client";
 import { roles as rolesTable } from "@/lib/db/schema";
-import { sendCollaboratorInviteEmail } from "@/lib/email/mailer";
+import {
+  sendCollaboratorInviteEmail,
+  sendUseExistingAccountEmail,
+} from "@/lib/email/mailer";
 import { appEnv } from "@/lib/env";
 import { linkProfileToPerson } from "@/lib/people/identity";
 
@@ -133,7 +138,16 @@ const approve = defineAction({
   revalidate: REQUEST_REVALIDATE_PATHS,
   async run(
     ctx,
-    { requestId, fullName, phone, roleId, personId, mergePersonId, requestedTier },
+    {
+      requestId,
+      fullName,
+      phone,
+      roleId,
+      personId,
+      mergePersonId,
+      requestedTier,
+      existingAccount,
+    },
   ) {
     // Productores can only mint Externo logins; downgrade anything higher rather
     // than trusting the submitted tier.
@@ -151,6 +165,96 @@ const approve = defineAction({
       if (!roleRows[0]) {
         throw new Error("La función elegida ya no existe.");
       }
+    }
+
+    if (existingAccount?.resolution === "keepExisting") {
+      const kept = await rejectInFavorOfExistingAccount({
+        requestId,
+        deciderId: ctx.userId,
+        existingPersonId: existingAccount.personId,
+        accessRole,
+      });
+
+      clearProfileCache();
+
+      await writeAudit(ctx, {
+        table: "access_requests",
+        recordId: requestId,
+        action: "UPDATE",
+        before: { status: "pendiente" },
+        after: {
+          status: "rechazada",
+          reason: "cuenta existente",
+          email: kept.applicantEmail,
+          existing_person_id: existingAccount.personId,
+          existing_email: kept.existingEmail,
+          regranted: kept.regranted,
+        },
+      });
+
+      let keptNotice = "";
+      try {
+        await sendUseExistingAccountEmail({
+          to: kept.applicantEmail,
+          existingEmail: kept.existingEmail,
+          loginUrl: `${appEnv.portalBaseUrl}/login`,
+        });
+      } catch (error) {
+        console.error("[access-requests] use-existing-account email failed", error);
+        keptNotice = " No pudimos enviarle el correo de aviso.";
+      }
+
+      return {
+        notice: `Solicitud rechazada: va a entrar con ${kept.existingEmail}.${keptNotice}`,
+      };
+    }
+
+    if (existingAccount?.resolution === "keepNew") {
+      const moved = await approvePortalAccessRequestMovingFicha({
+        requestId,
+        deciderId: ctx.userId,
+        actor: ctx,
+        fullName,
+        phone,
+        roleId,
+        accessRole,
+        existingPersonId: existingAccount.personId,
+      });
+
+      clearProfileCache();
+
+      await writeAudit(ctx, {
+        table: "access_requests",
+        recordId: requestId,
+        action: "UPDATE",
+        before: { status: "pendiente" },
+        after: {
+          status: "aprobada",
+          email: moved.email,
+          full_name: fullName,
+          phone,
+          role_id: roleId,
+          access_role: accessRole,
+          profile_id: moved.profileId,
+          person_id: moved.personId,
+          moved_from_auth_user_id: moved.retiredAuthUserId,
+        },
+      });
+
+      let movedNotice = "";
+      try {
+        await sendCollaboratorInviteEmail({
+          to: moved.email,
+          loginUrl: `${appEnv.portalBaseUrl}/login`,
+        });
+      } catch (error) {
+        console.error("[access-requests] invite email failed", error);
+        movedNotice = " No pudimos enviarle el correo de aviso.";
+      }
+
+      return {
+        notice: `Solicitud aprobada: la ficha pasó a ${moved.email}.${movedNotice}`,
+      };
     }
 
     const result = await approvePortalAccessRequest({

@@ -2,7 +2,9 @@ import {
   approveAccessRequestAction,
   rejectAccessRequestAction,
 } from "@/app/actions/access-requests";
+import { ExistingAccountChoiceClient } from "@/components/access-requests/existing-account-choice-client";
 import { PhoneFieldClient } from "@/components/access-requests/phone-field-client";
+import { describeExistingAccountReasons } from "@/lib/access-requests/approval";
 import type { AccessRequestReviewItem } from "@/lib/access-requests/review-item";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -21,12 +23,15 @@ export function AccessRequestDecisionForm({
   // Where the decision lands: the dashboard, or the apex bell's directory.
   redirectTo?: string;
 }) {
-  const { request, target, linkedPerson, defaultRoleId } = item;
+  const { request, target, linkedPerson, defaultRoleId, existingAccount } = item;
   // Pre-fill with the existing person's values where there is one; what the
   // applicant declared stays visible alongside (D-10).
   const defaultFullName = linkedPerson?.fullName ?? request.full_name;
   const defaultPhone = linkedPerson?.phone ?? request.phone;
-  const suggestions = target.kind === "suggest" ? target.suggestions : [];
+  // A second login of a known person replaces the merge suggestions: which
+  // login stays is the decision, not which ficha to fuse.
+  const suggestions =
+    target.kind === "suggest" && !existingAccount ? target.suggestions : [];
   // The person's stored role can be a grilla slot outside this list (Comentario
   // 2, Camara 3); fall back to the función the applicant declared.
   const linkedFuncionId = funcionOptions.some(
@@ -37,6 +42,36 @@ export function AccessRequestDecisionForm({
 
   return (
     <div className="space-y-4 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] p-4">
+      {existingAccount ? (
+        <div className="space-y-1.5 rounded-[var(--panel-radius)] border border-[var(--accent-border)] bg-[var(--accent-soft)] px-3.5 py-3 text-sm">
+          <p className="font-semibold text-[var(--accent-strong)]">
+            Esta persona ya tiene otra cuenta
+          </p>
+          <p className="break-words text-[var(--n-700)]">
+            {describeExistingAccountReasons(existingAccount.reasons)}:{" "}
+            <strong>{existingAccount.email}</strong> ({existingAccount.login}) · ficha{" "}
+            {existingAccount.fullName} con {existingAccount.assignmentCount} partidos (
+            {existingAccount.upcomingCount} próximos) ·{" "}
+            {existingAccount.accessLabel
+              ? `acceso ${existingAccount.accessLabel}`
+              : "sin acceso al portal"}
+            {existingAccount.lastLoginLabel
+              ? ` · último ingreso ${existingAccount.lastLoginLabel}`
+              : ""}
+            . Si aprobás como siempre, va a tener dos logins y dos fichas.
+          </p>
+          {existingAccount.history.length ? (
+            <ul className="space-y-0.5 border-t border-dashed border-[var(--accent-border)] pt-1.5 text-xs text-[var(--n-600)]">
+              {existingAccount.history.map((event) => (
+                <li key={`${event.when}-${event.label}`}>
+                  <span className="font-mono">{event.when}</span> · {event.label}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
+
       <dl className="space-y-1 text-sm">
         <Row label="Declaró" value={`${request.full_name} · ${request.phone}`} />
         <Row label="Función" value={request.funcion ?? "—"} />
@@ -153,16 +188,23 @@ export function AccessRequestDecisionForm({
           </fieldset>
         ) : null}
 
-        <div className="flex flex-wrap gap-3">
-          <SubmitButton pendingLabel="Aprobando...">Aprobar</SubmitButton>
-        </div>
+        {existingAccount ? (
+          <ExistingAccountChoiceClient
+            account={existingAccount}
+            applicant={{ email: request.email, fullName: request.full_name }}
+          />
+        ) : (
+          <div className="flex flex-wrap gap-3">
+            <SubmitButton pendingLabel="Aprobando...">Aprobar</SubmitButton>
+          </div>
+        )}
       </form>
 
       <form action={rejectAccessRequestAction}>
         <input type="hidden" name="requestId" value={request.id} />
         <input type="hidden" name="redirectTo" value={redirectTo} />
         <SubmitButton variant="ghost" pendingLabel="Rechazando...">
-          Rechazar
+          {existingAccount ? "Rechazar sin avisar" : "Rechazar"}
         </SubmitButton>
       </form>
     </div>

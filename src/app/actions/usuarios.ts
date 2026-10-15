@@ -73,7 +73,7 @@ const setAppRole = defineAction({
 
     if (app === PORTAL_APP) {
       if (!role) {
-        const removed = await revokePortalRoleWithCuenta(target);
+        const removed = await revokePortalRoleWithCuenta(target, actor.userId);
         return {
           notice: removed
             ? `Acceso a ${catalogApp.label} revocado.`
@@ -87,7 +87,7 @@ const setAppRole = defineAction({
 
       await grantPortalRoleWithCuenta({ ...target, role, grantedBy: actor.userId });
     } else if (!role) {
-      const removed = await revokeRole({ userId, app });
+      const removed = await revokeRole({ userId, app, actorId: actor.userId });
       return {
         notice: removed
           ? `Acceso a ${catalogApp.label} revocado.`

@@ -100,13 +100,32 @@ describe("accesos (integration)", () => {
     await grantRole({ userId: operator, app: "analytics", role: "read", grantedBy: admin });
     await grantRole({ userId: operator, app: "ops", role: "read", grantedBy: admin });
 
-    await expect(revokeRole({ userId: operator, app: "analytics" })).resolves.toBe(true);
+    await expect(revokeRole({ userId: operator, app: "analytics", actorId: null })).resolves.toBe(true);
 
     expect(await getEffectiveAccess(operator, "analytics")).toBeNull();
     // Other apps untouched.
     expect(await getEffectiveAccess(operator, "ops")).toMatchObject({ role: "read" });
 
-    await expect(revokeRole({ userId: operator, app: "analytics" })).resolves.toBe(false);
+    await expect(revokeRole({ userId: operator, app: "analytics", actorId: null })).resolves.toBe(false);
+  });
+
+  it("audits a revoke with who did it and what was removed; a no-op revoke leaves no row", async () => {
+    const admin = await seedAuthUser(sql, { email: "admin@basquetpass.tv" });
+    const operator = await seedAuthUser(sql, { email: "op@basquetpass.tv" });
+    await grantRole({ userId: operator, app: "analytics", role: "read", grantedBy: admin });
+
+    await revokeRole({ userId: operator, app: "analytics", actorId: admin });
+    await revokeRole({ userId: operator, app: "analytics", actorId: admin });
+
+    const rows = await sql`SELECT actor_id, target_user_id, action, detail FROM auth_audit_log WHERE target_user_id = ${operator}`;
+    expect(rows).toEqual([
+      {
+        actor_id: admin,
+        target_user_id: operator,
+        action: "access.revoked",
+        detail: { app: "analytics", role: "read" },
+      },
+    ]);
   });
 
   it("deleting the identity cascades to its rows and nulls it as grantor elsewhere", async () => {

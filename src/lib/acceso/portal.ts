@@ -42,6 +42,9 @@ export async function grantPortalRole(
   await grantRole({ ...input, app: PORTAL_APP }, exec);
 }
 
-export async function revokePortalRole(userId: string): Promise<boolean> {
-  return revokeRole({ userId, app: PORTAL_APP });
+export async function revokePortalRole(
+  userId: string,
+  actorId: string | null,
+): Promise<boolean> {
+  return revokeRole({ userId, app: PORTAL_APP, actorId });
 }

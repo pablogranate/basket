@@ -1,11 +1,13 @@
 import "server-only";
 
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, ne, sql } from "drizzle-orm";
 
 import { authDb, type AuthDbExecutor } from "@/lib/db/auth-client";
 import {
+  authAccessRequest,
   authApp,
   authAppAccess,
+  authAuditLog,
   authEffectiveAccess,
   authUser,
 } from "@/lib/auth/schema";
@@ -79,21 +81,97 @@ export async function grantRole(
 }
 
 // Returns whether a row was removed. Denial is immediate: gates read per request.
+// Every revoke leaves who, when and what in auth_audit_log, in the same
+// transaction as the delete.
 export async function revokeRole(input: {
   userId: string;
   app: string;
+  actorId: string | null;
 }): Promise<boolean> {
-  const removed = await authDb
-    .delete(authAppAccess)
-    .where(
-      and(
-        eq(authAppAccess.userId, input.userId),
-        eq(authAppAccess.app, input.app),
-      ),
-    )
-    .returning({ userId: authAppAccess.userId });
+  return authDb.transaction(async (tx) => {
+    const removed = await tx
+      .delete(authAppAccess)
+      .where(
+        and(
+          eq(authAppAccess.userId, input.userId),
+          eq(authAppAccess.app, input.app),
+        ),
+      )
+      .returning({ role: authAppAccess.role });
 
-  return removed.length > 0;
+    if (!removed[0]) {
+      return false;
+    }
+
+    await tx.insert(authAuditLog).values({
+      actorId: input.actorId,
+      targetUserId: input.userId,
+      action: "access.revoked",
+      detail: { app: input.app, role: removed[0].role },
+    });
+
+    return true;
+  });
+}
+
+// One person ended up with two logins and the approver kept `intoUserId`: the
+// other one goes away, its sessions and accounts with it. What it held moves
+// first so nothing is lost: its other apps' Accesos (the kept login's own win
+// on conflict), its decided Solicitudes and its audit trail. Its pending
+// Solicitudes go with it; they asked as a login that no longer exists. Runs in
+// the caller's transaction.
+export async function retireIdentityInto(
+  exec: AuthDbExecutor,
+  input: { fromUserId: string; intoUserId: string; actorId: string | null },
+): Promise<void> {
+  const { fromUserId, intoUserId } = input;
+  const [from] = await exec
+    .select({ email: authUser.email, role: authUser.role })
+    .from(authUser)
+    .where(eq(authUser.id, fromUserId))
+    .limit(1);
+
+  if (!from) {
+    return;
+  }
+
+  if (from.role === "superadmin") {
+    throw new Error("La otra cuenta es de un super admin: no se puede borrar desde acá.");
+  }
+
+  const held = await exec
+    .select()
+    .from(authAppAccess)
+    .where(eq(authAppAccess.userId, fromUserId));
+
+  if (held.length) {
+    await exec
+      .insert(authAppAccess)
+      .values(held.map((row) => ({ ...row, userId: intoUserId })))
+      .onConflictDoNothing();
+  }
+
+  await exec
+    .update(authAccessRequest)
+    .set({ userId: intoUserId })
+    .where(and(eq(authAccessRequest.userId, fromUserId), ne(authAccessRequest.status, "pendiente")));
+  await exec
+    .update(authAuditLog)
+    .set({ targetUserId: intoUserId })
+    .where(eq(authAuditLog.targetUserId, fromUserId));
+  await exec
+    .update(authAuditLog)
+    .set({ actorId: intoUserId })
+    .where(eq(authAuditLog.actorId, fromUserId));
+
+  await exec.insert(authAuditLog).values({
+    actorId: input.actorId,
+    targetUserId: intoUserId,
+    action: "identity.retired",
+    detail: { retiredEmail: from.email, apps: held.map((row) => row.app) },
+  });
+
+  await exec.delete(authUser).where(eq(authUser.id, fromUserId));
 }
 
 export async function findIdentityByEmail(

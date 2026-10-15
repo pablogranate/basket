@@ -159,7 +159,7 @@ describe("usuarios actions", () => {
     await expect(
       setAppRoleAction(form({ userId: "user-2", app: "portal", role: "none" })),
     ).rejects.toThrow("REDIRECT");
-    expect(revokePortalRoleWithCuenta).toHaveBeenCalledWith(TARGET);
+    expect(revokePortalRoleWithCuenta).toHaveBeenCalledWith(TARGET, ACTOR.userId);
     expect(revokeRole).not.toHaveBeenCalled();
   });
 

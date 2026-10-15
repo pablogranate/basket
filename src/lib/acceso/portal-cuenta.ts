@@ -85,8 +85,9 @@ export async function removeCuenta(profileId: string): Promise<void> {
 // Returns whether anything was removed.
 export async function revokePortalRoleWithCuenta(
   identity: Identity,
+  actorId: string | null,
 ): Promise<boolean> {
-  const revoked = await revokePortalRole(identity.userId);
+  const revoked = await revokePortalRole(identity.userId, actorId);
 
   try {
     const cuenta = await findCuenta(identity);

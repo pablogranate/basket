@@ -1,4 +1,5 @@
 import type { ApprovalTarget } from "@/lib/access-requests/approval";
+import type { ExistingAccountView } from "@/lib/access-requests/existing-account";
 import type { AccessRequestSummary } from "@/lib/access-requests/requests";
 
 // One pending request plus everything the approver needs to decide it: the
@@ -15,4 +16,7 @@ export type AccessRequestReviewItem = {
     roleId: string | null;
   } | null;
   defaultRoleId: string | null;
+  // Another login of the same person, flagged by phone or name (never by itself
+  // acted on): the card asks which login stays.
+  existingAccount: ExistingAccountView | null;
 };

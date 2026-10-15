@@ -86,6 +86,102 @@ export async function settleApplicant(
   return { profileId, personId, authUserId };
 }
 
+export type MoveCuentaInput = {
+  personId: string;
+  email: string;
+  fullName: string;
+  phone: string;
+  roleId: string | null;
+  authUserId: string;
+  actor: Actor;
+};
+
+export type MovedCuenta = {
+  profileId: string;
+  personId: string;
+  // The login the Cuenta held before; the caller retires it.
+  previousAuthUserId: string | null;
+};
+
+// The same person asked from a second login and the approver kept the new one:
+// the ficha's Cuenta moves to the applicant's email and identity, so its
+// history, its grilla and every row stamped by it stay with the person. A
+// second Cuenta for the email or the identity would split them again.
+export async function moveCuentaToApplicant(
+  exec: DbExecutor,
+  input: MoveCuentaInput,
+): Promise<MovedCuenta> {
+  const email = input.email.trim().toLowerCase();
+  const [person] = await exec
+    .select({ profileId: peopleTable.profileId })
+    .from(peopleTable)
+    .where(and(eq(peopleTable.id, input.personId), isNull(peopleTable.deletedAt)))
+    .limit(1);
+
+  if (!person?.profileId) {
+    throw new Error("Esa ficha ya no tiene una cuenta para pasar.");
+  }
+
+  const [profile] = await exec
+    .select({ id: profilesTable.id, authUserId: profilesTable.authUserId })
+    .from(profilesTable)
+    .where(eq(profilesTable.id, person.profileId))
+    .limit(1);
+
+  if (!profile) {
+    throw new Error("Esa ficha ya no tiene una cuenta para pasar.");
+  }
+
+  if (profile.authUserId === input.authUserId) {
+    throw new Error("Esa ficha ya entra con esta cuenta.");
+  }
+
+  const clash = await exec
+    .select({ id: profilesTable.id })
+    .from(profilesTable)
+    .where(
+      and(
+        sql`${profilesTable.id} <> ${profile.id}`,
+        sql`(lower(${profilesTable.email}) = ${email} or ${profilesTable.authUserId} = ${input.authUserId})`,
+      ),
+    )
+    .limit(1);
+
+  if (clash[0]) {
+    throw new Error("Ya hay otra cuenta del portal con ese mail.");
+  }
+
+  await exec
+    .update(profilesTable)
+    .set({
+      email,
+      fullName: input.fullName,
+      authUserId: input.authUserId,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(eq(profilesTable.id, profile.id));
+
+  const stamped = stampUpdate(input.actor, {});
+  await exec
+    .update(peopleTable)
+    .set({
+      email,
+      fullName: input.fullName,
+      phone: input.phone,
+      roleId: input.roleId,
+      active: true,
+      updatedBy: stamped.updated_by,
+      updatedAt: stamped.updated_at,
+    })
+    .where(eq(peopleTable.id, input.personId));
+
+  return {
+    profileId: profile.id,
+    personId: input.personId,
+    previousAuthUserId: profile.authUserId,
+  };
+}
+
 export async function linkProfileToPerson(
   exec: DbExecutor,
   input: { profileId: string; personId: string; actor: Actor },

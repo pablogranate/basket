@@ -37,7 +37,27 @@ describe("parseApproveAccessRequest", () => {
       personId: "person-1",
       mergePersonId: "person-dup",
       requestedTier: "editor",
+      existingAccount: null,
     });
+  });
+
+  it("carries the chosen login when the card flagged another account", () => {
+    const result = parseApproveAccessRequest(
+      form({ existingPersonId: "person-old", resolution: "keepNew" }),
+    );
+
+    expect(result.ok && result.input.existingAccount).toEqual({
+      personId: "person-old",
+      resolution: "keepNew",
+    });
+  });
+
+  it("rejects a flagged card submitted without a valid choice", () => {
+    const result = parseApproveAccessRequest(
+      form({ existingPersonId: "person-old", resolution: "whatever" }),
+    );
+
+    expect(result.ok).toBe(false);
   });
 
   it("normalizes blanks to null and unknown tiers to collaborator", () => {

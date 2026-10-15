@@ -2,7 +2,7 @@ import "server-only";
 
 import { asc, eq } from "drizzle-orm";
 
-import { resolveApprovalTarget } from "@/lib/access-requests/approval";
+import { findExistingAccount, resolveApprovalTarget } from "@/lib/access-requests/approval";
 import {
   ACCESS_REQUEST_FUNCIONES,
   FUNCION_ROLE_NAME,
@@ -13,6 +13,7 @@ import {
   listPendingAccessRequests,
   type AccessRequestSummary,
 } from "@/lib/access-requests/requests";
+import { describeExistingAccount } from "@/lib/access-requests/existing-account";
 import type { AccessRequestReviewItem } from "@/lib/access-requests/review-item";
 import { PORTAL_APP } from "@/lib/acceso/portal";
 import { authDb } from "@/lib/db/auth-client";
@@ -107,7 +108,7 @@ async function buildPortalReview(
     roleOptions.map((role) => [normalizeText(role.name), role.id]),
   );
 
-  const items = requests.map((request) => {
+  const items = await Promise.all(requests.map(async (request) => {
     const target = resolveApprovalTarget({
       email: request.email,
       fullName: request.full_name,
@@ -118,6 +119,15 @@ async function buildPortalReview(
         ? (candidates.find((candidate) => candidate.id === target.person.id) ??
           null)
         : null;
+    const existingMatch =
+      target.kind === "link"
+        ? null
+        : findExistingAccount({
+            email: request.email,
+            fullName: request.full_name,
+            phone: request.phone,
+            candidates,
+          });
     const defaultRoleName =
       request.funcion && isAccessRequestFuncion(request.funcion)
         ? FUNCION_ROLE_NAME[request.funcion]
@@ -138,8 +148,11 @@ async function buildPortalReview(
       defaultRoleId: defaultRoleName
         ? (roleIdByName.get(normalizeText(defaultRoleName)) ?? null)
         : null,
+      existingAccount: existingMatch
+        ? await describeExistingAccount(existingMatch)
+        : null,
     } satisfies AccessRequestReviewItem;
-  });
+  }));
 
   return { items, funcionOptions: toFuncionOptions(roleOptions) };
 }

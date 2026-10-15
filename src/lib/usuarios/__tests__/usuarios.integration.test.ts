@@ -165,7 +165,7 @@ describe("usuarios (integration)", () => {
       await grantRole({ userId: ana, app: "portal", role: "editor", grantedBy: null });
 
       const identity = { userId: ana, email: "ana@basquetpass.tv", name: "Ana" };
-      expect(await revokePortalRoleWithCuenta(identity)).toBe(true);
+      expect(await revokePortalRoleWithCuenta(identity, null)).toBe(true);
 
       expect(await cuenta("ana@basquetpass.tv")).toBeNull();
       const accesos = await sql`SELECT 1 FROM auth_app_access WHERE user_id = ${ana}`;
@@ -173,7 +173,7 @@ describe("usuarios (integration)", () => {
       const [ficha] = await sql`SELECT profile_id FROM people WHERE email = 'ana@basquetpass.tv'`;
       expect(ficha.profile_id).toBeNull();
 
-      expect(await revokePortalRoleWithCuenta(identity)).toBe(false);
+      expect(await revokePortalRoleWithCuenta(identity, null)).toBe(false);
     });
   });
 

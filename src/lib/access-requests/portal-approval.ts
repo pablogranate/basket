@@ -1,5 +1,8 @@
 import "server-only";
 
+import { and, eq, isNull } from "drizzle-orm";
+
+import { getEffectiveAccess, retireIdentityInto } from "@/lib/acceso/accesos";
 import { grantPortalRole, PORTAL_APP } from "@/lib/acceso/portal";
 import {
   attachAccessRequestPerson,
@@ -9,7 +12,11 @@ import {
 import type { AppRole } from "@/lib/database.types";
 import { authDb } from "@/lib/db/auth-client";
 import { db } from "@/lib/db/client";
-import { settleApplicant } from "@/lib/people/identity";
+import {
+  people as peopleTable,
+  profiles as profilesTable,
+} from "@/lib/db/schema";
+import { moveCuentaToApplicant, settleApplicant } from "@/lib/people/identity";
 
 export type PortalApprovalInput = {
   requestId: string;
@@ -113,5 +120,129 @@ export async function rejectPortalAccessRequest(input: {
       app: PORTAL_APP,
       outcome: "rechazada",
     });
+  });
+}
+
+// The applicant already has another login with a ficha (findExistingAccount)
+// and the approver kept the new one: the ficha's Cuenta moves to the
+// applicant's login and the old login is retired, all or nothing across both
+// databases, like approvePortalAccessRequest.
+export async function approvePortalAccessRequestMovingFicha(
+  input: Omit<PortalApprovalInput, "personId" | "mergePersonId"> & {
+    existingPersonId: string;
+  },
+): Promise<PortalApproval & { retiredAuthUserId: string | null }> {
+  return authDb.transaction(async (authTx) => {
+    const claimed = await claimAccessRequest(authTx, {
+      id: input.requestId,
+      app: PORTAL_APP,
+      outcome: "aprobada",
+      deciderId: input.deciderId,
+      grantedRole: input.accessRole,
+    });
+
+    const moved = await db.transaction(async (domainTx) => {
+      const cuenta = await moveCuentaToApplicant(domainTx, {
+        personId: input.existingPersonId,
+        email: claimed.email,
+        fullName: input.fullName,
+        phone: input.phone,
+        roleId: input.roleId,
+        authUserId: claimed.userId,
+        actor: input.actor,
+      });
+
+      if (cuenta.previousAuthUserId) {
+        await retireIdentityInto(authTx, {
+          fromUserId: cuenta.previousAuthUserId,
+          intoUserId: claimed.userId,
+          actorId: input.deciderId,
+        });
+      }
+
+      await grantPortalRole(
+        { userId: claimed.userId, role: input.accessRole, grantedBy: input.deciderId },
+        authTx,
+      );
+      await attachAccessRequestPerson(authTx, {
+        id: input.requestId,
+        personId: cuenta.personId,
+      });
+      await recordAccessRequestDecision(authTx, {
+        deciderId: input.deciderId,
+        claimed,
+        app: PORTAL_APP,
+        outcome: "aprobada",
+        grantedRole: input.accessRole,
+      });
+
+      return cuenta;
+    });
+
+    return {
+      email: claimed.email,
+      profileId: moved.profileId,
+      personId: moved.personId,
+      authUserId: claimed.userId,
+      retiredAuthUserId: moved.previousAuthUserId,
+    };
+  });
+}
+
+// The approver kept the login the person already has: this Solicitud is
+// rejected (no second login, no second ficha) and the caller tells the
+// applicant which email to use. If that login lost the portal, it gets it back
+// at the chosen level in the same transaction.
+export async function rejectInFavorOfExistingAccount(input: {
+  requestId: string;
+  deciderId: string | null;
+  existingPersonId: string;
+  accessRole: AppRole;
+}): Promise<{ applicantEmail: string; existingEmail: string; regranted: boolean }> {
+  const [existing] = await db
+    .select({ email: profilesTable.email, authUserId: profilesTable.authUserId })
+    .from(peopleTable)
+    .innerJoin(profilesTable, eq(profilesTable.id, peopleTable.profileId))
+    .where(and(eq(peopleTable.id, input.existingPersonId), isNull(peopleTable.deletedAt)))
+    .limit(1);
+
+  if (!existing?.authUserId) {
+    throw new Error("Esa cuenta nunca entró al portal: elegí pasar la ficha a esta cuenta.");
+  }
+
+  const existingUserId = existing.authUserId;
+  const hasAccess = Boolean(await getEffectiveAccess(existingUserId, PORTAL_APP));
+
+  return authDb.transaction(async (tx) => {
+    const claimed = await claimAccessRequest(tx, {
+      id: input.requestId,
+      app: PORTAL_APP,
+      outcome: "rechazada",
+      deciderId: input.deciderId,
+    });
+
+    if (claimed.userId === existingUserId) {
+      throw new Error("La solicitud ya viene de esa cuenta.");
+    }
+
+    if (!hasAccess) {
+      await grantPortalRole(
+        { userId: existingUserId, role: input.accessRole, grantedBy: input.deciderId },
+        tx,
+      );
+    }
+
+    await recordAccessRequestDecision(tx, {
+      deciderId: input.deciderId,
+      claimed,
+      app: PORTAL_APP,
+      outcome: "rechazada",
+    });
+
+    return {
+      applicantEmail: claimed.email,
+      existingEmail: existing.email,
+      regranted: !hasAccess,
+    };
   });
 }

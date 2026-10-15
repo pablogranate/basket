@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveApprovalTarget } from "@/lib/access-requests/approval";
+import { findExistingAccount, resolveApprovalTarget } from "@/lib/access-requests/approval";
 
 const ana = { id: "person-ana", fullName: "Ana Pérez", email: "ana@basquetpass.tv" };
 const anaSinCorreo = { id: "person-ana-2", fullName: "Ana Perez", email: null };
@@ -100,5 +100,79 @@ describe("resolveApprovalTarget", () => {
     });
 
     expect(target.kind).toBe("create");
+  });
+});
+
+describe("findExistingAccount", () => {
+  const conCuenta = {
+    id: "person-martin",
+    fullName: "Martín Gómez",
+    email: "martin.gomez@basquetpass.tv",
+    profileId: "profile-martin",
+    phone: "+541155550101",
+  };
+
+  it("flags a ficha with a Cuenta that shares the phone in another format, and the name", () => {
+    const match = findExistingAccount({
+      email: "martin.personal@gmail.com",
+      fullName: "Martin Gomez",
+      phone: "+5491155550101",
+      candidates: [otro, conCuenta],
+    });
+
+    expect(match).toEqual({ person: conCuenta, reasons: ["phone", "name"] });
+  });
+
+  it("flags by a legacy-formatted phone alone", () => {
+    const match = findExistingAccount({
+      email: "otro.mail@gmail.com",
+      fullName: "Laureano Gonzalez",
+      phone: "+542996239091",
+      candidates: [{ ...conCuenta, fullName: "David Posca", phone: "54 9 2996 23-9091" }],
+    });
+
+    expect(match?.reasons).toEqual(["phone"]);
+  });
+
+  it("flags by a name contained in the longer one", () => {
+    const match = findExistingAccount({
+      email: "nuevo@gmail.com",
+      fullName: "Laureano David Gonzalez Posca",
+      phone: "+541100000000",
+      candidates: [{ ...conCuenta, fullName: "David Posca" }],
+    });
+
+    expect(match?.reasons).toEqual(["name"]);
+  });
+
+  it("ignores fichas without a Cuenta, the applicant's own email, and a lone first name", () => {
+    expect(
+      findExistingAccount({
+        email: "martin.gomez@basquetpass.tv",
+        fullName: "Martín Gómez",
+        phone: "+541155550101",
+        candidates: [conCuenta, { ...conCuenta, id: "p2", profileId: null }],
+      }),
+    ).toBeNull();
+    expect(
+      findExistingAccount({
+        email: "x@gmail.com",
+        fullName: "Martín",
+        phone: null,
+        candidates: [conCuenta],
+      }),
+    ).toBeNull();
+  });
+
+  it("prefers the candidate matching on both signals", () => {
+    const soloNombre = { ...conCuenta, id: "p-name", phone: "+541199999999" };
+    const match = findExistingAccount({
+      email: "x@gmail.com",
+      fullName: "Martín Gómez",
+      phone: "+5491155550101",
+      candidates: [soloNombre, conCuenta],
+    });
+
+    expect(match?.person.id).toBe("person-martin");
   });
 });
