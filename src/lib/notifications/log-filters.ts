@@ -54,6 +54,24 @@ function pickEnum(value: string, allowed: readonly string[]): string {
   return allowed.includes(value) ? value : "";
 }
 
+// A date bound must be a real calendar day as `yyyy-MM-dd`; anything else
+// (`foo`, `2026-02-31`) is dropped so the query never builds an Invalid Date.
+function pickDate(value: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) {
+    return "";
+  }
+
+  const [year, month, day] = match.slice(1).map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const isRealDay =
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day;
+
+  return isRealDay ? value : "";
+}
+
 export function parseNotificationLogFilters(
   params: RawSearchParams,
 ): NotificationLogFilters {
@@ -61,8 +79,8 @@ export function parseNotificationLogFilters(
     status: pickEnum(getParam(params, "status"), STATUS_FILTER_VALUES),
     channel: pickEnum(getParam(params, "channel"), CHANNEL_FILTER_VALUES),
     trigger: pickEnum(getParam(params, "trigger"), TRIGGER_FILTER_VALUES),
-    dateFrom: getParam(params, "dateFrom"),
-    dateTo: getParam(params, "dateTo"),
+    dateFrom: pickDate(getParam(params, "dateFrom")),
+    dateTo: pickDate(getParam(params, "dateTo")),
     recipient: getParam(params, "recipient"),
     match: getParam(params, "match"),
   };
