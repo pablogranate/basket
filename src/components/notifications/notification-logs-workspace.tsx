@@ -53,7 +53,8 @@ function RecipientCell({ row }: { row: NotificationLogEntry }) {
   if (row.person_id) {
     return (
       <Link
-        href={`/people/${row.person_id}`}
+        href={`/people?edit=${row.person_id}`}
+        prefetch={false}
         className="font-semibold text-[var(--accent)] hover:underline"
       >
         {row.recipient_name}
