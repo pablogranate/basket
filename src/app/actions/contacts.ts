@@ -1,6 +1,6 @@
 "use server";
 
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 
 import { requireUserContext } from "@/lib/auth";
 import { RESPONSIBLE_DISPLAY_LABEL, isDashboardPathAllowedForRole } from "@/lib/constants";
@@ -172,4 +172,47 @@ export async function getMatchContactsAction(
       email: contact.email,
       attendance: contact.attendance,
     }));
+}
+
+export type PersonContact = {
+  id: string;
+  phone: string | null;
+  email: string | null;
+};
+
+// A match has at most ~15 staff slots; anything larger is not a modal request.
+const MAX_CONTACT_IDS = 50;
+
+// Phone/email for the people the match edit modal is about to notify. The grid
+// no longer ships contacts with its people list, so the modal asks for just the
+// assigned people when it opens. Same gate as getMatchContactsAction.
+export async function getPeopleContactsAction(
+  personIds: string[],
+): Promise<PersonContact[]> {
+  const ctx = await requireUserContext();
+
+  if (!isDashboardPathAllowedForRole("/grid", ctx.role)) {
+    throw new Error("No tenes permisos para ver estos contactos.");
+  }
+
+  const ids = [
+    ...new Set(
+      (Array.isArray(personIds) ? personIds : []).filter(
+        (id): id is string => typeof id === "string" && id.length > 0,
+      ),
+    ),
+  ];
+
+  if (!ids.length || ids.length > MAX_CONTACT_IDS) {
+    return [];
+  }
+
+  return db
+    .select({
+      id: peopleTable.id,
+      phone: peopleTable.phone,
+      email: peopleTable.email,
+    })
+    .from(peopleTable)
+    .where(inArray(peopleTable.id, ids));
 }
