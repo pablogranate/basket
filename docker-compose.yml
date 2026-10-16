@@ -9,7 +9,9 @@ services:
       POSTGRES_USER: ${AUTH_DB_USER:-basket_auth}
       POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD:?set AUTH_DB_PASSWORD}
     ports:
-      - "${AUTH_DB_PORT:-5433}:5432"   # 5433 host-side to avoid colliding with a local Supabase/Postgres on 5432
+      # Loopback-only (#86): the apps run on the host and connect via 127.0.0.1.
+      # 5433 host-side to avoid colliding with a local Postgres on 5432.
+      - "127.0.0.1:${AUTH_DB_PORT:-5433}:5432"
     volumes:
       - basket-auth-data:/var/lib/postgresql/data
 
