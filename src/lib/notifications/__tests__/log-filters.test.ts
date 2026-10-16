@@ -47,6 +47,14 @@ describe("parseNotificationLogFilters", () => {
     expect(filters.dateFrom).toBe("2026-06-01");
     expect(filters.dateTo).toBe("2026-06-16");
   });
+
+  it("drops date bounds that are not a real yyyy-MM-dd day", () => {
+    for (const bad of ["foo", "2026-6-1", "2026-02-31", "2026-13-01", "16/06/2026"]) {
+      const filters = parseNotificationLogFilters({ dateFrom: bad, dateTo: bad });
+      expect(filters.dateFrom).toBe("");
+      expect(filters.dateTo).toBe("");
+    }
+  });
 });
 
 describe("resolveTriggerValues", () => {
