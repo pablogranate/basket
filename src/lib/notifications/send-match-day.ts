@@ -12,7 +12,7 @@ import {
 } from "@/lib/db/schema";
 import { getDayRange } from "@/lib/date";
 import { sendMatchNotificationEmail } from "@/lib/email/mailer";
-import { isWhatsAppSendEnabled } from "@/lib/env";
+import { isSmtpConfigured, isWhatsAppSendEnabled } from "@/lib/env";
 import {
   buildMatchNotificationMessage,
   buildMatchNotificationSubject,
@@ -27,9 +27,15 @@ import {
 } from "@/lib/notifications/log-rows";
 import {
   buildMatchRecipients,
+  getChannelEligibility,
+  INVALID_EMAIL_ERROR,
+  INVALID_PHONE_ERROR,
   type AssignmentRecipientRow,
 } from "@/lib/notifications/recipients";
-import { computeSendAt } from "@/lib/notifications/schedule";
+import {
+  isMatchDueForNotification,
+  NOTIFIABLE_MATCH_STATUSES,
+} from "@/lib/notifications/schedule";
 import { ensureErrorMessage } from "@/lib/utils";
 
 // Per-match send time is keyed on kickoff clock time (see schedule.ts). The
@@ -80,7 +86,9 @@ export async function runMatchDayNotifications(trigger: Trigger) {
   const { startUtc } = getDayRange(today, ARG_TZ);
   const { endUtc } = getDayRange(tomorrow, ARG_TZ);
 
-  let candidates: NotifyMatchRow[];
+  let candidates: Array<
+    NotifyMatchRow & { status: string; day_notified_at: string | null }
+  >;
   try {
     candidates = (await db
       .select({
@@ -92,24 +100,26 @@ export async function runMatchDayNotifications(trigger: Trigger) {
         production_mode: matchesTable.productionMode,
         timezone: matchesTable.timezone,
         venue: matchesTable.venue,
+        status: matchesTable.status,
+        day_notified_at: matchesTable.dayNotifiedAt,
       })
       .from(matchesTable)
       .where(
         and(
-          inArray(matchesTable.status, ["Pendiente", "Confirmado"]),
+          inArray(matchesTable.status, [...NOTIFIABLE_MATCH_STATUSES]),
           gte(matchesTable.kickoffAt, startUtc),
           lte(matchesTable.kickoffAt, endUtc),
           isNull(matchesTable.dayNotifiedAt),
         ),
-      )) as NotifyMatchRow[];
+      )) as typeof candidates;
   } catch (error) {
     console.error("[notifications] failed to load matches", error);
     return;
   }
 
-  // Due = the match's computed send time has passed.
-  const matches = candidates.filter(
-    (match) => computeSendAt(match.kickoff_at).getTime() <= now.getTime(),
+  // The SQL window is a coarse prefilter; the pure rule decides what is due.
+  const matches = candidates.filter((match) =>
+    isMatchDueForNotification(match, now),
   );
 
   if (!matches.length) {
@@ -178,8 +188,17 @@ export async function notifyMatch(
     });
 
     const outcomes: ChannelOutcome[] = [];
+    const eligibility = getChannelEligibility(recipient);
 
-    if (recipient.phone) {
+    if (eligibility.whatsapp === "invalid") {
+      outcomes.push({
+        channel: "whatsapp",
+        attempted: false,
+        ok: false,
+        error: INVALID_PHONE_ERROR,
+      });
+      waSkipped += 1;
+    } else if (eligibility.whatsapp === "ok") {
       if (isWhatsAppSendEnabled) {
         const result = await sendWhatsAppText({
           phone: recipient.phone,
@@ -209,23 +228,41 @@ export async function notifyMatch(
       }
     }
 
-    if (recipient.email) {
-      try {
-        await sendMatchNotificationEmail({
-          to: recipient.email,
-          subject,
-          text: message,
-        });
-        outcomes.push({ channel: "email", attempted: true, ok: true });
-        emailSent += 1;
-      } catch (error) {
+    if (eligibility.email === "invalid") {
+      outcomes.push({
+        channel: "email",
+        attempted: false,
+        ok: false,
+        error: INVALID_EMAIL_ERROR,
+      });
+      emailSkipped += 1;
+    } else if (eligibility.email === "ok" && recipient.email) {
+      if (!isSmtpConfigured) {
         outcomes.push({
           channel: "email",
-          attempted: true,
+          attempted: false,
           ok: false,
-          error: ensureErrorMessage(error),
+          error: "SMTP no está configurado.",
         });
         emailSkipped += 1;
+      } else {
+        try {
+          await sendMatchNotificationEmail({
+            to: recipient.email,
+            subject,
+            text: message,
+          });
+          outcomes.push({ channel: "email", attempted: true, ok: true });
+          emailSent += 1;
+        } catch (error) {
+          outcomes.push({
+            channel: "email",
+            attempted: true,
+            ok: false,
+            error: ensureErrorMessage(error),
+          });
+          emailSkipped += 1;
+        }
       }
     }
 

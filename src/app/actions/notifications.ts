@@ -25,7 +25,11 @@ import {
   type ChannelOutcome,
   type NotificationLogRow,
 } from "@/lib/notifications/log-rows";
-import { buildMatchRecipients } from "@/lib/notifications/recipients";
+import {
+  buildMatchRecipients,
+  getChannelEligibility,
+  INVALID_PHONE_ERROR,
+} from "@/lib/notifications/recipients";
 import {
   notifyMatch,
   type NotifyMatchRow,
@@ -155,9 +159,18 @@ const sendAssignmentNotifications = defineAction({
 
     for (const recipient of recipients) {
       const outcomes: ChannelOutcome[] = [];
+      const { whatsapp } = getChannelEligibility(recipient);
 
-      if (!recipient.phone) {
+      if (whatsapp === "missing") {
         noPhone += 1;
+      } else if (whatsapp === "invalid") {
+        outcomes.push({
+          channel: "whatsapp",
+          attempted: false,
+          ok: false,
+          error: INVALID_PHONE_ERROR,
+        });
+        skipped += 1;
       } else if (!isWhatsAppSendEnabled) {
         outcomes.push({
           channel: "whatsapp",

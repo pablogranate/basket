@@ -22,3 +22,24 @@ export function computeSendAt(kickoffIso: string): Date {
   );
   return fromZonedTime(`${dayBefore}T22:00:00`, ARG_TZ);
 }
+
+export const NOTIFIABLE_MATCH_STATUSES = ["Pendiente", "Confirmado"] as const;
+
+export type NotificationCandidate = {
+  status: string;
+  kickoff_at: string;
+  day_notified_at: string | null;
+};
+
+// A match is due when it is still in play, has not been notified yet and its
+// send time (computeSendAt) has passed.
+export function isMatchDueForNotification(
+  match: NotificationCandidate,
+  now: Date,
+): boolean {
+  return (
+    (NOTIFIABLE_MATCH_STATUSES as readonly string[]).includes(match.status) &&
+    !match.day_notified_at &&
+    computeSendAt(match.kickoff_at).getTime() <= now.getTime()
+  );
+}

@@ -68,7 +68,7 @@ import {
   peopleAssignableTo,
   roleNameToFunctionKey,
 } from "@/lib/functions";
-import { normalizeToWhatsAppChatId } from "@/lib/integrations/openwa";
+import { normalizeToWhatsAppChatId } from "@/lib/integrations/whatsapp-chat-id";
 import {
   buildGoogleCalendarLink,
   buildGroupMessage,

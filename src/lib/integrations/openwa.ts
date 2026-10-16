@@ -1,27 +1,7 @@
 import "server-only";
 
 import { appEnv, isWhatsAppSendEnabled } from "@/lib/env";
-import { sanitizePhone } from "@/lib/utils";
-
-const WHATSAPP_USER_SUFFIX = "@s.whatsapp.net";
-
-export function normalizeToWhatsAppChatId(phone: string | null | undefined) {
-  const digits = sanitizePhone(phone);
-
-  if (!digits) {
-    return "";
-  }
-
-  if (digits.length === 10) {
-    return `549${digits}${WHATSAPP_USER_SUFFIX}`;
-  }
-
-  if (digits.length >= 12) {
-    return `${digits}${WHATSAPP_USER_SUFFIX}`;
-  }
-
-  return "";
-}
+import { normalizeToWhatsAppChatId } from "@/lib/integrations/whatsapp-chat-id";
 
 export async function sendWhatsAppText(params: {
   phone: string | null | undefined;

@@ -89,6 +89,10 @@ export function assertBetterAuthEnv() {
   }
 }
 
+export const isSmtpConfigured = Boolean(
+  appEnv.smtpHost && appEnv.smtpUser && appEnv.smtpPass,
+);
+
 export function assertSmtpEnv() {
   if (!appEnv.smtpHost || !appEnv.smtpUser || !appEnv.smtpPass) {
     throw new Error(
