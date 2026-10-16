@@ -1,6 +1,6 @@
 import "server-only";
 
-import { appEnv, isOpenwaConfigured } from "@/lib/env";
+import { appEnv, isWhatsAppSendEnabled } from "@/lib/env";
 import { sanitizePhone } from "@/lib/utils";
 
 const WHATSAPP_USER_SUFFIX = "@s.whatsapp.net";
@@ -27,7 +27,7 @@ export async function sendWhatsAppText(params: {
   phone: string | null | undefined;
   message: string;
 }): Promise<{ ok: boolean; error?: string }> {
-  if (!appEnv.openwaNotifyEnabled || !isOpenwaConfigured) {
+  if (!isWhatsAppSendEnabled) {
     return { ok: false, error: "OpenWA no está configurado." };
   }
 

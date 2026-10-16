@@ -12,7 +12,7 @@ import {
 } from "@/lib/db/schema";
 import { getDayRange } from "@/lib/date";
 import { sendMatchNotificationEmail } from "@/lib/email/mailer";
-import { isOpenwaConfigured } from "@/lib/env";
+import { isWhatsAppSendEnabled } from "@/lib/env";
 import {
   buildMatchNotificationMessage,
   buildMatchNotificationSubject,
@@ -180,7 +180,7 @@ export async function notifyMatch(
     const outcomes: ChannelOutcome[] = [];
 
     if (recipient.phone) {
-      if (isOpenwaConfigured) {
+      if (isWhatsAppSendEnabled) {
         const result = await sendWhatsAppText({
           phone: recipient.phone,
           message,

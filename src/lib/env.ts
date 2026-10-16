@@ -101,6 +101,11 @@ export const isOpenwaConfigured = Boolean(
   appEnv.openwaApiUrl && appEnv.openwaApiKey,
 );
 
+// Whether a WhatsApp send should be attempted at all. When false, every send
+// path records the WhatsApp channel as skipped, not failed.
+export const isWhatsAppSendEnabled =
+  isOpenwaConfigured && appEnv.openwaNotifyEnabled;
+
 export function assertOpenwaEnv() {
   if (!isOpenwaConfigured) {
     throw new Error(
