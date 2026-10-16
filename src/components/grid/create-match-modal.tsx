@@ -19,6 +19,10 @@ import {
 } from "lucide-react";
 
 import {
+  getPeopleContactsAction,
+  type PersonContact,
+} from "@/app/actions/contacts";
+import {
   createMatchAction,
   deleteMatchAction,
   updateMatchAction,
@@ -70,7 +74,7 @@ const CORE_FIELD_LABELS: Record<(typeof CORE_REQUIRED_FIELDS)[number], string> =
   venue: "Sede",
 };
 
-type MatchModalPerson = Pick<PersonRow, "id" | "full_name" | "phone" | "email"> & {
+type MatchModalPerson = Pick<PersonRow, "id" | "full_name"> & {
   functions: PersonFunctionKey[];
 };
 
@@ -626,6 +630,9 @@ export function CreateMatchModal({
     shouldShowAdvancedByDefault(defaultFields),
   );
   const [copiedNotificationKey, setCopiedNotificationKey] = useState<string | null>(null);
+  const [contactsById, setContactsById] = useState<Map<string, PersonContact>>(
+    () => new Map(),
+  );
   const [visibleCameraCount, setVisibleCameraCount] = useState(() =>
     getVisibleCameraCount(defaultFields),
   );
@@ -764,6 +771,42 @@ export function CreateMatchModal({
   ];
   const previewAssignedPeopleCount =
     assignedPeopleCount || MATCH_PREVIEW_EXAMPLE.assignedPeopleCount;
+  const notificationPersonIdsKey = useMemo(
+    () =>
+      [
+        ...new Set(
+          NOTIFICATION_ROLE_FIELDS.map(({ field }) => fields[field]).filter(Boolean),
+        ),
+      ]
+        .sort()
+        .join(","),
+    [fields],
+  );
+
+  useEffect(() => {
+    if (!isOpen || !notificationPersonIdsKey) {
+      return;
+    }
+
+    let cancelled = false;
+
+    getPeopleContactsAction(notificationPersonIdsKey.split(","))
+      .then((contacts) => {
+        if (!cancelled) {
+          setContactsById(
+            new Map(contacts.map((contact) => [contact.id, contact])),
+          );
+        }
+      })
+      .catch((error) => {
+        console.error("[grid] failed to load notification contacts", error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, notificationPersonIdsKey]);
+
   const notificationRecipients = useMemo(() => {
     const recipientsMap = new Map<string, NotificationRecipient>();
 
@@ -787,8 +830,8 @@ export function CreateMatchModal({
       recipientsMap.set(person.id, {
         id: person.id,
         fullName: person.full_name,
-        phone: person.phone ?? null,
-        email: person.email ?? null,
+        phone: contactsById.get(person.id)?.phone ?? null,
+        email: contactsById.get(person.id)?.email ?? null,
         roles: [label],
         emailHref: "",
         whatsappHref: "",
@@ -824,7 +867,7 @@ export function CreateMatchModal({
         };
       })
       .sort((left, right) => left.fullName.localeCompare(right.fullName, "es"));
-  }, [fields, peopleById]);
+  }, [contactsById, fields, peopleById]);
   const batchNotificationMessage = useMemo(
     () => buildNotificationMessage({ fields }),
     [fields],

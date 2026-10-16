@@ -153,8 +153,6 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
         .select({
           id: peopleTable.id,
           full_name: peopleTable.fullName,
-          phone: peopleTable.phone,
-          email: peopleTable.email,
         })
         .from(peopleTable)
         .where(and(eq(peopleTable.active, true), isNull(peopleTable.deletedAt)))
@@ -254,7 +252,7 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
   }, []);
 
   const owners: GridOwner[] = (
-    ownersData as Pick<PersonRow, "id" | "full_name" | "phone" | "email">[]
+    ownersData as Pick<PersonRow, "id" | "full_name">[]
   ).map((owner) => ({
     ...owner,
     functions: functionsByPerson.get(owner.id) ?? [],

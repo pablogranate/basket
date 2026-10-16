@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { buildMatchRecipients } from "@/lib/notifications/recipients";
+import {
+  buildMatchRecipients,
+  getChannelEligibility,
+} from "@/lib/notifications/recipients";
 
 const person = {
   id: "p1",
@@ -42,5 +45,29 @@ describe("buildMatchRecipients", () => {
 
     expect(recipients).toHaveLength(1);
     expect(recipients[0].personId).toBe("p1");
+  });
+});
+
+describe("getChannelEligibility", () => {
+  it("marks valid contacts as ok", () => {
+    expect(
+      getChannelEligibility({ phone: "+5491122334455", email: "a@b.com" }),
+    ).toEqual({ whatsapp: "ok", email: "ok" });
+  });
+
+  it("marks absent contacts as missing", () => {
+    expect(getChannelEligibility({ phone: null, email: null })).toEqual({
+      whatsapp: "missing",
+      email: "missing",
+    });
+  });
+
+  it("marks unusable contacts as invalid", () => {
+    for (const email of ["sin-arroba", "a@b", "a b@c.com", "@b.com"]) {
+      expect(getChannelEligibility({ phone: "12345", email })).toEqual({
+        whatsapp: "invalid",
+        email: "invalid",
+      });
+    }
   });
 });

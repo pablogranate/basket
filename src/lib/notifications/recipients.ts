@@ -1,4 +1,5 @@
 import { getRoleDisplayName } from "@/lib/display";
+import { normalizeToWhatsAppChatId } from "@/lib/integrations/whatsapp-chat-id";
 
 export type AssignmentRecipientRow = {
   role: { name: string } | null;
@@ -53,3 +54,30 @@ export function buildMatchRecipients(
 
   return [...byPerson.values()];
 }
+
+export type ChannelEligibility = "ok" | "missing" | "invalid";
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Whether each channel can be tried for a recipient: "missing" means there is
+// no contact (no log row for that channel), "invalid" means there is one but it
+// cannot be sent to (logged as skipped).
+export function getChannelEligibility(
+  recipient: Pick<MatchRecipient, "phone" | "email">,
+): { whatsapp: ChannelEligibility; email: ChannelEligibility } {
+  return {
+    whatsapp: !recipient.phone
+      ? "missing"
+      : normalizeToWhatsAppChatId(recipient.phone)
+        ? "ok"
+        : "invalid",
+    email: !recipient.email
+      ? "missing"
+      : EMAIL_PATTERN.test(recipient.email)
+        ? "ok"
+        : "invalid",
+  };
+}
+
+export const INVALID_PHONE_ERROR = "Número de teléfono inválido.";
+export const INVALID_EMAIL_ERROR = "Correo inválido.";

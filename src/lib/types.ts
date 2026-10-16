@@ -28,10 +28,9 @@ export type PersonListItem = PersonRow & {
   teams: PersonTeamLink[];
 };
 
-export type GridOwner = Pick<
-  PersonRow,
-  "id" | "full_name" | "phone" | "email"
-> & {
+// No phone/email: the grid ships this list to every visitor. The edit modal
+// fetches contacts for the people it notifies (getPeopleContactsAction).
+export type GridOwner = Pick<PersonRow, "id" | "full_name"> & {
   functions: PersonFunctionKey[];
 };
 
