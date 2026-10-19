@@ -65,7 +65,7 @@ A `profiles` row — the portal login that domain rows point at (created_by, own
 _Avoid_: perfil, usuario (when the login is meant), profile (in Spanish-facing copy)
 
 **Fusión de fichas**:
-Folding a duplicate ficha into a survivor: every referrer (assignments, owned matches, notification logs, equipos, funciones) is repointed onto the survivor, then the duplicate is soft-deleted. Never a hard delete — the old row can own past grillas.
+Folding a duplicate ficha into a survivor: every referrer (assignments, owned matches, notification logs, equipos, funciones) is repointed onto the survivor, then the duplicate is soft-deleted pointing at it, so the Grilla sync sends the old name to the survivor. Never a hard delete — the old row can own past grillas. The ficha with a cuenta survives; two fichas with a cuenta are never fused (which login stays is a Solicitud decision). A pair an admin marks as "No es la misma persona" is no longer suggested as a duplicate.
 _Avoid_: merge, dedupe, borrar duplicado
 
 ### Data ownership

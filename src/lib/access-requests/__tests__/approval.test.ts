@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { findExistingAccount, resolveApprovalTarget } from "@/lib/access-requests/approval";
+import {
+  findExistingAccount,
+  findMergeSuggestions,
+  resolveApprovalTarget,
+} from "@/lib/access-requests/approval";
 
 const ana = { id: "person-ana", fullName: "Ana Pérez", email: "ana@basquetpass.tv" };
 const anaSinCorreo = { id: "person-ana-2", fullName: "Ana Perez", email: null };
@@ -174,5 +178,30 @@ describe("findExistingAccount", () => {
     });
 
     expect(match?.person.id).toBe("person-martin");
+  });
+});
+
+describe("findMergeSuggestions", () => {
+  const linked = { id: "nino", fullName: "Nino Tolaba", email: "nino@gmail.com", profileId: null };
+  const grilla = { id: "rene", fullName: "Rene Nino Tolaba", email: null, profileId: null };
+  const conCuenta = { id: "otro", fullName: "Nino Tolaba", email: null, profileId: "cuenta" };
+
+  it("offers look-alike fichas without a cuenta even when the email linked one, never that one", () => {
+    expect(
+      findMergeSuggestions({
+        names: ["Nino Tolaba"],
+        candidates: [linked, grilla, conCuenta],
+        excludeId: "nino",
+      }).map((s) => s.id),
+    ).toEqual(["rene"]);
+  });
+
+  it("matches any of the names: the declared one or the linked ficha's", () => {
+    expect(
+      findMergeSuggestions({
+        names: ["N. Tolaba", "Nino Tolaba"],
+        candidates: [grilla],
+      }).map((s) => s.id),
+    ).toEqual(["rene"]);
   });
 });

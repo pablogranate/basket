@@ -2,7 +2,11 @@ import "server-only";
 
 import { asc, eq } from "drizzle-orm";
 
-import { findExistingAccount, resolveApprovalTarget } from "@/lib/access-requests/approval";
+import {
+  findExistingAccount,
+  findMergeSuggestions,
+  resolveApprovalTarget,
+} from "@/lib/access-requests/approval";
 import {
   ACCESS_REQUEST_FUNCIONES,
   FUNCION_ROLE_NAME,
@@ -128,6 +132,11 @@ async function buildPortalReview(
             phone: request.phone,
             candidates,
           });
+    const mergeSuggestions = findMergeSuggestions({
+      names: linked ? [request.full_name, linked.fullName] : [request.full_name],
+      candidates,
+      excludeId: linked?.id ?? null,
+    });
     const defaultRoleName =
       request.funcion && isAccessRequestFuncion(request.funcion)
         ? FUNCION_ROLE_NAME[request.funcion]
@@ -148,6 +157,7 @@ async function buildPortalReview(
       defaultRoleId: defaultRoleName
         ? (roleIdByName.get(normalizeText(defaultRoleName)) ?? null)
         : null,
+      mergeSuggestions,
       existingAccount: existingMatch
         ? await describeExistingAccount(existingMatch)
         : null,

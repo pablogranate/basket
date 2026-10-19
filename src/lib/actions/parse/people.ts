@@ -1,4 +1,4 @@
-import { parsed, type ParseResult } from "@/lib/actions/define-action";
+import { parsed, parseFailure, type ParseResult } from "@/lib/actions/define-action";
 import type { AppRole } from "@/lib/database.types";
 import { normalizeAccessTier } from "@/lib/roles";
 import { isPersonFunctionKey, type PersonFunctionKey } from "@/lib/functions";
@@ -67,6 +67,22 @@ export type PersonIdInput = { personId: string };
 
 export function parsePersonId(formData: FormData): ParseResult<PersonIdInput> {
   return parsed({ personId: String(formData.get("personId") ?? "").trim() });
+}
+
+export type FichaPairInput = {
+  personId: string;
+  otherPersonId: string;
+};
+
+export function parseFichaPair(formData: FormData): ParseResult<FichaPairInput> {
+  const personId = String(formData.get("personId") ?? "").trim();
+  const otherPersonId = String(formData.get("otherPersonId") ?? "").trim();
+
+  if (!personId || !otherPersonId) {
+    return parseFailure("Elegí las dos fichas.");
+  }
+
+  return parsed({ personId, otherPersonId });
 }
 
 export type UpdatePersonAccessRoleInput = {

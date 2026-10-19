@@ -451,6 +451,32 @@ export const peopleTeams = pgTable("people_teams", {
 	unique("people_teams_unique").on(table.personId, table.teamId),
 ]);
 
+export const peopleMergeDismissals = pgTable("people_merge_dismissals", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	personId: uuid("person_id").notNull(),
+	otherPersonId: uuid("other_person_id").notNull(),
+	createdAt: timestamptz("created_at").default(sql`timezone('utc'::text, now())`).notNull(),
+	createdBy: uuid("created_by"),
+}, (table) => [
+	foreignKey({
+			columns: [table.personId],
+			foreignColumns: [people.id],
+			name: "people_merge_dismissals_person_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.otherPersonId],
+			foreignColumns: [people.id],
+			name: "people_merge_dismissals_other_person_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.createdBy],
+			foreignColumns: [profiles.id],
+			name: "people_merge_dismissals_created_by_fkey"
+		}).onDelete("set null"),
+	check("people_merge_dismissals_ordered", sql`person_id < other_person_id`),
+	unique("people_merge_dismissals_unique").on(table.personId, table.otherPersonId),
+]);
+
 export const leagues = pgTable("leagues", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	name: text().notNull(),

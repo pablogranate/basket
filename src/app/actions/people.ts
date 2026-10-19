@@ -11,6 +11,7 @@ import {
 } from "@/app/actions/helpers";
 import { defineAction } from "@/lib/actions/define-action";
 import {
+  parseFichaPair,
   parsePersonId,
   parseUpdatePersonAccessRole,
   parseUpsertPerson,
@@ -34,6 +35,8 @@ import {
   personFunctions as personFunctionsTable,
   profiles as profilesTable,
 } from "@/lib/db/schema";
+import { dismissDuplicatePair, restoreDuplicatePair } from "@/lib/people/duplicates";
+import { mergeFichas } from "@/lib/people/identity";
 import { ensureErrorMessage, resolveCheckboxFlag } from "@/lib/utils";
 
 // profiles is the single authorization table now (no Supabase Auth users).
@@ -246,6 +249,84 @@ const deletePerson = defineAction({
 
 export async function deletePersonAction(formData: FormData) {
   await deletePerson(formData);
+}
+
+const mergePeople = defineAction({
+  fallbackRedirect: "/people",
+  authz: requireAdmin,
+  authzFailureNotice: true,
+  parse: parseFichaPair,
+  revalidate: ["/people", "/notifications/solicitudes", "/grid", "/mi-jornada"],
+  async run(context, input) {
+    const merged = await db.transaction((tx) =>
+      mergeFichas(tx, { ...input, actor: context }),
+    );
+
+    await writeAudit(context, {
+      table: "people",
+      recordId: merged.mergedId,
+      action: "UPDATE",
+      before: { id: merged.mergedId, merged_into_id: null },
+      after: { id: merged.mergedId, merged_into_id: merged.survivorId },
+    });
+
+    return { notice: "Fichas fusionadas." };
+  },
+});
+
+export async function mergePeopleAction(formData: FormData) {
+  await mergePeople(formData);
+}
+
+// "No es la misma persona" on the duplicates review, and its undo.
+const dismissPair = defineAction({
+  fallbackRedirect: "/notifications/solicitudes",
+  authz: requireAdmin,
+  authzFailureNotice: true,
+  parse: parseFichaPair,
+  revalidate: ["/notifications/solicitudes"],
+  async run(context, input) {
+    await dismissDuplicatePair(db, { ...input, actor: context });
+
+    await writeAudit(context, {
+      table: "people_merge_dismissals",
+      recordId: input.personId,
+      action: "INSERT",
+      before: null,
+      after: { person_id: input.personId, other_person_id: input.otherPersonId },
+    });
+
+    return { notice: "Listo: no se van a volver a sugerir como duplicadas." };
+  },
+});
+
+export async function dismissDuplicatePairAction(formData: FormData) {
+  await dismissPair(formData);
+}
+
+const restorePair = defineAction({
+  fallbackRedirect: "/notifications/solicitudes",
+  authz: requireAdmin,
+  authzFailureNotice: true,
+  parse: parseFichaPair,
+  revalidate: ["/notifications/solicitudes"],
+  async run(context, input) {
+    await restoreDuplicatePair(db, input);
+
+    await writeAudit(context, {
+      table: "people_merge_dismissals",
+      recordId: input.personId,
+      action: "DELETE",
+      before: { person_id: input.personId, other_person_id: input.otherPersonId },
+      after: null,
+    });
+
+    return { notice: "El par vuelve a la lista de posibles duplicadas." };
+  },
+});
+
+export async function restoreDuplicatePairAction(formData: FormData) {
+  await restorePair(formData);
 }
 
 const revokePersonAccess = defineAction({
