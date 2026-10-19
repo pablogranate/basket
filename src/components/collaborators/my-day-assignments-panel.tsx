@@ -136,6 +136,7 @@ function getAssignmentLeagueAccentColor(league: string | null | undefined) {
   }
 
   if (
+    normalizedLeague.includes("liga desarrollo") ||
     normalizedLeague.includes("liga proximo") ||
     normalizedLeague.includes("liga próximo")
   ) {

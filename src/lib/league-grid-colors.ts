@@ -10,6 +10,7 @@ const GRID_LEAGUE_COLORS: Record<string, string> = {
   "liga federal": "#e8811a",
   "liga nacional": "#e12121",
   "liga argentina": "#0a53a8",
+  "liga desarrollo": "#2eac28",
   "liga proximo": "#2eac28",
   "liga femenina": "#c14588",
   "liga endesa (acb)": "#c6dbe1",

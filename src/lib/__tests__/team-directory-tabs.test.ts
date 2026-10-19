@@ -30,7 +30,7 @@ describe("buildTeamDirectoryTabs", () => {
 
     expect(values.slice(0, 3)).toEqual([
       "Liga Nacional",
-      "Liga Próximo",
+      "Liga Desarrollo",
       "Liga Argentina",
     ]);
     expect(values).toContain("Liga Regional");
@@ -47,9 +47,9 @@ describe("buildTeamDirectoryTabs", () => {
       "Liga Regional",
       "Liga Argentina",
       "Liga Nacional",
-      "Liga Próximo",
+      "Liga Desarrollo",
     ]);
-    expect(values.indexOf("Liga Próximo")).toBeLessThan(
+    expect(values.indexOf("Liga Desarrollo")).toBeLessThan(
       values.indexOf("Liga Federal"),
     );
   });

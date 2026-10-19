@@ -50,7 +50,7 @@ const COMPETITION_FOLDER_HINTS: Array<{
   folders: string[];
 }> = [
   {
-    match: ["liga nacional", "liga proximo", "liga nacional / liga proximo"],
+    match: ["liga nacional", "liga desarrollo", "liga proximo", "liga nacional / liga proximo", "liga nacional / liga desarrollo"],
     folders: ["logos liga nacional 500 x 500"],
   },
   {

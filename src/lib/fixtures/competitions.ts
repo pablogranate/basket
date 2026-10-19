@@ -38,7 +38,7 @@ const COMPETITIONS: FixtureCompetition[] = [
   { key: "LIGA NACIONAL", label: "Nacional", leagueSlug: "liga-nacional", leagueName: "Liga Nacional" },
   { key: "LIGA ARGENTINA", label: "Argentina", leagueSlug: "liga-argentina", leagueName: "Liga Argentina" },
   { key: "LIGA FEMENINA", label: "Femenina", leagueSlug: "liga-femenina", leagueName: "Liga Femenina" },
-  { key: "LIGA DE DESARROLLO", label: "Próximo", leagueSlug: "liga-proximo", leagueName: "Liga Próximo" },
+  { key: "LIGA DE DESARROLLO", label: "Desarrollo", leagueSlug: "liga-proximo", leagueName: "Liga Desarrollo" },
   { key: "MAYORES", label: "Federal", leagueSlug: "liga-federal", leagueName: "Liga Federal" },
   { key: "LA LIGA FEDERAL", label: "Federal", leagueSlug: "liga-federal", leagueName: "Liga Federal" },
   { key: "ARGENTINO 3X3", label: "3x3", leagueSlug: "3x3", leagueName: "3x3" },

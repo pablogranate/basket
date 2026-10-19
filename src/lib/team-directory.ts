@@ -34,7 +34,7 @@ const LEAGUE_URL = "https://www.laliganacional.com.ar/";
 
 export const TEAM_DIRECTORY_TAB_ORDER = [
   "Liga Nacional",
-  "Liga Próximo",
+  "Liga Desarrollo",
   "Liga Argentina",
   "Liga Federal",
   "Liga Femenina",
@@ -192,6 +192,7 @@ export function getTeamLeagueColorSet(league: string) {
   }
 
   if (
+    normalizedLeague.includes("liga desarrollo") ||
     normalizedLeague.includes("liga proximo") ||
     normalizedLeague.includes("liga próximo")
   ) {
@@ -271,6 +272,7 @@ export function getTeamCompetitionByName(teamName?: string | null) {
 
 const LEAGUE_SHORT_LABELS: Record<string, string> = {
   "Liga Nacional": "Liga Nacional",
+  "Liga Desarrollo": "Liga Desarrollo",
   "Liga Próximo": "Liga Próximo",
   "Liga Nacional / Liga Próximo": "Liga Nacional / Liga Próximo",
   "Liga Argentina": "Liga Argentina",
