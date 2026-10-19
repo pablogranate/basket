@@ -34,7 +34,7 @@ export default async function FixturesPage({ searchParams }: PageProps) {
     <div className="space-y-6">
       <SectionPageHeader
         title="Fixtures"
-        description="Todos los partidos de las ligas que seguimos (CABB, ACB y otras), los cubra BP o no. Los que cubrimos están en la grilla."
+        description="Todos los partidos de las ligas que seguimos, los cubra BP o no."
       />
 
       <Suspense key={month} fallback={<FixturesAgendaSkeleton monthNav={monthNav} />}>
