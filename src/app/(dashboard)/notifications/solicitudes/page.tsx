@@ -3,6 +3,8 @@ import { LogsSectionTabs } from "@/components/notifications/logs-section-tabs";
 import { Card } from "@/components/ui/card";
 import { requireAdmin } from "@/lib/auth-access";
 import { linkProfileToPersonAction } from "@/app/actions/access-requests";
+import { restoreDuplicatePairAction } from "@/app/actions/people";
+import { DuplicateFichaActions } from "@/components/people/duplicate-ficha-actions";
 import { SubmitButton } from "@/components/ui/submit-button";
 import {
   listDecidedAccessRequests,
@@ -12,16 +14,19 @@ import {
 import { PORTAL_APP } from "@/lib/acceso/portal";
 import { authDb } from "@/lib/db/auth-client";
 import { db } from "@/lib/db/client";
+import { getDuplicateReview } from "@/lib/people/duplicates";
 import { listProfileLinkReview } from "@/lib/people/identity";
 import { formatMatchDateTime } from "@/lib/date";
 
 export default async function AccessRequestsLogPage() {
   await requireAdmin();
-  const [pending, decided, linkReview] = await Promise.all([
+  const [pending, decided, linkReview, duplicateReview] = await Promise.all([
     listPendingAccessRequests(authDb, { app: PORTAL_APP }),
     listDecidedAccessRequests(authDb, { app: PORTAL_APP }),
     listProfileLinkReview(db),
+    getDuplicateReview(db),
   ]);
+  const { pending: duplicates, dismissed } = duplicateReview;
 
   return (
     <div className="space-y-8">
@@ -120,6 +125,94 @@ export default async function AccessRequestsLogPage() {
             No quedan cuentas con una ficha parecida sin vincular.
           </p>
         )}
+      </Card>
+
+      <Card className="space-y-4">
+        <h3 className="text-lg font-extrabold text-[var(--foreground)]">
+          Posibles fichas duplicadas ({duplicates.length})
+        </h3>
+        <p className="text-sm text-[var(--n-500)]">
+          Fichas con cuenta del portal y otra ficha sin cuenta con el mismo correo
+          o un nombre parecido. Si la grilla carga a la persona con otro nombre,
+          sus partidos quedan en la ficha sin cuenta y Mi jornada no se los
+          muestra. Fusionar los pasa a la ficha con cuenta y archiva la otra.
+        </p>
+        {duplicates.length ? (
+          <ul className="space-y-3">
+            {duplicates.map((row) => (
+              <li
+                key={row.survivor.id}
+                className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] px-4 py-3"
+              >
+                <p className="text-sm font-bold text-[var(--foreground)]">
+                  {row.survivor.fullName}{" "}
+                  <span className="font-medium text-[var(--n-500)]">
+                    {row.survivor.email ?? "sin correo"} · {row.survivor.assignmentCount}{" "}
+                    partidos
+                  </span>
+                </p>
+                <ul className="mt-2 space-y-2">
+                  {row.duplicates.map((duplicate) => (
+                    <li
+                      key={duplicate.id}
+                      className="flex flex-wrap items-center gap-3 text-sm"
+                    >
+                      <span className="text-[var(--n-600)]">
+                        {duplicate.fullName}
+                        {duplicate.email ? ` · ${duplicate.email}` : ""} ·{" "}
+                        {duplicate.assignmentCount} partidos
+                      </span>
+                      <DuplicateFichaActions
+                        survivor={row.survivor}
+                        duplicate={duplicate}
+                        redirectTo="/notifications/solicitudes"
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-[var(--n-500)]">
+            No hay fichas que parezcan duplicadas.
+          </p>
+        )}
+        {dismissed.length ? (
+          <details className="text-sm">
+            <summary className="cursor-pointer font-semibold text-[var(--n-600)]">
+              Marcadas como personas distintas ({dismissed.length})
+            </summary>
+            <ul className="mt-2 space-y-2">
+              {dismissed.map((row) => (
+                <li
+                  key={`${row.person.id}-${row.other.id}`}
+                  className="flex flex-wrap items-center gap-3"
+                >
+                  <span className="text-[var(--n-600)]">
+                    {row.person.fullName} · {row.other.fullName}
+                  </span>
+                  <form action={restoreDuplicatePairAction}>
+                    <input type="hidden" name="personId" value={row.person.id} />
+                    <input type="hidden" name="otherPersonId" value={row.other.id} />
+                    <input
+                      type="hidden"
+                      name="redirectTo"
+                      value="/notifications/solicitudes"
+                    />
+                    <SubmitButton
+                      variant="ghost"
+                      pendingLabel="Restaurando..."
+                      className="h-9 px-3 text-xs"
+                    >
+                      Volver a sugerir
+                    </SubmitButton>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          </details>
+        ) : null}
       </Card>
 
     </div>

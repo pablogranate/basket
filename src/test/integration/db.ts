@@ -19,6 +19,7 @@ const RESET_TABLES = [
   "audit_log",
   "notification_logs",
   "people_teams",
+  "people_merge_dismissals",
   "assignments",
   "matches",
   "app_settings",

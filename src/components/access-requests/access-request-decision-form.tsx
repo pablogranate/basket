@@ -23,15 +23,21 @@ export function AccessRequestDecisionForm({
   // Where the decision lands: the dashboard, or the apex bell's directory.
   redirectTo?: string;
 }) {
-  const { request, target, linkedPerson, defaultRoleId, existingAccount } = item;
+  const {
+    request,
+    target,
+    linkedPerson,
+    defaultRoleId,
+    mergeSuggestions,
+    existingAccount,
+  } = item;
   // Pre-fill with the existing person's values where there is one; what the
   // applicant declared stays visible alongside (D-10).
   const defaultFullName = linkedPerson?.fullName ?? request.full_name;
   const defaultPhone = linkedPerson?.phone ?? request.phone;
   // A second login of a known person replaces the merge suggestions: which
   // login stays is the decision, not which ficha to fuse.
-  const suggestions =
-    target.kind === "suggest" && !existingAccount ? target.suggestions : [];
+  const suggestions = existingAccount ? [] : mergeSuggestions;
   // The person's stored role can be a grilla slot outside this list (Comentario
   // 2, Camara 3); fall back to the función the applicant declared.
   const linkedFuncionId = funcionOptions.some(

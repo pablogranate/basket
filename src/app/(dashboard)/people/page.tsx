@@ -15,6 +15,7 @@ import { PersonFunctionsField } from "@/components/people/person-functions-field
 import { PersonDeleteButton } from "@/components/people/person-delete-button";
 import { PersonRevokeAccessButton } from "@/components/people/person-revoke-access-button";
 import { PersonAccessRoleForm } from "@/components/people/person-access-role-form";
+import { PersonMergeForm } from "@/components/people/person-merge-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageMessage } from "@/components/ui/page-message";
@@ -22,11 +23,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { requireUserContext, type UserContext } from "@/lib/auth";
 import { can, canGrantRole } from "@/lib/roles";
 import { SECTION_COPY } from "@/lib/copy";
-import type { AppRole } from "@/lib/database.types";
 import { getPeopleData } from "@/lib/data/dashboard";
 import { getTeamDirectory } from "@/lib/data/teams";
 import { PersonTeamsField } from "@/components/people/person-teams-field";
 import { getPlatformAccessRole } from "@/lib/data/platform-access";
+import { db } from "@/lib/db/client";
+import { listApprovalCandidates } from "@/lib/people/identity";
 import { getRoleDisplayName } from "@/lib/display";
 import { parsePersonNotesMeta } from "@/lib/people-notes";
 import { parseNotice } from "@/lib/search-params";
@@ -249,11 +251,24 @@ async function PeopleEditModal({
   }
 
   const selectedMeta = parsePersonNotesMeta(selectedPerson.notes);
-  let selectedPersonAccessRole: AppRole | null = null;
-
-  if (selectedPerson.email && canManageAccess) {
-    selectedPersonAccessRole = await getPlatformAccessRole(selectedPerson.email);
-  }
+  // People rows carry no profile_id; the fusión picker needs it to tell which
+  // ficha holds a Cuenta.
+  const [selectedPersonAccessRole, mergeFichas] = await Promise.all([
+    selectedPerson.email && canManageAccess
+      ? getPlatformAccessRole(selectedPerson.email)
+      : null,
+    can(user, "admin")
+      ? listApprovalCandidates(db).then((candidates) =>
+          candidates.map(({ id, fullName, email, profileId }) => ({
+            id,
+            fullName,
+            email,
+            profileId: profileId ?? null,
+          })),
+        )
+      : [],
+  ]);
+  const currentMergeFicha = mergeFichas.find((ficha) => ficha.id === selectedPerson.id);
 
   const selectedPersonHasPlatformAccess = selectedPersonAccessRole !== null;
   // Narrow to the three grantable tiers so the re-tier form can be typed.
@@ -470,6 +485,25 @@ async function PeopleEditModal({
                     </p>
                   )
                 ) : null}
+              </div>
+            </section>
+          ) : null}
+
+          {currentMergeFicha ? (
+            <section className="border-t border-[var(--n-100)] bg-[var(--n-50)] px-5 py-8 sm:px-8">
+              <div className="space-y-4 rounded-[var(--panel-radius)] border border-[var(--n-200)] bg-white p-6 shadow-sm">
+                <div className="space-y-1">
+                  <h4 className="font-bold text-[var(--n-900)]">
+                    Fusionar con otra ficha
+                  </h4>
+                  <p className="max-w-xl text-sm text-[var(--n-500)]">
+                    Si esta persona está cargada dos veces (por ejemplo, con otro
+                    nombre en la grilla), fusioná las fichas: queda la que tiene
+                    cuenta del portal y la otra se archiva con su historial
+                    pasado a la que queda.
+                  </p>
+                </div>
+                <PersonMergeForm current={currentMergeFicha} options={mergeFichas} />
               </div>
             </section>
           ) : null}

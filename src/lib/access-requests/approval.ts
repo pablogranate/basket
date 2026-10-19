@@ -20,7 +20,7 @@ function tokens(value: string) {
 // "Parecido" without being fuzzy about identity: every token of the shorter name
 // has to appear in the longer one, and a single shared token (a common first
 // name) is not enough.
-function looksLikeSameName(a: string, b: string) {
+export function looksLikeSameName(a: string, b: string) {
   const left = tokens(a);
   const right = tokens(b);
 
@@ -61,16 +61,33 @@ export function resolveApprovalTarget({
     }
   }
 
-  const suggestions = candidates.filter(
-    (candidate) =>
-      !candidate.profileId && looksLikeSameName(candidate.fullName, fullName),
-  );
+  const suggestions = findMergeSuggestions({ names: [fullName], candidates });
 
   if (suggestions.length) {
     return { kind: "suggest", suggestions };
   }
 
   return { kind: "create" };
+}
+
+// Fichas with no Cuenta that look like the same human as any of `names`: what
+// the approver may fuse into the ficha the Solicitud lands on. `excludeId` is
+// that ficha when it already exists (an email link).
+export function findMergeSuggestions({
+  names,
+  candidates,
+  excludeId = null,
+}: {
+  names: string[];
+  candidates: ApprovalCandidate[];
+  excludeId?: string | null;
+}): ApprovalCandidate[] {
+  return candidates.filter(
+    (candidate) =>
+      candidate.id !== excludeId &&
+      !candidate.profileId &&
+      names.some((name) => looksLikeSameName(candidate.fullName, name)),
+  );
 }
 
 // Last ten digits: the fichas hold phones in every legacy format ("54 9 2996

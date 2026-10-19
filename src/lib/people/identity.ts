@@ -12,6 +12,7 @@ import {
   buildPersonNotesMeta,
   parsePersonNotesMeta,
 } from "@/lib/people-notes";
+import { planFichaMerge } from "@/lib/people/merge";
 import {
   assignments as assignmentsTable,
   matches as matchesTable,
@@ -228,6 +229,50 @@ export async function listApprovalCandidates(
     .where(isNull(peopleTable.deletedAt));
 
   return rows as ApprovalCandidateRow[];
+}
+
+export type MergedFichas = { survivorId: string; mergedId: string };
+
+// Fusión de fichas outside a Solicitud (/people, the duplicates review): the
+// survivor follows planFichaMerge. Run it in a transaction.
+export async function mergeFichas(
+  exec: DbExecutor,
+  input: { personId: string; otherPersonId: string; actor: Actor },
+): Promise<MergedFichas> {
+  const rows = await exec
+    .select({
+      id: peopleTable.id,
+      fullName: peopleTable.fullName,
+      email: peopleTable.email,
+      profileId: peopleTable.profileId,
+    })
+    .from(peopleTable)
+    .where(
+      and(
+        inArray(peopleTable.id, [input.personId, input.otherPersonId]),
+        isNull(peopleTable.deletedAt),
+      ),
+    );
+  const current = rows.find((row) => row.id === input.personId);
+  const other = rows.find((row) => row.id === input.otherPersonId);
+
+  if (!current || !other) {
+    throw new Error("Una de las fichas ya no existe.");
+  }
+
+  const plan = planFichaMerge(current, other);
+
+  if (plan.kind === "blocked") {
+    throw new Error(plan.reason);
+  }
+
+  await mergePersonInto(exec, {
+    fromPersonId: plan.merged.id,
+    intoPersonId: plan.survivor.id,
+    actor: input.actor,
+  });
+
+  return { survivorId: plan.survivor.id, mergedId: plan.merged.id };
 }
 
 export type LinkReviewRow = {
@@ -496,6 +541,21 @@ async function mergePersonInto(
   input: { fromPersonId: string; intoPersonId: string; actor: Actor },
 ) {
   const { fromPersonId, intoPersonId } = input;
+
+  // Archiving a ficha with a Cuenta would cut that login off its grilla.
+  const [from] = await exec
+    .select({ profileId: peopleTable.profileId, deletedAt: peopleTable.deletedAt })
+    .from(peopleTable)
+    .where(eq(peopleTable.id, fromPersonId))
+    .limit(1);
+
+  if (!from || from.deletedAt) {
+    throw new Error("La ficha a fusionar ya no existe.");
+  }
+
+  if (from.profileId) {
+    throw new Error("La ficha a fusionar tiene cuenta del portal: no se puede archivar.");
+  }
 
   await exec
     .update(assignmentsTable)

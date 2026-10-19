@@ -5,6 +5,7 @@ import {
   linkProfileToPerson,
   listApprovalCandidates,
   listProfileLinkReview,
+  mergeFichas,
   settleApplicant,
 } from "@/lib/people/identity";
 import { seedActor, testSql, truncateAll } from "@/test/integration/db";
@@ -283,5 +284,60 @@ describe("people identity (integration)", () => {
     expect(review).toHaveLength(1);
     expect(review[0].profile.email).toBe("maria.lopez@basquetpass.tv");
     expect(review[0].candidates.map((c) => c.id)).toEqual([maria]);
+  });
+
+  it("fuses fichas by hand keeping the one with a cuenta, whichever was edited", async () => {
+    const { profileId: actor } = await seedActor(sql);
+    const { profileId: cuenta } = await seedActor(sql, { email: "leo.sosa@example.com" });
+    const linked = await seedPerson(sql, {
+      full_name: "Leo Sosa",
+      email: "leo.sosa@example.com",
+      profile_id: cuenta,
+    });
+    const grilla = await seedPerson(sql, { full_name: "Martin Leo Sosa" });
+    const role = await seedRole(sql, "Camara 1");
+    const match = await seedMatch(sql, grilla);
+    await sql`INSERT INTO assignments ${sql({ match_id: match, role_id: role, person_id: grilla })}`;
+
+    const merged = await mergeFichas(db, {
+      personId: grilla,
+      otherPersonId: linked,
+      actor: { profileId: actor },
+    });
+
+    expect(merged).toEqual({ survivorId: linked, mergedId: grilla });
+    const [assignment] = await sql`SELECT person_id FROM assignments WHERE match_id = ${match}`;
+    expect(assignment.person_id).toBe(linked);
+    const [owner] = await sql`SELECT owner_id FROM matches WHERE id = ${match}`;
+    expect(owner.owner_id).toBe(linked);
+    const [old] = await sql`SELECT deleted_at, merged_into_id FROM people WHERE id = ${grilla}`;
+    expect(old.deleted_at).not.toBeNull();
+    expect(old.merged_into_id).toBe(linked);
+    const [kept] = await sql`SELECT profile_id, deleted_at FROM people WHERE id = ${linked}`;
+    expect(kept).toEqual({ profile_id: cuenta, deleted_at: null });
+  });
+
+  it("refuses to fuse two fichas that both have a cuenta", async () => {
+    const { profileId: actor } = await seedActor(sql);
+    const { profileId: first } = await seedActor(sql, { email: "uno@basquetpass.tv" });
+    const { profileId: second } = await seedActor(sql, { email: "dos@basquetpass.tv" });
+    const left = await seedPerson(sql, { full_name: "Ana Pérez", profile_id: first });
+    const right = await seedPerson(sql, { full_name: "Ana Perez", profile_id: second });
+
+    await expect(
+      mergeFichas(db, { personId: left, otherPersonId: right, actor: { profileId: actor } }),
+    ).rejects.toThrow("Las dos fichas tienen cuenta del portal");
+    const rows = await sql`SELECT deleted_at FROM people WHERE id IN (${left}, ${right})`;
+    expect(rows.every((row) => row.deleted_at === null)).toBe(true);
+  });
+
+  it("never archives a ficha with a cuenta on approval", async () => {
+    const { profileId: actor } = await seedActor(sql);
+    const { profileId: other } = await seedActor(sql, { email: "other@basquetpass.tv" });
+    const taken = await seedPerson(sql, { full_name: "Nico Gomez", profile_id: other });
+
+    await expect(
+      settleApplicant(db, { ...base, mergePersonId: taken, actor: { profileId: actor } }),
+    ).rejects.toThrow("tiene cuenta del portal");
   });
 });
