@@ -116,6 +116,14 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
         ilike(matchesTable.homeTeam, `%${term}%`),
         ilike(matchesTable.awayTeam, `%${term}%`),
         ilike(matchesTable.competition, `%${term}%`),
+        ilike(matchesTable.productionCode, `%${term}%`),
+        inArray(
+          matchesTable.ownerId,
+          db
+            .select({ id: peopleTable.id })
+            .from(peopleTable)
+            .where(ilike(peopleTable.fullName, `%${term}%`)),
+        ),
       )!,
     );
   }
