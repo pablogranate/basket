@@ -182,26 +182,26 @@ describe("findExistingAccount", () => {
 });
 
 describe("findMergeSuggestions", () => {
-  const linked = { id: "nino", fullName: "Nino Tolaba", email: "nino@gmail.com", profileId: null };
-  const grilla = { id: "rene", fullName: "Rene Nino Tolaba", email: null, profileId: null };
-  const conCuenta = { id: "otro", fullName: "Nino Tolaba", email: null, profileId: "cuenta" };
+  const linked = { id: "leo", fullName: "Leo Sosa", email: "leo@example.com", profileId: null };
+  const grilla = { id: "martin", fullName: "Martin Leo Sosa", email: null, profileId: null };
+  const conCuenta = { id: "otro", fullName: "Leo Sosa", email: null, profileId: "cuenta" };
 
   it("offers look-alike fichas without a cuenta even when the email linked one, never that one", () => {
     expect(
       findMergeSuggestions({
-        names: ["Nino Tolaba"],
+        names: ["Leo Sosa"],
         candidates: [linked, grilla, conCuenta],
-        excludeId: "nino",
+        excludeId: "leo",
       }).map((s) => s.id),
-    ).toEqual(["rene"]);
+    ).toEqual(["martin"]);
   });
 
   it("matches any of the names: the declared one or the linked ficha's", () => {
     expect(
       findMergeSuggestions({
-        names: ["N. Tolaba", "Nino Tolaba"],
+        names: ["L. Sosa", "Leo Sosa"],
         candidates: [grilla],
       }).map((s) => s.id),
-    ).toEqual(["rene"]);
+    ).toEqual(["martin"]);
   });
 });

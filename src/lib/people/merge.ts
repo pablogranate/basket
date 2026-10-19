@@ -48,8 +48,8 @@ function pairKey(a: string, b: string) {
 
 // Fichas with a Cuenta paired with the Cuenta-less fichas that look like the
 // same human: same email, or a name like the ones the approve modal suggests.
-// Typically a grilla name ("Rene Nino Tolaba") that kept the assignments while
-// the login was linked to another ficha ("Nino Tolaba"). A dismissed pair is
+// Typically a grilla name ("Martin Leo Sosa") that kept the assignments while
+// the login was linked to another ficha ("Leo Sosa"). A dismissed pair is
 // one an admin confirmed are two people: it is not offered again.
 export function findDuplicateFichas(
   fichas: MergeFicha[],

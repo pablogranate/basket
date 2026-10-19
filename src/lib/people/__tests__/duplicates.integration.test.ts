@@ -50,11 +50,11 @@ describe("duplicate fichas review (integration)", () => {
   }
 
   it("pairs a ficha with a cuenta with look-alike fichas without one, with their partidos", async () => {
-    const { profileId: cuenta } = await seedActor(sql, { email: "contacto.heavens@gmail.com" });
-    const linked = await seedPerson(sql, { full_name: "Nino Tolaba", profile_id: cuenta });
-    const grilla = await seedPerson(sql, { full_name: "Rene Nino Tolaba" });
+    const { profileId: cuenta } = await seedActor(sql, { email: "leo.sosa@example.com" });
+    const linked = await seedPerson(sql, { full_name: "Leo Sosa", profile_id: cuenta });
+    const grilla = await seedPerson(sql, { full_name: "Martin Leo Sosa" });
     await seedPerson(sql, { full_name: "Otra Persona" });
-    await seedPerson(sql, { full_name: "Rene Tolaba Viejo", deleted_at: "2026-01-01T00:00:00+00:00" });
+    await seedPerson(sql, { full_name: "Martin Sosa Viejo", deleted_at: "2026-01-01T00:00:00+00:00" });
     await seedAssignment(sql, grilla);
 
     const review = await getDuplicateReview(db);

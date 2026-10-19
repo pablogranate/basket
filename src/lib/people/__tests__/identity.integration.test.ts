@@ -288,13 +288,13 @@ describe("people identity (integration)", () => {
 
   it("fuses fichas by hand keeping the one with a cuenta, whichever was edited", async () => {
     const { profileId: actor } = await seedActor(sql);
-    const { profileId: cuenta } = await seedActor(sql, { email: "contacto.heavens@gmail.com" });
+    const { profileId: cuenta } = await seedActor(sql, { email: "leo.sosa@example.com" });
     const linked = await seedPerson(sql, {
-      full_name: "Nino Tolaba",
-      email: "contacto.heavens@gmail.com",
+      full_name: "Leo Sosa",
+      email: "leo.sosa@example.com",
       profile_id: cuenta,
     });
-    const grilla = await seedPerson(sql, { full_name: "Rene Nino Tolaba" });
+    const grilla = await seedPerson(sql, { full_name: "Martin Leo Sosa" });
     const role = await seedRole(sql, "Camara 1");
     const match = await seedMatch(sql, grilla);
     await sql`INSERT INTO assignments ${sql({ match_id: match, role_id: role, person_id: grilla })}`;
