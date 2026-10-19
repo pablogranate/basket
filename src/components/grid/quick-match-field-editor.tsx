@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 
 import { quickUpdateMatchFieldAction } from "@/app/actions/matches";
+import { Select } from "@/components/ui/select";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { cn } from "@/lib/utils";
 
@@ -105,20 +106,17 @@ export function QuickMatchFieldEditor({
                 <span className="mb-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--muted)]">
                   Selección
                 </span>
-                <div className="relative">
-                  <select
-                    name="value"
-                    defaultValue={value}
-                    className="h-11 w-full appearance-none rounded-xl border border-[var(--border)] bg-[var(--n-50)] px-3 pr-10 text-sm font-medium text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[rgba(227,27,35,0.12)]"
-                  >
-                    {(options ?? []).map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[var(--muted)]" />
-                </div>
+                <Select
+                  name="value"
+                  defaultValue={value}
+                  className="h-11 rounded-xl bg-[var(--n-50)] px-3 py-0 font-medium focus:ring-2 focus:ring-[rgba(227,27,35,0.12)]"
+                >
+                  {(options ?? []).map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </Select>
               </label>
             ) : (
               <label className="block">
