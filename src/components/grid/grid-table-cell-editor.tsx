@@ -9,6 +9,7 @@ import {
 } from "@/app/actions/matches";
 import { type PersonFunctionKey, peopleAssignableTo } from "@/lib/functions";
 import type { GridOwner } from "@/lib/types";
+import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 export type MatchCellEditor = {
@@ -126,9 +127,9 @@ export function GridTableCellEditor({
             name="confirmed"
             value={editor.confirmed ? "on" : ""}
           />
-          <select
+          <Select
             name="personId"
-            autoFocus
+            defaultOpen
             defaultValue={editor.personId}
             onKeyDown={handleKeyDown}
             onBlur={cancelEditing}
@@ -154,7 +155,7 @@ export function GridTableCellEditor({
                 {person.full_name}
               </option>
             ))}
-          </select>
+          </Select>
         </PendingFieldset>
       </form>
     );
@@ -167,9 +168,9 @@ export function GridTableCellEditor({
           <input type="hidden" name="matchId" value={matchId} />
           <input type="hidden" name="redirectTo" value={redirectTo} />
           <input type="hidden" name="field" value={editor.field} />
-          <select
+          <Select
             name="value"
-            autoFocus
+            defaultOpen
             defaultValue={editor.value}
             onKeyDown={handleKeyDown}
             onBlur={cancelEditing}
@@ -184,7 +185,7 @@ export function GridTableCellEditor({
                 {option.label}
               </option>
             ))}
-          </select>
+          </Select>
         </PendingFieldset>
       </form>
     );

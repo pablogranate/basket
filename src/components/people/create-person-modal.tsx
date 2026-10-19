@@ -3,7 +3,6 @@
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ChevronDown,
   FileText,
   ImagePlus,
   Save,
@@ -394,7 +393,7 @@ export function CreatePersonModal({
                                     )
                                   }
                                   disabled={!canEdit}
-                                  className={cn(fieldClassName, "appearance-none pr-10")}
+                                  className={fieldClassName}
                                 >
                                   {ACCESS_TIER_OPTIONS.map((option) => (
                                     <option key={option.value} value={option.value}>
@@ -402,7 +401,6 @@ export function CreatePersonModal({
                                     </option>
                                   ))}
                                 </Select>
-                                <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-[var(--n-400)]" />
                               </div>
                             ) : (
                               <div

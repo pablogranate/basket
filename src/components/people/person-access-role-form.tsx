@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 
 import { updatePersonAccessRoleAction } from "@/app/actions/people";
 import { Select } from "@/components/ui/select";
@@ -45,7 +45,7 @@ export function PersonAccessRoleForm({
             onChange={(event) =>
               setAccessRole(event.target.value as AccessTierValue)
             }
-            className="h-12 appearance-none rounded-[var(--panel-radius)] border-[var(--n-200)] bg-[var(--n-50)] pr-10 text-[15px] font-medium text-[var(--n-800)] shadow-[inset_0_2px_4px_rgba(28,13,16,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(227,27,35,0.08)]"
+            className="h-12 rounded-[var(--panel-radius)] border-[var(--n-200)] bg-[var(--n-50)] text-[15px] font-medium text-[var(--n-800)] shadow-[inset_0_2px_4px_rgba(28,13,16,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(227,27,35,0.08)]"
           >
             {ACCESS_TIER_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -53,7 +53,6 @@ export function PersonAccessRoleForm({
               </option>
             ))}
           </Select>
-          <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-[var(--n-400)]" />
         </div>
       </label>
 
