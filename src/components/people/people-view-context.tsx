@@ -86,7 +86,7 @@ function resolveRows(
 
   const filterKey = JSON.stringify([
     filters.role,
-    filters.state,
+    filters.access,
     filters.city,
     filters.team,
     query,
@@ -149,11 +149,11 @@ export function usePeopleView(): {
 
   const allPeople = use(context.peoplePromise);
   const searchParams = useSearchParams();
-  const { role, state, city, team } = parsePeopleFilters(searchParams);
+  const { role, access, city, team } = parsePeopleFilters(searchParams);
   const query = searchParams.get("q")?.trim() ?? "";
   const filters = useMemo(
-    () => ({ role, state, city, team }),
-    [role, state, city, team],
+    () => ({ role, access, city, team }),
+    [role, access, city, team],
   );
 
   return {

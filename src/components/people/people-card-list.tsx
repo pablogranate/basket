@@ -8,6 +8,7 @@ import {
   getInitials,
   getWhatsAppHref,
 } from "@/components/people/people-view-helpers";
+import { PersonAccessBadge } from "@/components/people/person-access-badge";
 import { PersonActiveToggle } from "@/components/people/person-active-toggle";
 import type { PersonView } from "@/components/people/people-view-context";
 import { cn } from "@/lib/utils";
@@ -73,6 +74,10 @@ export const PeopleCardList = memo(function PeopleCardList({
                 </div>
 
                 <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <PersonAccessBadge
+                    access={person.portal_access}
+                    className="h-9 px-3"
+                  />
                   <span
                     title={cityIndicator.label}
                     className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[var(--n-100)] px-3 text-xs font-semibold text-[var(--n-600)]"

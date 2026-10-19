@@ -3,6 +3,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import {
   getPortalAccess,
   grantPortalRole,
+  listPortalRolesByUser,
   revokePortalRole,
 } from "@/lib/acceso/portal";
 import { PORTAL_ADMIN_ROLE, PORTAL_ROLE_RANK } from "@/lib/roles";
@@ -62,5 +63,21 @@ describe("portal Acceso (integration)", () => {
     await sql`UPDATE auth_user SET role = 'superadmin' WHERE id = ${boss}`;
 
     expect(await getPortalAccess(boss)).toEqual({ role: "admin", superAdmin: true });
+  });
+
+  it("lists every portal role in one read, super admins included, revoked left out", async () => {
+    const ana = await seedAuthUser(sql, { email: "ana@basquetpass.tv" });
+    const beto = await seedAuthUser(sql, { email: "beto@basquetpass.tv" });
+    const boss = await seedAuthUser(sql, { email: "boss@basquetpass.tv" });
+    await sql`UPDATE auth_user SET role = 'superadmin' WHERE id = ${boss}`;
+
+    await grantPortalRole({ userId: ana, role: "editor", grantedBy: null });
+    await grantPortalRole({ userId: beto, role: "collaborator", grantedBy: null });
+    await revokePortalRole(beto, null);
+
+    const roles = await listPortalRolesByUser();
+    expect(roles.get(ana)).toBe("editor");
+    expect(roles.get(boss)).toBe("admin");
+    expect(roles.has(beto)).toBe(false);
   });
 });

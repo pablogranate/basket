@@ -1,4 +1,5 @@
 import type {
+  AppRole,
   AssignmentRow,
   AuditRow,
   Database,
@@ -21,8 +22,18 @@ export type PersonTeamLink = {
   name: string;
 };
 
+// A ficha's standing in the portal: its Cuenta's portal role, "revocado" for a
+// Cuenta without a portal Acceso, "sin-cuenta" for a ficha nobody logs in as,
+// and "desconocido" when the Auth DB could not be read.
+export type PersonPortalAccess =
+  | AppRole
+  | "revocado"
+  | "sin-cuenta"
+  | "desconocido";
+
 export type PersonListItem = PersonRow & {
   assignment_state: "En asignacion" | "Disponible" | "Inactivo";
+  portal_access: PersonPortalAccess;
   current_assignment_count: number;
   functions: PersonFunctionKey[];
   teams: PersonTeamLink[];

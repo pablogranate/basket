@@ -3,6 +3,7 @@ import "server-only";
 import {
   getEffectiveAccess,
   grantRole,
+  listEffectiveAccessForApp,
   revokeRole,
 } from "@/lib/acceso/accesos";
 import type { AppRole } from "@/lib/database.types";
@@ -33,6 +34,21 @@ export async function getPortalAccess(
   }
 
   return { role: access.role, superAdmin: access.viaSuperadmin };
+}
+
+// Portal role per identity id. Throws on an Auth DB failure, like
+// getPortalAccess.
+export async function listPortalRolesByUser(): Promise<Map<string, AppRole>> {
+  const rows = await listEffectiveAccessForApp(PORTAL_APP);
+  const roles = new Map<string, AppRole>();
+
+  for (const row of rows) {
+    if (isAppRole(row.role)) {
+      roles.set(row.userId, row.role);
+    }
+  }
+
+  return roles;
 }
 
 export async function grantPortalRole(

@@ -47,6 +47,17 @@ export async function listEffectiveAccessForUser(
     .where(eq(authEffectiveAccess.userId, userId));
 }
 
+// Every identity that may enter one app, super admins included, for lists that
+// show access per person without a query per row.
+export async function listEffectiveAccessForApp(
+  app: string,
+): Promise<EffectiveAccess[]> {
+  return authDb
+    .select()
+    .from(authEffectiveAccess)
+    .where(eq(authEffectiveAccess.app, app));
+}
+
 export type RoleGrant = {
   userId: string;
   app: string;

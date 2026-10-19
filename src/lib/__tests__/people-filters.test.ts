@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { buildPersonNotesMeta } from "@/lib/people-notes";
 import {
+  ACCESS_ANY_ROLE,
   EMPTY_PEOPLE_FILTERS,
-  STATE_HIDE_INACTIVE,
   UNASSIGNED_OPTION,
   applyPeopleFilters,
   derivePeopleFilterOptions,
@@ -19,6 +19,7 @@ type PersonInput = {
   city?: string;
   coverage?: string;
   state?: PersonListItem["assignment_state"];
+  access?: PersonListItem["portal_access"];
   active?: boolean;
   phone?: string | null;
   email?: string | null;
@@ -33,6 +34,7 @@ function makePerson(input: PersonInput): PersonListItem {
     id: input.id ?? `p-${counter}`,
     full_name: input.name,
     assignment_state: input.state ?? "Disponible",
+    portal_access: input.access ?? "sin-cuenta",
     active: input.active ?? true,
     phone: input.phone ?? null,
     email: input.email ?? null,
@@ -53,6 +55,7 @@ const PEOPLE: PersonListItem[] = [
     city: "Bogotá",
     coverage: "Boca Juniors, River Plate",
     state: "En asignacion",
+    access: "editor",
   }),
   makePerson({
     name: "Juan Camilo",
@@ -60,6 +63,7 @@ const PEOPLE: PersonListItem[] = [
     city: "bogota",
     coverage: "Boca Juniors",
     state: "Disponible",
+    access: "collaborator",
   }),
   makePerson({
     name: "Samuel Venegas",
@@ -68,6 +72,7 @@ const PEOPLE: PersonListItem[] = [
     coverage: "Independiente",
     state: "Inactivo",
     active: false,
+    access: "revocado",
   }),
   makePerson({
     name: "Persona Sin Datos",
@@ -79,23 +84,24 @@ describe("parsePeopleFilters", () => {
     expect(parsePeopleFilters({})).toEqual(EMPTY_PEOPLE_FILTERS);
   });
 
-  it("passes through free-text facets and a valid state", () => {
+  it("passes through free-text facets and a valid access", () => {
     const filters = parsePeopleFilters({
       role: "Relator",
-      state: "En asignacion",
+      access: "editor",
       city: "Bogotá",
       team: "Boca Juniors",
     });
     expect(filters).toEqual({
       role: "Relator",
-      state: "En asignacion",
+      access: "editor",
       city: "Bogotá",
       team: "Boca Juniors",
     });
   });
 
-  it("drops an unknown state back to empty", () => {
-    expect(parsePeopleFilters({ state: "Vacaciones" }).state).toBe("");
+  it("drops an unknown access back to empty", () => {
+    expect(parsePeopleFilters({ access: "desconocido" }).access).toBe("");
+    expect(parsePeopleFilters({ access: "superadmin" }).access).toBe("");
   });
 
   it("trims values", () => {
@@ -114,7 +120,7 @@ describe("parsePeopleFilters", () => {
     const params = new URLSearchParams({
       q: "cordoba",
       role: "  Relator  ",
-      state: "Vacaciones",
+      access: "Vacaciones",
       city: " Bogotá ",
       team: "Boca Juniors",
     });
@@ -123,14 +129,14 @@ describe("parsePeopleFilters", () => {
       parsePeopleFilters({
         q: "cordoba",
         role: "  Relator  ",
-        state: "Vacaciones",
+        access: "Vacaciones",
         city: " Bogotá ",
         team: "Boca Juniors",
       }),
     );
     expect(parsePeopleFilters(params)).toEqual({
       role: "Relator",
-      state: "",
+      access: "",
       city: "Bogotá",
       team: "Boca Juniors",
     });
@@ -156,26 +162,40 @@ describe("applyPeopleFilters", () => {
     expect(result.map((p) => p.full_name)).toEqual(["Santiago Cordoba"]);
   });
 
-  it("matches Estado against the derived assignment_state", () => {
+  it("narrows by one portal role", () => {
     const result = applyPeopleFilters({
       people: PEOPLE,
-      filters: { ...EMPTY_PEOPLE_FILTERS, state: "Inactivo" },
+      filters: { ...EMPTY_PEOPLE_FILTERS, access: "editor" },
       query: "",
     });
-    expect(result.map((p) => p.full_name)).toEqual(["Samuel Venegas"]);
+    expect(result.map((p) => p.full_name)).toEqual(["Santiago Cordoba"]);
   });
 
-  it("excludes Inactivo people for the STATE_HIDE_INACTIVE option, keeping the rest", () => {
+  it("matches any portal role for ACCESS_ANY_ROLE, leaving out fichas without one", () => {
     const result = applyPeopleFilters({
       people: PEOPLE,
-      filters: { ...EMPTY_PEOPLE_FILTERS, state: STATE_HIDE_INACTIVE },
+      filters: { ...EMPTY_PEOPLE_FILTERS, access: ACCESS_ANY_ROLE },
       query: "",
     });
-    expect(result.every((p) => p.assignment_state !== "Inactivo")).toBe(true);
-    expect(result.map((p) => p.full_name)).not.toContain("Samuel Venegas");
-    expect(result).toHaveLength(
-      PEOPLE.filter((p) => p.assignment_state !== "Inactivo").length,
-    );
+    expect(result.map((p) => p.full_name).sort()).toEqual([
+      "Juan Camilo",
+      "Santiago Cordoba",
+    ]);
+  });
+
+  it("tells a revoked Cuenta apart from a ficha without one", () => {
+    const revoked = applyPeopleFilters({
+      people: PEOPLE,
+      filters: { ...EMPTY_PEOPLE_FILTERS, access: "revocado" },
+      query: "",
+    });
+    const fichaOnly = applyPeopleFilters({
+      people: PEOPLE,
+      filters: { ...EMPTY_PEOPLE_FILTERS, access: "sin-cuenta" },
+      query: "",
+    });
+    expect(revoked.map((p) => p.full_name)).toEqual(["Samuel Venegas"]);
+    expect(fichaOnly.map((p) => p.full_name)).toEqual(["Persona Sin Datos"]);
   });
 
   it("matches Ciudad across casing/accent variants", () => {

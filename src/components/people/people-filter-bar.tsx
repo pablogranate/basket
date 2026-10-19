@@ -8,14 +8,11 @@ import { cn } from "@/lib/utils";
 
 import { SERVER_RENDERED_PEOPLE_PARAMS } from "@/components/people/people-redirect-to";
 import { Select } from "@/components/ui/select";
-import { getAssignmentStateDisplayName } from "@/lib/display";
 import {
-  STATE_FILTER_VALUES,
-  STATE_HIDE_INACTIVE,
+  ACCESS_FILTER_OPTIONS,
   type PeopleFilterOptions,
   type PeopleFilters,
 } from "@/lib/people-filters";
-import type { PersonListItem } from "@/lib/types";
 
 type PeopleFilterBarProps = {
   filters: PeopleFilters;
@@ -23,7 +20,7 @@ type PeopleFilterBarProps = {
   query: string;
 };
 
-const FILTER_KEYS = ["role", "state", "city", "team"] as const;
+const FILTER_KEYS = ["role", "access", "city", "team"] as const;
 
 // Selects used to `router.push`, so every filter change re-ran getPeopleData and
 // re-serialized the whole list server-side. The list is already on the client,
@@ -98,18 +95,10 @@ export function PeopleFilterBar({
         onChange={(value) => handleChange("role", value)}
       />
       <FilterSelect
-        label="Estado"
-        value={filters.state}
-        options={[
-          ...STATE_FILTER_VALUES.map((state) => ({
-            value: state,
-            label: getAssignmentStateDisplayName(
-              state as PersonListItem["assignment_state"],
-            ),
-          })),
-          { value: STATE_HIDE_INACTIVE, label: "Ocultar inactivos" },
-        ]}
-        onChange={(value) => handleChange("state", value)}
+        label="Acceso"
+        value={filters.access}
+        options={ACCESS_FILTER_OPTIONS}
+        onChange={(value) => handleChange("access", value)}
       />
       <FilterSelect
         label="Ciudad"
@@ -127,7 +116,7 @@ export function PeopleFilterBar({
         <button
           type="button"
           onClick={() =>
-            navigate(buildHref({ role: "", state: "", city: "", team: "" }))
+            navigate(buildHref({ role: "", access: "", city: "", team: "" }))
           }
           className="col-span-2 inline-flex h-11 items-center justify-center gap-1.5 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-semibold text-[var(--n-500)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)] sm:col-span-1 sm:justify-start"
         >

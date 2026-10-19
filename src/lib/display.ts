@@ -3,7 +3,7 @@ import {
   RESPONSIBLE_DISPLAY_LABEL,
 } from "@/lib/constants";
 import type { AppRole } from "@/lib/database.types";
-import { APP_ROLE_LABELS } from "@/lib/roles";
+import { APP_ROLE_LABELS, isAppRole } from "@/lib/roles";
 import type { PersonListItem } from "@/lib/types";
 
 const ROLE_DISPLAY_NAMES: Record<string, string> = {
@@ -75,6 +75,20 @@ export function getAssignmentStateDisplayName(
   value: PersonListItem["assignment_state"],
 ) {
   return ASSIGNMENT_STATE_DISPLAY_NAMES[value] ?? value;
+}
+
+const PORTAL_ACCESS_STATE_DISPLAY_NAMES = {
+  revocado: "Acceso revocado",
+  "sin-cuenta": "Solo ficha",
+  desconocido: "Sin dato",
+} as const;
+
+export function getPortalAccessDisplayName(
+  value: PersonListItem["portal_access"],
+) {
+  return isAppRole(value)
+    ? APP_ROLE_LABELS[value]
+    : PORTAL_ACCESS_STATE_DISPLAY_NAMES[value];
 }
 
 export function getFunctionDisplayName(value?: string | null) {

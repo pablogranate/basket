@@ -1,42 +1,41 @@
 import {
   getAssignmentStateDisplayName,
   getFunctionDisplayName,
+  getPortalAccessDisplayName,
 } from "@/lib/display";
 import { PERSON_FUNCTIONS } from "@/lib/functions";
 import { parsePersonNotesMeta } from "@/lib/people-notes";
+import { ACCESS_TIER_OPTIONS, isAppRole } from "@/lib/roles";
 import { personCoverageNames } from "@/lib/team-responsibles";
 import type { PersonListItem } from "@/lib/types";
 import { normalizeText } from "@/lib/utils";
 
 export type PeopleFilters = {
   role: string;
-  state: string;
+  access: string;
   city: string;
   team: string;
 };
 
 export const EMPTY_PEOPLE_FILTERS: PeopleFilters = {
   role: "",
-  state: "",
+  access: "",
   city: "",
   team: "",
 };
 
-// Raw `assignment_state` values (unaccented), not their display labels.
-export const STATE_FILTER_VALUES = [
-  "En asignacion",
-  "Disponible",
-  "Inactivo",
-] as const;
+// Acceso options: any portal role, one role, or one of the no-login states.
+// "desconocido" is not offered: it only means the Auth DB was down.
+export const ACCESS_ANY_ROLE = "con-acceso";
 
-// Sentinel Estado option: matches everyone except Inactivo (i.e. both
-// Disponible and En asignación). Not a real `assignment_state`.
-export const STATE_HIDE_INACTIVE = "sin-inactivos";
+export const ACCESS_FILTER_OPTIONS: { value: string; label: string }[] = [
+  { value: ACCESS_ANY_ROLE, label: "Con acceso (cualquier nivel)" },
+  ...[...ACCESS_TIER_OPTIONS].reverse(),
+  { value: "revocado", label: getPortalAccessDisplayName("revocado") },
+  { value: "sin-cuenta", label: getPortalAccessDisplayName("sin-cuenta") },
+];
 
-const STATE_FILTER_ALLOWED = [
-  ...STATE_FILTER_VALUES,
-  STATE_HIDE_INACTIVE,
-] as const;
+const ACCESS_FILTER_ALLOWED = ACCESS_FILTER_OPTIONS.map(({ value }) => value);
 
 // Sentinel option matching people whose role/city/team field is blank.
 export const UNASSIGNED_OPTION = "(Sin asignar)";
@@ -68,14 +67,14 @@ function pickEnum(value: string, allowed: readonly string[]): string {
 export function parsePeopleFilters(params: RawSearchParams): PeopleFilters {
   return {
     role: getParam(params, "role"),
-    state: pickEnum(getParam(params, "state"), STATE_FILTER_ALLOWED),
+    access: pickEnum(getParam(params, "access"), ACCESS_FILTER_ALLOWED),
     city: getParam(params, "city"),
     team: getParam(params, "team"),
   };
 }
 
 export function hasActivePeopleFilters(filters: PeopleFilters): boolean {
-  return Boolean(filters.role || filters.state || filters.city || filters.team);
+  return Boolean(filters.role || filters.access || filters.city || filters.team);
 }
 
 // Funciones (the person_functions relation) are the only role source. A person
@@ -132,12 +131,12 @@ export function applyPeopleFilters({
       }
     }
 
-    if (filters.state) {
-      if (filters.state === STATE_HIDE_INACTIVE) {
-        if (person.assignment_state === "Inactivo") {
+    if (filters.access) {
+      if (filters.access === ACCESS_ANY_ROLE) {
+        if (!isAppRole(person.portal_access)) {
           return false;
         }
-      } else if (person.assignment_state !== filters.state) {
+      } else if (person.portal_access !== filters.access) {
         return false;
       }
     }

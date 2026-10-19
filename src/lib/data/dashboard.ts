@@ -15,6 +15,7 @@ import {
   type SQL,
 } from "drizzle-orm";
 
+import { listPortalRolesByUser } from "@/lib/acceso/portal";
 import { ROLE_CATEGORY_ORDER } from "@/lib/constants";
 import {
   isPersonFunctionKey,
@@ -54,6 +55,7 @@ import type {
   MatchDetail,
   MatchListItem,
   PersonListItem,
+  PersonPortalAccess,
 } from "@/lib/types";
 
 export type GridFilters = {
@@ -531,8 +533,14 @@ export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]>
     .select({ id: peopleTable.id })
     .from(peopleTable)
     .where(isNull(peopleTable.deletedAt));
-  const [peopleData, assignmentsData, functionsData, teamsData] =
-    await Promise.all([
+  const [
+    peopleData,
+    assignmentsData,
+    functionsData,
+    teamsData,
+    cuentasData,
+    portalRoles,
+  ] = await Promise.all([
       db
         .select(peopleColumns)
         .from(peopleTable)
@@ -570,7 +578,38 @@ export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]>
         .from(peopleTeamsTable)
         .innerJoin(teamsTable, eq(peopleTeamsTable.teamId, teamsTable.id))
         .where(inArray(peopleTeamsTable.personId, listedPeopleIds)),
+      db
+        .select({
+          person_id: peopleTable.id,
+          auth_user_id: profilesTable.authUserId,
+        })
+        .from(peopleTable)
+        .innerJoin(profilesTable, eq(peopleTable.profileId, profilesTable.id))
+        .where(isNull(peopleTable.deletedAt)),
+      // The Acceso column degrades to "desconocido" rather than taking the
+      // whole list down with the Auth DB.
+      listPortalRolesByUser().catch((error: unknown) => {
+        console.error("[people] failed to load portal accesos", error);
+        return null;
+      }),
     ]);
+
+  const authUserIdByPerson = new Map<string, string | null>(
+    cuentasData.map((row) => [row.person_id, row.auth_user_id]),
+  );
+
+  function resolvePortalAccess(personId: string): PersonPortalAccess {
+    if (!authUserIdByPerson.has(personId)) {
+      return "sin-cuenta";
+    }
+
+    if (!portalRoles) {
+      return "desconocido";
+    }
+
+    const authUserId = authUserIdByPerson.get(personId);
+    return (authUserId && portalRoles.get(authUserId)) || "revocado";
+  }
 
   const functionsByPerson = new Map<string, PersonFunctionKey[]>();
 
@@ -625,6 +664,7 @@ export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]>
     return {
       ...person,
       assignment_state: assignmentState,
+      portal_access: resolvePortalAccess(person.id),
       current_assignment_count: currentAssignmentCount,
       functions: functionsByPerson.get(person.id) ?? [],
       teams: teamsByPerson.get(person.id) ?? [],

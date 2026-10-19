@@ -7,6 +7,7 @@ import {
   type PersonView,
 } from "@/components/people/people-view-context";
 import { getToolbarIconButtonClassName } from "@/components/ui/toolbar-icon-button";
+import { getPortalAccessDisplayName } from "@/lib/display";
 
 function buildCsv(rows: PersonView[]) {
   const table = [
@@ -18,6 +19,7 @@ function buildCsv(rows: PersonView[]) {
       "Teléfono",
       "Email",
       "Estado",
+      "Acceso",
       "Notas",
     ],
     ...rows.map((row) => [
@@ -29,6 +31,7 @@ function buildCsv(rows: PersonView[]) {
       row.person.phone ?? "",
       row.person.email ?? "",
       row.person.assignment_state,
+      getPortalAccessDisplayName(row.person.portal_access),
       row.notes,
     ]),
   ];

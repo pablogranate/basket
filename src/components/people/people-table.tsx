@@ -8,6 +8,7 @@ import {
   getInitials,
   getWhatsAppHref,
 } from "@/components/people/people-view-helpers";
+import { PersonAccessBadge } from "@/components/people/person-access-badge";
 import { PersonActiveToggle } from "@/components/people/person-active-toggle";
 import type { PersonView } from "@/components/people/people-view-context";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,7 @@ type PeopleTableColumn =
   | "phone"
   | "email"
   | "city"
+  | "access"
   | "status";
 
 const PEOPLE_TABLE_COLUMNS_STORAGE_KEY =
@@ -30,6 +32,7 @@ const DEFAULT_PEOPLE_TABLE_COLUMNS: PeopleTableColumn[] = [
   "phone",
   "email",
   "city",
+  "access",
   "status",
 ];
 
@@ -169,6 +172,12 @@ function renderCell(
               </p>
             </div>
           </div>
+        </td>
+      );
+    case "access":
+      return (
+        <td key={column} className={cellClassName}>
+          <PersonAccessBadge access={person.portal_access} />
         </td>
       );
     case "status":
@@ -321,6 +330,8 @@ export function PeopleTable({
             ? "Correo"
           : column === "city"
             ? "Ciudad"
+          : column === "access"
+            ? "Acceso"
           : column === "status"
             ? "Estado"
             : "";
