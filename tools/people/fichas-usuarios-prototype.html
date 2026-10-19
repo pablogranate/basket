@@ -1,0 +1,352 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway. Question: how should /people tell fichas (people to assign) apart from
+  usuarios (fichas with a Cuenta and a portal Acceso) without opening a ficha?
+  Three variants, switchable via ?variant=A|B|C (floating bar at the bottom, or ← / → keys):
+    A — Tabs (Todos / Con acceso / Sin acceso / Solo ficha) + an "Acceso" column with a chip.
+    B — One more "Acceso" select in the existing filter bar + a small chip next to the name.
+    C — Grouped list: three collapsible sections, stat cards double as quick filters.
+  Data is fake. "Ver como" in the bar simulates a viewer without access.manage (no access info shown).
+-->
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Personal prototipo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --accent: #e31b23; --accent-soft: #fff0f1; --accent-border: #f4cdcf; --accent-strong: #c0141b;
+    --n-50: #faf9f8; --n-100: #f4f2f1; --n-200: #e7e4e2; --n-300: #d6d1ce; --n-400: #a8a09d;
+    --n-500: #847b78; --n-600: #6b615f; --n-700: #4a423f; --n-800: #2e2826; --n-900: #1c0d10;
+    --navy: #07122b; --navy-item: #0d1731; --navy-line: #10203f; --navy-text: #9eb0cc; --navy-hover: #132347;
+    --ok: #1f7a4d; --ok-soft: #eaf6ef; --ok-border: #bfe3cf;
+    --info: #315e9d; --info-soft: #eef4ff; --info-border: #dbe6f6;
+    --surface: #fff; --border: var(--n-200); --panel-radius: 10px;
+    --shadow-rest: 0 1px 2px rgba(28,13,16,.04), 0 1px 3px rgba(28,13,16,.06);
+    --shadow-lift: 0 10px 30px rgba(28,13,16,.1);
+    --page-canvas: #f6f4f3;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Poppins, system-ui, sans-serif; color: var(--n-900); background: var(--page-canvas); font-size: 14px; }
+  button, input, select { font: inherit; color: inherit; }
+  .shell { display: flex; min-height: 100vh; }
+  .side { width: 220px; background: var(--navy); color: var(--navy-text); padding: 20px 12px; flex-shrink: 0; }
+  .side .logo { color: #fff; font-family: Oswald; font-weight: 700; font-size: 20px; padding: 0 10px 18px; letter-spacing: .02em; }
+  .side a { display: block; padding: 9px 12px; border-radius: 8px; color: var(--navy-text); text-decoration: none; font-size: 13px; font-weight: 500; }
+  .side a.on { background: var(--navy-hover); color: #fff; }
+  main { flex: 1; min-width: 0; padding: 28px 32px 120px; }
+  @media (max-width: 760px) { .side { display: none; } main { padding: 18px 16px 120px; } }
+  .eyebrow { font-size: 10px; font-weight: 900; letter-spacing: .2em; text-transform: uppercase; color: var(--accent); }
+  h1 { font-size: 2rem; font-weight: 800; letter-spacing: -.04em; margin: 4px 0 4px; }
+  .lead { color: var(--n-500); margin: 0 0 24px; }
+  .head { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 24px; }
+  .search { height: 44px; border: 1px solid var(--border); border-radius: var(--panel-radius); background: #fff; padding: 0 14px; min-width: 240px; }
+  .btn { height: 44px; padding: 0 18px; border-radius: var(--panel-radius); border: 0; background: var(--accent); color: #fff; font-weight: 700; cursor: pointer; }
+  .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 24px; }
+  @media (max-width: 900px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+  .stat { border: 1px solid var(--border); background: #fff; border-radius: var(--panel-radius); padding: 14px 18px; text-align: left; }
+  .stat .l { font-size: 10px; font-weight: 900; letter-spacing: .18em; text-transform: uppercase; color: var(--n-400); }
+  .stat .v { font-family: Oswald; font-size: 2rem; font-weight: 700; line-height: 1; margin-top: 10px; }
+  .stat.ok { border-color: #d9efe3; background: #f4fbf7; color: #177245; }
+  .stat.danger { border-color: #f1d3da; background: #fff5f7; color: #b42343; }
+  .stat.info { border-color: var(--info-border); background: #f7faff; color: var(--info); }
+  button.stat { cursor: pointer; font: inherit; transition: box-shadow .15s, border-color .15s; }
+  button.stat:hover { box-shadow: var(--shadow-lift); }
+  button.stat.sel { outline: 2px solid var(--n-900); outline-offset: -2px; }
+  .filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 16px; }
+  .filters label { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 160px; }
+  .filters label span { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--n-400); }
+  .filters select { height: 44px; border: 1px solid var(--border); border-radius: var(--panel-radius); background: #fff; padding: 0 12px; }
+  .filters label.new select { border-color: var(--accent-border); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .filters label.new span::after { content: " · nuevo"; color: var(--accent); }
+  .card { background: #fff; border: 1px solid var(--border); border-radius: var(--panel-radius); box-shadow: var(--shadow-rest); overflow: hidden; }
+  .card-head { display: flex; justify-content: space-between; align-items: center; padding: 18px 24px; border-bottom: 1px solid var(--n-100); gap: 12px; flex-wrap: wrap; }
+  .card-head h2 { margin: 0; font-size: 16px; font-weight: 800; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; border: 1px solid var(--n-200); background: var(--n-100); padding: 4px 12px; font-size: 12px; font-weight: 700; color: var(--n-600); }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 10px; font-weight: 900; letter-spacing: .16em; text-transform: uppercase; color: var(--n-400); padding: 12px 24px; background: var(--n-50); border-bottom: 1px solid var(--n-100); white-space: nowrap; }
+  td { padding: 14px 24px; border-bottom: 1px solid var(--n-100); vertical-align: middle; }
+  tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: var(--n-50); }
+  .who { display: flex; align-items: center; gap: 12px; }
+  .av { width: 40px; height: 40px; border-radius: 999px; border: 1px solid var(--border); background: var(--n-100); display: grid; place-items: center; font-weight: 800; font-size: 13px; color: var(--n-600); flex-shrink: 0; position: relative; }
+  .av.has { border-color: var(--ok-border); background: var(--ok-soft); color: var(--ok); }
+  .av .dot { position: absolute; right: -2px; bottom: -2px; width: 16px; height: 16px; border-radius: 999px; background: var(--ok); border: 2px solid #fff; display: grid; place-items: center; color: #fff; font-size: 9px; }
+  .name { font-weight: 800; }
+  .sub { font-size: 12px; color: var(--n-500); }
+  .muted { color: var(--n-500); font-size: 13px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 700; border: 1px solid; white-space: nowrap; }
+  .chip.admin { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .chip.productor { background: var(--info-soft); color: var(--info); border-color: var(--info-border); }
+  .chip.externo { background: var(--ok-soft); color: var(--ok); border-color: var(--ok-border); }
+  .chip.revocado { background: var(--n-100); color: var(--n-500); border-color: var(--n-200); text-decoration: line-through; }
+  .chip.ficha { background: transparent; color: var(--n-400); border-color: var(--n-200); border-style: dashed; }
+  .chip.sm { padding: 1px 7px; font-size: 10px; letter-spacing: .04em; }
+  .toggle { width: 40px; height: 22px; border-radius: 999px; background: var(--n-200); position: relative; display: inline-block; }
+  .toggle::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 999px; background: #fff; }
+  .toggle.on { background: var(--ok); } .toggle.on::after { left: 20px; }
+  .tabs { display: inline-flex; gap: 4px; padding: 4px; background: var(--n-100); border-radius: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tabs button { border: 0; background: transparent; padding: 9px 16px; border-radius: 9px; font-weight: 700; color: var(--n-500); cursor: pointer; display: inline-flex; gap: 8px; align-items: center; }
+  .tabs button .n { font-size: 11px; background: var(--n-200); color: var(--n-600); padding: 1px 7px; border-radius: 999px; }
+  .tabs button.on { background: #fff; color: var(--n-900); box-shadow: var(--shadow-rest); }
+  .tabs button.on .n { background: var(--accent); color: #fff; }
+  .group-h { display: flex; align-items: center; gap: 12px; padding: 14px 24px; background: var(--n-50); border-bottom: 1px solid var(--n-100); cursor: pointer; user-select: none; }
+  .group-h .t { font-weight: 800; }
+  .group-h .d { font-size: 12px; color: var(--n-500); flex: 1; }
+  .group-h .car { color: var(--n-400); transition: transform .15s; }
+  .group-h.closed .car { transform: rotate(-90deg); }
+  .group-h .ic { width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; font-size: 15px; }
+  .empty { padding: 40px; text-align: center; color: var(--n-500); }
+  .cards-m { display: none; }
+  @media (max-width: 760px) {
+    table.big { display: none; }
+    .cards-m { display: block; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+  }
+  .mc { display: flex; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--n-100); align-items: center; }
+  .mc:last-child { border-bottom: 0; }
+  .mc .grow { flex: 1; min-width: 0; }
+  .hint { margin: 0 0 16px; font-size: 12px; color: var(--n-500); background: #fff; border: 1px dashed var(--n-300); border-radius: 8px; padding: 8px 12px; }
+  .hint b { color: var(--n-800); }
+  /* prototype chrome */
+  .proto { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 50; display: flex; align-items: center; gap: 10px; background: #111; color: #fff; border-radius: 999px; padding: 8px 10px; box-shadow: 0 12px 40px rgba(0,0,0,.35); font-size: 13px; max-width: calc(100vw - 24px); flex-wrap: wrap; justify-content: center; }
+  .proto button { background: #2a2a2a; color: #fff; border: 0; border-radius: 999px; height: 32px; min-width: 32px; padding: 0 10px; cursor: pointer; font-weight: 700; }
+  .proto button:hover { background: #3a3a3a; }
+  .proto .lab { padding: 0 6px; font-weight: 600; white-space: nowrap; }
+  .proto .sep { width: 1px; height: 20px; background: #444; }
+  .proto button.on { background: #e31b23; }
+  .state { position: fixed; right: 16px; top: 16px; z-index: 50; background: #111; color: #9f9; font: 11px/1.5 ui-monospace, monospace; padding: 8px 12px; border-radius: 8px; opacity: .85; max-width: 280px; white-space: pre-wrap; }
+  @media (max-width: 760px) { .state { display: none; } }
+</style>
+</head>
+<body>
+<div class="shell">
+  <nav class="side">
+    <div class="logo">BASKET·APP</div>
+    <a href="#">Grilla</a><a href="#">Mi jornada</a><a href="#">Incidencias</a><a href="#">Equipos</a>
+    <a href="#" class="on">Personal</a><a href="#">Funciones</a><a href="#">Configuración</a>
+  </nav>
+  <main id="app"></main>
+</div>
+<pre class="state" id="state"></pre>
+<div class="proto">
+  <button id="prev" title="Variante anterior (←)">←</button>
+  <span class="lab" id="vlab"></span>
+  <button id="next" title="Variante siguiente (→)">→</button>
+  <span class="sep"></span>
+  <span class="lab">Ver como</span>
+  <button id="asAdmin">Admin</button>
+  <button id="asViewer">Sin access.manage</button>
+</div>
+
+<script>
+const FUNCS = ["Relator", "Comentarista", "Productor", "Cámara", "Gráfica"];
+const CITIES = ["Buenos Aires", "Córdoba", "Rosario", "Mar del Plata", "Bahía Blanca"];
+const CLUBS = ["Ferro", "Boca", "Obras", "Quimsa", "Instituto", "Peñarol", "Regatas", "San Lorenzo"];
+// access: null = solo ficha (sin cuenta); "revocado" = cuenta sin Acceso; else Acceso tier
+const RAW = [
+  ["Agustina Ferreyra", "Productor", "admin"], ["Bruno Castañeda", "Relator", null], ["Camila Ríos", "Cámara", "externo"],
+  ["Diego Altamirano", "Comentarista", null], ["Elena Ojeda", "Gráfica", "externo"], ["Facundo Medina", "Productor", "productor"],
+  ["Gonzalo Paz", "Cámara", null], ["Hernán Quiroga", "Relator", "externo"], ["Inés Bustos", "Productor", "productor"],
+  ["Julián Sosa", "Cámara", "revocado"], ["Karina Vega", "Comentarista", null], ["Lucas Benítez", "Cámara", null],
+  ["Martina Godoy", "Gráfica", "externo"], ["Nicolás Herrera", "Relator", null], ["Oriana Luna", "Productor", "admin"],
+  ["Pablo Molina", "Cámara", "externo"], ["Rocío Maidana", "Relator", "revocado"], ["Santiago Funes", "Comentarista", null],
+  ["Tomás Arce", "Cámara", null], ["Valentina Ruiz", "Productor", "externo"], ["Walter Domínguez", "Relator", null],
+  ["Ximena Correa", "Cámara", "externo"], ["Yamil Robledo", "Gráfica", null], ["Zoe Carrizo", "Comentarista", "productor"],
+];
+const PEOPLE = RAW.map(([name, fn, access], i) => ({
+  id: "p" + i, name, fn, access,
+  phone: i % 5 === 3 ? null : `+54 9 11 ${String(4000 + i * 137).slice(0, 4)}-${String(1000 + i * 71).slice(0, 4)}`,
+  email: access ? name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(" ", ".") + "@mail.com" : (i % 3 === 0 ? null : name.split(" ")[0].toLowerCase() + "@gmail.com"),
+  city: CITIES[i % CITIES.length], club: CLUBS[(i * 3) % CLUBS.length], active: i % 7 !== 5,
+}));
+
+const ACCESS_META = {
+  admin: { label: "Admin", cls: "admin", icon: "🛡" },
+  productor: { label: "Productor", cls: "productor", icon: "🛡" },
+  externo: { label: "Externo", cls: "externo", icon: "🛡" },
+  revocado: { label: "Sin acceso", cls: "revocado", icon: "⊘" },
+  null: { label: "Solo ficha", cls: "ficha", icon: "" },
+};
+const kind = (p) => p.access === null ? "ficha" : p.access === "revocado" ? "revocado" : "acceso";
+
+const VARIANTS = { A: "Tabs + columna Acceso", B: "Filtro Acceso + chip en nombre", C: "Lista agrupada + stats filtro" };
+const KEYS = Object.keys(VARIANTS);
+const params = new URLSearchParams(location.search);
+const S = {
+  variant: KEYS.includes(params.get("variant")) ? params.get("variant") : "A",
+  viewer: params.get("as") === "viewer" ? "viewer" : "admin",
+  q: "", fn: "", state: "", city: "", club: "",
+  tab: "todos", acceso: "", closed: {},
+};
+const canSeeAccess = () => S.viewer === "admin";
+
+function baseFilter() {
+  const q = S.q.trim().toLowerCase();
+  return PEOPLE.filter((p) =>
+    (!q || p.name.toLowerCase().includes(q) || (p.email || "").includes(q)) &&
+    (!S.fn || p.fn === S.fn) && (!S.city || p.city === S.city) && (!S.club || p.club === S.club) &&
+    (!S.state || (S.state === "activo" ? p.active : !p.active)));
+}
+const initials = (n) => n.split(" ").map((w) => w[0]).slice(0, 2).join("");
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function chip(p, sm) {
+  const m = ACCESS_META[p.access];
+  return `<span class="chip ${m.cls}${sm ? " sm" : ""}">${m.icon ? m.icon + " " : ""}${m.label}</span>`;
+}
+function avatar(p, mark) {
+  const has = mark && canSeeAccess() && kind(p) === "acceso";
+  return `<div class="av${has ? " has" : ""}">${initials(p.name)}${has ? '<span class="dot">✓</span>' : ""}</div>`;
+}
+
+function header() {
+  return `<div class="head"><div><div class="eyebrow">Equipo de producción</div><h1>Personal</h1>
+    <p class="lead" style="margin:0">Fichas para asignar y cuentas con acceso al portal.</p></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap"><input class="search" id="q" placeholder="Buscar por nombre o correo" value="${esc(S.q)}"><button class="btn">+ Nuevo</button></div></div>`;
+}
+function statsRow(rows, clickable) {
+  const act = rows.filter((p) => p.active).length;
+  const acc = rows.filter((p) => kind(p) === "acceso").length;
+  const fic = rows.filter((p) => kind(p) === "ficha").length;
+  const rev = rows.filter((p) => kind(p) === "revocado").length;
+  const cards = [
+    { k: "", l: "Personal activo", v: act, cls: "ok" },
+    { k: "", l: "Personal inactivo", v: rows.length - act, cls: "danger" },
+  ];
+  if (canSeeAccess()) {
+    cards.push({ k: "acceso", l: "Con acceso", v: acc, cls: "info" });
+    cards.push({ k: "ficha", l: "Solo ficha", v: fic, cls: "" });
+    cards.push({ k: "revocado", l: "Acceso revocado", v: rev, cls: "" });
+  } else {
+    cards.push({ k: "", l: "Relatores activos", v: rows.filter((p) => p.fn === "Relator" && p.active).length, cls: "info" });
+    cards.push({ k: "", l: "Productores activos", v: rows.filter((p) => p.fn === "Productor" && p.active).length, cls: "" });
+    cards.push({ k: "", l: "Cámaras activas", v: rows.filter((p) => p.fn === "Cámara" && p.active).length, cls: "" });
+  }
+  return `<div class="stats">${cards.map((c) => clickable && c.k
+    ? `<button class="stat ${c.cls}${S.tab === c.k ? " sel" : ""}" data-stat="${c.k}"><div class="l">${c.l}</div><div class="v">${c.v}</div></button>`
+    : `<div class="stat ${c.cls}"><div class="l">${c.l}</div><div class="v">${c.v}</div></div>`).join("")}</div>`;
+}
+function sel(key, label, opts, extraCls = "") {
+  return `<label class="${extraCls}"><span>${label}</span><select data-f="${key}"><option value="">Todos</option>${opts.map((o) => {
+    const [v, l] = Array.isArray(o) ? o : [o, o];
+    return `<option value="${esc(v)}"${S[key] === v ? " selected" : ""}>${esc(l)}</option>`;
+  }).join("")}</select></label>`;
+}
+function filterBar(withAccess) {
+  return `<div class="filters">${sel("fn", "Rol", FUNCS)}${sel("state", "Estado", [["activo", "Activo"], ["inactivo", "Inactivo"]])}${sel("city", "Ciudad", CITIES)}${sel("club", "Club", CLUBS)}${withAccess && canSeeAccess() ? sel("acceso", "Acceso", [["acceso", "Con acceso"], ["admin", "— Admin"], ["productor", "— Productor"], ["externo", "— Externo"], ["revocado", "Acceso revocado"], ["ficha", "Solo ficha (sin cuenta)"]], "new") : ""}</div>`;
+}
+function rowCells(p, nameExtra = "") {
+  return `<td><div class="who">${avatar(p, S.variant === "C")}<div><div class="name">${esc(p.name)} ${nameExtra}</div></div></div></td>
+    <td>${p.fn}</td><td class="muted">${p.club}</td><td class="muted">${p.phone ?? "Sin teléfono"}</td>
+    <td class="muted" style="font-size:12px">${p.email ?? "Sin correo"}</td><td class="muted">${p.city}</td>
+    <td><span class="toggle${p.active ? " on" : ""}"></span></td>`;
+}
+const TH = `<th>Perfil</th><th>Rol</th><th>Responsable de</th><th>Teléfono</th><th>Correo</th><th>Ciudad</th><th>Estado</th>`;
+function mobileCards(rows, chipFn) {
+  return `<div class="cards-m">${rows.map((p) => `<div class="mc">${avatar(p, S.variant === "C")}<div class="grow"><div class="name">${esc(p.name)}</div><div class="sub">${p.fn} · ${p.city}</div></div>${chipFn ? chipFn(p) : ""}</div>`).join("")}</div>`;
+}
+
+// ---------- Variant A: tabs + Acceso column ----------
+function VariantA() {
+  const base = baseFilter();
+  const counts = { todos: base.length, acceso: 0, revocado: 0, ficha: 0 };
+  base.forEach((p) => counts[kind(p)]++);
+  if (!canSeeAccess()) S.tab = "todos";
+  const rows = S.tab === "todos" ? base : base.filter((p) => kind(p) === S.tab);
+  const tabs = [["todos", "Todos"], ["acceso", "Con acceso"], ["revocado", "Sin acceso"], ["ficha", "Solo ficha"]];
+  return header() + statsRow(PEOPLE, false) +
+    (canSeeAccess() ? `<div class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${S.tab === k ? "on" : ""}">${l}<span class="n">${counts[k]}</span></button>`).join("")}</div>` : "") +
+    filterBar(false) +
+    `<div class="card"><div class="card-head"><h2>Directorio de personal</h2><span class="pill">${rows.length} en vista</span></div>
+    ${rows.length ? `<table class="big"><thead><tr>${TH}${canSeeAccess() ? "<th>Acceso</th>" : ""}</tr></thead><tbody>${rows.map((p) => `<tr>${rowCells(p)}${canSeeAccess() ? `<td>${chip(p)}</td>` : ""}</tr>`).join("")}</tbody></table>${mobileCards(rows, canSeeAccess() ? (p) => chip(p, true) : null)}` : `<div class="empty">Nadie con esos filtros.</div>`}</div>`;
+}
+
+// ---------- Variant B: one more filter + chip next to name ----------
+function VariantB() {
+  let rows = baseFilter();
+  if (canSeeAccess() && S.acceso) {
+    rows = rows.filter((p) => ["acceso", "revocado", "ficha"].includes(S.acceso) ? kind(p) === S.acceso : p.access === S.acceso);
+  }
+  const nameChip = (p) => canSeeAccess() && p.access !== null ? chip(p, true) : "";
+  return header() + statsRow(PEOPLE, false) +
+    `<p class="hint">Fichas sin cuenta no llevan marca: el chip aparece solo si hay <b>cuenta</b>.</p>` +
+    filterBar(true) +
+    `<div class="card"><div class="card-head"><h2>Directorio de personal</h2><span class="pill">${rows.length} en vista</span></div>
+    ${rows.length ? `<table class="big"><thead><tr>${TH}</tr></thead><tbody>${rows.map((p) => `<tr>${rowCells(p, nameChip(p))}</tr>`).join("")}</tbody></table>${mobileCards(rows, nameChip)}` : `<div class="empty">Nadie con esos filtros.</div>`}</div>`;
+}
+
+// ---------- Variant C: grouped sections, stats as quick filter ----------
+function VariantC() {
+  const base = baseFilter();
+  if (!canSeeAccess()) {
+    return header() + statsRow(PEOPLE, false) + filterBar(false) +
+      `<div class="card"><div class="card-head"><h2>Directorio de personal</h2><span class="pill">${base.length} en vista</span></div><table class="big"><thead><tr>${TH}</tr></thead><tbody>${base.map((p) => `<tr>${rowCells(p)}</tr>`).join("")}</tbody></table>${mobileCards(base)}</div>`;
+  }
+  const groups = [
+    { k: "acceso", t: "Con acceso al portal", d: "Pueden iniciar sesión. Ordenados por nivel.", ic: "🛡", bg: "var(--info-soft)" },
+    { k: "revocado", t: "Cuenta sin acceso", d: "Tuvieron login; el acceso fue revocado.", ic: "⊘", bg: "var(--n-100)" },
+    { k: "ficha", t: "Solo ficha", d: "Personal para asignar, sin cuenta en el portal.", ic: "👤", bg: "var(--n-100)" },
+  ].filter((g) => S.tab === "todos" || S.tab === g.k);
+  const order = { admin: 0, productor: 1, externo: 2 };
+  const body = groups.map((g) => {
+    const rows = base.filter((p) => kind(p) === g.k).sort((a, b) => (order[a.access] ?? 9) - (order[b.access] ?? 9));
+    const closed = S.closed[g.k];
+    return `<div class="group-h${closed ? " closed" : ""}" data-group="${g.k}"><span class="ic" style="background:${g.bg}">${g.ic}</span><span class="t">${g.t}</span><span class="pill">${rows.length}</span><span class="d">${g.d}</span><span class="car">▾</span></div>
+      ${closed || !rows.length ? (rows.length ? "" : `<div class="empty" style="padding:16px">Nadie en este grupo.</div>`) : `<table class="big"><tbody>${rows.map((p) => `<tr>${rowCells(p, g.k === "acceso" ? chip(p, true) : "")}</tr>`).join("")}</tbody></table>${mobileCards(rows, g.k === "acceso" ? (p) => chip(p, true) : null)}`}`;
+  }).join("");
+  return header() + statsRow(PEOPLE, true) +
+    (S.tab !== "todos" ? `<p class="hint">Filtrando por tarjeta · <a href="#" data-stat="">ver todos</a></p>` : "") +
+    filterBar(false) +
+    `<div class="card"><div class="card-head"><h2>Directorio de personal</h2><span class="pill">${base.length} en vista</span></div>
+    ${body}</div>`;
+}
+
+const RENDER = { A: VariantA, B: VariantB, C: VariantC };
+function render() {
+  const focusedQ = document.activeElement?.id === "q";
+  const caret = focusedQ ? document.activeElement.selectionStart : 0;
+  document.getElementById("app").innerHTML = RENDER[S.variant]();
+  document.getElementById("vlab").textContent = `${S.variant} (${VARIANTS[S.variant]})`;
+  document.getElementById("asAdmin").classList.toggle("on", S.viewer === "admin");
+  document.getElementById("asViewer").classList.toggle("on", S.viewer === "viewer");
+  document.getElementById("state").textContent = JSON.stringify({ variant: S.variant, viewer: S.viewer, q: S.q, fn: S.fn, state: S.state, city: S.city, club: S.club, tab: S.tab, acceso: S.acceso }, null, 1);
+  if (focusedQ) { const q = document.getElementById("q"); q.focus(); q.setSelectionRange(caret, caret); }
+}
+function setUrl() {
+  const p = new URLSearchParams(location.search);
+  p.set("variant", S.variant);
+  S.viewer === "viewer" ? p.set("as", "viewer") : p.delete("as");
+  history.replaceState(null, "", "?" + p);
+}
+function go(d) {
+  S.variant = KEYS[(KEYS.indexOf(S.variant) + d + KEYS.length) % KEYS.length];
+  S.tab = "todos"; S.acceso = "";
+  setUrl(); render();
+}
+document.getElementById("prev").onclick = () => go(-1);
+document.getElementById("next").onclick = () => go(1);
+document.getElementById("asAdmin").onclick = () => { S.viewer = "admin"; setUrl(); render(); };
+document.getElementById("asViewer").onclick = () => { S.viewer = "viewer"; S.tab = "todos"; S.acceso = ""; setUrl(); render(); };
+document.addEventListener("keydown", (e) => {
+  if (e.target.closest("input, textarea, select, [contenteditable]")) return;
+  if (e.key === "ArrowLeft") go(-1);
+  if (e.key === "ArrowRight") go(1);
+});
+const app = document.getElementById("app");
+app.addEventListener("input", (e) => { if (e.target.id === "q") { S.q = e.target.value; render(); } });
+app.addEventListener("change", (e) => { const k = e.target.dataset.f; if (k) { S[k] = e.target.value; render(); } });
+app.addEventListener("click", (e) => {
+  const tab = e.target.closest("[data-tab]");
+  if (tab) { S.tab = tab.dataset.tab; render(); return; }
+  const st = e.target.closest("[data-stat]");
+  if (st) { e.preventDefault(); S.tab = st.dataset.stat && S.tab !== st.dataset.stat ? st.dataset.stat : "todos"; render(); return; }
+  const g = e.target.closest("[data-group]");
+  if (g) { S.closed[g.dataset.group] = !S.closed[g.dataset.group]; render(); }
+});
+render();
+</script>
+</body>
+</html>
