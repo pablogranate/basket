@@ -243,7 +243,10 @@ export function TeamsLeagueTabs({
   }
 
   return (
-    <div className="flex items-center gap-3 border-b border-[var(--accent-border)]">
+    <div
+      data-teams-tabs
+      className="flex items-center gap-3 border-b border-[var(--accent-border)]"
+    >
       <PageCanvasTone tone={leagueCanvasTone} />
       {reorderError ? (
         <p

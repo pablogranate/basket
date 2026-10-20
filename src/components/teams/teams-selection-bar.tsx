@@ -23,7 +23,10 @@ export function TeamsSelectionBar({
   const { requestMove, clearSelection, isMoving } = useTeamsEdit();
 
   return (
-    <div className="panel-surface fixed bottom-4 left-1/2 z-[200] flex w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-wrap items-center gap-2 border border-[var(--border)] bg-[var(--surface)] py-2 pl-4 pr-2 text-sm shadow-[var(--shadow-lift)]">
+    <div
+      data-teams-selection-bar
+      className="panel-surface fixed bottom-4 left-1/2 z-[200] flex w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-wrap items-center gap-2 border border-[var(--border)] bg-[var(--surface)] py-2 pl-4 pr-2 text-sm shadow-[var(--shadow-lift)]"
+    >
       <span className="font-bold text-[var(--foreground)]">
         {teams.length} {teams.length === 1 ? "seleccionado" : "seleccionados"}
       </span>

@@ -27,7 +27,7 @@ export type TeamCardSelection = {
   selected: boolean;
   dimmed: boolean;
   onToggle: () => void;
-  // The teams this drag carries: the selected group, or just this card.
+  // The teams this drag carries: the selected group.
   onDragTeams: () => TeamDragPayload[];
   onDragDone: () => void;
 };
@@ -93,7 +93,9 @@ export function TeamCard({
   canEdit?: boolean;
   selection?: TeamCardSelection;
 }) {
-  const draggable = canEdit && Boolean(selection);
+  // Only a selected card drags (carrying the group); pressing anything else
+  // starts the lasso instead.
+  const draggable = canEdit && Boolean(selection?.selected);
   const cardRef = useRef<HTMLElement | null>(null);
   const endDragRef = useRef<(() => void) | null>(null);
   const leagueBadges = splitTeamCompetitions(team.competition);

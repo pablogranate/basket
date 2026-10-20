@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useMemo, useRef, useState, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { TeamCard } from "@/components/teams/team-card";
 import { useTeamsEdit } from "@/components/teams/teams-edit-context";
@@ -62,89 +62,137 @@ function toDragPayload(team: TeamDirectoryItem): TeamDragPayload {
 
 type LassoBox = { left: number; top: number; width: number; height: number };
 
-// Edit mode: pressing on empty grid space and dragging draws a rectangle that
-// adds every card it touches to the selection. Mouse only, so touch keeps
-// scrolling the page (touch selects card by card).
+const LASSO_THRESHOLD_PX = 4;
+const LASSO_IGNORE =
+  "a, button, input, select, textarea, label, [role='dialog'], [data-teams-selection-bar]";
+
+// Edit mode: pressing anywhere below the league tabs and moving draws a
+// rectangle that adds every card it touches to the selection — on empty space
+// and on unselected cards alike. Only selected cards are natively draggable
+// (they carry the group), so a press elsewhere never waits on the browser's
+// drag. Mouse only, so touch keeps scrolling the page.
 function useLassoSelection({
-  containerRef,
   enabled,
   selectedIds,
   onChange,
 }: {
-  containerRef: RefObject<HTMLDivElement | null>;
   enabled: boolean;
   selectedIds: ReadonlySet<string>;
   onChange: (ids: ReadonlySet<string>) => void;
 }) {
   const [box, setBox] = useState<LassoBox | null>(null);
+  const latestRef = useRef({ selectedIds, onChange });
 
-  function onPointerDown(event: React.PointerEvent<HTMLDivElement>) {
-    const container = containerRef.current;
-    if (
-      !enabled ||
-      !container ||
-      event.button !== 0 ||
-      event.pointerType !== "mouse" ||
-      (event.target as HTMLElement).closest("[data-team-card-id]")
-    ) {
+  useEffect(() => {
+    latestRef.current = { selectedIds, onChange };
+  });
+
+  useEffect(() => {
+    if (!enabled) {
       return;
     }
 
-    event.preventDefault();
-    const startX = event.clientX;
-    const startY = event.clientY;
-    const initial = new Set(selectedIds);
-    let lastKey = "";
-
-    const handleMove = (moveEvent: PointerEvent) => {
-      const left = Math.min(startX, moveEvent.clientX);
-      const right = Math.max(startX, moveEvent.clientX);
-      const top = Math.min(startY, moveEvent.clientY);
-      const bottom = Math.max(startY, moveEvent.clientY);
-      const rect = container.getBoundingClientRect();
-      setBox({
-        left: left - rect.left,
-        top: top - rect.top,
-        width: right - left,
-        height: bottom - top,
-      });
-
-      const hits = new Set(initial);
-      container
-        .querySelectorAll<HTMLElement>("[data-team-card-id]")
-        .forEach((card) => {
-          const cardRect = card.getBoundingClientRect();
-          if (
-            cardRect.left < right &&
-            cardRect.right > left &&
-            cardRect.top < bottom &&
-            cardRect.bottom > top &&
-            card.dataset.teamCardId
-          ) {
-            hits.add(card.dataset.teamCardId);
-          }
-        });
-
-      const key = Array.from(hits).sort().join(",");
-      if (key !== lastKey) {
-        lastKey = key;
-        onChange(hits);
+    function startsLasso(event: MouseEvent) {
+      const target = event.target as HTMLElement | null;
+      const tabs = document.querySelector("[data-teams-tabs]");
+      if (event.button !== 0 || !target || !tabs || target.closest(LASSO_IGNORE)) {
+        return false;
       }
-    };
 
-    const handleUp = () => {
-      window.removeEventListener("pointermove", handleMove);
-      window.removeEventListener("pointerup", handleUp);
-      window.removeEventListener("pointercancel", handleUp);
-      setBox(null);
-    };
+      const card = target.closest<HTMLElement>("[data-team-card-id]");
+      if (card?.draggable) {
+        return false;
+      }
 
-    window.addEventListener("pointermove", handleMove);
-    window.addEventListener("pointerup", handleUp);
-    window.addEventListener("pointercancel", handleUp);
-  }
+      const area = tabs.getBoundingClientRect();
+      return (
+        event.clientY > area.bottom &&
+        event.clientX >= area.left &&
+        event.clientX <= area.right
+      );
+    }
 
-  return { box, onPointerDown };
+    function handleMouseDown(event: MouseEvent) {
+      if (!startsLasso(event)) {
+        return;
+      }
+
+      // Keeps the browser from selecting text or dragging a crest image.
+      event.preventDefault();
+      const startX = event.clientX + window.scrollX;
+      const startY = event.clientY + window.scrollY;
+      const initial = new Set(latestRef.current.selectedIds);
+      let active = false;
+      let lastKey = "";
+
+      const handleMove = (moveEvent: MouseEvent) => {
+        const currentX = moveEvent.clientX + window.scrollX;
+        const currentY = moveEvent.clientY + window.scrollY;
+
+        if (
+          !active &&
+          Math.hypot(currentX - startX, currentY - startY) < LASSO_THRESHOLD_PX
+        ) {
+          return;
+        }
+        active = true;
+
+        // Page coordinates, so scrolling mid-gesture keeps the anchor in place.
+        const left = Math.min(startX, currentX) - window.scrollX;
+        const right = Math.max(startX, currentX) - window.scrollX;
+        const top = Math.min(startY, currentY) - window.scrollY;
+        const bottom = Math.max(startY, currentY) - window.scrollY;
+        setBox({ left, top, width: right - left, height: bottom - top });
+
+        const hits = new Set(initial);
+        document
+          .querySelectorAll<HTMLElement>("[data-team-card-id]")
+          .forEach((card) => {
+            const rect = card.getBoundingClientRect();
+            if (
+              rect.left < right &&
+              rect.right > left &&
+              rect.top < bottom &&
+              rect.bottom > top &&
+              card.dataset.teamCardId
+            ) {
+              hits.add(card.dataset.teamCardId);
+            }
+          });
+
+        const key = Array.from(hits).sort().join(",");
+        if (key !== lastKey) {
+          lastKey = key;
+          latestRef.current.onChange(hits);
+        }
+      };
+
+      const handleUp = () => {
+        window.removeEventListener("mousemove", handleMove);
+        window.removeEventListener("mouseup", handleUp);
+        setBox(null);
+
+        if (active) {
+          // The press ended a lasso, not a click: the click that follows this
+          // mouseup must not toggle the card under the cursor.
+          const swallowClick = (clickEvent: MouseEvent) =>
+            clickEvent.stopPropagation();
+          window.addEventListener("click", swallowClick, { capture: true });
+          window.setTimeout(() =>
+            window.removeEventListener("click", swallowClick, { capture: true }),
+          );
+        }
+      };
+
+      window.addEventListener("mousemove", handleMove);
+      window.addEventListener("mouseup", handleUp);
+    }
+
+    window.addEventListener("mousedown", handleMouseDown);
+    return () => window.removeEventListener("mousedown", handleMouseDown);
+  }, [enabled]);
+
+  return box;
 }
 
 // The directory arrives once from the server (clubs/teams/leagues tables);
@@ -172,7 +220,6 @@ export function TeamsWorkspaceClient({
     setDraggingIds,
   } = useTeamsEdit();
   const isEditing = editing && canManageTeams;
-  const gridRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
   const activeLeague = resolveActiveTeamLeague(
     searchParams.get("league"),
@@ -192,8 +239,7 @@ export function TeamsWorkspaceClient({
   const visibleSelectedIds = new Set(selectedTeams.map((team) => team.id));
   const isLeagueView =
     Boolean(activeLeague) && activeLeague !== ARCHIVED_TEAM_LEAGUE;
-  const lasso = useLassoSelection({
-    containerRef: gridRef,
+  const lassoBox = useLassoSelection({
     enabled: isEditing,
     selectedIds: visibleSelectedIds,
     onChange: setSelectedIds,
@@ -209,7 +255,7 @@ export function TeamsWorkspaceClient({
     return activeLeague === ARCHIVED_TEAM_LEAGUE && !query ? (
       <EmptyState
         title="No hay equipos archivados"
-        description="Con Editar activo, arrastrá la tarjeta de un equipo que no juega ninguna liga esta temporada hasta la pestaña Archivados."
+        description="Con Editar activo, seleccioná y arrastrá la tarjeta de un equipo que no juega ninguna liga esta temporada hasta la pestaña Archivados."
       />
     ) : (
       <EmptyState
@@ -221,18 +267,14 @@ export function TeamsWorkspaceClient({
 
   return (
     <>
-      <div
-        ref={gridRef}
-        onPointerDown={lasso.onPointerDown}
-        className="relative grid gap-4 lg:grid-cols-2 xl:grid-cols-4"
-      >
-        {lasso.box ? (
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute z-30 rounded-md border border-[var(--accent)] bg-[var(--accent-soft)]/60"
-            style={lasso.box}
-          />
-        ) : null}
+      {lassoBox ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed z-[150] rounded-md border border-[var(--accent)] bg-[var(--accent-soft)]/60"
+          style={lassoBox}
+        />
+      ) : null}
+      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
         {visibleTeams.map((team) => (
           <TeamCard
             key={team.id}
@@ -251,11 +293,8 @@ export function TeamsWorkspaceClient({
                     dimmed: draggingIds.has(team.id),
                     onToggle: () => toggleSelected(team.id),
                     onDragTeams: () => {
-                      const group = visibleSelectedIds.has(team.id)
-                        ? selectedTeams
-                        : [team];
-                      setDraggingIds(new Set(group.map((item) => item.id)));
-                      return group.map(toDragPayload);
+                      setDraggingIds(visibleSelectedIds);
+                      return selectedTeams.map(toDragPayload);
                     },
                     onDragDone: () => setDraggingIds(NO_IDS),
                   }
