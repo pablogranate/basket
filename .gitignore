@@ -56,3 +56,6 @@ tools/sheets/*.csv
 
 # CABB gesdeportiva CSV exports (live match data)
 tools/cabb/samples/
+
+# shrink-club-logos backups
+club-logos-backup-*.json

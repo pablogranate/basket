@@ -24,7 +24,7 @@ import { requireUserContext, type UserContext } from "@/lib/auth";
 import { can, canGrantRole } from "@/lib/roles";
 import { SECTION_COPY } from "@/lib/copy";
 import { getPeopleData } from "@/lib/data/dashboard";
-import { getTeamDirectory } from "@/lib/data/teams";
+import { getTeamNames } from "@/lib/data/teams";
 import { PersonTeamsField } from "@/components/people/person-teams-field";
 import { getPlatformAccessRole } from "@/lib/data/platform-access";
 import { db } from "@/lib/db/client";
@@ -97,7 +97,7 @@ export default async function PeoplePage({ searchParams }: PageProps) {
   // Suspense boundary that actually needs them, so none of them gate first paint.
   const user = await requireUserContext();
   const peoplePromise = getPeopleData(user);
-  const teamOptionsPromise = getTeamDirectory(user).then(buildTeamOptions);
+  const teamOptionsPromise = getTeamNames(user).then(buildTeamOptions);
   const canManageAccess = can(user, "access.manage");
   const canSelectAccessTier = can(user, "admin");
   const currentPeopleHref = buildPeopleHref(resolvedSearchParams, {
