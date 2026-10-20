@@ -24,6 +24,7 @@
     "db:portal:mark-baseline": "bash scripts/db/mark-baseline-applied.sh",
     "db:portal:pull": "drizzle-kit pull --config drizzle.portal.config.ts",
     "db:refresh": "bash scripts/db/refresh.sh",
+    "db:shrink-club-logos": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/db/shrink-club-logos.mts",
     "test:integration": "bash scripts/db/with-test-db.sh vitest run --config vitest.integration.config.mts"
   },
   "dependencies": {

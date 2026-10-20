@@ -124,10 +124,10 @@ export function TeamCard({
       }
     >
       <div className="tc-logo-col">
-        {team.logo_data_url ? (
+        {team.logo_src ? (
           <div className="panel-surface tc-logo overflow-hidden">
             <Image
-              src={team.logo_data_url}
+              src={team.logo_src}
               alt={`Escudo de ${team.official_name}`}
               fill
               unoptimized

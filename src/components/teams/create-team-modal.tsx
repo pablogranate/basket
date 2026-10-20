@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { CLUB_COMPETITIONS, EXTERNAL_TEAM_LEAGUES } from "@/lib/club-catalog";
+import { shrinkLogoFile } from "@/lib/shrink-logo";
 import {
   splitTeamCompetitions,
   type TeamDirectoryItem,
@@ -57,7 +58,7 @@ export function CreateTeamModal({
   const [website, setWebsite] = useState("");
   const [instagram, setInstagram] = useState("");
   const [officialUrl, setOfficialUrl] = useState("");
-  const [logoPreview, setLogoPreview] = useState<string | null>(initialTeam?.logo_data_url ?? null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(initialTeam?.logo_src ?? null);
   const [errorMessage, setErrorMessage] = useState("");
   const [isSaving, startSaving] = useTransition();
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -123,7 +124,7 @@ export function CreateTeamModal({
     setWebsite(initialTeam?.website ?? "");
     setInstagram(initialTeam?.instagram ?? "");
     setOfficialUrl(initialTeam?.official_url ?? "");
-    setLogoPreview(initialTeam?.logo_data_url ?? null);
+    setLogoPreview(initialTeam?.logo_src ?? null);
     setErrorMessage("");
     setIsDeleteOpen(false);
     setLeaguesToRemove([]);
@@ -176,14 +177,9 @@ export function CreateTeamModal({
       return;
     }
 
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      const nextValue = typeof reader.result === "string" ? reader.result : null;
-      setLogoPreview(nextValue);
-    };
-
-    reader.readAsDataURL(file);
+    void shrinkLogoFile(file)
+      .then(setLogoPreview)
+      .catch(() => setErrorMessage("No se pudo leer la imagen."));
   }
 
   function clearLogo() {
@@ -231,7 +227,11 @@ export function CreateTeamModal({
       "officialUrl",
       officialUrl.trim() || defaultLeagueUrl(trimmedCompetition),
     );
-    payload.set("logoDataUrl", logoPreview ?? "");
+    // The stored crest arrives as a /api/club-logo URL; only a new upload or a
+    // removal is sent, so saving other fields never touches the logo.
+    if (logoPreview !== (initialTeam?.logo_src ?? null)) {
+      payload.set("logoDataUrl", logoPreview ?? "");
+    }
 
     startSaving(async () => {
       const result = await upsertTeamAction(payload);

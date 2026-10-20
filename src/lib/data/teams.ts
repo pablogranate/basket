@@ -2,8 +2,9 @@ import { eq } from "drizzle-orm";
 
 import type { UserContext } from "@/lib/auth";
 import { EXTERNAL_TEAM_LEAGUES } from "@/lib/club-catalog";
+import { buildClubLogoSrc, clubLogoVersionSql } from "@/lib/club-logo";
 import { db } from "@/lib/db/client";
-import { leagues, teams } from "@/lib/db/schema";
+import { clubs, leagues, teams } from "@/lib/db/schema";
 import type { TeamDirectoryItem, TeamDirectoryTab } from "@/lib/team-directory";
 import {
   getTeamLeagueLabel,
@@ -14,18 +15,19 @@ import {
 const DEFAULT_LEAGUE_URL = "https://www.laliganacional.com.ar/";
 
 // Nested read mirroring the retired PostgREST embed: team -> club (one) and
-// team -> memberships (many) -> league (one). Column subset kept identical.
+// team -> memberships (many) -> league (one). The crest itself is never read
+// here, only its version: cards load it from /api/club-logo instead.
 const TEAM_DIRECTORY_QUERY = {
   columns: { id: true, slug: true, name: true, category: true },
   with: {
     club: {
       columns: {
+        id: true,
         name: true,
         stadium: true,
         manager: true,
         website: true,
         instagram: true,
-        logoUrl: true,
         officialUrl: true,
         shortName: true,
         city: true,
@@ -36,6 +38,12 @@ const TEAM_DIRECTORY_QUERY = {
         pressPhone: true,
         pressEmail: true,
       },
+      // Callback form so the column resolves against the relation's alias.
+      extras: (club: typeof clubs._.columns) => ({
+        logoVersion: clubLogoVersionSql(club.logoUrl, club.updatedAt).as(
+          "logo_version",
+        ),
+      }),
     },
     teamLeagueMemberships: {
       columns: { season: true },
@@ -52,12 +60,13 @@ type TeamDirectoryRow = {
   name: string;
   category: string;
   club: {
+    id: string;
     name: string;
     stadium: string | null;
     manager: string | null;
     website: string | null;
     instagram: string | null;
-    logoUrl: string | null;
+    logoVersion: string | null;
     officialUrl: string | null;
     shortName: string | null;
     city: string | null;
@@ -93,7 +102,7 @@ function toQueryRow(row: TeamDirectoryRow): TeamDirectoryQueryRow {
           manager: row.club.manager,
           website: row.club.website,
           instagram: row.club.instagram,
-          logo_url: row.club.logoUrl,
+          logo_src: buildClubLogoSrc(row.club.id, row.club.logoVersion),
           official_url: row.club.officialUrl,
           short_name: row.club.shortName,
           city: row.club.city,
@@ -129,7 +138,7 @@ type TeamDirectoryQueryRow = {
     manager: string | null;
     website: string | null;
     instagram: string | null;
-    logo_url: string | null;
+    logo_src: string | null;
     official_url: string | null;
     short_name: string | null;
     city: string | null;
@@ -189,7 +198,7 @@ function mapTeamRow(row: TeamDirectoryQueryRow): TeamDirectoryItem & {
     instagram: club?.instagram ?? null,
     official_url: club?.official_url ?? DEFAULT_LEAGUE_URL,
     incident_count: 0,
-    logo_data_url: club?.logo_url ?? null,
+    logo_src: club?.logo_src ?? null,
     short_name: club?.short_name ?? null,
     city: club?.city ?? null,
     province: club?.province ?? null,
@@ -259,6 +268,24 @@ export async function getTeamFromDbBySlug(
     toQueryRow(row),
   );
   return team;
+}
+
+// Just the names, for pickers that never show the rest of the directory.
+export async function getTeamNames(
+  ctx: UserContext,
+): Promise<Array<{ id: string; official_name: string }>> {
+  if (!ctx.userId) {
+    return [];
+  }
+
+  try {
+    return await db
+      .select({ id: teams.id, official_name: teams.name })
+      .from(teams);
+  } catch (error) {
+    console.error("[teams] failed to load team names", error);
+    return [];
+  }
 }
 
 // Persisted tab order (leagues.sort_order), keyed by league name. Leagues

@@ -11,8 +11,10 @@ import {
 import { PageCanvasTone } from "@/components/layout/page-canvas-tone";
 import { Button } from "@/components/ui/button";
 import {
+  ALL_TEAM_LEAGUES,
   getTeamLeagueAccentColor,
   getTeamLeagueCanvasTone,
+  resolveActiveTeamLeague,
   type TeamDirectoryTab,
 } from "@/lib/team-directory";
 import {
@@ -58,10 +60,12 @@ function moveLeague(
 export function TeamsLeagueTabs({
   tabs,
   totalCount,
+  defaultLeague,
   canManageTeams = false,
 }: {
   tabs: TeamDirectoryTab[];
   totalCount: number;
+  defaultLeague: string;
   canManageTeams?: boolean;
 }) {
   const searchParams = useSearchParams();
@@ -94,7 +98,10 @@ export function TeamsLeagueTabs({
   const orderedTabs = tabOrder
     .map((value) => tabsByValue.get(value))
     .filter((tab): tab is TeamDirectoryTab => Boolean(tab));
-  const activeLeague = searchParams.get("league")?.trim() ?? "";
+  const activeLeague = resolveActiveTeamLeague(
+    searchParams.get("league"),
+    defaultLeague,
+  );
   const leagueAccent = activeLeague
     ? getTeamLeagueAccentColor(activeLeague)
     : null;
@@ -102,12 +109,12 @@ export function TeamsLeagueTabs({
     ? getTeamLeagueCanvasTone(activeLeague)
     : null;
 
-  function buildHref(league: string | null) {
+  function buildHref(league: string) {
     const params = new URLSearchParams(searchParams.toString());
-    if (league) {
-      params.set("league", league);
-    } else {
+    if (league === defaultLeague) {
       params.delete("league");
+    } else {
+      params.set("league", league);
     }
 
     const query = params.toString();
@@ -116,7 +123,7 @@ export function TeamsLeagueTabs({
 
   function handleSelect(
     event: React.MouseEvent<HTMLAnchorElement>,
-    league: string | null,
+    league: string,
   ) {
     event.preventDefault();
     window.history.pushState(null, "", buildHref(league));
@@ -281,8 +288,8 @@ export function TeamsLeagueTabs({
       ) : null}
       <div className="flex min-w-0 flex-1 overflow-x-auto">
         <a
-          href={buildHref(null)}
-          onClick={(event) => handleSelect(event, null)}
+          href={buildHref(ALL_TEAM_LEAGUES)}
+          onClick={(event) => handleSelect(event, ALL_TEAM_LEAGUES)}
           aria-current={!activeLeague ? "page" : undefined}
           className={tabClassName(!activeLeague)}
         >

@@ -17,7 +17,7 @@ export type TeamDirectoryItem = {
   instagram: string | null;
   official_url: string | null;
   incident_count: number;
-  logo_data_url?: string | null;
+  logo_src?: string | null;
   // Extended directory fields (clubs table); optional so the static
   // TEAM_DIRECTORY catalog keeps compiling without them.
   short_name?: string | null;
@@ -31,6 +31,27 @@ export type TeamDirectoryItem = {
 };
 
 const LEAGUE_URL = "https://www.laliganacional.com.ar/";
+
+// /teams opens on a league; "Todos" is an explicit ?league=todos.
+export const ALL_TEAM_LEAGUES = "todos";
+
+export function getDefaultTeamLeague(tabs: TeamDirectoryTab[]) {
+  return tabs.find((tab) => tab.count > 0)?.value ?? "";
+}
+
+// Returns the league to filter by, "" meaning every league.
+export function resolveActiveTeamLeague(
+  leagueParam: string | null,
+  defaultLeague: string,
+) {
+  const league = leagueParam?.trim() ?? "";
+
+  if (league === ALL_TEAM_LEAGUES) {
+    return "";
+  }
+
+  return league || defaultLeague;
+}
 
 export const TEAM_DIRECTORY_TAB_ORDER = [
   "Liga Nacional",

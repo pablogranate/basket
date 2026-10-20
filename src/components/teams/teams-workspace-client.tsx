@@ -7,7 +7,10 @@ import { TeamCard } from "@/components/teams/team-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { TeamResponsibleContact } from "@/lib/team-responsibles";
 import type { TeamDirectoryItem } from "@/lib/team-directory";
-import { splitTeamCompetitions } from "@/lib/team-directory";
+import {
+  resolveActiveTeamLeague,
+  splitTeamCompetitions,
+} from "@/lib/team-directory";
 
 function filterTeams(
   teams: TeamDirectoryItem[],
@@ -43,14 +46,19 @@ function filterTeams(
 export function TeamsWorkspaceClient({
   teams,
   responsibleContacts,
+  defaultLeague,
   canManageTeams = false,
 }: {
   teams: TeamDirectoryItem[];
   responsibleContacts: Record<string, TeamResponsibleContact | null>;
+  defaultLeague: string;
   canManageTeams?: boolean;
 }) {
   const searchParams = useSearchParams();
-  const activeLeague = searchParams.get("league")?.trim() ?? "";
+  const activeLeague = resolveActiveTeamLeague(
+    searchParams.get("league"),
+    defaultLeague,
+  );
   const query = searchParams.get("q") ?? "";
 
   const visibleTeams = useMemo(

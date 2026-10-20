@@ -17,7 +17,11 @@ import {
   getLeagueTabOrder,
   getTeamDirectory,
 } from "@/lib/data/teams";
-import type { TeamDirectoryItem } from "@/lib/team-directory";
+import {
+  getDefaultTeamLeague,
+  type TeamDirectoryItem,
+  type TeamDirectoryTab,
+} from "@/lib/team-directory";
 import { resolveTeamLogoMap } from "@/lib/team-logos";
 import {
   buildTeamResponsibleLookup,
@@ -38,6 +42,11 @@ export default async function TeamsPage() {
   const user = await getUserContext();
   const canManageTeams = user.canEdit && !isCollaboratorLimitedRole(user.role);
   const teamsPromise = getTeamDirectory(user);
+  // Both regions need the tabs: the tab strip to render them, the cards to
+  // know which league /teams opens on.
+  const tabsPromise = Promise.all([teamsPromise, getLeagueTabOrder(user)]).then(
+    ([teams, tabOrder]) => buildTeamDirectoryTabs(teams, tabOrder),
+  );
 
   return (
     <>
@@ -62,8 +71,8 @@ export default async function TeamsPage() {
 
       <Suspense fallback={<TeamsLeagueTabsSkeleton />}>
         <TeamsLeagueTabsRegion
-          user={user}
           teamsPromise={teamsPromise}
+          tabsPromise={tabsPromise}
           canManageTeams={canManageTeams}
         />
       </Suspense>
@@ -72,6 +81,7 @@ export default async function TeamsPage() {
         <TeamsDirectoryRegion
           user={user}
           teamsPromise={teamsPromise}
+          tabsPromise={tabsPromise}
           canManageTeams={canManageTeams}
         />
       </Suspense>
@@ -81,23 +91,21 @@ export default async function TeamsPage() {
 }
 
 async function TeamsLeagueTabsRegion({
-  user,
   teamsPromise,
+  tabsPromise,
   canManageTeams,
 }: {
-  user: UserContext;
   teamsPromise: Promise<TeamDirectoryItem[]>;
+  tabsPromise: Promise<TeamDirectoryTab[]>;
   canManageTeams: boolean;
 }) {
-  const [teams, tabOrder] = await Promise.all([
-    teamsPromise,
-    getLeagueTabOrder(user),
-  ]);
+  const [teams, tabs] = await Promise.all([teamsPromise, tabsPromise]);
 
   return (
     <TeamsLeagueTabs
-      tabs={buildTeamDirectoryTabs(teams, tabOrder)}
+      tabs={tabs}
       totalCount={teams.length}
+      defaultLeague={getDefaultTeamLeague(tabs)}
       canManageTeams={canManageTeams}
     />
   );
@@ -106,14 +114,17 @@ async function TeamsLeagueTabsRegion({
 async function TeamsDirectoryRegion({
   user,
   teamsPromise,
+  tabsPromise,
   canManageTeams,
 }: {
   user: UserContext;
   teamsPromise: Promise<TeamDirectoryItem[]>;
+  tabsPromise: Promise<TeamDirectoryTab[]>;
   canManageTeams: boolean;
 }) {
-  const [teams, people] = await Promise.all([
+  const [teams, tabs, people] = await Promise.all([
     teamsPromise,
+    tabsPromise,
     user.userId ? getPeopleContactList(user) : Promise.resolve([]),
   ]);
   // The responsible of a team depends only on the directory and the people
@@ -148,6 +159,7 @@ async function TeamsDirectoryRegion({
       <TeamsWorkspaceClient
         teams={teams}
         responsibleContacts={responsibleContacts}
+        defaultLeague={getDefaultTeamLeague(tabs)}
         canManageTeams={canManageTeams}
       />
     </TeamLogoResolutionProvider>

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { and, desc, eq, inArray, ne, notInArray } from "drizzle-orm";
 
 import { requireEditor } from "@/lib/auth";
+import { isImageDataUrl } from "@/lib/club-logo";
 import { db } from "@/lib/db/client";
 import {
   clubs as clubsTable,
@@ -67,7 +68,8 @@ type ClubFields = {
   website: string | null;
   instagram: string | null;
   official_url: string | null;
-  logo_url: string | null;
+  // undefined leaves the stored crest untouched.
+  logo_url: string | null | undefined;
   short_name: string | null;
   city: string | null;
   province: string | null;
@@ -88,6 +90,8 @@ function clubFieldColumns(fields: ClubFields) {
     instagram: fields.instagram,
     officialUrl: fields.official_url,
     logoUrl: fields.logo_url,
+    // The crest URL is versioned by updated_at, so a new logo must bump it.
+    updatedAt: fields.logo_url === undefined ? undefined : new Date().toISOString(),
     shortName: fields.short_name,
     city: fields.city,
     province: fields.province,
@@ -123,7 +127,7 @@ async function ensureClub(fields: ClubFields) {
 
   for (const key of Object.keys(columns) as Array<keyof typeof columns>) {
     const value = columns[key];
-    if (value !== null) {
+    if (value !== null && value !== undefined) {
       patch[key] = value;
     }
   }
@@ -192,7 +196,9 @@ export async function upsertTeamAction(
       website: maybeNull(String(formData.get("website") ?? "")),
       instagram: maybeNull(String(formData.get("instagram") ?? "")),
       official_url: maybeNull(String(formData.get("officialUrl") ?? "")),
-      logo_url: maybeNull(String(formData.get("logoDataUrl") ?? "")),
+      logo_url: formData.has("logoDataUrl")
+        ? maybeNull(String(formData.get("logoDataUrl") ?? ""))
+        : undefined,
       short_name: maybeNull(String(formData.get("shortName") ?? "")),
       city: maybeNull(String(formData.get("city") ?? "")),
       province: maybeNull(String(formData.get("province") ?? "")),
@@ -202,6 +208,10 @@ export async function upsertTeamAction(
       press_phone: maybeNull(String(formData.get("pressPhone") ?? "")),
       press_email: maybeNull(String(formData.get("pressEmail") ?? "")),
     };
+
+    if (clubFields.logo_url && !isImageDataUrl(clubFields.logo_url)) {
+      return { ok: false, error: "El escudo tiene que ser una imagen." };
+    }
 
     let clubId: string;
 

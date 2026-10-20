@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { buildTeamDirectoryTabs } from "@/lib/data/teams";
-import type { TeamDirectoryItem } from "@/lib/team-directory";
+import {
+  ALL_TEAM_LEAGUES,
+  getDefaultTeamLeague,
+  resolveActiveTeamLeague,
+  type TeamDirectoryItem,
+} from "@/lib/team-directory";
 
 function team(id: string, competition: string): TeamDirectoryItem {
   return {
@@ -15,7 +20,7 @@ function team(id: string, competition: string): TeamDirectoryItem {
     instagram: null,
     official_url: "",
     incident_count: 0,
-    logo_data_url: null,
+    logo_src: null,
   } as TeamDirectoryItem;
 }
 
@@ -51,6 +56,30 @@ describe("buildTeamDirectoryTabs", () => {
     ]);
     expect(values.indexOf("Liga Desarrollo")).toBeLessThan(
       values.indexOf("Liga Federal"),
+    );
+  });
+});
+
+describe("default team league", () => {
+  const tabs = [
+    { value: "Liga Nacional", label: "Liga Nacional", count: 0 },
+    { value: "Liga Argentina", label: "Liga Argentina", count: 3 },
+  ];
+
+  it("opens on the first league that has teams", () => {
+    expect(getDefaultTeamLeague(tabs)).toBe("Liga Argentina");
+    expect(getDefaultTeamLeague([])).toBe("");
+  });
+
+  it("uses the default league unless the URL picks one or asks for all", () => {
+    expect(resolveActiveTeamLeague(null, "Liga Argentina")).toBe(
+      "Liga Argentina",
+    );
+    expect(resolveActiveTeamLeague("Liga Nacional", "Liga Argentina")).toBe(
+      "Liga Nacional",
+    );
+    expect(resolveActiveTeamLeague(ALL_TEAM_LEAGUES, "Liga Argentina")).toBe(
+      "",
     );
   });
 });
