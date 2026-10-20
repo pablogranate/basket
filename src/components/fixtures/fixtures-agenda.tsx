@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import { FixturesCompetitionFilter } from "@/components/fixtures/fixtures-competition-filter";
 import { Badge, badgeBaseClassName } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -11,7 +12,16 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { ToolbarSearchField } from "@/components/ui/toolbar-search-field";
 import type { FixtureListItem, FixturePartido } from "@/lib/data/fixtures";
-import { FIXTURE_COMPETITION_ORDER, resolveFixtureCompetition } from "@/lib/fixtures/competitions";
+import {
+  FIXTURES_ARCHIVED_COOKIE,
+  FIXTURES_ARCHIVED_COOKIE_MAX_AGE,
+  serializeArchivedCompetitions,
+} from "@/lib/fixtures/archived";
+import {
+  FIXTURE_COMPETITION_ORDER,
+  findFixtureCompetitionByLabel,
+  resolveFixtureCompetition,
+} from "@/lib/fixtures/competitions";
 import {
   fixtureCategoryLabel,
   fixturePhaseLabel,
@@ -75,18 +85,30 @@ function normalizeQuery(value: string) {
   return value.normalize("NFD").replaceAll(/[̀-ͯ]/g, "").toLowerCase().trim();
 }
 
+function competitionColor(label: string) {
+  const leagueName = findFixtureCompetitionByLabel(label)?.leagueName;
+  return getGridLeagueColor(leagueName)?.background ?? NEUTRAL_COLOR;
+}
+
+function writeArchivedCookie(labels: readonly string[]) {
+  document.cookie = `${FIXTURES_ARCHIVED_COOKIE}=${serializeArchivedCompetitions(labels)}; path=/; max-age=${FIXTURES_ARCHIVED_COOKIE_MAX_AGE}; samesite=lax`;
+}
+
 export function FixturesAgenda({
   fixtures,
   today,
   truncated,
   monthNav,
+  initialArchived,
 }: {
   fixtures: FixtureListItem[];
   today: string;
   truncated: boolean;
   monthNav: ReactNode;
+  initialArchived: string[];
 }) {
   const [competitions, setCompetitions] = useState<ReadonlySet<string>>(new Set());
+  const [archived, setArchived] = useState<string[]>(initialArchived);
   const [query, setQuery] = useState("");
   const [showPast, setShowPast] = useState(false);
   const [onlyCovered, setOnlyCovered] = useState(false);
@@ -94,10 +116,15 @@ export function FixturesAgenda({
 
   const rows = useMemo(() => fixtures.map(toAgendaRow), [fixtures]);
   const needle = normalizeQuery(query);
-  const matching = needle ? rows.filter((row) => row.searchText.includes(needle)) : rows;
+  const archivedSet = new Set(archived);
+  // An archived competition's rows only show while its chip is picked from the folder.
+  const isShown = (row: AgendaRow) => !archivedSet.has(row.competitionLabel) || competitions.has(row.competitionLabel);
+  const searchedAll = needle ? rows.filter((row) => row.searchText.includes(needle)) : rows;
+  const matching = searchedAll.filter(isShown);
   const coveredCount = matching.filter((row) => row.partido).length;
   const scheduleDiffs = matching.filter((row) => row.partido?.scheduleDiffers);
-  const searched = onlyCovered ? matching.filter((row) => row.partido) : matching;
+  const countedRows = onlyCovered ? searchedAll.filter((row) => row.partido) : searchedAll;
+  const searched = countedRows.filter(isShown);
   const visible = competitions.size ? searched.filter((row) => competitions.has(row.competitionLabel)) : searched;
 
   // Clears whatever filter would hide the row, then the effect scrolls to it.
@@ -130,6 +157,25 @@ export function FixturesAgenda({
       return next;
     });
   }
+
+  function archiveCompetition(label: string) {
+    const next = [...archived.filter((item) => item !== label), label];
+    setArchived(next);
+    writeArchivedCookie(next);
+    setCompetitions((current) => {
+      const nextSelected = new Set(current);
+      nextSelected.delete(label);
+      return nextSelected;
+    });
+  }
+
+  function unarchiveCompetition(label: string) {
+    const next = archived.filter((item) => item !== label);
+    setArchived(next);
+    writeArchivedCookie(next);
+  }
+
+  const countFor = (label: string) => countedRows.filter((row) => row.competitionLabel === label).length;
 
   const tabs = useMemo(() => {
     const present = new Set(rows.map((row) => row.competitionLabel));
@@ -186,25 +232,21 @@ export function FixturesAgenda({
         />
       </div>
 
-      <SegmentedControl
-        size="sm"
-        className="h-auto flex-wrap"
-        items={[{ label: "Todas", color: null }, ...tabs].map((tab) => {
-          const all = tab.label === "Todas";
-          const count = all ? searched.length : searched.filter((row) => row.competitionLabel === tab.label).length;
-          return {
-            key: all ? "all" : tab.label,
-            active: all ? competitions.size === 0 : competitions.has(tab.label),
-            onClick: () => (all ? setCompetitions(new Set()) : toggleCompetition(tab.label)),
-            label: (
-              <span className="inline-flex items-center gap-2 py-1.5">
-                {tab.color ? <span className="size-2 rounded-full" style={{ background: tab.color }} /> : null}
-                {tab.label}
-                <span className="font-mono text-[11px] text-[var(--n-500)]">{count}</span>
-              </span>
-            ),
-          };
-        })}
+      <FixturesCompetitionFilter
+        tabs={tabs
+          .filter((tab) => !archivedSet.has(tab.label))
+          .map((tab) => ({ ...tab, count: countFor(tab.label) }))}
+        archivedTabs={archived.map((label) => ({
+          label,
+          color: tabs.find((tab) => tab.label === label)?.color ?? competitionColor(label),
+          count: countFor(label),
+        }))}
+        selected={competitions}
+        allCount={countedRows.filter((row) => !archivedSet.has(row.competitionLabel)).length}
+        onToggle={toggleCompetition}
+        onClear={() => setCompetitions(new Set())}
+        onArchive={archiveCompetition}
+        onUnarchive={unarchiveCompetition}
       />
 
       {collapsePast && pastDays.length > 0 ? (
