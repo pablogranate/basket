@@ -4,7 +4,11 @@ import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { FixturesCompetitionFilter } from "@/components/fixtures/fixtures-competition-filter";
+import {
+  ArchivedCompetitionsFolder,
+  CompetitionChipRow,
+  useCompetitionChipDrag,
+} from "@/components/fixtures/fixtures-competition-filter";
 import { Badge, badgeBaseClassName } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -175,6 +179,11 @@ export function FixturesAgenda({
     writeArchivedCookie(next);
   }
 
+  const { rowHandlers, folderHandlers } = useCompetitionChipDrag({
+    onArchive: archiveCompetition,
+    onUnarchive: unarchiveCompetition,
+  });
+
   const countFor = (label: string) => countedRows.filter((row) => row.competitionLabel === label).length;
 
   const tabs = useMemo(() => {
@@ -223,30 +232,37 @@ export function FixturesAgenda({
           />
           {scheduleDiffs.length > 0 ? <ScheduleDiffMenu rows={scheduleDiffs} onSelect={revealRow} /> : null}
         </div>
-        <ToolbarSearchField
-          as="div"
-          className="md:min-w-64 md:flex-1 lg:ml-auto lg:max-w-xs lg:flex-none"
-          placeholder="Equipo, club o ciudad"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
+        <div className="flex items-center gap-2 md:min-w-64 md:flex-1 lg:ml-auto lg:flex-none">
+          <ArchivedCompetitionsFolder
+            tabs={archived.map((label) => ({
+              label,
+              color: tabs.find((tab) => tab.label === label)?.color ?? competitionColor(label),
+              count: countFor(label),
+            }))}
+            selected={competitions}
+            onToggle={toggleCompetition}
+            onUnarchive={unarchiveCompetition}
+            dragHandlers={folderHandlers}
+          />
+          <ToolbarSearchField
+            as="div"
+            className="min-w-0 flex-1 lg:w-80 lg:flex-none"
+            placeholder="Equipo, club o ciudad"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </div>
       </div>
 
-      <FixturesCompetitionFilter
+      <CompetitionChipRow
         tabs={tabs
           .filter((tab) => !archivedSet.has(tab.label))
           .map((tab) => ({ ...tab, count: countFor(tab.label) }))}
-        archivedTabs={archived.map((label) => ({
-          label,
-          color: tabs.find((tab) => tab.label === label)?.color ?? competitionColor(label),
-          count: countFor(label),
-        }))}
         selected={competitions}
         allCount={countedRows.filter((row) => !archivedSet.has(row.competitionLabel)).length}
         onToggle={toggleCompetition}
         onClear={() => setCompetitions(new Set())}
-        onArchive={archiveCompetition}
-        onUnarchive={unarchiveCompetition}
+        dragHandlers={rowHandlers}
       />
 
       {collapsePast && pastDays.length > 0 ? (

@@ -141,81 +141,78 @@ function ChipLabel({ tab, muted }: { tab: CompetitionTab; muted?: boolean }) {
   );
 }
 
-export function FixturesCompetitionFilter({
-  tabs,
-  archivedTabs,
-  selected,
-  allCount,
-  onToggle,
-  onClear,
+type DragHandlers = {
+  onPointerDown: (event: ReactPointerEvent<HTMLElement>) => void;
+  onClickCapture: (event: ReactMouseEvent) => void;
+};
+
+// The chip row and the folder sit in different toolbar rows but share one drag.
+export function useCompetitionChipDrag({
   onArchive,
   onUnarchive,
 }: {
-  tabs: CompetitionTab[];
-  archivedTabs: CompetitionTab[];
-  selected: ReadonlySet<string>;
-  allCount: number;
-  onToggle: (label: string) => void;
-  onClear: () => void;
   onArchive: (label: string) => void;
   onUnarchive: (label: string) => void;
-}) {
+}): { rowHandlers: DragHandlers; folderHandlers: DragHandlers } {
   const { startDrag, swallowClickAfterDrag } = useChipDrag((label, origin) =>
     origin === "row" ? onArchive(label) : onUnarchive(label),
   );
 
-  return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
-      <div
-        data-fixtures-drop="row"
-        className="min-w-0 flex-1 rounded-[var(--panel-radius)] transition"
-        onPointerDown={(event) => startDrag(event, "row")}
-        onClickCapture={swallowClickAfterDrag}
-      >
-        <SegmentedControl
-          size="sm"
-          className="h-auto flex-wrap"
-          items={[
-            {
-              key: "all",
-              active: selected.size === 0,
-              onClick: onClear,
-              label: (
-                <span className="inline-flex items-center gap-2 py-1.5">
-                  Todas
-                  <span className="font-mono text-[11px] text-[var(--n-500)]">{allCount}</span>
-                </span>
-              ),
-            },
-            ...tabs.map((tab) => ({
-              key: tab.label,
-              active: selected.has(tab.label),
-              onClick: () => onToggle(tab.label),
-              label: (
-                <span data-fixtures-chip={tab.label} className="touch-none select-none">
-                  <ChipLabel tab={tab} />
-                </span>
-              ),
-            })),
-          ]}
-        />
-      </div>
+  return {
+    rowHandlers: { onPointerDown: (event) => startDrag(event, "row"), onClickCapture: swallowClickAfterDrag },
+    folderHandlers: { onPointerDown: (event) => startDrag(event, "folder"), onClickCapture: swallowClickAfterDrag },
+  };
+}
 
-      <ArchivedFolder
-        tabs={archivedTabs}
-        selected={selected}
-        onToggle={onToggle}
-        onUnarchive={onUnarchive}
-        dragHandlers={{
-          onPointerDown: (event) => startDrag(event, "folder"),
-          onClickCapture: swallowClickAfterDrag,
-        }}
+export function CompetitionChipRow({
+  tabs,
+  selected,
+  allCount,
+  onToggle,
+  onClear,
+  dragHandlers,
+}: {
+  tabs: CompetitionTab[];
+  selected: ReadonlySet<string>;
+  allCount: number;
+  onToggle: (label: string) => void;
+  onClear: () => void;
+  dragHandlers: DragHandlers;
+}) {
+  return (
+    <div data-fixtures-drop="row" className="rounded-[var(--panel-radius)] transition" {...dragHandlers}>
+      <SegmentedControl
+        size="sm"
+        className="h-auto flex-wrap"
+        items={[
+          {
+            key: "all",
+            active: selected.size === 0,
+            onClick: onClear,
+            label: (
+              <span className="inline-flex items-center gap-2 py-1.5">
+                Todas
+                <span className="font-mono text-[11px] text-[var(--n-500)]">{allCount}</span>
+              </span>
+            ),
+          },
+          ...tabs.map((tab) => ({
+            key: tab.label,
+            active: selected.has(tab.label),
+            onClick: () => onToggle(tab.label),
+            label: (
+              <span data-fixtures-chip={tab.label} className="touch-none select-none">
+                <ChipLabel tab={tab} />
+              </span>
+            ),
+          })),
+        ]}
       />
     </div>
   );
 }
 
-function ArchivedFolder({
+export function ArchivedCompetitionsFolder({
   tabs,
   selected,
   onToggle,
@@ -226,10 +223,7 @@ function ArchivedFolder({
   selected: ReadonlySet<string>;
   onToggle: (label: string) => void;
   onUnarchive: (label: string) => void;
-  dragHandlers: {
-    onPointerDown: (event: ReactPointerEvent<HTMLElement>) => void;
-    onClickCapture: (event: ReactMouseEvent) => void;
-  };
+  dragHandlers: DragHandlers;
 }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -281,7 +275,7 @@ function ArchivedFolder({
       </button>
 
       {open ? (
-        <div className="panel-surface absolute right-0 top-[calc(100%+0.5rem)] z-50 w-[min(20rem,calc(100vw-2rem))] overflow-hidden border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-lift)]">
+        <div className="panel-surface absolute left-0 top-[calc(100%+0.5rem)] z-50 w-[min(20rem,calc(100vw-2rem))] overflow-hidden border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-lift)]">
           <div className="flex items-baseline justify-between gap-3 border-b border-[var(--n-100)] px-4 py-2.5 text-sm font-semibold">
             Ligas terminadas
             <span className="text-xs font-normal text-[var(--n-500)]">Arrastrá a la fila para desarchivar</span>
