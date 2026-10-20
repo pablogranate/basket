@@ -122,6 +122,28 @@ describe("effective access (integration)", () => {
     }
   });
 
+  it("declares monitor with Operador and Admin, a super admin resolving to Admin", async () => {
+    const operator = await seedAuthUser(sql, { email: "op@basquetpass.tv" });
+    const boss = await seedAuthUser(sql, { email: "boss@basquetpass.tv" });
+    await setSuperadmin(boss);
+
+    await grantRole({ userId: operator, app: "monitor", role: "operador", grantedBy: null });
+
+    expect(await getEffectiveAccess(operator, "monitor")).toMatchObject({
+      role: "operador",
+      rank: 10,
+      isAdmin: false,
+    });
+    expect(await getEffectiveAccess(boss, "monitor")).toMatchObject({
+      role: "admin",
+      rank: 30,
+      viaSuperadmin: true,
+    });
+    await expect(
+      sql`INSERT INTO auth_app_access (user_id, app, role) VALUES (${boss}, 'monitor', 'write')`,
+    ).rejects.toThrow(/foreign key/);
+  });
+
   it("refuses an Acceso for an unknown app or a role its app does not declare", async () => {
     const user = await seedAuthUser(sql, { email: "u@basquetpass.tv" });
 

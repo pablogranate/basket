@@ -7,6 +7,7 @@ export const SIBLING_APPS = [
   "generator",
   "ops",
   "facturacion",
+  "monitor",
 ] as const;
 
 // Users-matrix select value meaning "revoke"; never a catalog role key.
@@ -24,6 +25,7 @@ export const SIBLING_APP_LABELS: Record<SiblingApp, string> = {
   generator: "Generador",
   ops: "Operaciones",
   facturacion: "Facturación",
+  monitor: "Monitor",
 };
 
 // What the apex launcher lists for one person: the portal when their Cuenta
@@ -70,6 +72,7 @@ export const APP_SUBDOMAINS: Record<LauncherApp, string> = {
   generator: "generator",
   ops: "op",
   facturacion: "facturacion",
+  monitor: "monitor",
 };
 
 export function appSubdomain(app: string): string {
