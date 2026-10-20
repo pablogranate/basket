@@ -312,3 +312,8 @@ export function splitTeamCompetitions(competition: string) {
     .map((part) => part.trim())
     .filter(Boolean);
 }
+
+// A team with no league this season sits in the "Archivados" folder on /teams.
+export function isTeamArchived(team: Pick<TeamDirectoryItem, "competition">) {
+  return !splitTeamCompetitions(team.competition).length;
+}

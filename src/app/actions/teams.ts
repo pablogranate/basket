@@ -499,3 +499,32 @@ export async function removeTeamFromLeaguesAction({
     return { ok: false, error: ensureErrorMessage(error) };
   }
 }
+
+// A team without any league is archived on /teams. Unlike removing it from its
+// leagues, archiving keeps the team (and its club) so it can be assigned again.
+export async function archiveTeamAction({
+  teamId,
+}: {
+  teamId: string;
+}): Promise<UpsertTeamResult> {
+  try {
+    await requireEditor();
+
+    if (!teamId) {
+      return { ok: false, error: "Falta el equipo." };
+    }
+
+    // Every season, for the same reason as removeTeamFromLeaguesAction: an
+    // older membership would bring the team back under last season's leagues.
+    await db
+      .delete(teamLeagueMembershipsTable)
+      .where(eq(teamLeagueMembershipsTable.teamId, teamId));
+
+    revalidatePath("/teams");
+
+    return { ok: true };
+  } catch (error) {
+    console.error("[teams] failed to archive team", error);
+    return { ok: false, error: ensureErrorMessage(error) };
+  }
+}

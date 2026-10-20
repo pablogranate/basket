@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import type { TeamResponsibleContact } from "@/lib/team-responsibles";
 import type { TeamDirectoryItem } from "@/lib/team-directory";
 import {
+  isTeamArchived,
   resolveActiveTeamLeague,
   splitTeamCompetitions,
 } from "@/lib/team-directory";
@@ -20,6 +21,10 @@ function filterTeams(
   const league = params.league?.trim() ?? "";
 
   return teams.filter((team) => {
+    if (isTeamArchived(team)) {
+      return false;
+    }
+
     if (league && !splitTeamCompetitions(team.competition).includes(league)) {
       return false;
     }

@@ -9,12 +9,17 @@ import {
   reorderLeagueTabsAction,
 } from "@/app/actions/teams";
 import { PageCanvasTone } from "@/components/layout/page-canvas-tone";
+import {
+  TeamsArchivedFolder,
+  type ArchivedTeam,
+} from "@/components/teams/teams-archived-folder";
 import { Button } from "@/components/ui/button";
 import {
   ALL_TEAM_LEAGUES,
   getTeamLeagueAccentColor,
   getTeamLeagueCanvasTone,
   resolveActiveTeamLeague,
+  splitTeamCompetitions,
   type TeamDirectoryTab,
 } from "@/lib/team-directory";
 import {
@@ -60,11 +65,13 @@ function moveLeague(
 export function TeamsLeagueTabs({
   tabs,
   totalCount,
+  archivedTeams,
   defaultLeague,
   canManageTeams = false,
 }: {
   tabs: TeamDirectoryTab[];
   totalCount: number;
+  archivedTeams: ArchivedTeam[];
   defaultLeague: string;
   canManageTeams?: boolean;
 }) {
@@ -219,10 +226,29 @@ export function TeamsLeagueTabs({
       event.dataTransfer.getData(TEAM_DRAG_MIME),
     );
 
-    if (team) {
-      setErrorMessage("");
-      setPendingDrop({ team, league });
+    if (!team) {
+      return;
     }
+
+    setErrorMessage("");
+
+    // An archived team has no league to move out of: it just joins this one.
+    if (!splitTeamCompetitions(team.competition).length) {
+      startAssigning(async () => {
+        const result = await assignTeamToLeagueAction({
+          teamId: team.id,
+          leagueName: league,
+          mode: "add",
+        });
+
+        if (!result.ok) {
+          setReorderError(result.error ?? "No se pudo asignar el equipo.");
+        }
+      });
+      return;
+    }
+
+    setPendingDrop({ team, league });
   }
 
   function closeDialog() {
@@ -366,6 +392,12 @@ export function TeamsLeagueTabs({
           </a>
         ))}
       </div>
+
+      <TeamsArchivedFolder
+        teams={archivedTeams}
+        tabs={orderedTabs}
+        canManageTeams={canManageTeams}
+      />
 
       {pendingDrop
         ? createPortal(

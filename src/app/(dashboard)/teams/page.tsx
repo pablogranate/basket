@@ -19,6 +19,7 @@ import {
 } from "@/lib/data/teams";
 import {
   getDefaultTeamLeague,
+  isTeamArchived,
   type TeamDirectoryItem,
   type TeamDirectoryTab,
 } from "@/lib/team-directory";
@@ -100,11 +101,15 @@ async function TeamsLeagueTabsRegion({
   canManageTeams: boolean;
 }) {
   const [teams, tabs] = await Promise.all([teamsPromise, tabsPromise]);
+  const archivedTeams = teams
+    .filter(isTeamArchived)
+    .map((team) => ({ id: team.id, name: team.official_name }));
 
   return (
     <TeamsLeagueTabs
       tabs={tabs}
-      totalCount={teams.length}
+      totalCount={teams.length - archivedTeams.length}
+      archivedTeams={archivedTeams}
       defaultLeague={getDefaultTeamLeague(tabs)}
       canManageTeams={canManageTeams}
     />
