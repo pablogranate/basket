@@ -157,3 +157,7 @@ export function resolveGridCompetitionLeague(
 export const FIXTURE_COMPETITION_ORDER = COMPETITIONS.map((entry) => entry.label).filter(
   (label, index, all) => all.indexOf(label) === index,
 );
+
+export function findFixtureCompetitionByLabel(label: string) {
+  return COMPETITIONS.find((entry) => entry.label === label) ?? null;
+}
