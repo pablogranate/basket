@@ -8,17 +8,24 @@ import { appEnv } from "@/lib/env";
 
 // App gate consumed by infrastructure (nginx auth_request) — see ADR 0006 for
 // the nginx shape and ADRs 0009/0010 for the decision: the gate answers from the
-// identity's effective access (super admins included), not a portal capability. Readers (analytics,
-// incidencias, ops) gate themselves in-process, so only the static generator
-// is served here. Must never live under /api/auth/*: the Better Auth catch-all
-// owns that prefix.
+// identity's effective access (super admins included), not a portal capability.
+// Readers (analytics, incidencias, ops) gate themselves in-process, so only the
+// apps that can't read the session are served here: the static generator and
+// the Python monitor. Must never live under /api/auth/*: the Better Auth
+// catch-all owns that prefix.
 //
 // A 403 names where nginx sends the browser (`X-Gate-Redirect`, read with
 // `auth_request_set`): the Solicitud form for this app, so the request is
 // tagged with it.
+//
+// A 204 names the Rol de app untranslated (`X-Gate-Role`) and the identity's
+// email (`X-Gate-User`) for nginx to forward: the monitor tells viewers from
+// editors and decides what each of its roles unlocks; the generator ignores both.
 const GATE_REDIRECT_HEADER = "X-Gate-Redirect";
+const GATE_ROLE_HEADER = "X-Gate-Role";
+const GATE_USER_HEADER = "X-Gate-User";
 
-const NGINX_GATED_APPS: ReadonlyArray<SiblingApp> = ["generator"];
+const NGINX_GATED_APPS: ReadonlyArray<SiblingApp> = ["generator", "monitor"];
 
 function parseGatedApp(app: string): SiblingApp | null {
   return (NGINX_GATED_APPS as ReadonlyArray<string>).includes(app)
@@ -59,6 +66,12 @@ export async function GET(
       );
     }
 
-    return new Response(null, { status: 204 });
+    return new Response(null, {
+      status: 204,
+      headers: {
+        [GATE_ROLE_HEADER]: access.role,
+        [GATE_USER_HEADER]: context.email ?? "",
+      },
+    });
   })(request);
 }

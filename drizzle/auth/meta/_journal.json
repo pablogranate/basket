@@ -50,6 +50,13 @@
       "when": 1790791515929,
       "tag": "0006_access_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792508508857,
+      "tag": "0007_monitor_app",
+      "breakpoints": true
     }
   ]
 }

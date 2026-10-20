@@ -164,7 +164,7 @@ describe("Auth DB migrations over a database with data", () => {
       SELECT * FROM auth_effective_access ORDER BY user_id, app
     `;
 
-    await migrate(drizzle(sql), { migrationsFolder: "drizzle/auth" });
+    await migrateThrough("0005_contract_drop_nivel");
 
     expect(
       await sql`SELECT user_id, app, role, granted_by FROM auth_app_access ORDER BY user_id, app`,

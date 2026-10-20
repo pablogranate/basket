@@ -5,6 +5,7 @@ import {
   Clapperboard,
   LogOut,
   Image as ImageIcon,
+  MonitorPlay,
   Radio,
   Receipt,
   Server,
@@ -37,6 +38,7 @@ const LANDING_APPS: Record<LauncherApp, Omit<LandingApp, "subdomain">> = {
   generator: { name: SIBLING_APP_LABELS.generator, Icon: ImageIcon },
   ops: { name: SIBLING_APP_LABELS.ops, Icon: Radio },
   facturacion: { name: SIBLING_APP_LABELS.facturacion, Icon: Receipt },
+  monitor: { name: SIBLING_APP_LABELS.monitor, Icon: MonitorPlay },
 };
 
 // Not an Acceso app: server. has no auth yet, so only super admins see it.
