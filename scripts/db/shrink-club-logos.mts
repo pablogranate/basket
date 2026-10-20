@@ -9,7 +9,7 @@
 // the original data URLs of every club it changes go to
 // club-logos-backup-<timestamp>.json in the current directory. Each update
 // also bumps clubs.updated_at, which changes the crest URL so browsers drop
-// the cached original. sharp ships with Next.js, so it is not a direct dep.
+// the cached original.
 import { writeFileSync } from "node:fs";
 
 import postgres from "postgres";
