@@ -3,6 +3,8 @@ import { Suspense } from "react";
 import { CreateTeamModalWithLeague } from "@/components/teams/create-team-modal-with-league";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 import { TeamCardIconSprite } from "@/components/teams/team-card-icon-sprite";
+import { TeamsEditProvider } from "@/components/teams/teams-edit-context";
+import { TeamsEditToggle } from "@/components/teams/teams-edit-toggle";
 import { TeamsLeagueTabs } from "@/components/teams/teams-league-tabs";
 import { TeamsSearchField } from "@/components/teams/teams-search-field";
 import { TeamsWorkspaceClient } from "@/components/teams/teams-workspace-client";
@@ -57,6 +59,7 @@ export default async function TeamsPage() {
           space-y-10 stack so it does not become a spacing sibling. */}
       <TeamCardIconSprite />
 
+    <TeamsEditProvider>
     <div className="space-y-10">
       <SectionPageHeader
         title={SECTION_COPY.teams.title}
@@ -64,6 +67,8 @@ export default async function TeamsPage() {
         actions={
           <>
           <TeamsSearchField className="w-full md:min-w-[22rem] md:flex-1" />
+
+          {canManageTeams ? <TeamsEditToggle /> : null}
 
           <CreateTeamModalWithLeague canEdit={canManageTeams} />
           </>
@@ -87,6 +92,7 @@ export default async function TeamsPage() {
         />
       </Suspense>
     </div>
+    </TeamsEditProvider>
     </>
   );
 }
@@ -101,15 +107,13 @@ async function TeamsLeagueTabsRegion({
   canManageTeams: boolean;
 }) {
   const [teams, tabs] = await Promise.all([teamsPromise, tabsPromise]);
-  const archivedTeams = teams
-    .filter(isTeamArchived)
-    .map((team) => ({ id: team.id, name: team.official_name }));
+  const archivedCount = teams.filter(isTeamArchived).length;
 
   return (
     <TeamsLeagueTabs
       tabs={tabs}
-      totalCount={teams.length - archivedTeams.length}
-      archivedTeams={archivedTeams}
+      totalCount={teams.length - archivedCount}
+      archivedCount={archivedCount}
       defaultLeague={getDefaultTeamLeague(tabs)}
       canManageTeams={canManageTeams}
     />
@@ -164,6 +168,7 @@ async function TeamsDirectoryRegion({
       <TeamsWorkspaceClient
         teams={teams}
         responsibleContacts={responsibleContacts}
+        leagues={tabs}
         defaultLeague={getDefaultTeamLeague(tabs)}
         canManageTeams={canManageTeams}
       />

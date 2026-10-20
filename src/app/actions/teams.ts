@@ -294,13 +294,13 @@ export async function upsertTeamAction(
   }
 }
 
-export async function assignTeamToLeagueAction({
-  teamId,
+export async function assignTeamsToLeagueAction({
+  teamIds,
   leagueName,
   mode,
   fromLeague,
 }: {
-  teamId: string;
+  teamIds: string[];
   leagueName: string;
   mode: "move" | "add";
   fromLeague?: string | null;
@@ -308,78 +308,84 @@ export async function assignTeamToLeagueAction({
   try {
     await requireEditor();
 
+    const ids = Array.from(new Set(teamIds.filter(Boolean)));
     const targetName = leagueName.trim();
-    if (!teamId || !targetName) {
+    if (!ids.length || !targetName) {
       return { ok: false, error: "Equipo y liga son obligatorios." };
     }
 
-    const team = await db
+    const found = await db
       .select({ id: teamsTable.id })
       .from(teamsTable)
-      .where(eq(teamsTable.id, teamId))
-      .limit(1);
+      .where(inArray(teamsTable.id, ids));
 
-    if (!team[0]) {
+    if (found.length !== ids.length) {
       return { ok: false, error: "No se encontró el equipo." };
     }
 
     const league = await ensureLeague(targetName);
     const season = await resolveCurrentSeason();
+    // Dragging from a league tab moves out of that league only; from the
+    // "Todos" view (no source league) the teams end up in the target alone.
+    const sourceSlug = fromLeague?.trim()
+      ? slugifyTeamValue(fromLeague.trim())
+      : null;
+    const source = sourceSlug
+      ? (
+          await db
+            .select({ id: leaguesTable.id })
+            .from(leaguesTable)
+            .where(eq(leaguesTable.slug, sourceSlug))
+            .limit(1)
+        )[0]
+      : undefined;
 
-    await db
-      .insert(teamLeagueMembershipsTable)
-      .values({ teamId, leagueId: league.id, season })
-      .onConflictDoNothing({
-        target: [
-          teamLeagueMembershipsTable.teamId,
-          teamLeagueMembershipsTable.leagueId,
-          teamLeagueMembershipsTable.season,
-        ],
-      });
+    await db.transaction(async (tx) => {
+      await tx
+        .insert(teamLeagueMembershipsTable)
+        .values(ids.map((teamId) => ({ teamId, leagueId: league.id, season })))
+        .onConflictDoNothing({
+          target: [
+            teamLeagueMembershipsTable.teamId,
+            teamLeagueMembershipsTable.leagueId,
+            teamLeagueMembershipsTable.season,
+          ],
+        });
 
-    if (mode === "move") {
-      // Dragging from a league tab moves out of that league only; from the
-      // "Todos" view (no source league) the team ends up in the target alone.
-      const sourceSlug = fromLeague?.trim()
-        ? slugifyTeamValue(fromLeague.trim())
-        : null;
+      if (mode !== "move") {
+        return;
+      }
 
       if (sourceSlug) {
-        const source = await db
-          .select({ id: leaguesTable.id })
-          .from(leaguesTable)
-          .where(eq(leaguesTable.slug, sourceSlug))
-          .limit(1);
-
-        if (source[0] && source[0].id !== league.id) {
-          await db
+        if (source && source.id !== league.id) {
+          await tx
             .delete(teamLeagueMembershipsTable)
             .where(
               and(
-                eq(teamLeagueMembershipsTable.teamId, teamId),
-                eq(teamLeagueMembershipsTable.leagueId, source[0].id),
+                inArray(teamLeagueMembershipsTable.teamId, ids),
+                eq(teamLeagueMembershipsTable.leagueId, source.id),
                 eq(teamLeagueMembershipsTable.season, season),
               ),
             );
         }
       } else {
-        await db
+        await tx
           .delete(teamLeagueMembershipsTable)
           .where(
             and(
-              eq(teamLeagueMembershipsTable.teamId, teamId),
+              inArray(teamLeagueMembershipsTable.teamId, ids),
               eq(teamLeagueMembershipsTable.season, season),
               ne(teamLeagueMembershipsTable.leagueId, league.id),
             ),
           );
       }
-    }
+    });
 
     revalidatePath("/teams");
 
     return { ok: true };
   } catch (error) {
-    console.error("[teams] failed to assign team to league", error);
+    console.error("[teams] failed to assign teams to league", error);
     return { ok: false, error: ensureErrorMessage(error) };
   }
 }
@@ -502,29 +508,30 @@ export async function removeTeamFromLeaguesAction({
 
 // A team without any league is archived on /teams. Unlike removing it from its
 // leagues, archiving keeps the team (and its club) so it can be assigned again.
-export async function archiveTeamAction({
-  teamId,
+export async function archiveTeamsAction({
+  teamIds,
 }: {
-  teamId: string;
+  teamIds: string[];
 }): Promise<UpsertTeamResult> {
   try {
     await requireEditor();
 
-    if (!teamId) {
-      return { ok: false, error: "Falta el equipo." };
+    const ids = Array.from(new Set(teamIds.filter(Boolean)));
+    if (!ids.length) {
+      return { ok: false, error: "Seleccioná al menos un equipo." };
     }
 
     // Every season, for the same reason as removeTeamFromLeaguesAction: an
     // older membership would bring the team back under last season's leagues.
     await db
       .delete(teamLeagueMembershipsTable)
-      .where(eq(teamLeagueMembershipsTable.teamId, teamId));
+      .where(inArray(teamLeagueMembershipsTable.teamId, ids));
 
     revalidatePath("/teams");
 
     return { ok: true };
   } catch (error) {
-    console.error("[teams] failed to archive team", error);
+    console.error("[teams] failed to archive teams", error);
     return { ok: false, error: ensureErrorMessage(error) };
   }
 }

@@ -2,7 +2,7 @@
 
 import { useRef, type CSSProperties } from "react";
 import Image from "next/image";
-import { Mail, MessageCircle } from "lucide-react";
+import { Check, Mail, MessageCircle } from "lucide-react";
 
 import { ClientTeamLogoMark } from "@/components/team-logo-mark-client";
 import { TeamCardIcon } from "@/components/teams/team-card-icon-sprite";
@@ -15,8 +15,22 @@ import {
   splitTeamCompetitions,
   type TeamDirectoryItem,
 } from "@/lib/team-directory";
-import { beginTeamCardDrag, TEAM_DRAG_MIME } from "@/lib/team-drag";
-import { buildWhatsAppUrl } from "@/lib/utils";
+import {
+  beginTeamCardDrag,
+  TEAM_DRAG_MIME,
+  type TeamDragPayload,
+} from "@/lib/team-drag";
+import { buildWhatsAppUrl, cn } from "@/lib/utils";
+
+// Present only while /teams is in edit mode.
+export type TeamCardSelection = {
+  selected: boolean;
+  dimmed: boolean;
+  onToggle: () => void;
+  // The teams this drag carries: the selected group, or just this card.
+  onDragTeams: () => TeamDragPayload[];
+  onDragDone: () => void;
+};
 
 function getLeagueBadgeStyle(competition: string): CSSProperties {
   const colors = getTeamLeagueColorSet(competition);
@@ -71,12 +85,15 @@ export function TeamCard({
   activeLeague,
   responsibleContact,
   canEdit = false,
+  selection,
 }: {
   team: TeamDirectoryItem;
   activeLeague?: string;
   responsibleContact?: TeamResponsibleContact | null;
   canEdit?: boolean;
+  selection?: TeamCardSelection;
 }) {
+  const draggable = canEdit && Boolean(selection);
   const cardRef = useRef<HTMLElement | null>(null);
   const endDragRef = useRef<(() => void) | null>(null);
   const leagueBadges = splitTeamCompetitions(team.competition);
@@ -92,37 +109,71 @@ export function TeamCard({
           "--team-league-accent": hoverAccent,
         } as CSSProperties
       }
-      className="panel-surface group tc-card"
+      className={cn(
+        "panel-surface group tc-card",
+        selection && "relative cursor-pointer select-none",
+        selection?.selected &&
+          "border-[var(--accent)] ring-2 ring-[var(--accent)]",
+        selection?.dimmed && "opacity-40",
+      )}
+      data-team-card-id={team.id}
       ref={cardRef}
-      draggable={canEdit}
-      onDragStart={
-        canEdit
+      draggable={draggable}
+      onClick={
+        selection
           ? (event) => {
-              event.dataTransfer.setData(
-                TEAM_DRAG_MIME,
-                JSON.stringify({
-                  id: team.id,
-                  name: team.official_name,
-                  competition: team.competition,
-                }),
-              );
+              const target = event.target as HTMLElement;
+              // Portaled modals bubble through React; links/buttons keep their job.
+              if (
+                !event.currentTarget.contains(target) ||
+                target.closest("a, button")
+              ) {
+                return;
+              }
+              selection.onToggle();
+            }
+          : undefined
+      }
+      onDragStart={
+        draggable
+          ? (event) => {
+              const teams = selection!.onDragTeams();
+              event.dataTransfer.setData(TEAM_DRAG_MIME, JSON.stringify(teams));
               event.dataTransfer.effectAllowed = "copyMove";
 
               if (cardRef.current) {
-                endDragRef.current = beginTeamCardDrag(event, cardRef.current);
+                endDragRef.current = beginTeamCardDrag(
+                  event,
+                  cardRef.current,
+                  teams.length,
+                );
               }
             }
           : undefined
       }
       onDragEnd={
-        canEdit
+        draggable
           ? () => {
               endDragRef.current?.();
               endDragRef.current = null;
+              selection!.onDragDone();
             }
           : undefined
       }
     >
+      {selection ? (
+        <span
+          aria-hidden="true"
+          className={cn(
+            "absolute left-3 top-3 z-20 grid size-5 place-items-center rounded-full border-2 bg-white transition",
+            selection.selected
+              ? "border-[var(--accent)] bg-[var(--accent)] text-white"
+              : "border-[var(--n-300)] group-hover:border-[var(--n-500)]",
+          )}
+        >
+          {selection.selected ? <Check className="size-3" strokeWidth={3} /> : null}
+        </span>
+      ) : null}
       <div className="tc-logo-col">
         {team.logo_src ? (
           <div className="panel-surface tc-logo overflow-hidden">

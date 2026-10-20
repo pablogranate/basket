@@ -24,6 +24,7 @@ function getTransparentDragImage() {
 export function beginTeamCardDrag(
   event: React.DragEvent,
   card: HTMLElement,
+  count = 1,
 ): () => void {
   event.dataTransfer.setDragImage(getTransparentDragImage(), 0, 0);
 
@@ -49,6 +50,13 @@ export function beginTeamCardDrag(
   // Scale from the grab point so the shrunken card stays under the cursor.
   ghost.style.transformOrigin = `${offsetX}px ${offsetY}px`;
   ghost.style.boxShadow = "0 24px 64px rgba(28, 13, 16, 0.28)";
+  if (count > 1) {
+    const badge = document.createElement("span");
+    badge.textContent = String(count);
+    badge.style.cssText =
+      "position:absolute;top:10px;right:10px;z-index:30;min-width:32px;height:32px;padding:0 10px;border-radius:999px;background:var(--accent);color:#fff;font-weight:700;font-size:15px;display:grid;place-items:center;";
+    ghost.appendChild(badge);
+  }
   document.body.appendChild(ghost);
 
   let latestX = rect.left;
@@ -130,22 +138,24 @@ export function beginTeamCardDrag(
   };
 }
 
-export function parseTeamDragPayload(raw: string): TeamDragPayload | null {
+// A drag carries every selected team; a lone card is a list of one.
+export function parseTeamDragPayload(raw: string): TeamDragPayload[] {
   try {
     const value: unknown = JSON.parse(raw);
 
-    if (
-      typeof value === "object" &&
-      value !== null &&
-      typeof (value as TeamDragPayload).id === "string" &&
-      typeof (value as TeamDragPayload).name === "string" &&
-      typeof (value as TeamDragPayload).competition === "string"
-    ) {
-      return value as TeamDragPayload;
+    if (Array.isArray(value)) {
+      return value.filter(
+        (item): item is TeamDragPayload =>
+          typeof item === "object" &&
+          item !== null &&
+          typeof (item as TeamDragPayload).id === "string" &&
+          typeof (item as TeamDragPayload).name === "string" &&
+          typeof (item as TeamDragPayload).competition === "string",
+      );
     }
   } catch {
     // Not a team drag; ignore.
   }
 
-  return null;
+  return [];
 }

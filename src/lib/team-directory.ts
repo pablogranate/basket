@@ -34,6 +34,8 @@ const LEAGUE_URL = "https://www.laliganacional.com.ar/";
 
 // /teams opens on a league; "Todos" is an explicit ?league=todos.
 export const ALL_TEAM_LEAGUES = "todos";
+// Teams without a league this season; shown as one more tab.
+export const ARCHIVED_TEAM_LEAGUE = "archivados";
 
 export function getDefaultTeamLeague(tabs: TeamDirectoryTab[]) {
   return tabs.find((tab) => tab.count > 0)?.value ?? "";

@@ -2,37 +2,21 @@
 
 import { useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
-import { createPortal } from "react-dom";
 
-import {
-  assignTeamToLeagueAction,
-  reorderLeagueTabsAction,
-} from "@/app/actions/teams";
+import { reorderLeagueTabsAction } from "@/app/actions/teams";
 import { PageCanvasTone } from "@/components/layout/page-canvas-tone";
-import {
-  TeamsArchivedFolder,
-  type ArchivedTeam,
-} from "@/components/teams/teams-archived-folder";
-import { Button } from "@/components/ui/button";
+import { TeamsArchiveTab } from "@/components/teams/teams-archive-tab";
+import { useTeamsEdit } from "@/components/teams/teams-edit-context";
 import {
   ALL_TEAM_LEAGUES,
+  ARCHIVED_TEAM_LEAGUE,
   getTeamLeagueAccentColor,
   getTeamLeagueCanvasTone,
   resolveActiveTeamLeague,
-  splitTeamCompetitions,
   type TeamDirectoryTab,
 } from "@/lib/team-directory";
-import {
-  parseTeamDragPayload,
-  TEAM_DRAG_MIME,
-  type TeamDragPayload,
-} from "@/lib/team-drag";
+import { parseTeamDragPayload, TEAM_DRAG_MIME } from "@/lib/team-drag";
 import { cn } from "@/lib/utils";
-
-type PendingDrop = {
-  team: TeamDragPayload;
-  league: string;
-};
 
 const LEAGUE_DRAG_MIME = "application/x-basket-league";
 
@@ -65,21 +49,19 @@ function moveLeague(
 export function TeamsLeagueTabs({
   tabs,
   totalCount,
-  archivedTeams,
+  archivedCount,
   defaultLeague,
   canManageTeams = false,
 }: {
   tabs: TeamDirectoryTab[];
   totalCount: number;
-  archivedTeams: ArchivedTeam[];
+  archivedCount: number;
   defaultLeague: string;
   canManageTeams?: boolean;
 }) {
   const searchParams = useSearchParams();
+  const { requestMove, clearSelection } = useTeamsEdit();
   const [dragOverLeague, setDragOverLeague] = useState<string | null>(null);
-  const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [isAssigning, startAssigning] = useTransition();
   // Tabs render in a local order so a reorder paints immediately. The override
   // remembers which tabs prop it was made against, so a fresh server order
   // (leagues.sort_order after revalidation) wins as soon as the prop changes.
@@ -109,10 +91,12 @@ export function TeamsLeagueTabs({
     searchParams.get("league"),
     defaultLeague,
   );
-  const leagueAccent = activeLeague
+  const isLeagueView =
+    Boolean(activeLeague) && activeLeague !== ARCHIVED_TEAM_LEAGUE;
+  const leagueAccent = isLeagueView
     ? getTeamLeagueAccentColor(activeLeague)
     : null;
-  const leagueCanvasTone = activeLeague
+  const leagueCanvasTone = isLeagueView
     ? getTeamLeagueCanvasTone(activeLeague)
     : null;
 
@@ -133,6 +117,7 @@ export function TeamsLeagueTabs({
     league: string,
   ) {
     event.preventDefault();
+    clearSelection();
     window.history.pushState(null, "", buildHref(league));
   }
 
@@ -222,58 +207,14 @@ export function TeamsLeagueTabs({
     event.preventDefault();
     setDragOverLeague(null);
 
-    const team = parseTeamDragPayload(
-      event.dataTransfer.getData(TEAM_DRAG_MIME),
-    );
-
-    if (!team) {
+    if (league === activeLeague) {
       return;
     }
 
-    setErrorMessage("");
-
-    // An archived team has no league to move out of: it just joins this one.
-    if (!splitTeamCompetitions(team.competition).length) {
-      startAssigning(async () => {
-        const result = await assignTeamToLeagueAction({
-          teamId: team.id,
-          leagueName: league,
-          mode: "add",
-        });
-
-        if (!result.ok) {
-          setReorderError(result.error ?? "No se pudo asignar el equipo.");
-        }
-      });
-      return;
-    }
-
-    setPendingDrop({ team, league });
-  }
-
-  function closeDialog() {
-    setPendingDrop(null);
-    setErrorMessage("");
-  }
-
-  function confirmAssign(mode: "move" | "add") {
-    if (!pendingDrop || isAssigning) {
-      return;
-    }
-
-    startAssigning(async () => {
-      const result = await assignTeamToLeagueAction({
-        teamId: pendingDrop.team.id,
-        leagueName: pendingDrop.league,
-        mode,
-        fromLeague: activeLeague || null,
-      });
-
-      if (result.ok) {
-        closeDialog();
-      } else {
-        setErrorMessage(result.error ?? "No se pudo actualizar el equipo.");
-      }
+    requestMove({
+      teams: parseTeamDragPayload(event.dataTransfer.getData(TEAM_DRAG_MIME)),
+      target: league,
+      fromLeague: isLeagueView ? activeLeague : null,
     });
   }
 
@@ -391,68 +332,15 @@ export function TeamsLeagueTabs({
             {tab.label} ({tab.count})
           </a>
         ))}
+        <TeamsArchiveTab
+          href={buildHref(ARCHIVED_TEAM_LEAGUE)}
+          count={archivedCount}
+          active={activeLeague === ARCHIVED_TEAM_LEAGUE}
+          canManageTeams={canManageTeams}
+          onSelect={(event) => handleSelect(event, ARCHIVED_TEAM_LEAGUE)}
+          className={tabClassName}
+        />
       </div>
-
-      <TeamsArchivedFolder
-        teams={archivedTeams}
-        tabs={orderedTabs}
-        canManageTeams={canManageTeams}
-      />
-
-      {pendingDrop
-        ? createPortal(
-            <div
-              className="fixed inset-0 z-[300] flex items-center justify-center bg-[var(--n-900)]/60 p-4 backdrop-blur-sm"
-              onClick={closeDialog}
-            >
-              <div
-                role="dialog"
-                aria-modal="true"
-                aria-label="Asignar equipo a liga"
-                onClick={(event) => event.stopPropagation()}
-                className="panel-surface relative flex w-full max-w-md flex-col gap-5 border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_24px_64px_rgba(28,13,16,0.22)]"
-              >
-                <p className="text-sm font-semibold text-[var(--foreground)]">
-                  ¿Se agrega el equipo {pendingDrop.team.name} a la liga{" "}
-                  {pendingDrop.league}, o se mueve a esa liga?
-                </p>
-
-                {errorMessage ? (
-                  <p className="text-sm font-semibold text-[var(--accent)]">
-                    {errorMessage}
-                  </p>
-                ) : null}
-
-                <div className="flex flex-wrap justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={closeDialog}
-                    disabled={isAssigning}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => confirmAssign("add")}
-                    disabled={isAssigning}
-                  >
-                    Agregar
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => confirmAssign("move")}
-                    disabled={isAssigning}
-                  >
-                    Mover
-                  </Button>
-                </div>
-              </div>
-            </div>,
-            document.body,
-          )
-        : null}
     </div>
   );
 }
