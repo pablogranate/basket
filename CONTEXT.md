@@ -64,6 +64,10 @@ _Avoid_: persona (ambiguous with the human), contacto, people row (in Spanish-fa
 A `profiles` row — the portal login that domain rows point at (created_by, owners, reports). Its portal access is the portal Acceso, not the Cuenta itself. Distinct from the ficha it may be linked to. One cuenta per email.
 _Avoid_: perfil, usuario (when the login is meant), profile (in Spanish-facing copy)
 
+**Ciudad**:
+Where a person is based, stored as one "Ciudad, País" string. A Solicitud requires one; a ficha may have none. Both take it from the same country → city picker, which also lets someone type an unlisted city under its country. Approving a Solicitud copies its Ciudad onto the ficha. Owned by `src/lib/ciudad.ts`.
+_Avoid_: localidad, ubicación, a city without its country
+
 **Fusión de fichas**:
 Folding a duplicate ficha into a survivor: every referrer (assignments, owned matches, notification logs, equipos, funciones) is repointed onto the survivor, then the duplicate is soft-deleted pointing at it, so the Grilla sync sends the old name to the survivor. Never a hard delete — the old row can own past grillas. The ficha with a cuenta survives; two fichas with a cuenta are never fused (which login stays is a Solicitud decision). A pair an admin marks as "No es la misma persona" is no longer suggested as a duplicate.
 _Avoid_: merge, dedupe, borrar duplicado

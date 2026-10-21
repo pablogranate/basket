@@ -7,7 +7,7 @@ import {
   isAccessRequestFuncion,
   type AccessRequestFuncion,
 } from "@/lib/access-requests/constants";
-import { composeAccessRequestCiudad } from "@/lib/access-requests/locations";
+import { readCiudadField } from "@/lib/ciudad";
 import { isE164Phone } from "@/lib/access-requests/phone";
 
 export type CompleteFichaInput = {
@@ -30,15 +30,11 @@ export function parseCompleteFicha(
     return parseFailure("Revisá el teléfono: falta el país o tiene caracteres.");
   }
 
-  const ciudad = composeAccessRequestCiudad({
-    pais: String(formData.get("pais") ?? "").trim(),
-    ciudad: String(formData.get("ciudad") ?? "").trim(),
-    otraCiudad: String(formData.get("otraCiudad") ?? "").trim(),
-  });
+  const ciudadField = readCiudadField(formData);
 
-  if (!ciudad) {
+  if (!ciudadField.ok || !ciudadField.ciudad) {
     return parseFailure("Elegí tu país y tu ciudad de la lista.");
   }
 
-  return parsed({ funcion, phone, ciudad });
+  return parsed({ funcion, phone, ciudad: ciudadField.ciudad });
 }

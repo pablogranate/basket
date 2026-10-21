@@ -5,12 +5,12 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import {
-  ACCESS_REQUEST_COUNTRIES,
+  CIUDAD_COUNTRIES,
   countryFlag,
-  findAccessRequestCountry,
+  findCountry,
   OTHER_CITY,
-  splitAccessRequestCiudad,
-} from "@/lib/access-requests/locations";
+  splitCiudad,
+} from "@/lib/ciudad";
 
 const LABEL_CLASS =
   "text-xs font-black uppercase tracking-[0.18em] text-[var(--n-500)]";
@@ -39,14 +39,14 @@ export function CiudadFieldClient({
   // "Otra ciudad…" with its text, so saving the ficha never drops it unseen.
   const [initial] = useState(
     () =>
-      splitAccessRequestCiudad(defaultValue) ??
+      splitCiudad(defaultValue) ??
       (defaultValue?.trim()
         ? { pais: "AR", ciudad: OTHER_CITY, otraCiudad: defaultValue.trim() }
         : null),
   );
   const [pais, setPais] = useState(initial?.pais ?? "AR");
   const [ciudad, setCiudad] = useState(initial?.ciudad ?? "");
-  const country = findAccessRequestCountry(pais);
+  const country = findCountry(pais);
 
   return (
     <>
@@ -66,7 +66,7 @@ export function CiudadFieldClient({
             setCiudad("");
           }}
         >
-          {ACCESS_REQUEST_COUNTRIES.map((entry) => (
+          {CIUDAD_COUNTRIES.map((entry) => (
             <option key={entry.code} value={entry.code}>
               {countryFlag(entry.code)} {entry.name}
             </option>

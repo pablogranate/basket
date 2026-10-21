@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ShieldCheck, X } from "lucide-react";
 
 import { upsertPersonAction } from "@/app/actions/people";
-import { CiudadFieldClient } from "@/components/access-requests/ciudad-field-client";
+import { CiudadFieldClient } from "@/components/shared/ciudad-field-client";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 import { CreatePersonModal } from "@/components/people/create-person-modal-lazy";
 import { PeopleHeaderExtras } from "@/components/people/people-header-extras";

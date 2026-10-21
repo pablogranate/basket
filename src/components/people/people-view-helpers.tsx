@@ -9,6 +9,7 @@ import {
   Wrench,
 } from "lucide-react";
 
+import { ciudadCountry, countryFlag } from "@/lib/ciudad";
 import { getFunctionDisplayName } from "@/lib/display";
 import type { PersonListItem } from "@/lib/types";
 
@@ -100,30 +101,10 @@ export function getPersonRoleDisplay(person: PersonListItem) {
 }
 
 export function getCityIndicator(city: string) {
-  const normalizedCity = city
-    .normalize("NFD")
-    .replaceAll(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
+  const country = ciudadCountry(city);
 
-  if (
-    normalizedCity.includes("medellin") ||
-    normalizedCity.includes("bogota") ||
-    normalizedCity.includes("cali") ||
-    normalizedCity.includes("barranquilla") ||
-    normalizedCity.includes("colombia")
-  ) {
-    return { symbol: "CO", emoji: "🇨🇴", label: "Colombia" };
-  }
-
-  if (
-    normalizedCity.includes("buenos aires") ||
-    normalizedCity.includes("cordoba") ||
-    normalizedCity.includes("rosario") ||
-    normalizedCity.includes("santiago del estero") ||
-    normalizedCity.includes("colonia caroya") ||
-    normalizedCity.includes("argentina")
-  ) {
-    return { symbol: "AR", emoji: "🇦🇷", label: "Argentina" };
+  if (country) {
+    return { symbol: country.code, emoji: countryFlag(country.code), label: country.name };
   }
 
   return { symbol: "CI", emoji: null, label: "Ciudad" };
