@@ -103,13 +103,30 @@ function clubFieldColumns(fields: ClubFields) {
   };
 }
 
-async function ensureClub(fields: ClubFields) {
-  const slug = slugifyTeamValue(fields.name);
-  const existing = await db
+async function findClubIdBySlug(slug: string) {
+  // Clubs are often stored under their long official name ("CLUB ATLÉTICO
+  // PILAR") while the team carries the short one, so the team slug is checked
+  // first; otherwise a create forks a new club and its team slug collides.
+  const byTeam = await db
+    .select({ id: teamsTable.clubId })
+    .from(teamsTable)
+    .where(eq(teamsTable.slug, slug))
+    .limit(1);
+
+  if (byTeam[0]) {
+    return byTeam;
+  }
+
+  return db
     .select({ id: clubsTable.id })
     .from(clubsTable)
     .where(eq(clubsTable.slug, slug))
     .limit(1);
+}
+
+async function ensureClub(fields: ClubFields) {
+  const slug = slugifyTeamValue(fields.name);
+  const existing = await findClubIdBySlug(slug);
 
   if (!existing[0]) {
     const inserted = await db
@@ -121,13 +138,13 @@ async function ensureClub(fields: ClubFields) {
   }
 
   // A "create" that lands on an existing club only fills gaps, never clears
-  // data; full overwrites happen through the edit path.
+  // data; full overwrites (and renames) happen through the edit path.
   const columns = clubFieldColumns(fields);
   const patch: Partial<typeof clubsTable.$inferInsert> = {};
 
   for (const key of Object.keys(columns) as Array<keyof typeof columns>) {
     const value = columns[key];
-    if (value !== null && value !== undefined) {
+    if (key !== "name" && value !== null && value !== undefined) {
       patch[key] = value;
     }
   }
@@ -229,6 +246,17 @@ export async function upsertTeamAction(
       }
 
       clubId = editedTeam[0].club_id;
+
+      const nameTaken = await db
+        .select({ id: clubsTable.id })
+        .from(clubsTable)
+        .where(and(eq(clubsTable.name, name), ne(clubsTable.id, clubId)))
+        .limit(1);
+
+      if (nameTaken[0]) {
+        return { ok: false, error: `Ya existe otro club llamado ${name}.` };
+      }
+
       await db
         .update(clubsTable)
         .set(clubFieldColumns(clubFields))
