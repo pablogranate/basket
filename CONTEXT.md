@@ -143,6 +143,10 @@ _Avoid_: sinónimo, nombre alternativo
 The tab of the production spreadsheet holding the two controlled vocabularies the contacts sheet validates against: `Funciones` in column A and `Clubes` in column B. Column B is the source of truth for which clubs exist — a name there that the portal does not know is a team to create, not an error.
 _Avoid_: ClubesValidos (that is the named range inside the tab, not the tab)
 
+**Liga terminada**:
+A Liga whose season is over on `/fixtures`, marked by dragging its chip into the "Terminadas" folder. One list everyone shares, keyed by the chip label; it only takes the chip out of the row and its partidos out of "Todas", and every change is recorded in the audit log.
+_Avoid_: liga archivada (the folder's "desarchivar" is the gesture, not the state)
+
 **Equipo incompleto**:
 An equipo created from `Listas` with nothing but its name: no league membership, no crest, no stadium. It is a real equipo people can be linked to, but it shows in `/teams` only with no league filter applied, until an editor fills it in.
 _Avoid_: equipo provisorio, borrador

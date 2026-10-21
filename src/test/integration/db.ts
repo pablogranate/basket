@@ -20,6 +20,7 @@ const RESET_TABLES = [
   "notification_logs",
   "people_teams",
   "people_merge_dismissals",
+  "fixture_finished_leagues",
   "assignments",
   "matches",
   "app_settings",
