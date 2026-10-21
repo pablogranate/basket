@@ -27,6 +27,7 @@ import {
   updateMatchAction,
   upsertAssignmentAction,
 } from "@/app/actions/matches";
+import { GridReturnLink } from "@/components/grid/grid-return-link";
 import {
   AssignmentNotifyConfirm,
   type NotifyRecipient,
@@ -534,20 +535,18 @@ export default async function MatchDetailPage({
   return (
     <div className="space-y-8">
       <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-sm">
-        <Link
-          href="/grid"
+        <GridReturnLink
           className="inline-flex items-center gap-1.5 font-medium text-[var(--muted)] transition hover:text-[var(--accent)]"
         >
           <Home className="size-4" />
           Inicio
-        </Link>
+        </GridReturnLink>
         <ChevronRight className="size-4 text-[var(--n-300)]" />
-        <Link
-          href="/grid"
+        <GridReturnLink
           className="font-medium text-[var(--muted)] transition hover:text-[var(--accent)]"
         >
           Producción
-        </Link>
+        </GridReturnLink>
         <ChevronRight className="size-4 text-[var(--n-300)]" />
         <span className="font-semibold text-[var(--foreground)]">Detalle de Partido</span>
       </nav>

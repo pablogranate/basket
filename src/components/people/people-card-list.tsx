@@ -8,6 +8,7 @@ import {
   getInitials,
   getWhatsAppHref,
 } from "@/components/people/people-view-helpers";
+import { usePeopleEditHref } from "@/components/people/people-redirect-to";
 import { PersonAccessBadge } from "@/components/people/person-access-badge";
 import { PersonActiveToggle } from "@/components/people/person-active-toggle";
 import type { PersonView } from "@/components/people/people-view-context";
@@ -22,6 +23,8 @@ export const PeopleCardList = memo(function PeopleCardList({
   rows: PersonView[];
   canEdit: boolean;
 }) {
+  const editHref = usePeopleEditHref();
+
   return (
     <ul className="divide-y divide-[var(--n-100)]">
       {rows.map(({ person, roleLabel, rolePresentation, city, cityIndicator }) => {
@@ -39,7 +42,7 @@ export const PeopleCardList = memo(function PeopleCardList({
                   <div className="min-w-0">
                     {canEdit ? (
                       <Link
-                        href={`/people?edit=${person.id}`}
+                        href={editHref(person.id)}
                         className="block truncate text-sm font-extrabold text-[var(--foreground)]"
                       >
                         {person.full_name}

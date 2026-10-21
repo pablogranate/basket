@@ -1,6 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
+import { useCallback } from "react";
 
 // URL params whose UI is rendered on the server: the edit modal overlay and the
 // notice banner. A shallow history update cannot dismiss them, so any control
@@ -38,4 +39,22 @@ export function PeopleRedirectToInput({
   const redirectTo = usePeopleRedirectTo({ keepEdit });
 
   return <input type="hidden" name="redirectTo" value={redirectTo} />;
+}
+
+// The ficha opens as `?edit=` on top of whatever the list is showing, so the
+// modal's Cerrar/Cancelar (built from the server's searchParams) land back on
+// the same filters instead of a bare /people.
+export function usePeopleEditHref(): (personId: string) => string {
+  const search = useSearchParams().toString();
+
+  return useCallback(
+    (personId: string) => {
+      const params = new URLSearchParams(search);
+      params.delete("notice");
+      params.delete("intent");
+      params.set("edit", personId);
+      return `/people?${params.toString()}`;
+    },
+    [search],
+  );
 }

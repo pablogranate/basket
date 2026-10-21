@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import {
@@ -94,6 +95,45 @@ function competitionColor(label: string) {
   return getGridLeagueColor(leagueName)?.background ?? NEUTRAL_COLOR;
 }
 
+const FILTER_PARAMS = {
+  competition: "comp",
+  query: "q",
+  showPast: "past",
+  onlyCovered: "bp",
+} as const;
+
+// The filters ride in the URL (replaceState, so Back still leaves the page) so
+// that coming back from /grid lands on the same slice instead of a reset agenda.
+function writeFilterParams(filters: {
+  competitions: ReadonlySet<string>;
+  query: string;
+  showPast: boolean;
+  onlyCovered: boolean;
+}) {
+  const params = new URLSearchParams(window.location.search);
+  params.delete(FILTER_PARAMS.competition);
+  for (const label of filters.competitions) {
+    params.append(FILTER_PARAMS.competition, label);
+  }
+  params.delete(FILTER_PARAMS.query);
+  if (filters.query) {
+    params.set(FILTER_PARAMS.query, filters.query);
+  }
+  params.delete(FILTER_PARAMS.showPast);
+  if (filters.showPast) {
+    params.set(FILTER_PARAMS.showPast, "1");
+  }
+  params.delete(FILTER_PARAMS.onlyCovered);
+  if (filters.onlyCovered) {
+    params.set(FILTER_PARAMS.onlyCovered, "1");
+  }
+
+  const search = params.toString();
+  if (search !== window.location.search.slice(1)) {
+    window.history.replaceState(null, "", search ? `/fixtures?${search}` : "/fixtures");
+  }
+}
+
 function writeArchivedCookie(labels: readonly string[]) {
   document.cookie = `${FIXTURES_ARCHIVED_COOKIE}=${serializeArchivedCompetitions(labels)}; path=/; max-age=${FIXTURES_ARCHIVED_COOKIE_MAX_AGE}; samesite=lax`;
 }
@@ -111,12 +151,19 @@ export function FixturesAgenda({
   monthNav: ReactNode;
   initialArchived: string[];
 }) {
-  const [competitions, setCompetitions] = useState<ReadonlySet<string>>(new Set());
+  const searchParams = useSearchParams();
+  const [competitions, setCompetitions] = useState<ReadonlySet<string>>(
+    () => new Set(searchParams.getAll(FILTER_PARAMS.competition)),
+  );
   const [archived, setArchived] = useState<string[]>(initialArchived);
-  const [query, setQuery] = useState("");
-  const [showPast, setShowPast] = useState(false);
-  const [onlyCovered, setOnlyCovered] = useState(false);
+  const [query, setQuery] = useState(() => searchParams.get(FILTER_PARAMS.query) ?? "");
+  const [showPast, setShowPast] = useState(() => searchParams.get(FILTER_PARAMS.showPast) === "1");
+  const [onlyCovered, setOnlyCovered] = useState(() => searchParams.get(FILTER_PARAMS.onlyCovered) === "1");
   const [focusedId, setFocusedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    writeFilterParams({ competitions, query, showPast, onlyCovered });
+  }, [competitions, query, showPast, onlyCovered]);
 
   const rows = useMemo(() => fixtures.map(toAgendaRow), [fixtures]);
   const needle = normalizeQuery(query);

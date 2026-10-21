@@ -8,6 +8,7 @@ import {
   getInitials,
   getWhatsAppHref,
 } from "@/components/people/people-view-helpers";
+import { usePeopleEditHref } from "@/components/people/people-redirect-to";
 import { PersonAccessBadge } from "@/components/people/person-access-badge";
 import { PersonActiveToggle } from "@/components/people/person-active-toggle";
 import type { PersonView } from "@/components/people/people-view-context";
@@ -61,6 +62,7 @@ function renderCell(
   row: PersonView,
   column: PeopleTableColumn,
   canEdit: boolean,
+  editHref: (personId: string) => string,
 ) {
   const { person, roleLabel, rolePresentation, city, cityIndicator } = row;
   const cellClassName = cn("px-6 py-5", column === "profile" && "px-8");
@@ -76,7 +78,7 @@ function renderCell(
             <div className="min-w-0">
               {canEdit ? (
                 <Link
-                  href={`/people?edit=${person.id}`}
+                  href={editHref(person.id)}
                   className="truncate text-sm font-extrabold text-[var(--foreground)] transition hover:text-[var(--accent)]"
                 >
                   {person.full_name}
@@ -220,6 +222,8 @@ const PeopleTableBody = memo(function PeopleTableBody({
   columnOrder: PeopleTableColumn[];
   canEdit: boolean;
 }) {
+  const editHref = usePeopleEditHref();
+
   return (
     <tbody className="divide-y divide-[var(--n-100)]">
       {rows.map((row) => (
@@ -227,7 +231,7 @@ const PeopleTableBody = memo(function PeopleTableBody({
           key={row.person.id}
           className="group transition hover:bg-[var(--n-50)]"
         >
-          {columnOrder.map((column) => renderCell(row, column, canEdit))}
+          {columnOrder.map((column) => renderCell(row, column, canEdit, editHref))}
         </tr>
       ))}
     </tbody>
