@@ -136,7 +136,7 @@ export async function claimAccessRequest(
     deciderId: string | null;
     grantedRole?: string | null;
   },
-): Promise<{ id: string; email: string; userId: string }> {
+): Promise<{ id: string; email: string; userId: string; ciudad: string | null }> {
   const claimed = await exec
     .update(authAccessRequest)
     .set({
@@ -156,6 +156,7 @@ export async function claimAccessRequest(
       id: authAccessRequest.id,
       email: authAccessRequest.email,
       userId: authAccessRequest.userId,
+      ciudad: authAccessRequest.ciudad,
     });
 
   if (!claimed[0]) {
@@ -166,6 +167,7 @@ export async function claimAccessRequest(
     id: claimed[0].id,
     email: claimed[0].email.trim().toLowerCase(),
     userId: claimed[0].userId,
+    ciudad: claimed[0].ciudad,
   };
 }
 

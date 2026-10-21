@@ -42,6 +42,8 @@ export type SettleApplicantInput = {
   fullName: string;
   phone: string;
   roleId: string | null;
+  // The Solicitud's "Ciudad, País"; null leaves the ficha's city as it is.
+  ciudad: string | null;
   // The applicant's identity; a still-unlinked Cuenta is linked to it.
   authUserId: string;
   personId: string | null;
@@ -73,6 +75,7 @@ export async function settleApplicant(
     fullName: input.fullName,
     phone: input.phone,
     roleId: input.roleId,
+    ciudad: input.ciudad,
     actor: input.actor,
   });
 
@@ -93,6 +96,7 @@ export type MoveCuentaInput = {
   fullName: string;
   phone: string;
   roleId: string | null;
+  ciudad: string | null;
   authUserId: string;
   actor: Actor;
 };
@@ -170,6 +174,7 @@ export async function moveCuentaToApplicant(
       fullName: input.fullName,
       phone: input.phone,
       roleId: input.roleId,
+      notes: await notesWithCity(exec, input.personId, input.ciudad),
       active: true,
       updatedBy: stamped.updated_by,
       updatedAt: stamped.updated_at,
@@ -474,6 +479,29 @@ async function upsertProfile(
   return { profileId: id, authUserId: input.authUserId };
 }
 
+// The ficha's notes with the city replaced and the rest kept; undefined (no
+// change) when there is no city to write.
+async function notesWithCity(
+  exec: DbExecutor,
+  personId: string,
+  ciudad: string | null,
+): Promise<string | undefined> {
+  if (!ciudad) {
+    return undefined;
+  }
+
+  const [person] = await exec
+    .select({ notes: peopleTable.notes })
+    .from(peopleTable)
+    .where(eq(peopleTable.id, personId))
+    .limit(1);
+
+  return (
+    buildPersonNotesMeta({ ...parsePersonNotesMeta(person?.notes), city: ciudad }) ??
+    undefined
+  );
+}
+
 async function upsertPerson(
   exec: DbExecutor,
   input: {
@@ -483,6 +511,7 @@ async function upsertPerson(
     fullName: string;
     phone: string;
     roleId: string | null;
+    ciudad: string | null;
     actor: Actor;
   },
 ): Promise<string> {
@@ -495,6 +524,7 @@ async function upsertPerson(
         phone: input.phone,
         email: input.email,
         roleId: input.roleId,
+        notes: await notesWithCity(exec, input.personId, input.ciudad),
         active: true,
         deletedAt: null,
         mergedIntoId: null,
@@ -520,6 +550,7 @@ async function upsertPerson(
       phone: input.phone,
       email: input.email,
       roleId: input.roleId,
+      notes: input.ciudad ? buildPersonNotesMeta({ city: input.ciudad }) : null,
       active: true,
       profileId: input.profileId,
       createdBy: stamped.created_by,

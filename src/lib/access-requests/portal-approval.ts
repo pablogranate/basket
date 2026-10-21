@@ -66,6 +66,7 @@ export async function approvePortalAccessRequest(
         fullName: input.fullName,
         phone: input.phone,
         roleId: input.roleId,
+        ciudad: claimed.ciudad,
         authUserId: claimed.userId,
         personId: input.personId,
         mergePersonId: input.mergePersonId,
@@ -148,6 +149,7 @@ export async function approvePortalAccessRequestMovingFicha(
         fullName: input.fullName,
         phone: input.phone,
         roleId: input.roleId,
+        ciudad: claimed.ciudad,
         authUserId: claimed.userId,
         actor: input.actor,
       });
