@@ -477,6 +477,20 @@ export const peopleMergeDismissals = pgTable("people_merge_dismissals", {
 	unique("people_merge_dismissals_unique").on(table.personId, table.otherPersonId),
 ]);
 
+export const fixtureFinishedLeagues = pgTable("fixture_finished_leagues", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	label: text().notNull(),
+	createdAt: timestamptz("created_at").default(sql`timezone('utc'::text, now())`).notNull(),
+	createdBy: uuid("created_by"),
+}, (table) => [
+	foreignKey({
+			columns: [table.createdBy],
+			foreignColumns: [profiles.id],
+			name: "fixture_finished_leagues_created_by_fkey"
+		}).onDelete("set null"),
+	unique("fixture_finished_leagues_label_key").on(table.label),
+]);
+
 export const leagues = pgTable("leagues", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	name: text().notNull(),

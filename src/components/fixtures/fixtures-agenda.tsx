@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 
+import { finishLeagueAction, reopenLeagueAction, type FinishedLeaguesResult } from "@/app/actions/fixtures";
 import {
   ArchivedCompetitionsFolder,
   CompetitionChipRow,
@@ -17,11 +18,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { ToolbarSearchField } from "@/components/ui/toolbar-search-field";
 import type { FixtureListItem, FixturePartido } from "@/lib/data/fixtures";
-import {
-  FIXTURES_ARCHIVED_COOKIE,
-  FIXTURES_ARCHIVED_COOKIE_MAX_AGE,
-  serializeArchivedCompetitions,
-} from "@/lib/fixtures/archived";
 import {
   FIXTURE_COMPETITION_ORDER,
   findFixtureCompetitionByLabel,
@@ -134,28 +130,26 @@ function writeFilterParams(filters: {
   }
 }
 
-function writeArchivedCookie(labels: readonly string[]) {
-  document.cookie = `${FIXTURES_ARCHIVED_COOKIE}=${serializeArchivedCompetitions(labels)}; path=/; max-age=${FIXTURES_ARCHIVED_COOKIE_MAX_AGE}; samesite=lax`;
-}
-
 export function FixturesAgenda({
   fixtures,
   today,
   truncated,
   monthNav,
-  initialArchived,
+  initialFinishedLeagues,
 }: {
   fixtures: FixtureListItem[];
   today: string;
   truncated: boolean;
   monthNav: ReactNode;
-  initialArchived: string[];
+  initialFinishedLeagues: string[];
 }) {
   const searchParams = useSearchParams();
   const [competitions, setCompetitions] = useState<ReadonlySet<string>>(
     () => new Set(searchParams.getAll(FILTER_PARAMS.competition)),
   );
-  const [archived, setArchived] = useState<string[]>(initialArchived);
+  const [finishedLeagues, setFinishedLeagues] = useState<string[]>(initialFinishedLeagues);
+  const [finishedLeaguesError, setFinishedLeaguesError] = useState<string | null>(null);
+  const [, startSavingFinishedLeagues] = useTransition();
   const [query, setQuery] = useState(() => searchParams.get(FILTER_PARAMS.query) ?? "");
   const [showPast, setShowPast] = useState(() => searchParams.get(FILTER_PARAMS.showPast) === "1");
   const [onlyCovered, setOnlyCovered] = useState(() => searchParams.get(FILTER_PARAMS.onlyCovered) === "1");
@@ -167,9 +161,9 @@ export function FixturesAgenda({
 
   const rows = useMemo(() => fixtures.map(toAgendaRow), [fixtures]);
   const needle = normalizeQuery(query);
-  const archivedSet = new Set(archived);
-  // An archived competition's rows only show while its chip is picked from the folder.
-  const isShown = (row: AgendaRow) => !archivedSet.has(row.competitionLabel) || competitions.has(row.competitionLabel);
+  const finishedSet = new Set(finishedLeagues);
+  // A finished league's rows only show while its chip is picked from the folder.
+  const isShown = (row: AgendaRow) => !finishedSet.has(row.competitionLabel) || competitions.has(row.competitionLabel);
   const searchedAll = needle ? rows.filter((row) => row.searchText.includes(needle)) : rows;
   const matching = searchedAll.filter(isShown);
   const coveredCount = matching.filter((row) => row.partido).length;
@@ -209,10 +203,27 @@ export function FixturesAgenda({
     });
   }
 
-  function archiveCompetition(label: string) {
-    const next = [...archived.filter((item) => item !== label), label];
-    setArchived(next);
-    writeArchivedCookie(next);
+  // Optimistic: the folder moves at once, then takes the shared list the server
+  // answers with (other viewers may have changed it) or rolls back on failure.
+  function saveFinishedLeagues(next: string[], save: () => Promise<FinishedLeaguesResult>) {
+    const previous = finishedLeagues;
+    setFinishedLeagues(next);
+    setFinishedLeaguesError(null);
+    startSavingFinishedLeagues(async () => {
+      const result = await save();
+      if (result.ok) {
+        setFinishedLeagues(result.finished);
+      } else {
+        setFinishedLeagues(previous);
+        setFinishedLeaguesError(result.error);
+      }
+    });
+  }
+
+  function finishLeague(label: string) {
+    saveFinishedLeagues([...finishedLeagues.filter((item) => item !== label), label], () =>
+      finishLeagueAction(label),
+    );
     setCompetitions((current) => {
       const nextSelected = new Set(current);
       nextSelected.delete(label);
@@ -220,15 +231,16 @@ export function FixturesAgenda({
     });
   }
 
-  function unarchiveCompetition(label: string) {
-    const next = archived.filter((item) => item !== label);
-    setArchived(next);
-    writeArchivedCookie(next);
+  function reopenLeague(label: string) {
+    saveFinishedLeagues(
+      finishedLeagues.filter((item) => item !== label),
+      () => reopenLeagueAction(label),
+    );
   }
 
   const { rowHandlers, folderHandlers } = useCompetitionChipDrag({
-    onArchive: archiveCompetition,
-    onUnarchive: unarchiveCompetition,
+    onArchive: finishLeague,
+    onUnarchive: reopenLeague,
   });
 
   const countFor = (label: string) => countedRows.filter((row) => row.competitionLabel === label).length;
@@ -281,14 +293,14 @@ export function FixturesAgenda({
         </div>
         <div className="flex items-center gap-2 md:min-w-64 md:flex-1 lg:ml-auto lg:flex-none">
           <ArchivedCompetitionsFolder
-            tabs={archived.map((label) => ({
+            tabs={finishedLeagues.map((label) => ({
               label,
               color: tabs.find((tab) => tab.label === label)?.color ?? competitionColor(label),
               count: countFor(label),
             }))}
             selected={competitions}
             onToggle={toggleCompetition}
-            onUnarchive={unarchiveCompetition}
+            onUnarchive={reopenLeague}
             dragHandlers={folderHandlers}
           />
           <ToolbarSearchField
@@ -301,12 +313,18 @@ export function FixturesAgenda({
         </div>
       </div>
 
+      {finishedLeaguesError ? (
+        <p role="alert" className="text-xs font-semibold text-[var(--accent)]">
+          {finishedLeaguesError}
+        </p>
+      ) : null}
+
       <CompetitionChipRow
         tabs={tabs
-          .filter((tab) => !archivedSet.has(tab.label))
+          .filter((tab) => !finishedSet.has(tab.label))
           .map((tab) => ({ ...tab, count: countFor(tab.label) }))}
         selected={competitions}
-        allCount={countedRows.filter((row) => !archivedSet.has(row.competitionLabel)).length}
+        allCount={countedRows.filter((row) => !finishedSet.has(row.competitionLabel)).length}
         onToggle={toggleCompetition}
         onClear={() => setCompetitions(new Set())}
         dragHandlers={rowHandlers}
