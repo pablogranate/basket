@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { Suspense, type ReactNode } from "react";
 
 import { FixturesAgenda } from "@/components/fixtures/fixtures-agenda";
@@ -8,6 +9,10 @@ import { requireUserContext } from "@/lib/auth";
 import { getFixturesAgenda } from "@/lib/data/fixtures";
 import { db } from "@/lib/db/client";
 import { listFinishedLeagues } from "@/lib/fixtures/finished-leagues";
+import {
+  importLegacyFinishedLeagues,
+  LEGACY_FINISHED_LEAGUES_COOKIE,
+} from "@/lib/fixtures/legacy-finished-leagues-import";
 import { addFixtureMonths, parseFixtureMonth } from "@/lib/fixtures/window";
 
 type PageProps = {
@@ -48,6 +53,10 @@ export default async function FixturesPage({ searchParams }: PageProps) {
 
 async function FixturesAgendaSection({ month, monthNav }: { month: string; monthNav: ReactNode }) {
   const user = await requireUserContext();
+  await importLegacyFinishedLeagues(db, {
+    actor: user,
+    cookie: (await cookies()).get(LEGACY_FINISHED_LEAGUES_COOKIE)?.value,
+  });
   const [{ today, fixtures, truncated }, finishedLeagues] = await Promise.all([
     getFixturesAgenda(user, { now: new Date(), month }),
     listFinishedLeagues(db),
