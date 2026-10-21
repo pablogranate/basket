@@ -6,6 +6,7 @@ import { MatchCardIconSprite } from "@/components/grid/match-card-icon-sprite";
 import { GridDateStepper } from "@/components/grid/grid-date-stepper";
 import { GridDisplayToggle } from "@/components/grid/grid-display-toggle";
 import { GridPageShell } from "@/components/grid/grid-page-shell";
+import { GridReturnRecorder } from "@/components/grid/grid-return-link";
 import { GridSearchField } from "@/components/grid/grid-search-field";
 import {
   GridContent,
@@ -123,6 +124,9 @@ export default async function GridPage({ searchParams }: PageProps) {
       }
     >
       <div className="relative z-0 min-w-0 space-y-10">
+        <Suspense fallback={null}>
+          <GridReturnRecorder />
+        </Suspense>
         <SectionPageHeader
           title={SECTION_COPY.grid.title}
           description={SECTION_COPY.grid.description}

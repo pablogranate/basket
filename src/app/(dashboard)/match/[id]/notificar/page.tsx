@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { notFound } from "next/navigation";
 
+import { GridReturnLink } from "@/components/grid/grid-return-link";
 import { MatchNotificationWorkspace } from "@/components/match/match-notification-workspace";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -164,20 +165,18 @@ export default async function MatchNotifyPage({ params, searchParams }: PageProp
   return (
     <div className="space-y-8">
       <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-sm">
-        <Link
-          href="/grid"
+        <GridReturnLink
           className="inline-flex items-center gap-1.5 font-medium text-[var(--muted)] transition hover:text-[var(--accent)]"
         >
           <Home className="size-4" />
           Inicio
-        </Link>
+        </GridReturnLink>
         <ChevronRight className="size-4 text-[var(--n-300)]" />
-        <Link
-          href="/grid"
+        <GridReturnLink
           className="font-medium text-[var(--muted)] transition hover:text-[var(--accent)]"
         >
           Producción
-        </Link>
+        </GridReturnLink>
         <ChevronRight className="size-4 text-[var(--n-300)]" />
         <Link
           href={`/match/${match.id}`}
@@ -232,13 +231,12 @@ export default async function MatchNotifyPage({ params, searchParams }: PageProp
               <PencilLine className="size-4" />
               Volver al partido
             </Link>
-            <Link
-              href="/grid"
+            <GridReturnLink
               className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[var(--accent-border)] bg-[var(--accent-soft)] px-4 text-sm font-semibold text-[var(--accent)] transition hover:bg-[var(--accent-border)]"
             >
               <Megaphone className="size-4" />
               Ir a Producción
-            </Link>
+            </GridReturnLink>
           </div>
         </div>
       </section>
