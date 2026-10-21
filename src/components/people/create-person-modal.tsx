@@ -22,7 +22,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { Textarea } from "@/components/ui/textarea";
 import { PersonFunctionsField } from "@/components/people/person-functions-field";
 import { PersonTeamsField } from "@/components/people/person-teams-field";
-import type { PersonTeamLink } from "@/lib/types";
+import type { TeamPickerCatalog } from "@/lib/team-picker";
 import type { AppRole } from "@/lib/database.types";
 import { APP_ROLE_DISPLAY_NAMES } from "@/lib/display";
 import { ACCESS_TIER_OPTIONS } from "@/lib/roles";
@@ -78,12 +78,12 @@ export function CreatePersonModal({
   canEdit,
   canManageAccess,
   canSelectAccessTier,
-  teamOptions,
+  teamCatalog,
 }: {
   canEdit: boolean;
   canManageAccess: boolean;
   canSelectAccessTier: boolean;
-  teamOptions: PersonTeamLink[];
+  teamCatalog: TeamPickerCatalog;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -319,7 +319,7 @@ export function CreatePersonModal({
                       </div>
 
                       <PersonTeamsField
-                        options={teamOptions}
+                        catalog={teamCatalog}
                         selected={[]}
                         disabled={!canEdit}
                       />
