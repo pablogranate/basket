@@ -46,6 +46,14 @@ describe("createCompetitionLeagueResolver", () => {
     expect(resolve("LNB Chile")).toBe("id-lnb-chile");
   });
 
+  it("still finds a league renamed from /teams by the Grilla's old text", () => {
+    const renamed = createCompetitionLeagueResolver([
+      { id: "id-argentina", slug: "liga-argentina", name: "La Liga Argentina" },
+    ]);
+    expect(renamed("Liga Argentina")).toBe("id-argentina");
+    expect(renamed("La Liga Argentina")).toBe("id-argentina");
+  });
+
   it("leaves content recordings without a league", () => {
     expect(resolve("Grabacion Contenido")).toBeNull();
     expect(resolve("Grabación Contenido")).toBeNull();

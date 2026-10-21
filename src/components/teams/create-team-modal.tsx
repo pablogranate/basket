@@ -83,8 +83,13 @@ export function CreateTeamModal({
       options.add(current);
     }
 
+    // The tab it opened from, which can be a league created on /teams.
+    if (defaultCompetition) {
+      options.add(defaultCompetition);
+    }
+
     return [...options];
-  }, [initialTeam?.competition]);
+  }, [initialTeam?.competition, defaultCompetition]);
 
   useEffect(() => {
     if (!isOpen) {

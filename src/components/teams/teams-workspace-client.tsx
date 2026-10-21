@@ -12,6 +12,7 @@ import type { TeamDirectoryItem, TeamDirectoryTab } from "@/lib/team-directory";
 import type { TeamDragPayload } from "@/lib/team-drag";
 import {
   ARCHIVED_TEAM_LEAGUE,
+  createLeagueColorResolver,
   isTeamArchived,
   resolveActiveTeamLeague,
   splitTeamCompetitions,
@@ -226,6 +227,10 @@ export function TeamsWorkspaceClient({
     defaultLeague,
   );
   const query = searchParams.get("q") ?? "";
+  const leagueColor = useMemo(
+    () => createLeagueColorResolver(leagues),
+    [leagues],
+  );
 
   const visibleTeams = useMemo(
     () => filterTeams(teams, { query, league: activeLeague }),
@@ -286,6 +291,7 @@ export function TeamsWorkspaceClient({
             }
             responsibleContact={responsibleContacts[team.id] ?? null}
             canEdit={canManageTeams}
+            leagueColor={leagueColor}
             selection={
               isEditing
                 ? {

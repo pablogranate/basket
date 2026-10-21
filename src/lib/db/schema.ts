@@ -484,6 +484,7 @@ export const leagues = pgTable("leagues", {
 	color: text(),
 	sortOrder: integer("sort_order"),
 	isExternal: boolean("is_external").default(false).notNull(),
+	inTeamDirectory: boolean("in_team_directory").default(false).notNull(),
 	createdAt: timestamptz("created_at").default(sql`timezone('utc'::text, now())`).notNull(),
 	updatedAt: timestamptz("updated_at").default(sql`timezone('utc'::text, now())`).notNull(),
 }, (table) => [

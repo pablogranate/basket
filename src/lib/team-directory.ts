@@ -1,7 +1,9 @@
 import { CLUB_CATALOG } from "@/lib/club-catalog";
 
 export type TeamDirectoryTab = {
+  // The league's name, which is also its ?league= value.
   value: string;
+  slug: string;
   label: string;
   count: number;
 };
@@ -246,6 +248,27 @@ export function getTeamLeagueColorSet(league: string) {
     accent: "#64748b",
     soft: "#f5f7fb",
     canvas: "#fafafa",
+  };
+}
+
+// A league's slug outlives renames, so /teams colours its leagues by slug:
+// "liga-nacional" reads as "liga nacional" to the name matcher above.
+export function getLeagueColorSetBySlug(slug: string) {
+  return getTeamLeagueColorSet(slug.replaceAll("-", " "));
+}
+
+export type LeagueColorResolver = (
+  league: string,
+) => ReturnType<typeof getTeamLeagueColorSet>;
+
+export function createLeagueColorResolver(
+  tabs: Pick<TeamDirectoryTab, "value" | "slug">[],
+): LeagueColorResolver {
+  const slugByName = new Map(tabs.map((tab) => [tab.value, tab.slug]));
+
+  return (league) => {
+    const slug = slugByName.get(league);
+    return slug ? getLeagueColorSetBySlug(slug) : getTeamLeagueColorSet(league);
   };
 }
 

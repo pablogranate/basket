@@ -16,8 +16,8 @@ import type { UserContext } from "@/lib/auth";
 import { getPeopleContactList } from "@/lib/data/dashboard";
 import {
   buildTeamDirectoryTabs,
-  getLeagueTabOrder,
   getTeamDirectory,
+  getTeamDirectoryLeagues,
 } from "@/lib/data/teams";
 import {
   getDefaultTeamLeague,
@@ -47,9 +47,10 @@ export default async function TeamsPage() {
   const teamsPromise = getTeamDirectory(user);
   // Both regions need the tabs: the tab strip to render them, the cards to
   // know which league /teams opens on.
-  const tabsPromise = Promise.all([teamsPromise, getLeagueTabOrder(user)]).then(
-    ([teams, tabOrder]) => buildTeamDirectoryTabs(teams, tabOrder),
-  );
+  const tabsPromise = Promise.all([
+    teamsPromise,
+    getTeamDirectoryLeagues(user),
+  ]).then(([teams, leagues]) => buildTeamDirectoryTabs(teams, leagues));
 
   return (
     <>
