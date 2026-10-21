@@ -7,6 +7,12 @@ import { db } from "@/lib/db/client";
 import { clubs, leagues, teams } from "@/lib/db/schema";
 import type { TeamDirectoryItem, TeamDirectoryTab } from "@/lib/team-directory";
 import {
+  buildTeamPickerCatalog,
+  EMPTY_TEAM_PICKER_CATALOG,
+  pickLatestSeasonEntries,
+  type TeamPickerCatalog,
+} from "@/lib/team-picker";
+import {
   getTeamLeagueLabel,
   splitTeamCompetitions,
   TEAM_DIRECTORY_TAB_ORDER,
@@ -160,19 +166,9 @@ type TeamDirectoryQueryRow = {
 };
 
 function pickCurrentLeagues(row: TeamDirectoryQueryRow) {
-  const seasons = row.team_league_memberships.map((entry) => entry.season);
-
-  if (!seasons.length) {
-    return [];
-  }
-
-  const latestSeason = seasons.reduce((max, season) =>
-    season > max ? season : max,
-  );
-
-  return row.team_league_memberships
-    .filter((entry) => entry.season === latestSeason && entry.leagues)
-    .map((entry) => entry.leagues!)
+  return pickLatestSeasonEntries(row.team_league_memberships)
+    .map((entry) => entry.leagues)
+    .filter((league) => league !== null)
     .sort(
       (left, right) =>
         (left.sort_order ?? Number.MAX_SAFE_INTEGER) -
@@ -271,20 +267,38 @@ export async function getTeamFromDbBySlug(
 }
 
 // Just the names, for pickers that never show the rest of the directory.
-export async function getTeamNames(
+export async function getTeamPickerCatalog(
   ctx: UserContext,
-): Promise<Array<{ id: string; official_name: string }>> {
+): Promise<TeamPickerCatalog> {
   if (!ctx.userId) {
-    return [];
+    return EMPTY_TEAM_PICKER_CATALOG;
   }
 
   try {
-    return await db
-      .select({ id: teams.id, official_name: teams.name })
-      .from(teams);
+    const rows = await db.query.teams.findMany({
+      columns: { id: true, name: true },
+      with: {
+        teamLeagueMemberships: {
+          columns: { season: true },
+          with: {
+            league: {
+              columns: { slug: true, name: true, color: true, sortOrder: true },
+            },
+          },
+        },
+      },
+    });
+
+    return buildTeamPickerCatalog(
+      rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        memberships: row.teamLeagueMemberships,
+      })),
+    );
   } catch (error) {
-    console.error("[teams] failed to load team names", error);
-    return [];
+    console.error("[teams] failed to load the team picker catalog", error);
+    return EMPTY_TEAM_PICKER_CATALOG;
   }
 }
 

@@ -131,6 +131,10 @@ _Avoid_: equipo (when the institution is meant), team (in Spanish-facing copy)
 A club in one category (`mayores`, `proximo`, `femenino`) — a club fielding both a first and a women's squad is two equipos, one club. This, not the club, is what a person is linked to and what `/teams` lists. A bare club name means its `mayores` equipo.
 _Avoid_: club (when the category-level entity is meant)
 
+**Responsable de cancha**:
+A person linked to an equipo (`people_teams`) as its on-site contact — the ficha's "Club" field. The link is per equipo, picked from the leagues it plays this season; an equipo in no league is listed under "Sin liga". Lookups that find a match's responsable go by the equipo's name.
+_Avoid_: encargado, contacto del club
+
 **Alias de club**:
 An alternative spelling that resolves to a club already loaded — `Atlético Pilar` for `Club Atlético Pilar`. Recorded when an operator confirms two names are the same club during a contacts sync, and honoured everywhere a club name is read afterwards. An alias belongs to exactly one club.
 _Avoid_: sinónimo, nombre alternativo

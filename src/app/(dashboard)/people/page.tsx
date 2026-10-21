@@ -25,7 +25,7 @@ import { requireUserContext, type UserContext } from "@/lib/auth";
 import { can, canGrantRole } from "@/lib/roles";
 import { SECTION_COPY } from "@/lib/copy";
 import { getPeopleData } from "@/lib/data/dashboard";
-import { getTeamNames } from "@/lib/data/teams";
+import { getTeamPickerCatalog } from "@/lib/data/teams";
 import { PersonTeamsField } from "@/components/people/person-teams-field";
 import { getPlatformAccessRole } from "@/lib/data/platform-access";
 import { db } from "@/lib/db/client";
@@ -33,32 +33,13 @@ import { listApprovalCandidates } from "@/lib/people/identity";
 import { getRoleDisplayName } from "@/lib/display";
 import { parsePersonNotesMeta } from "@/lib/people-notes";
 import { parseNotice } from "@/lib/search-params";
-import type { PersonListItem, PersonTeamLink } from "@/lib/types";
+import type { TeamPickerCatalog } from "@/lib/team-picker";
+import type { PersonListItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
-
-// The "Club" multi-select is name-driven downstream (responsible lookups match
-// by team name), so collapse the directory's per-category team rows to one
-// option per distinct name.
-function buildTeamOptions(
-  teams: { id: string; official_name: string }[],
-): PersonTeamLink[] {
-  const byName = new Map<string, PersonTeamLink>();
-
-  for (const team of teams) {
-    const name = team.official_name.trim();
-    if (name && !byName.has(name)) {
-      byName.set(name, { id: team.id, name });
-    }
-  }
-
-  return Array.from(byName.values()).sort((left, right) =>
-    left.name.localeCompare(right.name, "es"),
-  );
-}
 
 function buildPeopleHref(
   params: Record<string, string | string[] | undefined>,
@@ -98,7 +79,7 @@ export default async function PeoplePage({ searchParams }: PageProps) {
   // Suspense boundary that actually needs them, so none of them gate first paint.
   const user = await requireUserContext();
   const peoplePromise = getPeopleData(user);
-  const teamOptionsPromise = getTeamNames(user).then(buildTeamOptions);
+  const teamCatalogPromise = getTeamPickerCatalog(user);
   const canManageAccess = can(user, "access.manage");
   const canSelectAccessTier = can(user, "admin");
   const currentPeopleHref = buildPeopleHref(resolvedSearchParams, {
@@ -118,7 +99,7 @@ export default async function PeoplePage({ searchParams }: PageProps) {
               {user.canEdit ? (
                 <Suspense fallback={null}>
                   <PeopleCreateSlot
-                    teamOptionsPromise={teamOptionsPromise}
+                    teamCatalogPromise={teamCatalogPromise}
                     canManageAccess={canManageAccess}
                     canSelectAccessTier={canSelectAccessTier}
                   />
@@ -150,7 +131,7 @@ export default async function PeoplePage({ searchParams }: PageProps) {
           <Suspense fallback={null}>
             <PeopleEditModal
               peoplePromise={peoplePromise}
-              teamOptionsPromise={teamOptionsPromise}
+              teamCatalogPromise={teamCatalogPromise}
               user={user}
               editPersonId={editPersonId}
               canManageAccess={canManageAccess}
@@ -165,22 +146,22 @@ export default async function PeoplePage({ searchParams }: PageProps) {
 }
 
 async function PeopleCreateSlot({
-  teamOptionsPromise,
+  teamCatalogPromise,
   canManageAccess,
   canSelectAccessTier,
 }: {
-  teamOptionsPromise: Promise<PersonTeamLink[]>;
+  teamCatalogPromise: Promise<TeamPickerCatalog>;
   canManageAccess: boolean;
   canSelectAccessTier: boolean;
 }) {
-  const teamOptions = await teamOptionsPromise;
+  const teamCatalog = await teamCatalogPromise;
 
   return (
     <CreatePersonModal
       canEdit
       canManageAccess={canManageAccess}
       canSelectAccessTier={canSelectAccessTier}
-      teamOptions={teamOptions}
+      teamCatalog={teamCatalog}
     />
   );
 }
@@ -225,7 +206,7 @@ function PeopleDataSkeleton() {
 
 async function PeopleEditModal({
   peoplePromise,
-  teamOptionsPromise,
+  teamCatalogPromise,
   user,
   editPersonId,
   canManageAccess,
@@ -233,16 +214,16 @@ async function PeopleEditModal({
   currentPeopleHref,
 }: {
   peoplePromise: Promise<PersonListItem[]>;
-  teamOptionsPromise: Promise<PersonTeamLink[]>;
+  teamCatalogPromise: Promise<TeamPickerCatalog>;
   user: UserContext;
   editPersonId: string;
   canManageAccess: boolean;
   canSelectAccessTier: boolean;
   currentPeopleHref: string;
 }) {
-  const [allPeople, teamOptions] = await Promise.all([
+  const [allPeople, teamCatalog] = await Promise.all([
     peoplePromise,
-    teamOptionsPromise,
+    teamCatalogPromise,
   ]);
   const selectedPerson =
     allPeople.find((person) => person.id === editPersonId) ?? null;
@@ -376,8 +357,8 @@ async function PeopleEditModal({
                     </label>
                     <div className="md:col-span-2">
                       <PersonTeamsField
-                        options={teamOptions}
-                        selected={selectedPerson.teams.map((team) => team.id)}
+                        catalog={teamCatalog}
+                        selected={selectedPerson.teams}
                         disabled={!user.canEdit}
                       />
                     </div>
