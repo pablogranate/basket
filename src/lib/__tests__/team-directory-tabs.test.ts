@@ -83,6 +83,17 @@ describe("buildTeamDirectoryTabs", () => {
     ]);
   });
 
+  it("shows one tab for two leagues sharing a name", () => {
+    const tabs = buildTeamDirectoryTabs(TEAMS, [
+      league("Euroliga", "euroliga", 22),
+      league("Euroliga", "euroliga-2", 40),
+    ]);
+
+    expect(tabs.filter((tab) => tab.value === "Euroliga")).toEqual([
+      { value: "Euroliga", slug: "euroliga", label: "Euroliga", count: 0 },
+    ]);
+  });
+
   it("still shows a league known only through its teams", () => {
     const tabs = buildTeamDirectoryTabs([team("d", "Liga Nueva")], []);
 

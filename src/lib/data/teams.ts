@@ -340,13 +340,17 @@ export function buildTeamDirectoryTabs(
     .filter((name) => !known.has(name))
     .map((name) => ({ name, slug: slugifyTeamValue(name), sortOrder: null }));
 
-  return [...listed, ...unknown]
-    .sort(
-      (left, right) =>
-        (left.sortOrder ?? Number.MAX_SAFE_INTEGER) -
-          (right.sortOrder ?? Number.MAX_SAFE_INTEGER) ||
-        left.name.localeCompare(right.name, "es"),
-    )
+  const ordered = [...listed, ...unknown].sort(
+    (left, right) =>
+      (left.sortOrder ?? Number.MAX_SAFE_INTEGER) -
+        (right.sortOrder ?? Number.MAX_SAFE_INTEGER) ||
+      left.name.localeCompare(right.name, "es"),
+  );
+  // Tabs are keyed by name; two rows sharing one show as the first.
+  const seen = new Set<string>();
+
+  return ordered
+    .filter((league) => !seen.has(league.name) && Boolean(seen.add(league.name)))
     .map((league) => ({
       value: league.name,
       slug: league.slug,
