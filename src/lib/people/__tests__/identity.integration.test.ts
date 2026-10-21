@@ -33,6 +33,7 @@ describe("people identity (integration)", () => {
     fullName: "Nico Gómez",
     phone: "+5491100000001",
     roleId: null,
+    ciudad: null as string | null,
     authUserId: "applicant-identity",
     personId: null,
     mergePersonId: null,
@@ -46,6 +47,7 @@ describe("people identity (integration)", () => {
       profile_id?: string | null;
       active?: boolean;
       deleted_at?: string | null;
+      notes?: string | null;
     },
   ) {
     const [row] = await exec`
@@ -55,6 +57,7 @@ describe("people identity (integration)", () => {
         profile_id: values.profile_id ?? null,
         active: values.active ?? true,
         deleted_at: values.deleted_at ?? null,
+        notes: values.notes ?? null,
       })} RETURNING id`;
     return row.id as string;
   }
@@ -161,6 +164,39 @@ describe("people identity (integration)", () => {
     });
     const [{ count }] = await sql`SELECT count(*)::int AS count FROM people`;
     expect(count).toBe(1);
+  });
+
+  it("writes the Solicitud's city on a new ficha", async () => {
+    const { profileId: actor } = await seedActor(sql);
+
+    const settled = await settleApplicant(db, {
+      ...base,
+      ciudad: "Rosario, Argentina",
+      actor: { profileId: actor },
+    });
+
+    const [person] = await sql`SELECT notes FROM people WHERE id = ${settled.personId}`;
+    expect(person.notes).toBe("Ciudad: Rosario, Argentina");
+  });
+
+  it("replaces the picked ficha's city and keeps the rest of its notes", async () => {
+    const { profileId: actor } = await seedActor(sql);
+    const picked = await seedPerson(sql, {
+      full_name: "N. Gomez",
+      notes: "Ciudad: Córdoba\nEquipos que cubre: Peñarol\n\nLleva su cámara",
+    });
+
+    await settleApplicant(db, {
+      ...base,
+      ciudad: "Rosario, Argentina",
+      personId: picked,
+      actor: { profileId: actor },
+    });
+
+    const [person] = await sql`SELECT notes FROM people WHERE id = ${picked}`;
+    expect(person.notes).toBe(
+      "Ciudad: Rosario, Argentina\nEquipos que cubre: Peñarol\n\nLleva su cámara",
+    );
   });
 
   it("merges a duplicate ficha: repoints history, keeps unique pairs, soft-deletes (D-14)", async () => {
