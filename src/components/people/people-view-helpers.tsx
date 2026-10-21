@@ -9,6 +9,10 @@ import {
   Wrench,
 } from "lucide-react";
 
+import {
+  ACCESS_REQUEST_COUNTRIES,
+  countryFlag,
+} from "@/lib/access-requests/locations";
 import { getFunctionDisplayName } from "@/lib/display";
 import type { PersonListItem } from "@/lib/types";
 
@@ -99,31 +103,16 @@ export function getPersonRoleDisplay(person: PersonListItem) {
   };
 }
 
+// Fichas store "Ciudad, País" (the country/city picker), so the flag comes
+// from the country part.
 export function getCityIndicator(city: string) {
-  const normalizedCity = city
-    .normalize("NFD")
-    .replaceAll(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
+  const countryName = city.slice(city.lastIndexOf(", ") + 2).trim();
+  const country = city.includes(", ")
+    ? ACCESS_REQUEST_COUNTRIES.find((entry) => entry.name === countryName)
+    : undefined;
 
-  if (
-    normalizedCity.includes("medellin") ||
-    normalizedCity.includes("bogota") ||
-    normalizedCity.includes("cali") ||
-    normalizedCity.includes("barranquilla") ||
-    normalizedCity.includes("colombia")
-  ) {
-    return { symbol: "CO", emoji: "🇨🇴", label: "Colombia" };
-  }
-
-  if (
-    normalizedCity.includes("buenos aires") ||
-    normalizedCity.includes("cordoba") ||
-    normalizedCity.includes("rosario") ||
-    normalizedCity.includes("santiago del estero") ||
-    normalizedCity.includes("colonia caroya") ||
-    normalizedCity.includes("argentina")
-  ) {
-    return { symbol: "AR", emoji: "🇦🇷", label: "Argentina" };
+  if (country) {
+    return { symbol: country.code, emoji: countryFlag(country.code), label: country.name };
   }
 
   return { symbol: "CI", emoji: null, label: "Ciudad" };
