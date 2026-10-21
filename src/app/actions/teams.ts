@@ -9,10 +9,15 @@ import { isImageDataUrl } from "@/lib/club-logo";
 import { db } from "@/lib/db/client";
 import {
   clubs as clubsTable,
-  leagues as leaguesTable,
   teamLeagueMemberships as teamLeagueMembershipsTable,
   teams as teamsTable,
 } from "@/lib/db/schema";
+import {
+  ensureLeague,
+  findLeagueByName,
+  findLeaguesByNames,
+  setLeagueOrder,
+} from "@/lib/leagues/leagues";
 import { splitTeamCompetitions } from "@/lib/team-directory";
 import { slugifyTeamValue } from "@/lib/teams/slug";
 import { ensureErrorMessage, maybeNull } from "@/lib/utils";
@@ -39,26 +44,6 @@ async function resolveCurrentSeason() {
     .limit(1);
 
   return rows[0]?.season ?? FALLBACK_SEASON;
-}
-
-async function ensureLeague(name: string) {
-  const slug = slugifyTeamValue(name);
-  const existing = await db
-    .select({ id: leaguesTable.id, slug: leaguesTable.slug })
-    .from(leaguesTable)
-    .where(eq(leaguesTable.slug, slug))
-    .limit(1);
-
-  if (existing[0]) {
-    return existing[0];
-  }
-
-  const inserted = await db
-    .insert(leaguesTable)
-    .values({ name, slug })
-    .returning({ id: leaguesTable.id, slug: leaguesTable.slug });
-
-  return inserted[0];
 }
 
 type ClubFields = {
@@ -355,18 +340,9 @@ export async function assignTeamsToLeagueAction({
     const season = await resolveCurrentSeason();
     // Dragging from a league tab moves out of that league only; from the
     // "Todos" view (no source league) the teams end up in the target alone.
-    const sourceSlug = fromLeague?.trim()
-      ? slugifyTeamValue(fromLeague.trim())
+    const source = fromLeague?.trim()
+      ? await findLeagueByName(fromLeague.trim())
       : null;
-    const source = sourceSlug
-      ? (
-          await db
-            .select({ id: leaguesTable.id })
-            .from(leaguesTable)
-            .where(eq(leaguesTable.slug, sourceSlug))
-            .limit(1)
-        )[0]
-      : undefined;
 
     await db.transaction(async (tx) => {
       await tx
@@ -384,7 +360,7 @@ export async function assignTeamsToLeagueAction({
         return;
       }
 
-      if (sourceSlug) {
+      if (fromLeague?.trim()) {
         if (source && source.id !== league.id) {
           await tx
             .delete(teamLeagueMembershipsTable)
@@ -418,9 +394,7 @@ export async function assignTeamsToLeagueAction({
   }
 }
 
-// Persists the league tab order shown on /teams. Every listed league gets a
-// row (ensureLeague) so leagues only known through memberships can be ordered
-// too; positions are 1-based in the given order.
+// Persists the league tab order shown on /teams.
 export async function reorderLeagueTabsAction({
   leagueNames,
 }: {
@@ -437,19 +411,7 @@ export async function reorderLeagueTabsAction({
       return { ok: false, error: "Hacen falta al menos dos ligas para ordenar." };
     }
 
-    const leagues: Array<{ id: string }> = [];
-    for (const name of names) {
-      leagues.push(await ensureLeague(name));
-    }
-
-    await db.transaction(async (tx) => {
-      for (const [index, league] of leagues.entries()) {
-        await tx
-          .update(leaguesTable)
-          .set({ sortOrder: index + 1, updatedAt: new Date().toISOString() })
-          .where(eq(leaguesTable.id, league.id));
-      }
-    });
+    await setLeagueOrder(names);
 
     revalidatePath("/teams");
 
@@ -490,11 +452,7 @@ export async function removeTeamFromLeaguesAction({
       return { ok: false, error: "No se encontró el equipo." };
     }
 
-    const slugs = names.map((name) => slugifyTeamValue(name));
-    const leagues = await db
-      .select({ id: leaguesTable.id })
-      .from(leaguesTable)
-      .where(inArray(leaguesTable.slug, slugs));
+    const leagues = await findLeaguesByNames(names);
 
     if (leagues.length) {
       // Removal spans every season on purpose: dropping only the current

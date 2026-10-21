@@ -1,17 +1,18 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useState, useTransition } from "react";
+import { Pencil, Plus } from "lucide-react";
+import { useMemo, useState, useTransition } from "react";
 
 import { reorderLeagueTabsAction } from "@/app/actions/teams";
 import { PageCanvasTone } from "@/components/layout/page-canvas-tone";
+import { LeagueNameDialog } from "@/components/teams/league-name-dialog";
 import { TeamsArchiveTab } from "@/components/teams/teams-archive-tab";
 import { useTeamsEdit } from "@/components/teams/teams-edit-context";
 import {
   ALL_TEAM_LEAGUES,
   ARCHIVED_TEAM_LEAGUE,
-  getTeamLeagueAccentColor,
-  getTeamLeagueCanvasTone,
+  createLeagueColorResolver,
   resolveActiveTeamLeague,
   type TeamDirectoryTab,
 } from "@/lib/team-directory";
@@ -19,6 +20,18 @@ import { parseTeamDragPayload, TEAM_DRAG_MIME } from "@/lib/team-drag";
 import { cn } from "@/lib/utils";
 
 const LEAGUE_DRAG_MIME = "application/x-basket-league";
+
+type LeagueMenu = {
+  league: string;
+  top: number;
+  left: number;
+};
+
+// No league: the dialog creates one.
+type LeagueDialog = {
+  league?: string;
+  teamCount?: number;
+};
 
 type LeagueDropIndicator = {
   league: string;
@@ -60,7 +73,9 @@ export function TeamsLeagueTabs({
   canManageTeams?: boolean;
 }) {
   const searchParams = useSearchParams();
-  const { requestMove, clearSelection } = useTeamsEdit();
+  const { editing, requestMove, clearSelection } = useTeamsEdit();
+  const [leagueMenu, setLeagueMenu] = useState<LeagueMenu | null>(null);
+  const [leagueDialog, setLeagueDialog] = useState<LeagueDialog | null>(null);
   const [dragOverLeague, setDragOverLeague] = useState<string | null>(null);
   // Tabs render in a local order so a reorder paints immediately. The override
   // remembers which tabs prop it was made against, so a fresh server order
@@ -93,12 +108,12 @@ export function TeamsLeagueTabs({
   );
   const isLeagueView =
     Boolean(activeLeague) && activeLeague !== ARCHIVED_TEAM_LEAGUE;
-  const leagueAccent = isLeagueView
-    ? getTeamLeagueAccentColor(activeLeague)
-    : null;
+  const leagueColor = useMemo(() => createLeagueColorResolver(tabs), [tabs]);
+  const leagueAccent = isLeagueView ? leagueColor(activeLeague).accent : null;
   const leagueCanvasTone = isLeagueView
-    ? getTeamLeagueCanvasTone(activeLeague)
+    ? leagueColor(activeLeague).canvas
     : null;
+  const canEditLeagues = canManageTeams && editing;
 
   function buildHref(league: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -119,6 +134,36 @@ export function TeamsLeagueTabs({
     event.preventDefault();
     clearSelection();
     window.history.pushState(null, "", buildHref(league));
+  }
+
+  // In edit mode the active league's tab opens its menu instead.
+  function handleLeagueClick(
+    event: React.MouseEvent<HTMLAnchorElement>,
+    league: string,
+  ) {
+    if (!canEditLeagues || league !== activeLeague) {
+      handleSelect(event, league);
+      return;
+    }
+
+    event.preventDefault();
+    const rect = event.currentTarget.getBoundingClientRect();
+    setLeagueMenu({ league, top: rect.bottom + 4, left: rect.left });
+  }
+
+  function handleLeagueSaved(name: string) {
+    const renamed = leagueDialog?.league;
+    setLeagueDialog(null);
+
+    if (!renamed) {
+      clearSelection();
+      window.history.pushState(null, "", buildHref(name));
+      return;
+    }
+
+    if (searchParams.get("league") === renamed) {
+      window.history.replaceState(null, "", buildHref(name));
+    }
   }
 
   function isTeamDrag(event: React.DragEvent) {
@@ -272,7 +317,7 @@ export function TeamsLeagueTabs({
             data-team-drop-target={canManageTeams ? "" : undefined}
             draggable={canManageTeams || undefined}
             title={canManageTeams ? "Arrastrá para reordenar las ligas" : undefined}
-            onClick={(event) => handleSelect(event, tab.value)}
+            onClick={(event) => handleLeagueClick(event, tab.value)}
             onDragStart={
               canManageTeams
                 ? (event) => handleLeagueDragStart(event, tab.value)
@@ -333,8 +378,22 @@ export function TeamsLeagueTabs({
             )}
           >
             {tab.label} ({tab.count})
+            {canEditLeagues && activeLeague === tab.value ? (
+              <Pencil className="ml-2 inline size-3.5" aria-hidden="true" />
+            ) : null}
           </a>
         ))}
+        {canEditLeagues ? (
+          <button
+            type="button"
+            title="Nueva liga"
+            aria-label="Nueva liga"
+            onClick={() => setLeagueDialog({})}
+            className="-mb-px border-b-2 border-transparent px-4 py-3 text-[var(--accent)] transition hover:bg-[var(--accent-soft)]"
+          >
+            <Plus className="size-4" />
+          </button>
+        ) : null}
         <TeamsArchiveTab
           href={buildHref(ARCHIVED_TEAM_LEAGUE)}
           count={archivedCount}
@@ -344,6 +403,50 @@ export function TeamsLeagueTabs({
           className={tabClassName}
         />
       </div>
+      {leagueMenu ? (
+        <>
+          <div
+            className="fixed inset-0 z-[200]"
+            onClick={() => setLeagueMenu(null)}
+          />
+          <div
+            role="menu"
+            style={{ top: leagueMenu.top, left: leagueMenu.left }}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.stopPropagation();
+                setLeagueMenu(null);
+              }
+            }}
+            className="fixed z-[201] min-w-44 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)] p-1 shadow-[0_12px_32px_rgba(28,13,16,0.15)]"
+          >
+            <button
+              type="button"
+              role="menuitem"
+              autoFocus
+              onClick={() => {
+                setLeagueDialog({
+                  league: leagueMenu.league,
+                  teamCount: tabsByValue.get(leagueMenu.league)?.count ?? 0,
+                });
+                setLeagueMenu(null);
+              }}
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-[var(--n-800)] hover:bg-[var(--n-100)]"
+            >
+              <Pencil className="size-3.5" />
+              Renombrar liga
+            </button>
+          </div>
+        </>
+      ) : null}
+      {leagueDialog ? (
+        <LeagueNameDialog
+          league={leagueDialog.league}
+          teamCount={leagueDialog.teamCount}
+          onClose={() => setLeagueDialog(null)}
+          onSaved={handleLeagueSaved}
+        />
+      ) : null}
     </div>
   );
 }

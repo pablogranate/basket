@@ -1,10 +1,10 @@
 import { eq } from "drizzle-orm";
 
 import type { UserContext } from "@/lib/auth";
-import { EXTERNAL_TEAM_LEAGUES } from "@/lib/club-catalog";
 import { buildClubLogoSrc, clubLogoVersionSql } from "@/lib/club-logo";
 import { db } from "@/lib/db/client";
-import { clubs, leagues, teams } from "@/lib/db/schema";
+import { clubs, teams } from "@/lib/db/schema";
+import { listLeagues, type League } from "@/lib/leagues/leagues";
 import type { TeamDirectoryItem, TeamDirectoryTab } from "@/lib/team-directory";
 import {
   buildTeamPickerCatalog,
@@ -15,8 +15,8 @@ import {
 import {
   getTeamLeagueLabel,
   splitTeamCompetitions,
-  TEAM_DIRECTORY_TAB_ORDER,
 } from "@/lib/team-directory";
+import { slugifyTeamValue } from "@/lib/teams/slug";
 
 const DEFAULT_LEAGUE_URL = "https://www.laliganacional.com.ar/";
 
@@ -302,80 +302,59 @@ export async function getTeamPickerCatalog(
   }
 }
 
-// Persisted tab order (leagues.sort_order), keyed by league name. Leagues
-// without a row or without a sort_order fall back to the built-in order.
-export async function getLeagueTabOrder(
+export async function getTeamDirectoryLeagues(
   ctx: UserContext,
-): Promise<Record<string, number>> {
+): Promise<League[]> {
   if (!ctx.userId) {
-    return {};
+    return [];
   }
 
   try {
-    const rows = await db
-      .select({ name: leagues.name, sortOrder: leagues.sortOrder })
-      .from(leagues);
-
-    return Object.fromEntries(
-      rows
-        .filter((row) => row.sortOrder !== null)
-        .map((row) => [row.name, row.sortOrder as number]),
-    );
+    return await listLeagues();
   } catch (error) {
-    console.error("[teams] failed to load league tab order", error);
-    return {};
+    console.error("[teams] failed to load the leagues", error);
+    return [];
   }
 }
 
+// A league gets a tab when it is marked for /teams (even while empty, so
+// teams can be dragged into it) or when it has teams. Tabs follow
+// leagues.sort_order.
 export function buildTeamDirectoryTabs(
   teams: TeamDirectoryItem[],
-  tabOrder: Record<string, number> = {},
+  leagues: Pick<League, "name" | "slug" | "sortOrder" | "inTeamDirectory">[],
 ): TeamDirectoryTab[] {
   const counts = new Map<string, number>();
-  const seenWithTeams: string[] = [];
 
   teams.forEach((team) => {
     splitTeamCompetitions(team.competition).forEach((league) => {
-      if (!counts.has(league)) {
-        seenWithTeams.push(league);
-      }
       counts.set(league, (counts.get(league) ?? 0) + 1);
     });
   });
 
-  // Core and external leagues always get a tab, even while empty, so teams
-  // can be dragged into them from day one; leagues only known through team
-  // memberships slot in between.
-  const ordered: string[] = [];
+  const listed = leagues.filter(
+    (league) => league.inTeamDirectory || counts.has(league.name),
+  );
+  const known = new Set(listed.map((league) => league.name));
+  const unknown = [...counts.keys()]
+    .filter((name) => !known.has(name))
+    .map((name) => ({ name, slug: slugifyTeamValue(name), sortOrder: null }));
+
+  const ordered = [...listed, ...unknown].sort(
+    (left, right) =>
+      (left.sortOrder ?? Number.MAX_SAFE_INTEGER) -
+        (right.sortOrder ?? Number.MAX_SAFE_INTEGER) ||
+      left.name.localeCompare(right.name, "es"),
+  );
+  // Tabs are keyed by name; two rows sharing one show as the first.
   const seen = new Set<string>();
-  const pushLeague = (league: string) => {
-    if (!seen.has(league)) {
-      seen.add(league);
-      ordered.push(league);
-    }
-  };
 
-  TEAM_DIRECTORY_TAB_ORDER.forEach(pushLeague);
-  seenWithTeams.forEach(pushLeague);
-  EXTERNAL_TEAM_LEAGUES.forEach(pushLeague);
-
-  // Stable sort: leagues with a persisted position come first in that order;
-  // the rest keep the built-in order after them.
-  const defaultIndex = new Map(ordered.map((league, index) => [league, index]));
-  ordered.sort((left, right) => {
-    const leftOrder = tabOrder[left] ?? Number.MAX_SAFE_INTEGER;
-    const rightOrder = tabOrder[right] ?? Number.MAX_SAFE_INTEGER;
-
-    if (leftOrder !== rightOrder) {
-      return leftOrder - rightOrder;
-    }
-
-    return (defaultIndex.get(left) ?? 0) - (defaultIndex.get(right) ?? 0);
-  });
-
-  return ordered.map((league) => ({
-    value: league,
-    label: getTeamLeagueLabel(league),
-    count: counts.get(league) ?? 0,
-  }));
+  return ordered
+    .filter((league) => !seen.has(league.name) && Boolean(seen.add(league.name)))
+    .map((league) => ({
+      value: league.name,
+      slug: league.slug,
+      label: getTeamLeagueLabel(league.name),
+      count: counts.get(league.name) ?? 0,
+    }));
 }

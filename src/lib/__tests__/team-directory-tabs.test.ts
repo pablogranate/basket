@@ -29,41 +29,84 @@ const TEAMS = [
   team("b", "Liga Argentina / Liga Regional"),
 ];
 
-describe("buildTeamDirectoryTabs", () => {
-  it("keeps the built-in order when no persisted order exists", () => {
-    const values = buildTeamDirectoryTabs(TEAMS).map((tab) => tab.value);
+function league(
+  name: string,
+  slug: string,
+  sortOrder: number | null,
+  inTeamDirectory = true,
+) {
+  return { name, slug, sortOrder, inTeamDirectory };
+}
 
-    expect(values.slice(0, 3)).toEqual([
+const LEAGUES = [
+  league("Liga Argentina", "liga-argentina", 3),
+  league("Liga Nacional", "liga-nacional", 1),
+  league("Liga Desarrollo", "liga-proximo", 2),
+  league("Amistosos", "amistosos", 30, false),
+  league("Liga Regional", "liga-regional", null, false),
+];
+
+describe("buildTeamDirectoryTabs", () => {
+  it("lists the leagues in their persisted order", () => {
+    const values = buildTeamDirectoryTabs(TEAMS, LEAGUES).map(
+      (tab) => tab.value,
+    );
+
+    expect(values).toEqual([
       "Liga Nacional",
       "Liga Desarrollo",
       "Liga Argentina",
+      "Liga Regional",
     ]);
-    expect(values).toContain("Liga Regional");
   });
 
-  it("puts persisted positions first and leaves the rest in built-in order", () => {
-    const values = buildTeamDirectoryTabs(TEAMS, {
-      "Liga Regional": 1,
-      "Liga Argentina": 2,
-      "Liga Nacional": 3,
-    }).map((tab) => tab.value);
+  it("keeps empty leagues marked for /teams and drops the rest", () => {
+    const tabs = buildTeamDirectoryTabs(TEAMS, LEAGUES);
 
-    expect(values.slice(0, 4)).toEqual([
-      "Liga Regional",
-      "Liga Argentina",
-      "Liga Nacional",
-      "Liga Desarrollo",
-    ]);
-    expect(values.indexOf("Liga Desarrollo")).toBeLessThan(
-      values.indexOf("Liga Federal"),
+    expect(tabs.find((tab) => tab.value === "Liga Desarrollo")?.count).toBe(0);
+    expect(tabs.some((tab) => tab.value === "Amistosos")).toBe(false);
+  });
+
+  it("carries the slug, which survives a rename", () => {
+    const tabs = buildTeamDirectoryTabs(
+      [team("c", "Liga Desarrollo Pro")],
+      [league("Liga Desarrollo Pro", "liga-proximo", 2)],
     );
+
+    expect(tabs).toEqual([
+      {
+        value: "Liga Desarrollo Pro",
+        slug: "liga-proximo",
+        label: "Liga Desarrollo Pro",
+        count: 1,
+      },
+    ]);
+  });
+
+  it("shows one tab for two leagues sharing a name", () => {
+    const tabs = buildTeamDirectoryTabs(TEAMS, [
+      league("Euroliga", "euroliga", 22),
+      league("Euroliga", "euroliga-2", 40),
+    ]);
+
+    expect(tabs.filter((tab) => tab.value === "Euroliga")).toEqual([
+      { value: "Euroliga", slug: "euroliga", label: "Euroliga", count: 0 },
+    ]);
+  });
+
+  it("still shows a league known only through its teams", () => {
+    const tabs = buildTeamDirectoryTabs([team("d", "Liga Nueva")], []);
+
+    expect(tabs).toEqual([
+      { value: "Liga Nueva", slug: "liga-nueva", label: "Liga Nueva", count: 1 },
+    ]);
   });
 });
 
 describe("default team league", () => {
   const tabs = [
-    { value: "Liga Nacional", label: "Liga Nacional", count: 0 },
-    { value: "Liga Argentina", label: "Liga Argentina", count: 3 },
+    { value: "Liga Nacional", slug: "liga-nacional", label: "Liga Nacional", count: 0 },
+    { value: "Liga Argentina", slug: "liga-argentina", label: "Liga Argentina", count: 3 },
   ];
 
   it("opens on the first league that has teams", () => {

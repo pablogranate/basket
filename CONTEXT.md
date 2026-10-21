@@ -146,3 +146,7 @@ _Avoid_: ClubesValidos (that is the named range inside the tab, not the tab)
 **Equipo incompleto**:
 An equipo created from `Listas` with nothing but its name: no league membership, no crest, no stadium. It is a real equipo people can be linked to, but it shows in `/teams` only with no league filter applied, until an editor fills it in.
 _Avoid_: equipo provisorio, borrador
+
+**Liga**:
+A competition we cover, across seasons — Liga Nacional, Liga Argentina, Liga Metropolitana. A Liga is identified by its slug, which never changes; its name is only what people read, and an editor can rename it from `/teams`. Anything that matches a Liga by name (the Grilla's "Liga" text, a tab's colour) falls back to the slug, so a rename does not break it. A Liga has a tab in `/teams` when it is marked for the directory (`in_team_directory`) or has equipos.
+_Avoid_: torneo, competición, tournament

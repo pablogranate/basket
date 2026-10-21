@@ -1,4 +1,5 @@
 import { normalizeLeagueName } from "@/lib/league-grid-colors";
+import { slugifyTeamValue } from "@/lib/teams/slug";
 
 export type LeagueSnapshot = {
   id: string;
@@ -45,6 +46,8 @@ export function createCompetitionLeagueResolver(
     if (aliasSlug) {
       return idBySlug.get(aliasSlug) ?? null;
     }
-    return idByName.get(key) ?? null;
+    // A league renamed from /teams keeps its slug, so the Grilla's old text
+    // still finds it.
+    return idByName.get(key) ?? idBySlug.get(slugifyTeamValue(key)) ?? null;
   };
 }

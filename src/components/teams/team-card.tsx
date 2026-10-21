@@ -9,10 +9,10 @@ import { TeamCardIcon } from "@/components/teams/team-card-icon-sprite";
 import { CreateTeamModal } from "@/components/teams/create-team-modal-lazy";
 import type { TeamResponsibleContact } from "@/lib/team-responsibles";
 import {
-  getTeamLeagueAccentColor,
   getTeamLeagueColorSet,
   getTeamLeagueLabel,
   splitTeamCompetitions,
+  type LeagueColorResolver,
   type TeamDirectoryItem,
 } from "@/lib/team-directory";
 import {
@@ -32,9 +32,9 @@ export type TeamCardSelection = {
   onDragDone: () => void;
 };
 
-function getLeagueBadgeStyle(competition: string): CSSProperties {
-  const colors = getTeamLeagueColorSet(competition);
-
+function getLeagueBadgeStyle(
+  colors: ReturnType<LeagueColorResolver>,
+): CSSProperties {
   return {
     backgroundColor: colors.soft,
     color: colors.accent,
@@ -86,12 +86,14 @@ export function TeamCard({
   responsibleContact,
   canEdit = false,
   selection,
+  leagueColor = getTeamLeagueColorSet,
 }: {
   team: TeamDirectoryItem;
   activeLeague?: string;
   responsibleContact?: TeamResponsibleContact | null;
   canEdit?: boolean;
   selection?: TeamCardSelection;
+  leagueColor?: LeagueColorResolver;
 }) {
   // Only a selected card drags (carrying the group); pressing anything else
   // starts the lasso instead.
@@ -100,7 +102,7 @@ export function TeamCard({
   const endDragRef = useRef<(() => void) | null>(null);
   const leagueBadges = splitTeamCompetitions(team.competition);
   const primaryLeague = activeLeague || leagueBadges[0] || team.competition;
-  const hoverAccent = getTeamLeagueAccentColor(primaryLeague);
+  const hoverAccent = leagueColor(primaryLeague).accent;
   const responsibleLabel =
     responsibleContact?.fullName ?? team.manager ?? "Sin responsable";
 
@@ -215,7 +217,7 @@ export function TeamCard({
               {leagueBadges.map((league) => (
                 <span
                   key={`${team.id}-${league}`}
-                  style={getLeagueBadgeStyle(league)}
+                  style={getLeagueBadgeStyle(leagueColor(league))}
                   className="tc-league-badge"
                   title={league}
                 >
