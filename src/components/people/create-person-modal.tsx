@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { upsertPersonAction } from "@/app/actions/people";
+import { CiudadFieldClient } from "@/components/access-requests/ciudad-field-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -304,15 +305,13 @@ export function CreatePersonModal({
                           />
                         </label>
 
-                        <label className="space-y-2">
-                          <ModalFieldLabel>Ciudad</ModalFieldLabel>
-                          <Input
-                            name="city"
-                            placeholder="Madrid"
-                            disabled={!canEdit}
-                            className={fieldClassName}
-                          />
-                        </label>
+                        <CiudadFieldClient
+                          id="create-person-ciudad"
+                          optional
+                          disabled={!canEdit}
+                          labelClassName="text-sm font-semibold text-[var(--n-700)]"
+                          fieldClassName={fieldClassName}
+                        />
 
                         <div className="md:col-span-2">
                           <PersonFunctionsField selected={[]} disabled={!canEdit} />

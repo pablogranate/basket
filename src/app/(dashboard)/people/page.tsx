@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ShieldCheck, X } from "lucide-react";
 
 import { upsertPersonAction } from "@/app/actions/people";
+import { CiudadFieldClient } from "@/components/access-requests/ciudad-field-client";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
 import { CreatePersonModal } from "@/components/people/create-person-modal-lazy";
 import { PeopleHeaderExtras } from "@/components/people/people-header-extras";
@@ -347,17 +348,15 @@ async function PeopleEditModal({
                         className="h-12 rounded-[var(--panel-radius)] border-[var(--n-200)] bg-[var(--n-50)] text-[15px] font-medium text-[var(--n-800)] placeholder:text-[var(--n-400)] shadow-[inset_0_2px_4px_rgba(28,13,16,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(227,27,35,0.08)]"
                       />
                     </label>
-                    <label className="space-y-2">
-                      <span className="text-sm font-semibold text-[var(--n-700)]">
-                        Ciudad
-                      </span>
-                      <Input
-                        name="city"
-                        defaultValue={selectedMeta.city}
-                        disabled={!user.canEdit}
-                        className="h-12 rounded-[var(--panel-radius)] border-[var(--n-200)] bg-[var(--n-50)] text-[15px] font-medium text-[var(--n-800)] placeholder:text-[var(--n-400)] shadow-[inset_0_2px_4px_rgba(28,13,16,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(227,27,35,0.08)]"
-                      />
-                    </label>
+                    <CiudadFieldClient
+                      key={selectedPerson.id}
+                      id="edit-person-ciudad"
+                      defaultValue={selectedMeta.city}
+                      optional
+                      disabled={!user.canEdit}
+                      labelClassName="text-sm font-semibold text-[var(--n-700)]"
+                      fieldClassName="h-12 rounded-[var(--panel-radius)] border-[var(--n-200)] bg-[var(--n-50)] text-[15px] font-medium text-[var(--n-800)] placeholder:text-[var(--n-400)] shadow-[inset_0_2px_4px_rgba(28,13,16,0.04)] focus:border-[var(--accent)] focus:bg-white focus:ring-[3px] focus:ring-[rgba(227,27,35,0.08)]"
+                    />
                     <div className="md:col-span-2">
                       <PersonFunctionsField
                         selected={selectedPerson.functions}

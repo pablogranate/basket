@@ -1,4 +1,5 @@
 import { parsed, parseFailure, type ParseResult } from "@/lib/actions/define-action";
+import { composeAccessRequestCiudad } from "@/lib/access-requests/locations";
 import type { AppRole } from "@/lib/database.types";
 import { normalizeAccessTier } from "@/lib/roles";
 import { isPersonFunctionKey, type PersonFunctionKey } from "@/lib/functions";
@@ -21,12 +22,27 @@ export type UpsertPersonInput = {
 export function parseUpsertPerson(
   formData: FormData,
 ): ParseResult<UpsertPersonInput> {
+  // Same country/city picker as the Solicitud, so both store "Ciudad, País".
+  // An empty city leaves the ficha without one.
+  const ciudad = String(formData.get("ciudad") ?? "").trim();
+  const city = ciudad
+    ? composeAccessRequestCiudad({
+        pais: String(formData.get("pais") ?? "").trim(),
+        ciudad,
+        otraCiudad: String(formData.get("otraCiudad") ?? "").trim(),
+      })
+    : null;
+
+  if (ciudad && !city) {
+    return parseFailure("Elegí el país y la ciudad de la lista.");
+  }
+
   const payload = {
     full_name: String(formData.get("fullName") ?? "").trim(),
     phone: maybeNull(String(formData.get("phone") ?? "")),
     email: maybeNull(String(formData.get("email") ?? "")),
     notes: buildPersonNotesMeta({
-      city: maybeNull(String(formData.get("city") ?? "")),
+      city,
       coverage: maybeNull(String(formData.get("coverageTeams") ?? "")),
       notes: maybeNull(String(formData.get("notes") ?? "")),
     }),

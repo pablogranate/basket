@@ -14,6 +14,44 @@ function baseForm(entries: Record<string, string> = {}) {
 }
 
 describe("parseUpsertPerson", () => {
+  it("stores the picked city as \"Ciudad, País\"", () => {
+    const result = parseUpsertPerson(
+      baseForm({ personId: "p", fullName: "Ana", pais: "AR", ciudad: "Córdoba" }),
+    );
+
+    expect(result.ok && result.input.payload.notes).toBe("Ciudad: Córdoba, Argentina");
+  });
+
+  it("stores a typed city with its country", () => {
+    const result = parseUpsertPerson(
+      baseForm({
+        personId: "p",
+        fullName: "Ana",
+        pais: "AR",
+        ciudad: "__otra__",
+        otraCiudad: "Venado Tuerto",
+      }),
+    );
+
+    expect(result.ok && result.input.payload.notes).toBe("Ciudad: Venado Tuerto, Argentina");
+  });
+
+  it("leaves the ficha without a city when none is picked", () => {
+    const result = parseUpsertPerson(
+      baseForm({ personId: "p", fullName: "Ana", pais: "AR", ciudad: "" }),
+    );
+
+    expect(result.ok && result.input.payload.notes).toBeNull();
+  });
+
+  it("refuses a city that is not in the picked country", () => {
+    const result = parseUpsertPerson(
+      baseForm({ personId: "p", fullName: "Ana", pais: "UY", ciudad: "Córdoba" }),
+    );
+
+    expect(result.ok).toBe(false);
+  });
+
   it("extracts the payload, functions and team links", () => {
     const formData = baseForm({
       personId: "person-1",

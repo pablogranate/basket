@@ -17,16 +17,33 @@ const LABEL_CLASS =
 
 // Country first, then that country's cities. Changing the country resets the
 // city so a Uruguayan city can never travel with an Argentine code; the action
-// re-checks the pair anyway.
+// re-checks the pair anyway. `optional` (the /people editor) lets the city stay
+// empty: a ficha without a city is fine, an applicant without one is not.
 export function CiudadFieldClient({
   id,
   defaultValue,
+  optional = false,
+  disabled = false,
+  labelClassName = LABEL_CLASS,
+  fieldClassName,
 }: {
   id: string;
   // A stored "Ciudad, País" to start from.
   defaultValue?: string | null;
+  optional?: boolean;
+  disabled?: boolean;
+  labelClassName?: string;
+  fieldClassName?: string;
 }) {
-  const [initial] = useState(() => splitAccessRequestCiudad(defaultValue));
+  // A city typed before the picker existed ("Córdoba", no country) starts as
+  // "Otra ciudad…" with its text, so saving the ficha never drops it unseen.
+  const [initial] = useState(
+    () =>
+      splitAccessRequestCiudad(defaultValue) ??
+      (defaultValue?.trim()
+        ? { pais: "AR", ciudad: OTHER_CITY, otraCiudad: defaultValue.trim() }
+        : null),
+  );
   const [pais, setPais] = useState(initial?.pais ?? "AR");
   const [ciudad, setCiudad] = useState(initial?.ciudad ?? "");
   const country = findAccessRequestCountry(pais);
@@ -34,13 +51,15 @@ export function CiudadFieldClient({
   return (
     <>
       <div className="space-y-1.5">
-        <label htmlFor={`${id}-pais`} className={LABEL_CLASS}>
+        <label htmlFor={`${id}-pais`} className={labelClassName}>
           País
         </label>
         <Select
           id={`${id}-pais`}
           name="pais"
           required
+          disabled={disabled}
+          className={fieldClassName}
           value={pais}
           onChange={(event) => {
             setPais(event.target.value);
@@ -56,18 +75,20 @@ export function CiudadFieldClient({
       </div>
 
       <div className="space-y-1.5">
-        <label htmlFor={id} className={LABEL_CLASS}>
+        <label htmlFor={id} className={labelClassName}>
           Ciudad
         </label>
         <Select
           id={id}
           name="ciudad"
-          required
+          required={!optional}
+          disabled={disabled}
+          className={fieldClassName}
           value={ciudad}
           onChange={(event) => setCiudad(event.target.value)}
         >
-          <option value="" disabled>
-            Elegí tu ciudad
+          <option value="" disabled={!optional}>
+            {optional ? "Sin ciudad" : "Elegí tu ciudad"}
           </option>
           {country?.cities.map((city) => (
             <option key={city} value={city}>
@@ -84,8 +105,10 @@ export function CiudadFieldClient({
             required
             minLength={2}
             maxLength={80}
+            disabled={disabled}
+            className={fieldClassName}
             autoComplete="address-level2"
-            placeholder="Escribí tu ciudad"
+            placeholder={optional ? "Escribí la ciudad" : "Escribí tu ciudad"}
             defaultValue={initial?.otraCiudad}
             autoFocus={!initial?.otraCiudad}
           />
