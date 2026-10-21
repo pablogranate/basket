@@ -90,7 +90,7 @@ export function getPersonRoleDisplay(person: PersonListItem) {
   if (person.functions.length === 0) {
     return {
       roleLabel: "Sin rol",
-      rolePresentation: getRolePresentation(""),
+      rolePresentation: null,
     };
   }
 

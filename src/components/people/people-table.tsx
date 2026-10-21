@@ -119,14 +119,16 @@ function renderCell(
       return (
         <td key={column} className={cellClassName}>
           <div className="flex items-center gap-2">
-            <span
-              className={cn(
-                "inline-flex size-8 items-center justify-center rounded-full",
-                rolePresentation.className,
-              )}
-            >
-              <rolePresentation.Icon className="size-4" />
-            </span>
+            {rolePresentation ? (
+              <span
+                className={cn(
+                  "inline-flex size-8 items-center justify-center rounded-full",
+                  rolePresentation.className,
+                )}
+              >
+                <rolePresentation.Icon className="size-4" />
+              </span>
+            ) : null}
             <p className="text-sm font-medium text-[var(--foreground)]">
               {roleLabel}
             </p>

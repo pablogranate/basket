@@ -54,14 +54,16 @@ export const PeopleCardList = memo(function PeopleCardList({
                     )}
 
                     <div className="mt-1 flex items-center gap-1.5">
-                      <span
-                        className={cn(
-                          "inline-flex size-5 items-center justify-center rounded-full",
-                          rolePresentation.className,
-                        )}
-                      >
-                        <rolePresentation.Icon className="size-3" />
-                      </span>
+                      {rolePresentation ? (
+                        <span
+                          className={cn(
+                            "inline-flex size-5 items-center justify-center rounded-full",
+                            rolePresentation.className,
+                          )}
+                        >
+                          <rolePresentation.Icon className="size-3" />
+                        </span>
+                      ) : null}
                       <span className="truncate text-xs font-semibold text-[var(--n-500)]">
                         {roleLabel}
                       </span>
