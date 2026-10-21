@@ -270,6 +270,8 @@ export const EXTERNAL_TEAM_LEAGUES = [
   "Liga BasquetPro (Ecuador)",
   "LNB Chile",
   "LUB (Uruguay)",
+  "Liga Femenina Chile",
+  "Euroliga",
 ] as const;
 
 export const ALL_CLUB_OPTIONS = Array.from(
