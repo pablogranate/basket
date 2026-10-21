@@ -1,17 +1,17 @@
-// Country → city catalog for the self-signup form. The applicant picks a
-// country first, then one of its cities; "Otra" lets them type a city we did
-// not list so nobody is locked out. The persisted `ciudad` is composed as
-// "Ciudad, País" so the email, the solicitudes table and the decision panel
-// keep rendering one string.
+// A Ciudad is stored as one "Ciudad, País" string, on a Solicitud and on a
+// ficha alike. This module owns that format: the country → city catalog the
+// picker offers (CiudadFieldClient), reading what the picker posts, and
+// reading a stored value back. "Otra" lets someone type a city we did not list
+// so nobody is locked out.
 export const OTHER_CITY = "__otra__";
 
-export type AccessRequestCountry = {
+export type Country = {
   code: string;
   name: string;
   cities: readonly string[];
 };
 
-export const ACCESS_REQUEST_COUNTRIES: readonly AccessRequestCountry[] = [
+export const CIUDAD_COUNTRIES: readonly Country[] = [
   {
     code: "AR",
     name: "Argentina",
@@ -185,14 +185,14 @@ export function countryFlag(code: string) {
     .replace(/./g, (char) => String.fromCodePoint(0x1f1e6 + char.charCodeAt(0) - 65));
 }
 
-export function findAccessRequestCountry(code: string) {
-  return ACCESS_REQUEST_COUNTRIES.find((country) => country.code === code) ?? null;
+export function findCountry(code: string) {
+  return CIUDAD_COUNTRIES.find((country) => country.code === code) ?? null;
 }
 
 // Turns what the field posts (country code + listed city or a typed one)
 // into the single `ciudad` string that persists. Returns null when the pair
 // is not something the form could have produced.
-export function composeAccessRequestCiudad({
+export function composeCiudad({
   pais,
   ciudad,
   otraCiudad,
@@ -201,7 +201,7 @@ export function composeAccessRequestCiudad({
   ciudad: string;
   otraCiudad: string;
 }) {
-  const country = findAccessRequestCountry(pais);
+  const country = findCountry(pais);
 
   if (!country) {
     return null;
@@ -220,10 +220,28 @@ export function composeAccessRequestCiudad({
   return `${city}, ${country.name}`;
 }
 
-// The inverse of composeAccessRequestCiudad, to pre-fill the field from a
-// stored "Ciudad, País". A city we don't list comes back as "Otra ciudad";
-// anything that doesn't name a known country comes back as null.
-export function splitAccessRequestCiudad(value: string | null | undefined) {
+// What a submitted CiudadFieldClient holds: `ciudad` is null when nothing was
+// picked (the optional field), and the result is invalid when the posted pair
+// is not one the picker could have produced.
+export function readCiudadField(
+  formData: FormData,
+): { ok: true; ciudad: string | null } | { ok: false } {
+  const ciudad = String(formData.get("ciudad") ?? "").trim();
+
+  if (!ciudad) {
+    return { ok: true, ciudad: null };
+  }
+
+  const composed = composeCiudad({
+    pais: String(formData.get("pais") ?? "").trim(),
+    ciudad,
+    otraCiudad: String(formData.get("otraCiudad") ?? "").trim(),
+  });
+
+  return composed ? { ok: true, ciudad: composed } : { ok: false };
+}
+
+function splitStored(value: string | null | undefined) {
   const separator = value?.lastIndexOf(", ") ?? -1;
 
   if (!value || separator < 0) {
@@ -232,13 +250,27 @@ export function splitAccessRequestCiudad(value: string | null | undefined) {
 
   const city = value.slice(0, separator).trim();
   const countryName = value.slice(separator + 2).trim();
-  const country = ACCESS_REQUEST_COUNTRIES.find(
-    (entry) => entry.name === countryName,
-  );
+  const country = CIUDAD_COUNTRIES.find((entry) => entry.name === countryName);
 
-  if (!country || !city) {
+  return country && city ? { city, country } : null;
+}
+
+// The country a stored "Ciudad, País" names; null when it names none we know.
+export function ciudadCountry(value: string | null | undefined) {
+  return splitStored(value)?.country ?? null;
+}
+
+// The inverse of composeCiudad, to pre-fill the field from a stored
+// "Ciudad, País". A city we don't list comes back as "Otra ciudad"; anything
+// that doesn't name a known country comes back as null.
+export function splitCiudad(value: string | null | undefined) {
+  const stored = splitStored(value);
+
+  if (!stored) {
     return null;
   }
+
+  const { city, country } = stored;
 
   return country.cities.includes(city)
     ? { pais: country.code, ciudad: city, otraCiudad: "" }

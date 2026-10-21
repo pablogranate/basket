@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 
 import { upsertPersonAction } from "@/app/actions/people";
-import { CiudadFieldClient } from "@/components/access-requests/ciudad-field-client";
+import { CiudadFieldClient } from "@/components/shared/ciudad-field-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";

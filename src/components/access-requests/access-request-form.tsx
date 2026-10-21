@@ -1,5 +1,5 @@
 import { submitAccessRequestAction } from "@/app/actions/access-requests";
-import { CiudadFieldClient } from "@/components/access-requests/ciudad-field-client";
+import { CiudadFieldClient } from "@/components/shared/ciudad-field-client";
 import { PhoneFieldClient } from "@/components/access-requests/phone-field-client";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";

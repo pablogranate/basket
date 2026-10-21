@@ -9,10 +9,7 @@ import {
   Wrench,
 } from "lucide-react";
 
-import {
-  ACCESS_REQUEST_COUNTRIES,
-  countryFlag,
-} from "@/lib/access-requests/locations";
+import { ciudadCountry, countryFlag } from "@/lib/ciudad";
 import { getFunctionDisplayName } from "@/lib/display";
 import type { PersonListItem } from "@/lib/types";
 
@@ -103,13 +100,8 @@ export function getPersonRoleDisplay(person: PersonListItem) {
   };
 }
 
-// Fichas store "Ciudad, País" (the country/city picker), so the flag comes
-// from the country part.
 export function getCityIndicator(city: string) {
-  const countryName = city.slice(city.lastIndexOf(", ") + 2).trim();
-  const country = city.includes(", ")
-    ? ACCESS_REQUEST_COUNTRIES.find((entry) => entry.name === countryName)
-    : undefined;
+  const country = ciudadCountry(city);
 
   if (country) {
     return { symbol: country.code, emoji: countryFlag(country.code), label: country.name };

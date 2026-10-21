@@ -8,7 +8,7 @@ import {
   isAccessRequestFuncion,
   type AccessRequestFuncion,
 } from "@/lib/access-requests/constants";
-import { composeAccessRequestCiudad } from "@/lib/access-requests/locations";
+import { readCiudadField } from "@/lib/ciudad";
 import { isE164Phone } from "@/lib/access-requests/phone";
 import type { AppRole } from "@/lib/database.types";
 import type { ExistingAccountResolution } from "@/lib/access-requests/existing-account";
@@ -63,13 +63,9 @@ export function parseSubmitAccessRequest(
     return parseFailure("Elegí una función de la lista.");
   }
 
-  const ciudad = composeAccessRequestCiudad({
-    pais: String(formData.get("pais") ?? "").trim(),
-    ciudad: String(formData.get("ciudad") ?? "").trim(),
-    otraCiudad: String(formData.get("otraCiudad") ?? "").trim(),
-  });
+  const ciudadField = readCiudadField(formData);
 
-  if (!ciudad) {
+  if (!ciudadField.ok || !ciudadField.ciudad) {
     return parseFailure("Elegí tu país y tu ciudad de la lista.");
   }
 
@@ -78,7 +74,7 @@ export function parseSubmitAccessRequest(
     fullName,
     phone,
     funcion: funcion && isAccessRequestFuncion(funcion) ? funcion : null,
-    ciudad,
+    ciudad: ciudadField.ciudad,
     mensaje: maybeNull(String(formData.get("mensaje") ?? "")),
   });
 }
