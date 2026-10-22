@@ -183,10 +183,46 @@ describe("planGridSync match identity", () => {
 });
 
 describe("planGridSync manual Partidos (ADR 0013)", () => {
-  it("leaves a manual Partido with the sheet's production code untouched, with a warning", () => {
+  it("adopts a manual Partido carrying the sheet's production code on the same day", () => {
     const manual = makeMatchSnapshot({
       id: "hand-made",
-      home_team: "Peñarol",
+      away_team: "Riber",
+      kickoff_at: "2026-08-25T23:30:00.000Z",
+      production_code: "P1",
+      source: "manual",
+    });
+    const plan = planGridSync(
+      makeInput({
+        entries: [
+          makeEntry(
+            { production_code: "P1" },
+            { assignments: [{ roleName: "Realizador", personName: "Ana" }] },
+          ),
+        ],
+        codedMatches: [manual],
+        assignmentsByMatch: new Map([
+          ["hand-made", [makeAssignment({ id: "op", match_id: "hand-made", role_id: "role-relator" })]],
+        ]),
+      }),
+    );
+
+    expect(plan.creates).toHaveLength(0);
+    expect(plan.updates).toHaveLength(1);
+    expect(plan.updates[0]).toMatchObject({
+      id: "hand-made",
+      patch: { source: "grilla", awayTeam: "River", kickoffAt: FUTURE_KICKOFF },
+      assignmentUpserts: [{ roleId: "role-realizador", person: { kind: "key", key: "ana" } }],
+      assignmentDeletes: ["op"],
+    });
+    expect(plan.warnings).toContain(
+      'Boca vs River: el partido cargado a mano con el ID "P1" pasa a la grilla.',
+    );
+  });
+
+  it("leaves a manual Partido whose production code the sheet lists on another day", () => {
+    const manual = makeMatchSnapshot({
+      id: "hand-made",
+      kickoff_at: "2026-08-27T22:00:00.000Z",
       production_code: "P1",
       source: "manual",
     });
@@ -202,7 +238,7 @@ describe("planGridSync manual Partidos (ADR 0013)", () => {
     expect(plan.peopleToCreate).toHaveLength(0);
     expect(plan.errors).toHaveLength(0);
     expect(plan.warnings).toEqual([
-      'Boca vs River: el ID "P1" es de un partido cargado a mano; la grilla no lo modifica.',
+      'Boca vs River: el ID "P1" es de un partido cargado a mano en otra fecha; la grilla no lo modifica.',
     ]);
   });
 

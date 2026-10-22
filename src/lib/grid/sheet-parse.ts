@@ -238,6 +238,11 @@ export function zonedYearMonth(instant: Date): { year: number; month: number } {
   return { year, month };
 }
 
+// True when both instants fall on the same calendar day in the sheet timezone.
+export function isSameZonedDay(left: Date, right: Date): boolean {
+  return startOfTodayInTimezone(left).getTime() === startOfTodayInTimezone(right).getTime();
+}
+
 // True when (year, month) is strictly before the Local/Visitante cutover.
 function isBeforeCutover(year: number, month: number): boolean {
   return (
