@@ -144,6 +144,28 @@ describe("effective access (integration)", () => {
     ).rejects.toThrow(/foreign key/);
   });
 
+  it("declares cashflow with Lectura and Admin, a super admin resolving to Admin", async () => {
+    const reader = await seedAuthUser(sql, { email: "lectura@basquetpass.tv" });
+    const boss = await seedAuthUser(sql, { email: "boss@basquetpass.tv" });
+    await setSuperadmin(boss);
+
+    await grantRole({ userId: reader, app: "cashflow", role: "lectura", grantedBy: null });
+
+    expect(await getEffectiveAccess(reader, "cashflow")).toMatchObject({
+      role: "lectura",
+      rank: 10,
+      isAdmin: false,
+    });
+    expect(await getEffectiveAccess(boss, "cashflow")).toMatchObject({
+      role: "admin",
+      rank: 30,
+      viaSuperadmin: true,
+    });
+    await expect(
+      sql`INSERT INTO auth_app_access (user_id, app, role) VALUES (${boss}, 'cashflow', 'write')`,
+    ).rejects.toThrow(/foreign key/);
+  });
+
   it("refuses an Acceso for an unknown app or a role its app does not declare", async () => {
     const user = await seedAuthUser(sql, { email: "u@basquetpass.tv" });
 
