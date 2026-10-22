@@ -6,6 +6,7 @@ import { roleNameToFunctionKey } from "@/lib/functions";
 import type { SheetEntry } from "@/lib/grid/sheet-parse";
 import {
   endOfSyncWindow,
+  isSameZonedDay,
   parseTabPeriod,
   startOfTodayInTimezone,
   zonedYearMonth,
@@ -78,6 +79,7 @@ export type MatchFieldPatch = Partial<{
   notes: string | null;
   status: MatchStatus;
   leagueId: string | null;
+  source: "grilla";
 }>;
 
 export type SyncPlanCreate = {
@@ -362,15 +364,27 @@ export function planGridSync(input: PlanGridSyncInput): SyncPlan {
       codedMatch ??
       matchByTriple.get(tripleKey(sheet.home_team, sheet.away_team, sheet.kickoff_at));
 
-    // A hand-made Partido belongs to whoever made it, never to the sheet.
-    if (existing?.source === "manual") {
+    // A hand-made Partido belongs to whoever made it, unless the sheet lists
+    // its production code on the same day: then the grilla adopts it (the
+    // same ID-within-a-day rule incidencias links by). A match by teams and
+    // kickoff alone is too weak to take one over.
+    const adopt =
+      existing?.source === "manual" &&
+      codedMatch !== undefined &&
+      isSameZonedDay(new Date(existing.kickoff_at), new Date(sheet.kickoff_at));
+    if (existing?.source === "manual" && !adopt) {
       plan.warnings.push(
         codedMatch
-          ? `${label}: el ID "${sheet.production_code}" es de un partido cargado a mano; la grilla no lo modifica.`
+          ? `${label}: el ID "${sheet.production_code}" es de un partido cargado a mano en otra fecha; la grilla no lo modifica.`
           : `${label}: ya existe como partido cargado a mano; la grilla no lo modifica.`,
       );
       touchedMatchIds.add(existing.id);
       continue;
+    }
+    if (adopt) {
+      plan.warnings.push(
+        `${label}: el partido cargado a mano con el ID "${sheet.production_code}" pasa a la grilla.`,
+      );
     }
 
     // Owner resolution happens before the duplicate-code rejection, exactly as
@@ -447,7 +461,7 @@ export function planGridSync(input: PlanGridSyncInput): SyncPlan {
 
     // Sheet owns roster fields; compare instant-wise for kickoff.
     // Keys are camelCase to feed Drizzle .set() directly.
-    const patch: MatchFieldPatch = {};
+    const patch: MatchFieldPatch = adopt ? { source: "grilla" } : {};
     const competitionChanged =
       nullableText(existing.competition) !== nullableText(sheet.competition);
     if (competitionChanged) {
