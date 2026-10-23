@@ -57,6 +57,13 @@
       "when": 1792508508857,
       "tag": "0007_monitor_app",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792702282519,
+      "tag": "0008_cashflow_app",
+      "breakpoints": true
     }
   ]
 }

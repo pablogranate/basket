@@ -186,4 +186,37 @@ describe("Auth DB migrations over a database with data", () => {
       `,
     ).toEqual([]);
   });
+
+  it("adds cashflow with one admin role and its Solicitud recipient, keeping existing ones", async () => {
+    await migrateThrough("0007_monitor_app");
+    await seedUsers("u-super");
+    await sql`UPDATE auth_user SET role = 'superadmin' WHERE id = 'u-super'`;
+    await sql`
+      INSERT INTO auth_app_request_recipients (app, email)
+      VALUES ('facturacion', 'facturas@basquetpass.tv')
+    `;
+
+    await migrateThrough("0008_cashflow_app");
+
+    expect(
+      await sql`
+        SELECT key, rank, is_admin FROM auth_app_role WHERE app = 'cashflow' ORDER BY rank
+      `,
+    ).toEqual([
+      { key: "lectura", rank: 10, is_admin: false },
+      { key: "admin", rank: 30, is_admin: true },
+    ]);
+    expect(
+      await sql`SELECT app, email FROM auth_app_request_recipients ORDER BY app`,
+    ).toEqual([
+      { app: "cashflow", email: "wences.capolo@basquetpass.tv" },
+      { app: "facturacion", email: "facturas@basquetpass.tv" },
+    ]);
+    expect(
+      await sql`
+        SELECT role, via_superadmin FROM auth_effective_access
+        WHERE user_id = 'u-super' AND app = 'cashflow'
+      `,
+    ).toEqual([{ role: "admin", via_superadmin: true }]);
+  });
 });

@@ -10,6 +10,7 @@ import {
   Receipt,
   Server,
   UsersRound,
+  Wallet,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -39,6 +40,7 @@ const LANDING_APPS: Record<LauncherApp, Omit<LandingApp, "subdomain">> = {
   ops: { name: SIBLING_APP_LABELS.ops, Icon: Radio },
   facturacion: { name: SIBLING_APP_LABELS.facturacion, Icon: Receipt },
   monitor: { name: SIBLING_APP_LABELS.monitor, Icon: MonitorPlay },
+  cashflow: { name: SIBLING_APP_LABELS.cashflow, Icon: Wallet },
 };
 
 // Not an Acceso app: server. has no auth yet, so only super admins see it.
