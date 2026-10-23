@@ -1,8 +1,9 @@
 # Runbook — self-hosted domain DB infra (migration Phase 1)
 
 Provisions the `basket-portal-db` Postgres container (local + prod), the
-`db:refresh` dev workflow, and nightly backups + weekly restore-test (covering
-`basket_auth` too, which has none today). Code artifacts live in the repo; the
+`db:refresh` dev workflow, and nightly backups + weekly restore-test of every
+Postgres on the VPS (`basket_portal`, `basket_auth`, `basket_facturacion`,
+`basket_cashflow`). Code artifacts live in the repo; the
 **root/VPS steps are yours to run** (`wences` has no sudo; pm2/docker run as root).
 
 Spec: PRD §3 (locked decisions), §7.1. Server facts: `.planning/DB-SELFHOST-HANDOFF.md` §1.
@@ -88,19 +89,41 @@ touch /var/log/basket-backup.log
 
 # Smoke-test both scripts once by hand before trusting cron:
 /opt/basket-app/scripts/db/backup.sh
-/opt/basket-app/scripts/db/restore-test.sh   # needs a basket_portal dump to exist first
+/opt/basket-app/scripts/db/restore-test.sh   # needs a dump of each DB to exist first
 
 # Install in root crontab (crontab -e as root):
 0 4 * * *  /opt/basket-app/scripts/db/backup.sh       >> /var/log/basket-backup.log 2>&1
 0 5 * * 0  /opt/basket-app/scripts/db/restore-test.sh >> /var/log/basket-backup.log 2>&1
 ```
 
-- `backup.sh`: nightly 04:00, dumps `basket_portal` + `basket_auth` → `/var/backups/basket/*.sql.gz`, 14-day retention.
-- `restore-test.sh`: Sundays 05:00, restores the newest `basket_portal` dump into an ephemeral scratch container, row-count sanity, tears down.
-- Overridable via env: `BASKET_BACKUP_DIR`, `BASKET_BACKUP_RETENTION_DAYS`.
+The DBs both scripts cover live in one list, `scripts/db/backup-targets.sh`
+(container, db, user, and the sanity query the restore-test runs). Add a new
+app's DB there and both scripts pick it up.
 
-> Pre-cutover the nightly `basket_portal` dump is near-empty (expected). The
-> `basket_auth` leg is live and valuable immediately.
+| Container | DB | Restore-test sanity |
+|---|---|---|
+| `basket-portal-db` | `basket_portal` | `matches` count |
+| `basket-auth-db` | `basket_auth` | `auth_user` count |
+| `basket_facturacion` | `basket_facturacion` | `envios` count |
+| `basket_cashflow` | `basket_cashflow` | `importaciones` count, `archivos` count and total bytes |
+
+- `backup.sh`: nightly 04:00, one plain-SQL `pg_dump` per DB (bytea included, so
+  Cashflow's raw `.xlsx` in `archivos` is in the dump) → `/var/backups/basket/<db>-<stamp>.sql.gz`,
+  14-day retention per DB.
+- `restore-test.sh`: Sundays 05:00, restores the newest dump of each DB into its
+  own database in one ephemeral scratch container, runs that DB's sanity query,
+  tears down.
+- A missing container, a failed `pg_dump`, a missing dump or a failed restore is
+  logged as `FAILED <db>: <reason>`; the other DBs still run, and the script
+  exits 1 with `done with FAILURES (<dbs>)` as its last line. A clean run ends
+  with `done —`. A DB whose backup fails keeps its old dumps (pruning only runs
+  after a fresh dump), so its last good dump is never aged out while it is down.
+- Overridable via env: `BASKET_BACKUP_DIR`, `BASKET_BACKUP_RETENTION_DAYS`, and
+  the DB users `PORTAL_DB_USER`, `AUTH_DB_USER`, `FACTURACION_DB_USER`, `CASHFLOW_DB_USER`.
+- Check the last runs: `grep -E 'FAILED|done' /var/log/basket-backup.log | tail`.
+
+> Cron runs the scripts straight from the Portal checkout in `/opt/basket-app`,
+> so a Portal deploy updates them; the crontab lines only change if the paths do.
 
 ---
 
@@ -108,6 +131,6 @@ touch /var/log/basket-backup.log
 
 - [ ] `docker port basket-portal-db` → `127.0.0.1:5434` on prod (loopback only).
 - [ ] Local dev container up; `npm run db:portal:migrate` created the schema.
-- [ ] `backup.sh` run by hand produced two `*.sql.gz` in `/var/backups/basket/`.
-- [ ] `restore-test.sh` reports "restored cleanly".
+- [ ] `backup.sh` run by hand produced four `*.sql.gz` (one per DB) in `/var/backups/basket/` and ended with `done —`.
+- [ ] `restore-test.sh` reports `OK <db> — restored cleanly` for all four and ends with `all 4 DBs restored cleanly`.
 - [ ] Both cron lines installed in root's crontab.
