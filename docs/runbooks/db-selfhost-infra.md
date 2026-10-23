@@ -109,10 +109,20 @@ app's DB there and both scripts pick it up.
 
 - `backup.sh`: nightly 04:00, one plain-SQL `pg_dump` per DB (bytea included, so
   Cashflow's raw `.xlsx` in `archivos` is in the dump) → `/var/backups/basket/<db>-<stamp>.sql.gz`,
-  14-day retention per DB.
-- `restore-test.sh`: Sundays 05:00, restores the newest dump of each DB into its
-  own database in one ephemeral scratch container, runs that DB's sanity query,
-  tears down.
+  plus the cluster's roles without passwords (`pg_dumpall --roles-only`) in
+  `<db>-<stamp>.roles.sql`, 14-day retention per DB. Files are root-only (0600).
+- `restore-test.sh`: Sundays 05:00, loads each DB's roles and then its newest
+  dump into its own database in one ephemeral scratch container, runs that DB's
+  sanity query, tears down.
+- Roles matter: `pg_dump` never writes them, and the Portal dump has RLS policies
+  `TO incidencias`, so it does not restore on a server without that role. A real
+  restore loads the roles first and then sets their passwords again (they are not
+  in the backup):
+
+  ```bash
+  docker exec -i <container> psql -U <user> -d postgres < <db>-<stamp>.roles.sql   # "already exists" is fine
+  gunzip -c <db>-<stamp>.sql.gz | docker exec -i <container> psql -v ON_ERROR_STOP=1 -U <user> -d <db>
+  ```
 - A missing container, a failed `pg_dump`, a missing dump or a failed restore is
   logged as `FAILED <db>: <reason>`; the other DBs still run, and the script
   exits 1 with `done with FAILURES (<dbs>)` as its last line. A clean run ends
@@ -131,6 +141,6 @@ app's DB there and both scripts pick it up.
 
 - [ ] `docker port basket-portal-db` → `127.0.0.1:5434` on prod (loopback only).
 - [ ] Local dev container up; `npm run db:portal:migrate` created the schema.
-- [ ] `backup.sh` run by hand produced four `*.sql.gz` (one per DB) in `/var/backups/basket/` and ended with `done —`.
+- [ ] `backup.sh` run by hand produced four `*.sql.gz` and four `*.roles.sql` (one per DB) in `/var/backups/basket/` and ended with `done —`.
 - [ ] `restore-test.sh` reports `OK <db> — restored cleanly` for all four and ends with `all 4 DBs restored cleanly`.
 - [ ] Both cron lines installed in root's crontab.
