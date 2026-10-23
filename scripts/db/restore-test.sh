@@ -7,6 +7,11 @@
 # A DB with no dump, or whose dump fails to restore, is logged as FAILED; the
 # others are still tested, and the run exits 1.
 #
+# Each dump's <db>-<stamp>.roles.sql is loaded first, as a real restore on a new
+# server would. Roles are per cluster and the scratch server is shared, so
+# "already exists" there is expected and ignored; the dump itself then restores
+# with ON_ERROR_STOP.
+#
 #   0 5 * * 0  /opt/basket-app/scripts/db/restore-test.sh >> /var/log/basket-backup.log 2>&1
 set -euo pipefail
 
@@ -33,7 +38,7 @@ done
 [ -n "$ready" ] || { echo "[restore-test] scratch DB never became ready"; exit 1; }
 
 restore() {
-  local db="$1" sanity="$2" latest result
+  local db="$1" sanity="$2" latest roles result
 
   latest="$(ls -1t "$BACKUP_DIR"/"$db"-*.sql.gz 2>/dev/null | head -n1 || true)"
   if [ -z "$latest" ]; then
@@ -41,6 +46,13 @@ restore() {
     return 1
   fi
   echo "[restore-test] ${db}: restoring ${latest}…"
+
+  roles="${latest%.sql.gz}.roles.sql"
+  if [ -f "$roles" ]; then
+    docker exec -i "$SCRATCH" psql -q -U postgres -d postgres < "$roles" >/dev/null 2>&1 || true
+  else
+    echo "[restore-test] ${db}: no ${roles##*/} next to the dump (older backup); restoring without roles"
+  fi
 
   if ! docker exec "$SCRATCH" createdb -U postgres "$db" \
     || ! gunzip -c "$latest" | docker exec -i "$SCRATCH" psql -q -v ON_ERROR_STOP=1 -U postgres -d "$db" >/dev/null; then

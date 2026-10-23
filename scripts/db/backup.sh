@@ -8,6 +8,10 @@
 # dumped, and the run exits 1 so the failure shows. That DB's old dumps are not
 # pruned, so its last good dump survives until it backs up again.
 #
+# Next to each dump goes <db>-<stamp>.roles.sql: the cluster's roles, without
+# passwords. pg_dump never writes roles, and a dump that names one (an RLS policy
+# `TO incidencias`, say) does not restore on a fresh server without it.
+#
 #   0 4 * * *  /opt/basket-app/scripts/db/backup.sh >> /var/log/basket-backup.log 2>&1
 set -euo pipefail
 
@@ -18,12 +22,15 @@ BACKUP_DIR="${BASKET_BACKUP_DIR:-/var/backups/basket}"
 RETENTION_DAYS="${BASKET_BACKUP_RETENTION_DAYS:-14}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 
+# The dumps hold sessions and personal data: root only.
+umask 077
 mkdir -p "$BACKUP_DIR"
 
 dump() {
   local container="$1" db="$2" user="$3"
   local out="$BACKUP_DIR/${db}-${STAMP}.sql.gz"
   local partial="${out}.partial"
+  local roles="$BACKUP_DIR/${db}-${STAMP}.roles.sql"
 
   if ! container_is_running "$container"; then
     echo "[backup] FAILED ${db}: container ${container} is not running — skipped"
@@ -41,7 +48,14 @@ dump() {
   fi
   mv "$partial" "$out" || return 1
 
-  find "$BACKUP_DIR" -name "${db}-*.sql.gz" -type f -mtime +"$RETENTION_DAYS" -delete
+  if ! docker exec "$container" pg_dumpall -U "$user" --roles-only --no-role-passwords > "${roles}.partial"; then
+    rm -f "${roles}.partial"
+    echo "[backup] FAILED ${db}: pg_dumpall --roles-only in ${container} failed (the dump is kept)"
+    return 1
+  fi
+  mv "${roles}.partial" "$roles" || return 1
+
+  find "$BACKUP_DIR" \( -name "${db}-*.sql.gz" -o -name "${db}-*.roles.sql" \) -type f -mtime +"$RETENTION_DAYS" -delete
 }
 
 failed=()
