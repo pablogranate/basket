@@ -73,10 +73,6 @@ export function parsePeopleFilters(params: RawSearchParams): PeopleFilters {
   };
 }
 
-export function hasActivePeopleFilters(filters: PeopleFilters): boolean {
-  return Boolean(filters.role || filters.access || filters.city || filters.team);
-}
-
 // Funciones (the person_functions relation) are the only role source. A person
 // can hold several, so the Rol filter is a membership test, not an equality one.
 function getPersonRoleLabels(person: PersonListItem): string[] {

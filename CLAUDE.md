@@ -81,7 +81,7 @@ It is one of three sibling apps under `basket-app.com`: `portal.` (this), `analy
 
 ## Naming Patterns
 
-- All source files use `kebab-case`: `team-logo-mark-client.tsx`, `auth-session.ts`, `create-match-form.tsx`.
+- All source files use `kebab-case`: `team-logo-mark-client.tsx`, `auth-session.ts`, `create-match-modal.tsx`.
 - Route files follow Next.js App Router conventions: `page.tsx`, `layout.tsx`, `route.ts`, `middleware.ts`.
 - Client variants append a `-client` suffix when a server/client split exists: `league-logo-mark.tsx` vs `league-logo-mark-client.tsx`.
 - No barrel/`index.ts` files exist anywhere under `src/` — every module is imported by its explicit path.
@@ -132,7 +132,7 @@ It is one of three sibling apps under `basket-app.com`: `portal.` (this), `analy
 ## Input Validation
 
 - Per `CONTRIBUTING.md`: "Validate inputs at the boundary. Do not trust form or CSV data."
-- Form data is read defensively: `String(formData.get("name") ?? "")`, then normalized via helpers (`maybeNull`, `pickFirstString`, `normalizeText`, `toTitleCase` in `src/lib/utils.ts`).
+- Form data is read defensively: `String(formData.get("name") ?? "")`, then normalized via helpers (`maybeNull`, `pickFirstString`, `normalizeText` in `src/lib/utils.ts`).
 - External JSON payloads validated with `zod`; loosely-typed external integrations use manual `firstString`/`getPathValue`/`normalizeDate` walkers (`src/app/api/matches/intake/route.ts`).
 
 ## Logging

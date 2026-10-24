@@ -95,11 +95,3 @@ export function resolveCheckboxFlag(
 
   return values.length === 0 ? fallback : values.includes("on");
 }
-
-export function toTitleCase(value: string) {
-  return value
-    .split(" ")
-    .filter(Boolean)
-    .map((token) => token[0]?.toUpperCase() + token.slice(1).toLowerCase())
-    .join(" ");
-}

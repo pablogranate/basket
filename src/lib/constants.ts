@@ -1,10 +1,9 @@
 import type { AppRole, Database } from "@/lib/database.types";
-import { BUSINESS_LABELS, PRODUCT_COPY, SECTION_COPY } from "@/lib/copy";
+import { BUSINESS_LABELS, PRODUCT_COPY } from "@/lib/copy";
 import { can } from "@/lib/roles";
 
 export const APP_NAME = PRODUCT_COPY.appName;
 export const APP_PORTAL_LABEL = PRODUCT_COPY.portalLabel;
-export const APP_RELEASE_LABEL = PRODUCT_COPY.releaseLabel;
 export const PRODUCTION_SHORT_LABEL = BUSINESS_LABELS.productionShort;
 export const RESPONSIBLE_DISPLAY_LABEL = BUSINESS_LABELS.responsible;
 export const RELATOS_DISPLAY_LABEL = BUSINESS_LABELS.relatos;
@@ -88,16 +87,6 @@ export function normalizeCommentaryPlan(
     ) ?? ""
   );
 }
-
-export const DASHBOARD_NAV = [
-  { href: "/grid", label: SECTION_COPY.grid.title },
-  { href: "/mi-jornada", label: SECTION_COPY.myDay.title },
-  { href: "/incidents", label: "Incidencias" },
-  { href: "/teams", label: SECTION_COPY.teams.title },
-  { href: "/people", label: SECTION_COPY.people.title },
-  { href: "/roles", label: SECTION_COPY.roles.title },
-  { href: "/settings", label: SECTION_COPY.settings.title },
-] as const;
 
 const COLLABORATOR_ALLOWED_DASHBOARD_PREFIXES = ["/mi-jornada"] as const;
 
@@ -337,30 +326,6 @@ export function resolveUsuariosDestination({
 
   return { kind: "allow" };
 }
-
-export const RESERVED_IMPORT_HEADERS = new Set([
-  "fecha",
-  "dia",
-  "día",
-  "hora",
-  "partido",
-  "liga",
-  "torneo",
-  "competencia",
-  "modo",
-  "produccion",
-  "producción",
-  "estado",
-  "responsable",
-  "owner",
-  "local",
-  "visitante",
-  "observaciones",
-  "notas",
-  "duracion",
-  "duración",
-  "timezone",
-]);
 
 export const ROLE_SEED = [
   { name: "Responsable", category: "Coordinacion", sortOrder: 10 },

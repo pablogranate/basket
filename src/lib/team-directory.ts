@@ -272,14 +272,6 @@ export function createLeagueColorResolver(
   };
 }
 
-export function getTeamLeagueAccentColor(league: string) {
-  return getTeamLeagueColorSet(league).accent;
-}
-
-export function getTeamLeagueCanvasTone(league: string) {
-  return getTeamLeagueColorSet(league).canvas;
-}
-
 export function getTeamVenueByName(teamName?: string | null) {
   const normalizedName = normalizeLeagueName(teamName ?? "");
 

@@ -109,11 +109,3 @@ export const isOpenwaConfigured = Boolean(
 // path records the WhatsApp channel as skipped, not failed.
 export const isWhatsAppSendEnabled =
   isOpenwaConfigured && appEnv.openwaNotifyEnabled;
-
-export function assertOpenwaEnv() {
-  if (!isOpenwaConfigured) {
-    throw new Error(
-      "Missing OpenWA environment variables. Set OPENWA_API_URL and OPENWA_API_KEY.",
-    );
-  }
-}

@@ -108,7 +108,7 @@ Primary references:
 
 - [src/components/layout/dashboard-shell.tsx](/Users/santiagocordoba/GITHUBS/Dashboard produccion/src/components/layout/dashboard-shell.tsx)
 - [src/app/(dashboard)/grid/page.tsx](/Users/santiagocordoba/GITHUBS/Dashboard produccion/src/app/(dashboard)/grid/page.tsx)
-- [src/components/grid/create-match-form.tsx](/Users/santiagocordoba/GITHUBS/Dashboard produccion/src/components/grid/create-match-form.tsx)
+- [src/components/grid/create-match-modal.tsx](/Users/santiagocordoba/GITHUBS/Dashboard produccion/src/components/grid/create-match-modal.tsx)
 
 Rules:
 

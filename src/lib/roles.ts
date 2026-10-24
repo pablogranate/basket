@@ -60,14 +60,6 @@ export const CAPABILITY_DENIED_MESSAGE: Record<Capability, string> = {
 // from auth_user.role (ADR 0010); a super admin's role is always admin.
 export type Actor = { role: AppRole; hasAccess: boolean; superAdmin?: boolean };
 
-// Which roles hold a capability — for the few places that enumerate people
-// (seeds, reports) rather than check one actor.
-export function rolesWithCapability(
-  capability: Capability,
-): ReadonlyArray<AppRole> {
-  return CAPABILITY_ROLES[capability];
-}
-
 export function can(
   actor: Actor | null | undefined,
   capability: Capability,

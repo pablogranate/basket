@@ -1,7 +1,6 @@
 import {
   addMinutes,
   format,
-  formatISO,
   parseISO,
 } from "date-fns";
 import { es } from "date-fns/locale";
@@ -131,16 +130,4 @@ export function toCalendarDates(params: {
 
 export function toDateKey(kickoffAt: string, timezone = DEFAULT_TIMEZONE) {
   return formatInTimeZone(kickoffAt, timezone, "yyyy-MM-dd");
-}
-
-export function isInDisplayedMonth(
-  kickoffAt: string,
-  targetMonth: string,
-  timezone = DEFAULT_TIMEZONE,
-) {
-  return formatInTimeZone(kickoffAt, timezone, "yyyy-MM") === targetMonth;
-}
-
-export function toLocalIsoString(date: Date) {
-  return formatISO(date);
 }

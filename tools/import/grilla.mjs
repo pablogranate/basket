@@ -52,17 +52,6 @@ const ROLE_COLUMN_MAP = {
   "soporte tecnico": "Soporte tecnico",
 };
 
-const FIELD_COLUMNS = [
-  "produccion",
-  "id",
-  "liga",
-  "partido",
-  "hora",
-  "relatos/comentarios",
-  "transporte",
-  "observacion",
-];
-
 function normalizeHeader(value) {
   return String(value ?? "")
     .normalize("NFD")

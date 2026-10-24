@@ -91,15 +91,12 @@ const EXPORTED_ASYNC_FN_RE =
 
 // EXPLICIT allowlist of intentionally ctx-free data helpers, kept inline.
 //
-// - "isUuidLike": a pure synchronous string predicate (not async, no DB read,
-//   no authorization surface).
 // - "personHasPlatformAccess": the D-09 server-only platform-access helper.
 //   It derives access from an email argument (auth.admin.listUsers ->
 //   resolveDashboardAccessRole) rather than a boundary-resolved ctx; it is an
 //   identity-derivation helper, not a domain-data loader subject to the D-06
 //   ctx contract. Confined to a `server-only` module.
 const LOADER_ALLOWLIST = [
-  "isUuidLike",
   "personHasPlatformAccess",
   // Same identity-derivation helper as personHasPlatformAccess, returning the
   // access tier (AppRole) instead of a boolean; keyed by email, not a ctx.
