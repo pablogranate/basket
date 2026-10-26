@@ -269,7 +269,6 @@ function AssignmentDetailPill({
   label,
   value,
   tone = "default",
-  highlight = false,
   variant = "icon",
   compact = false,
 }: {
@@ -277,7 +276,6 @@ function AssignmentDetailPill({
   label: string;
   value: string;
   tone?: "default" | "success";
-  highlight?: boolean;
   variant?: "icon" | "person";
   compact?: boolean;
 }) {
@@ -319,7 +317,6 @@ function AssignmentDetailPill({
           className={cn(
             "mt-1 font-extrabold leading-tight text-[var(--foreground)]",
             compact ? "text-[12px]" : "text-[13px]",
-            highlight && "text-[var(--accent)]",
             tone === "success" && "flex items-center gap-2",
           )}
         >
@@ -341,10 +338,10 @@ function getAssignmentOperationalItems(assignment: CollaboratorAssignmentItem) {
     assignment.relatorName ?? assignment.talentLabel?.split("/")[0]?.trim() ?? null,
   );
   const producerLabel = abbreviatePersonName(assignment.producerName);
+  const realizerLabel = abbreviatePersonName(assignment.realizerName);
   const operatorControlLabel = abbreviatePersonName(assignment.operatorControlName);
   const supportTechLabel = abbreviatePersonName(assignment.supportTechName);
   const productionLabel = getProductionModeLabel(assignment.productionMode) || "Sin definir";
-  const roleLabel = getRoleDisplayName(assignment.roleName) || "Por definir";
   const cameraLabel =
     assignment.cameraCount > 0
       ? `${assignment.cameraCount} ${assignment.cameraCount === 1 ? "unidad" : "unidades"}`
@@ -394,11 +391,11 @@ function getAssignmentOperationalItems(assignment: CollaboratorAssignmentItem) {
       variant: "person" as const,
     },
     {
-      key: "modo",
-      icon: CalendarDays,
-      label: PRODUCTION_SHORT_LABEL,
-      value: roleLabel,
-      highlight: true,
+      key: "realizador",
+      icon: UserRound,
+      label: "Realizador",
+      value: realizerLabel,
+      variant: "person" as const,
     },
     {
       key: "camaras",
@@ -435,7 +432,6 @@ function AssignmentOperationalSummary({
           label={item.label}
           value={item.value}
           tone={item.tone}
-          highlight={item.highlight}
           variant={item.variant}
         />
       ))}
