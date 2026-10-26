@@ -22,17 +22,6 @@ export function getInitials(name: string) {
     .join("");
 }
 
-export function getStatusBadgeClass(state: PersonListItem["assignment_state"]) {
-  switch (state) {
-    case "En asignacion":
-      return "border-[#b8e7c7] bg-[#eefbf2] text-[#1b7d43] [&>span]:bg-[#23b25f]";
-    case "Inactivo":
-      return "border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent-strong)] [&>span]:bg-[var(--accent)]";
-    default:
-      return "border-[var(--n-200)] bg-[var(--n-100)] text-[var(--n-600)] [&>span]:bg-[var(--n-400)]";
-  }
-}
-
 export function getWhatsAppHref(phone: string | null) {
   if (!phone) {
     return null;

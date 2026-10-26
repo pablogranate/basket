@@ -1,4 +1,4 @@
-import { and, eq, exists, gte, inArray, isNull, sql, type SQL } from "drizzle-orm";
+import { and, eq, exists, gte, isNull, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import {
@@ -21,8 +21,6 @@ import {
   findLinkedPerson,
   type LinkedPerson,
 } from "@/lib/data/linked-person";
-
-export { findLinkedPerson };
 
 type AssignmentRow = {
   id: string;
@@ -81,9 +79,6 @@ type MatchAssignmentContextRow = {
 };
 
 type MatchContextMatchRow = NonNullable<AssignmentRow["match"]>;
-
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export type CollaboratorAssignmentItem = {
   assignmentId: string;
@@ -150,18 +145,6 @@ export type CollaboratorDayData = {
     nextKickoffLabel: string | null;
   };
 };
-
-export type CollaboratorMatchData = {
-  person: LinkedPerson | null;
-  linkedBy: "email" | "profile" | null;
-  assignment: CollaboratorAssignmentItem | null;
-  assignmentsForMatch: CollaboratorAssignmentItem[];
-  trialAccess: boolean;
-};
-
-export function isUuidLike(value: string) {
-  return UUID_PATTERN.test(value);
-}
 
 function normalizeAttendanceResponse(
   value: string | null,
@@ -348,46 +331,6 @@ function buildGroupContacts(params: {
   return contacts;
 }
 
-async function getMatchContextMap(matchIds: string[]) {
-  if (!matchIds.length) {
-    return new Map<string, MatchAssignmentContextRow[]>();
-  }
-
-  const rawRows = await db
-    .select({
-      match_id: assignmentsTable.matchId,
-      role: {
-        name: rolesTable.name,
-        category: rolesTable.category,
-        sort_order: rolesTable.sortOrder,
-      },
-      person: {
-        full_name: peopleTable.fullName,
-        phone: peopleTable.phone,
-        email: peopleTable.email,
-      },
-    })
-    .from(assignmentsTable)
-    .innerJoin(rolesTable, eq(assignmentsTable.roleId, rolesTable.id))
-    .leftJoin(peopleTable, eq(assignmentsTable.personId, peopleTable.id))
-    .where(inArray(assignmentsTable.matchId, matchIds));
-
-  const rows: MatchAssignmentContextRow[] = rawRows.map((row) => ({
-    match_id: row.match_id,
-    role: row.role,
-    person: row.person?.full_name != null ? row.person : null,
-  }));
-  const contextMap = new Map<string, MatchAssignmentContextRow[]>();
-
-  rows.forEach((row) => {
-    const current = contextMap.get(row.match_id) ?? [];
-    current.push(row);
-    contextMap.set(row.match_id, current);
-  });
-
-  return contextMap;
-}
-
 // The match's full crew, aggregated inside the assignments statement instead of
 // fetched as a follow-up read. Emitted as JSON so one row per assignment still
 // carries every crew member, and ordered so a match with two people in the same
@@ -434,7 +377,6 @@ async function selectAssignmentsForLinkedPerson(params: {
   personId?: string;
   personEmail?: string;
   sinceIso?: string;
-  matchId?: string;
 }) {
   const ownerPeople = alias(peopleTable, "owner_people");
   const windowMatch = alias(matchesTable, "window_match");
@@ -462,11 +404,11 @@ async function selectAssignmentsForLinkedPerson(params: {
 
   const assignmentJoin: SQL[] = [eq(assignmentsTable.personId, linkedPerson.id)];
 
-  // Bound the read: `sinceIso` trims the person's history to a kickoff window and
-  // `matchId` scopes it to a single match, so callers never pull the whole
-  // assignment history just to keep one slice. The window is an EXISTS on the
-  // join rather than a WHERE on the outer matches join, so out-of-window
-  // assignments are never fetched AND an empty window still yields the person.
+  // Bound the read: `sinceIso` trims the person's history to a kickoff window, so
+  // callers never pull the whole assignment history just to keep one slice. The
+  // window is an EXISTS on the join rather than a WHERE on the outer matches
+  // join, so out-of-window assignments are never fetched AND an empty window
+  // still yields the person.
   if (params.sinceIso) {
     assignmentJoin.push(
       exists(
@@ -481,10 +423,6 @@ async function selectAssignmentsForLinkedPerson(params: {
           ),
       ),
     );
-  }
-
-  if (params.matchId) {
-    assignmentJoin.push(eq(assignmentsTable.matchId, params.matchId));
   }
 
   return db
@@ -544,7 +482,7 @@ async function selectAssignmentsForLinkedPerson(params: {
 
 async function getAssignmentsForPerson(
   personId: string,
-  options: { sinceIso?: string; matchId?: string } = {},
+  options: { sinceIso?: string } = {},
 ) {
   const rows = await selectAssignmentsForLinkedPerson({ personId, ...options });
 
@@ -630,157 +568,6 @@ function mapAssignmentRows(rows: LinkedPersonAssignmentRow[]) {
             : null,
       }),
     };
-  });
-}
-
-async function getFallbackAssignmentForMatch(params: {
-  matchId: string;
-  profileName: string | null;
-}) {
-  if (!isUuidLike(params.matchId)) {
-    const demoKickoffAt = `${new Date().toISOString().slice(0, 10)}T19:30:00-05:00`;
-
-    return buildAssignmentItem({
-      assignmentId: `trial-${params.matchId}`,
-      match: {
-        id: params.matchId,
-        competition: "Liga Nacional",
-        production_mode: "Encoder",
-        status: "Pendiente",
-        home_team: "Boca Juniors",
-        away_team: "Atenas de Córdoba",
-        venue: "Luis Conde, Buenos Aires",
-        transport: "Llegar 120 minutos antes.",
-        notes: "Vista demo para validar el asistente de grupo y sus contactos.",
-        kickoff_at: demoKickoffAt,
-        duration_minutes: 150,
-        timezone: "America/Bogota",
-        owner: {
-          id: "trial-owner",
-          full_name: params.profileName ?? "Modo prueba",
-          phone: null,
-          email: null,
-        },
-      },
-      roleName: "Colaborador",
-      roleCategory: "Produccion",
-      notes: "Modo prueba habilitado temporalmente.",
-      responsibleName: params.profileName ?? "Modo prueba",
-      realizerName: null,
-      operatorControlName: "Mauro Ruiz Díaz",
-      supportTechName: "Fary Leonardo Urriaga",
-      producerName: null,
-      encoderName: null,
-      relatorName: null,
-      cameraCount: 0,
-      talentLabel: null,
-      contacts: [
-        {
-          roleName: "Responsable",
-          roleCategory: "Coordinacion",
-          sortOrder: 10,
-          personName: params.profileName ?? "Modo prueba",
-          phone: null,
-          email: null,
-        },
-        {
-          roleName: "Operador de Control",
-          roleCategory: "Produccion",
-          sortOrder: 30,
-          personName: "Mauro Ruiz Díaz",
-          phone: "573001112233",
-          email: "mauro.ruiz@basketproduction.pro",
-        },
-        {
-          roleName: "Soporte tecnico",
-          roleCategory: "Produccion",
-          sortOrder: 40,
-          personName: "Fary Leonardo Urriaga",
-          phone: "573001112244",
-          email: "fary.urriaga@basketproduction.pro",
-        },
-      ],
-    });
-  }
-
-  const ownerPeople = alias(peopleTable, "owner_people");
-  const matchRows = await db
-    .select({
-      id: matchesTable.id,
-      competition: matchesTable.competition,
-      production_mode: matchesTable.productionMode,
-      status: matchesTable.status,
-      home_team: matchesTable.homeTeam,
-      away_team: matchesTable.awayTeam,
-      venue: matchesTable.venue,
-      notes: matchesTable.notes,
-      commentary_plan: matchesTable.commentaryPlan,
-      kickoff_at: matchesTable.kickoffAt,
-      duration_minutes: matchesTable.durationMinutes,
-      timezone: matchesTable.timezone,
-      owner: {
-        id: ownerPeople.id,
-        full_name: ownerPeople.fullName,
-        phone: ownerPeople.phone,
-        email: ownerPeople.email,
-      },
-    })
-    .from(matchesTable)
-    .leftJoin(ownerPeople, eq(matchesTable.ownerId, ownerPeople.id))
-    .where(eq(matchesTable.id, params.matchId))
-    .limit(1);
-
-  if (!matchRows[0]) {
-    return null;
-  }
-
-  const match = {
-    ...matchRows[0],
-    owner: matchRows[0].owner?.id ? matchRows[0].owner : null,
-  } as MatchContextMatchRow;
-  const contextRows = (await getMatchContextMap([params.matchId])).get(params.matchId) ?? [];
-  const responsibleContact =
-    pickContextContact(contextRows, "Responsable") ??
-    (match.owner?.full_name
-      ? {
-          roleName: "Responsable",
-          roleCategory: "Coordinacion",
-          sortOrder: 10,
-          personName: match.owner.full_name,
-          phone: match.owner.phone ?? null,
-          email: match.owner.email ?? null,
-        }
-      : null);
-
-  return buildAssignmentItem({
-    assignmentId: `trial-${params.matchId}`,
-    match,
-    roleName: "Colaborador",
-    roleCategory: "Produccion",
-    notes: "Modo prueba habilitado temporalmente.",
-    responsibleName:
-      pickContextName(contextRows, "Responsable") ??
-      match.owner?.full_name ??
-      params.profileName,
-    realizerName: pickContextName(contextRows, "Realizador"),
-    operatorControlName: pickContextName(contextRows, "Operador de Control"),
-    supportTechName: pickContextName(contextRows, "Soporte tecnico"),
-    producerName: pickContextName(contextRows, "Productor"),
-    encoderName: pickContextName(contextRows, "Encoder"),
-    relatorName: pickContextName(contextRows, "Relator"),
-    cameraCount: countCameraAssignments(contextRows),
-    talentLabel: buildTalentLabel(contextRows),
-    contacts: buildGroupContacts({
-      items: contextRows,
-      fallbackResponsible:
-        responsibleContact && responsibleContact.personName
-          ? {
-              personName: responsibleContact.personName,
-              phone: responsibleContact.phone,
-              email: responsibleContact.email,
-            }
-          : null,
-    }),
   });
 }
 
@@ -874,46 +661,5 @@ export async function getCollaboratorDayData(
         ? `${formatMatchDate(upcomingAssignments[0].kickoffAt, upcomingAssignments[0].timezone, "EEE d MMM")} · ${upcomingAssignments[0].timeLabel}`
         : null,
     },
-  };
-}
-
-export async function getCollaboratorMatchData(
-  ctx: UserContext,
-  params: {
-    profileId: string | null;
-    email: string | null;
-    profileName: string | null;
-    matchId: string;
-  },
-): Promise<CollaboratorMatchData> {
-  void ctx;
-  const { person, linkedBy } = await findLinkedPerson({
-    profileId: params.profileId,
-    email: params.email,
-  });
-
-  // Real matches are UUID-scoped straight in the query; demo/trial match ids
-  // (non-UUID) never have a persisted assignment, so skip the read and let the
-  // fallback build the trial view.
-  const assignments =
-    person && isUuidLike(params.matchId)
-      ? await getAssignmentsForPerson(person.id, { matchId: params.matchId })
-      : [];
-  const assignmentsForMatch = assignments.filter(
-    (assignment) => assignment.matchId === params.matchId,
-  );
-  const assignment =
-    assignmentsForMatch[0] ??
-    (await getFallbackAssignmentForMatch({
-      matchId: params.matchId,
-      profileName: params.profileName,
-    }));
-
-  return {
-    person,
-    linkedBy,
-    assignment,
-    assignmentsForMatch,
-    trialAccess: assignmentsForMatch.length === 0,
   };
 }

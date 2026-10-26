@@ -1,7 +1,6 @@
 export const PRODUCT_COPY = {
   appName: "BasquetPass",
   portalLabel: "Portal Operativo",
-  releaseLabel: "Consola operativa v0.1.0",
   loginHero: {
     eyebrow: "Operación en vivo",
     titleLine1: "Basquet",

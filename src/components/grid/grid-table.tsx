@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Check, Columns3, GripVertical } from "lucide-react";
 
-import { CreateMatchModal } from "@/components/grid/create-match-modal-lazy";
 import {
   GridTableCellEditor,
   type GridCellEditor,
