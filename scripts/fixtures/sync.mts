@@ -1,6 +1,6 @@
 // Runs the fixtures sync (CABB, acb.com, Flashscore) once, outside the daily
 // cron — for the season backfill or a manual catch-up. Same code path as the
-// 06:00 run: one request per feed whatever the range, and a 30-minute cooldown
+// 06:00 and 16:00 runs: one request per feed whatever the range, and a 30-minute cooldown
 // between runs unless --force.
 //
 //   npm run fixtures:sync                                  (default window)
