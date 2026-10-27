@@ -69,6 +69,9 @@ Check by hand: `grep -E 'FAILED|done' /var/log/basket-backup.log | tail`.
 
 ### Supabase (Ops project)
 
+Pending (#265): until `OPS_DATABASE_URL` is set, the Ops DB is logged as
+`SKIPPED` and the Sunday mail says "con omisiones". Everything else runs.
+
 Dashboard → Connect → **Session pooler** URI (IPv4; the VPS has no IPv6, so
 the direct `db.<ref>.supabase.co` host does not work). Fill in the DB password.
 

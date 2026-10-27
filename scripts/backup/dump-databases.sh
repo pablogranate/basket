@@ -80,6 +80,10 @@ dump() {
 failed=()
 for target in "${BACKUP_TARGETS[@]}"; do
   IFS='|' read -r source db user _ <<< "$target"
+  if target_is_pending "$source"; then
+    echo "[backup] SKIPPED ${db}: ${source#url:} is not set in ${BACKUP_ENV_FILE}"
+    continue
+  fi
   dump "$source" "$db" "$user" || failed+=("$db")
 done
 

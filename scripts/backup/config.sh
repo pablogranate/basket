@@ -88,6 +88,15 @@ container_is_running() {
   [ "$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null)" = "true" ]
 }
 
+# A url: target whose variable is not set yet is skipped, not failed, and the
+# log says so. Ops waits on its Supabase URL; the weekly mail flags the gap.
+target_is_pending() {
+  local source="$1"
+  [[ "$source" == url:* ]] || return 1
+  local var="${source#url:}"
+  [ -z "${!var:-}" ]
+}
+
 newest_dump() {
   ls -1t "$1"/"$2"-*.sql.gz 2>/dev/null | head -n1 || true
 }

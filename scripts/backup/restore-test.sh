@@ -67,7 +67,11 @@ restore() {
 
 failed=()
 for target in "${BACKUP_TARGETS[@]}"; do
-  IFS='|' read -r _ db _ sanity <<< "$target"
+  IFS='|' read -r source db _ sanity <<< "$target"
+  if target_is_pending "$source"; then
+    echo "[restore-test] SKIPPED ${db}: ${source#url:} is not set"
+    continue
+  fi
   restore "$db" "$sanity" || failed+=("$db")
 done
 
@@ -75,4 +79,4 @@ if [ "${#failed[@]}" -gt 0 ]; then
   echo "[restore-test] done with FAILURES (${failed[*]})."
   exit 1
 fi
-echo "[restore-test] done — all ${#BACKUP_TARGETS[@]} DBs restored cleanly."
+echo "[restore-test] done — every configured DB restored cleanly."

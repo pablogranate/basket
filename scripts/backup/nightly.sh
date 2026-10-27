@@ -56,6 +56,8 @@ cat "$RUN_LOG"
 subject=""
 if [ "${#failed[@]}" -gt 0 ]; then
   subject="Backup FALLÓ en $(hostname): ${failed[*]}"
+elif [ -n "$weekly" ] && grep -q SKIPPED "$RUN_LOG"; then
+  subject="Backup semanal OK en $(hostname), con omisiones (ver SKIPPED)"
 elif [ -n "$weekly" ]; then
   subject="Backup semanal OK en $(hostname)"
 fi
