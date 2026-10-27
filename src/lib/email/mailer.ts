@@ -136,6 +136,28 @@ export async function sendMatchNotificationEmail({
   }
 }
 
+export async function sendFixturesSyncAlertEmail({
+  to,
+  subject,
+  text,
+}: {
+  to: string;
+  subject: string;
+  text: string;
+}) {
+  try {
+    await getTransport().sendMail({
+      from: appEnv.mailFrom,
+      to,
+      subject,
+      text,
+    });
+  } catch (error) {
+    console.error("[mailer] failed to send fixtures sync alert", error);
+    throw error;
+  }
+}
+
 export async function sendAccessRequestEmail({
   to,
   request,

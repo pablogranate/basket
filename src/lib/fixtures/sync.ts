@@ -206,8 +206,9 @@ export async function runFixturesSync({
     for (const source of sources) {
       try {
         const parsed = await source.load({ from, to });
+        // A feed that no longer parses is broken, not just noisy.
         if (parsed.errors.length) {
-          result.warnings.push(...parsed.errors.map((error) => `${source.key}: ${error}`));
+          result.errors.push(...parsed.errors.map((error) => `${source.key}: ${error}`));
         }
         const inWindow = parsed.fixtures.filter(
           (record) => record.matchDate !== null && record.matchDate >= from && record.matchDate <= to,
