@@ -63,7 +63,9 @@ Check by hand: `grep -E 'FAILED|done' /var/log/basket-backup.log | tail`.
 2. In a Google Cloud project, enable the Drive API, create a service account
    just for backups (e.g. `basket-backups`) and a JSON key for it.
 3. Add the service account's email to the Shared Drive as **Content manager**.
-4. Copy the Shared Drive's ID from its URL (`drive/folders/<ID>`).
+4. Note the Shared Drive's ID and the ID of the folder inside it that holds the
+   backups (`drive/folders/<ID>`). Today: Shared Drive `0ANhWLdXtnxGpUk9PVA`,
+   folder "Backups" `1AESHLih20vug9wXd4M4RYz4qlsEmRIj8`; the repo is its `restic/` subfolder.
 
 ### Supabase (Ops project)
 
@@ -85,6 +87,7 @@ type = drive
 scope = drive
 service_account_file = /etc/basket-backup/gdrive-sa.json
 team_drive = <SHARED_DRIVE_ID>
+root_folder_id = <FOLDER_ID>
 EOF
 
 # The encryption password. Save it in the password manager NOW: without it the
