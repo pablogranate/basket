@@ -2,16 +2,35 @@ import "server-only";
 
 import cron from "node-cron";
 
-import { appEnv } from "@/lib/env";
+import { sendFixturesSyncAlertEmail } from "@/lib/email/mailer";
+import { appEnv, isSmtpConfigured } from "@/lib/env";
 import { FIXTURE_TIMEZONE } from "@/lib/fixtures/schedule";
 import { runFixturesSync } from "@/lib/fixtures/sync";
+import { buildFixturesSyncAlert, type FixturesSyncAlert } from "@/lib/fixtures/sync-alert";
 import { defaultFixturesSyncWindow } from "@/lib/fixtures/window";
 
 let scheduled = false;
 
+async function sendAlert(alert: FixturesSyncAlert | null) {
+  if (!alert || !appEnv.fixturesSyncAlertEmail) {
+    return;
+  }
+  if (!isSmtpConfigured) {
+    console.warn("[fixtures-sync] SMTP not configured; alert not sent");
+    return;
+  }
+
+  try {
+    await sendFixturesSyncAlertEmail({ to: appEnv.fixturesSyncAlertEmail, ...alert });
+  } catch {
+    // The mailer already logged it; a failed alert must not crash the cron.
+  }
+}
+
 async function runScheduledSync() {
   try {
     const result = await runFixturesSync(defaultFixturesSyncWindow(new Date()));
+    await sendAlert(buildFixturesSyncAlert({ result }));
     if (result.skipped) {
       console.info(`[fixtures-sync] cron run skipped (${result.reason})`);
       return;
@@ -24,6 +43,9 @@ async function runScheduledSync() {
     );
   } catch (error) {
     console.error("[fixtures-sync] cron run failed", error);
+    await sendAlert(
+      buildFixturesSyncAlert({ error: error instanceof Error ? (error.stack ?? error.message) : String(error) }),
+    );
   }
 }
 

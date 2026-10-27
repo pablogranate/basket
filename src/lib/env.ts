@@ -31,7 +31,8 @@ export const appEnv = {
   gridSyncEnabled: process.env.GRID_SYNC_ENABLED !== "false",
   gridSyncCron: process.env.GRID_SYNC_CRON ?? "*/30 * * * *",
   fixturesSyncEnabled: process.env.FIXTURES_SYNC_ENABLED !== "false",
-  fixturesSyncCron: process.env.FIXTURES_SYNC_CRON ?? "0 6 * * *",
+  fixturesSyncCron: process.env.FIXTURES_SYNC_CRON ?? "0 6,16 * * *",
+  fixturesSyncAlertEmail: process.env.FIXTURES_SYNC_ALERT_EMAIL ?? "wences.capolo@basquetpass.tv",
   // Two Gesdeportiva accounts with disjoint data (ADC: Liga Nacional,
   // Argentina, Femenina, Desarrollo; CAB: Mayores, 3x3, Formativas). One
   // password is shared unless CABB_PASS_<ACCOUNT> overrides it.
