@@ -1,9 +1,8 @@
 # Runbook — self-hosted domain DB infra (migration Phase 1)
 
 Provisions the `basket-portal-db` Postgres container (local + prod), the
-`db:refresh` dev workflow, and nightly backups + weekly restore-test of every
-Postgres on the VPS (`basket_portal`, `basket_auth`, `basket_facturacion`,
-`basket_cashflow`). Code artifacts live in the repo; the
+`db:refresh` dev workflow; backups moved to `WencesCapolo/basket-tv-infra` (§3).
+Code artifacts live in the repo; the
 **root/VPS steps are yours to run** (`wences` has no sudo; pm2/docker run as root).
 
 Spec: PRD §3 (locked decisions), §7.1. Server facts: `.planning/DB-SELFHOST-HANDOFF.md` §1.
@@ -81,59 +80,13 @@ The DB stays **empty** until the Phase 7 cutover restore (Supabase dump →
 > statements. The Drizzle baseline (dev path, §1) creates `pg_trgm` itself — the
 > three `matches` trigram search indexes need it and fresh postgres:17 lacks it.
 
-## 3. Backups + restore-test (root, on the VPS)
+## 3. Backups
 
-```bash
-mkdir -p /var/backups/basket
-touch /var/log/basket-backup.log
-
-# Smoke-test both scripts once by hand before trusting cron:
-/opt/basket-app/scripts/db/backup.sh
-/opt/basket-app/scripts/db/restore-test.sh   # needs a dump of each DB to exist first
-
-# Install in root crontab (crontab -e as root):
-0 4 * * *  /opt/basket-app/scripts/db/backup.sh       >> /var/log/basket-backup.log 2>&1
-0 5 * * 0  /opt/basket-app/scripts/db/restore-test.sh >> /var/log/basket-backup.log 2>&1
-```
-
-The DBs both scripts cover live in one list, `scripts/db/backup-targets.sh`
-(container, db, user, and the sanity query the restore-test runs). Add a new
-app's DB there and both scripts pick it up.
-
-| Container | DB | Restore-test sanity |
-|---|---|---|
-| `basket-portal-db` | `basket_portal` | `matches` count |
-| `basket-auth-db` | `basket_auth` | `auth_user` count |
-| `basket_facturacion` | `basket_facturacion` | `envios` count |
-| `basket_cashflow` | `basket_cashflow` | `importaciones` count, `archivos` count and total bytes |
-
-- `backup.sh`: nightly 04:00, one plain-SQL `pg_dump` per DB (bytea included, so
-  Cashflow's raw `.xlsx` in `archivos` is in the dump) → `/var/backups/basket/<db>-<stamp>.sql.gz`,
-  plus the cluster's roles without passwords (`pg_dumpall --roles-only`) in
-  `<db>-<stamp>.roles.sql`, 14-day retention per DB. Files are root-only (0600).
-- `restore-test.sh`: Sundays 05:00, loads each DB's roles and then its newest
-  dump into its own database in one ephemeral scratch container, runs that DB's
-  sanity query, tears down.
-- Roles matter: `pg_dump` never writes them, and the Portal dump has RLS policies
-  `TO incidencias`, so it does not restore on a server without that role. A real
-  restore loads the roles first and then sets their passwords again (they are not
-  in the backup):
-
-  ```bash
-  docker exec -i <container> psql -U <user> -d postgres < <db>-<stamp>.roles.sql   # "already exists" is fine
-  gunzip -c <db>-<stamp>.sql.gz | docker exec -i <container> psql -v ON_ERROR_STOP=1 -U <user> -d <db>
-  ```
-- A missing container, a failed `pg_dump`, a missing dump or a failed restore is
-  logged as `FAILED <db>: <reason>`; the other DBs still run, and the script
-  exits 1 with `done with FAILURES (<dbs>)` as its last line. A clean run ends
-  with `done —`. A DB whose backup fails keeps its old dumps (pruning only runs
-  after a fresh dump), so its last good dump is never aged out while it is down.
-- Overridable via env: `BASKET_BACKUP_DIR`, `BASKET_BACKUP_RETENTION_DAYS`, and
-  the DB users `PORTAL_DB_USER`, `AUTH_DB_USER`, `FACTURACION_DB_USER`, `CASHFLOW_DB_USER`.
-- Check the last runs: `grep -E 'FAILED|done' /var/log/basket-backup.log | tail`.
-
-> Cron runs the scripts straight from the Portal checkout in `/opt/basket-app`,
-> so a Portal deploy updates them; the crontab lines only change if the paths do.
+Backups are no longer in this repo. `WencesCapolo/basket-tv-infra` runs them
+(`backups/nightly.sh`, root cron 04:00): a nightly dump of every DB, an
+encrypted off-site copy on Google Drive, and a weekly restore-test from that
+copy. To add a DB, an upload folder or a `.env`, edit `backups/config.sh` there.
+Runbook: `docs/backups.md` in that repo.
 
 ---
 
@@ -141,6 +94,4 @@ app's DB there and both scripts pick it up.
 
 - [ ] `docker port basket-portal-db` → `127.0.0.1:5434` on prod (loopback only).
 - [ ] Local dev container up; `npm run db:portal:migrate` created the schema.
-- [ ] `backup.sh` run by hand produced four `*.sql.gz` and four `*.roles.sql` (one per DB) in `/var/backups/basket/` and ended with `done —`.
-- [ ] `restore-test.sh` reports `OK <db> — restored cleanly` for all four and ends with `all 4 DBs restored cleanly`.
-- [ ] Both cron lines installed in root's crontab.
+- [ ] Backups: see §3 (`basket-tv-infra`).
