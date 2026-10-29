@@ -9,6 +9,7 @@ import { adminAc, userAc } from "better-auth/plugins/admin/access";
 
 import { authDb } from "@/lib/db/auth-client";
 import { resolveCrossSubdomainCookieConfig } from "@/lib/auth/cookie-domain";
+import { authTelemetryOptions } from "@/lib/auth/telemetry-hooks";
 import {
   authAccount,
   authSession,
@@ -53,6 +54,11 @@ export const auth = betterAuth({
       appEnv.betterAuthUrl,
     ),
   },
+  // Auth events for basket-telemetry (docs/telemetry.md): login_success,
+  // login_failed, magic_link_requested and logout. The hooks never throw and
+  // never wait on the ingest.
+  databaseHooks: authTelemetryOptions.databaseHooks,
+  hooks: authTelemetryOptions.hooks,
   // Same-email Google + magic-link identities collapse to one user. Both methods
   // yield a verified email, so no trustedProviders shortcut is needed (D-10).
   account: {

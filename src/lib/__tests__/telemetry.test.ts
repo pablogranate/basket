@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createTelemetryReporter,
   inertTelemetryReporter,
+  reportAuthEvent,
   reportServerError,
   scrubErrorMessage,
   trackServerEvent,
@@ -221,6 +222,82 @@ describe("createTelemetryReporter", () => {
     await reporter.flush();
 
     expect(bodyOf(calls[0]).events).toHaveLength(200);
+  });
+});
+
+describe("reportAuthEvent", () => {
+  it("sends auth events in the batch's auth array (SPEC §6.2)", async () => {
+    const { fetch, calls } = fakeFetch();
+    const reporter = createTelemetryReporter({
+      url: INGEST_URL,
+      token: "t",
+      fetch,
+      now: () => 1_730_000_000_000,
+    });
+
+    reporter.reportAuthEvent({ type: "login_success", userId: "user-test-1", method: "google" });
+    reporter.reportAuthEvent({ type: "no_access", userId: "user-test-1", app: "facturacion" });
+    await reporter.flush();
+
+    expect(bodyOf(calls[0])).toEqual({
+      v: 1,
+      events: [],
+      errors: [],
+      auth: [
+        {
+          ts: 1_730_000_000_000,
+          type: "login_success",
+          userId: "user-test-1",
+          email: null,
+          method: "google",
+          app: null,
+          detail: {},
+        },
+        {
+          ts: 1_730_000_000_000,
+          type: "no_access",
+          userId: "user-test-1",
+          email: null,
+          method: null,
+          app: "facturacion",
+          detail: {},
+        },
+      ],
+    });
+  });
+
+  it("sends the email lower-cased only when there is no user id", async () => {
+    const { fetch, calls } = fakeFetch();
+    const reporter = createTelemetryReporter({ url: INGEST_URL, token: "t", fetch });
+
+    reporter.reportAuthEvent({
+      type: "login_failed",
+      email: "  Fake.Person@Example.TEST ",
+      method: "magic_link",
+      detail: { error: "INVALID_TOKEN" },
+    });
+    reporter.reportAuthEvent({
+      type: "magic_link_requested",
+      userId: "user-test-1",
+      email: "fake.person@example.test",
+      method: "magic_link",
+    });
+    await reporter.flush();
+
+    const [failed, requested] = bodyOf(calls[0]).auth;
+    expect(failed).toMatchObject({
+      userId: null,
+      email: "fake.person@example.test",
+      detail: { error: "INVALID_TOKEN" },
+    });
+    expect(requested).toMatchObject({ userId: "user-test-1", email: null });
+  });
+
+  it("is inert without a token and from the default reporter in tests", () => {
+    expect(() =>
+      inertTelemetryReporter.reportAuthEvent({ type: "logout", userId: "u" }),
+    ).not.toThrow();
+    expect(() => reportAuthEvent({ type: "logout", userId: "u" })).not.toThrow();
   });
 });
 

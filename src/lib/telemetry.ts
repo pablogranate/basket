@@ -1,10 +1,10 @@
 import { appEnv } from "@/lib/env";
 
-// Server reporter to basket-telemetry (its SPEC §11.2 and §6.2). Errors and
-// business events are batched for 1 s and sent in one POST to the loopback
-// ingest with this app's token. Without TELEMETRY_TOKEN (dev, tests, CI) it
-// is a no-op. It never throws, is never awaited on a response path, and
-// aborts a send after 1.5 s. Not "server-only": src/instrumentation.ts
+// Server reporter to basket-telemetry (its SPEC §11.2 and §6.2). Errors,
+// business events and auth events are batched for 1 s and sent in one POST
+// to the loopback ingest with this app's token. Without TELEMETRY_TOKEN (dev,
+// tests, CI) it is a no-op. It never throws, is never awaited on a response
+// path, and aborts a send after 1.5 s. Not "server-only": src/instrumentation.ts
 // imports it, and on the client the token is unset so it is inert anyway.
 
 // Small, non-personal values only: ids, counts, enums. Never emails, names,
@@ -23,6 +23,26 @@ export type ServerErrorContext = {
   userId?: string | null;
 };
 
+// Auth events (SPEC §6.2 `auth`, §11.5), accepted by the ingest only from
+// the portal token: the portal is the only auth server.
+export type AuthEventType =
+  | "login_success"
+  | "login_failed"
+  | "magic_link_requested"
+  | "logout"
+  | "no_access";
+
+export type AuthEvent = {
+  type: AuthEventType;
+  userId?: string | null;
+  // Sent only when there is no user id (a failed login, a magic link for an
+  // unknown address), lower-cased. Dropped whenever userId is set.
+  email?: string | null;
+  method?: string | null;
+  app?: string | null;
+  detail?: TelemetryProps;
+};
+
 export type TelemetryReporter = {
   reportServerError(error: unknown, context?: ServerErrorContext): void;
   trackServerEvent(
@@ -30,6 +50,7 @@ export type TelemetryReporter = {
     userId: string | null,
     props?: TelemetryProps,
   ): void;
+  reportAuthEvent(event: AuthEvent): void;
   // Sends what is pending now. Never rejects.
   flush(): Promise<void>;
 };
@@ -45,6 +66,16 @@ type ServerEvent = {
   ts: number;
   userId: string | null;
   props: TelemetryProps;
+};
+
+type ServerAuthEvent = {
+  ts: number;
+  type: AuthEventType;
+  userId: string | null;
+  email: string | null;
+  method: string | null;
+  app: string | null;
+  detail: TelemetryProps;
 };
 
 type ServerError = {
@@ -88,6 +119,7 @@ function scrubStack(error: Error, type: string, message: string): string | null 
 export const inertTelemetryReporter: TelemetryReporter = {
   reportServerError: () => {},
   trackServerEvent: () => {},
+  reportAuthEvent: () => {},
   flush: async () => {},
 };
 
@@ -107,6 +139,7 @@ export function createTelemetryReporter(options: {
   const now = options.now ?? Date.now;
   let events: ServerEvent[] = [];
   let errors: ServerError[] = [];
+  let auth: ServerAuthEvent[] = [];
   let timer: ReturnType<typeof setTimeout> | null = null;
 
   async function flush(): Promise<void> {
@@ -115,13 +148,16 @@ export function createTelemetryReporter(options: {
     }
     timer = null;
 
-    if (!events.length && !errors.length) {
+    if (!events.length && !errors.length && !auth.length) {
       return;
     }
 
-    const batch = { v: 1, events, errors };
+    const batch = auth.length
+      ? { v: 1, events, errors, auth }
+      : { v: 1, events, errors };
     events = [];
     errors = [];
+    auth = [];
     const abort = new AbortController();
     const timeout = setTimeout(() => abort.abort(), SEND_TIMEOUT_MS);
 
@@ -144,7 +180,7 @@ export function createTelemetryReporter(options: {
 
   function enqueue(add: () => void) {
     try {
-      if (events.length + errors.length >= MAX_QUEUED) {
+      if (events.length + errors.length + auth.length >= MAX_QUEUED) {
         return;
       }
 
@@ -181,6 +217,21 @@ export function createTelemetryReporter(options: {
     trackServerEvent(name, userId, props = {}) {
       enqueue(() => events.push({ name, ts: now(), userId, props }));
     },
+    reportAuthEvent(event) {
+      enqueue(() => {
+        const userId = event.userId || null;
+        const email = userId ? null : event.email?.trim().toLowerCase() || null;
+        auth.push({
+          ts: now(),
+          type: event.type,
+          userId,
+          email,
+          method: event.method ?? null,
+          app: event.app ?? null,
+          detail: event.detail ?? {},
+        });
+      });
+    },
     flush: () => flush().catch(() => {}),
   };
 }
@@ -203,4 +254,8 @@ export function trackServerEvent(
   props?: TelemetryProps,
 ): void {
   reporter.trackServerEvent(name, userId, props);
+}
+
+export function reportAuthEvent(event: AuthEvent): void {
+  reporter.reportAuthEvent(event);
 }
