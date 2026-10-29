@@ -2,7 +2,7 @@
 
 The portal reports to [basket-telemetry](https://github.com/WencesCapolo/basket-telemetry), the superadmin panel on
 `server.basket-app.com`: page views, active time, clicks and browser errors through the SDK, and server errors and a
-few business events through a server reporter (basket-telemetry SPEC §11, task T1.9). How an app integrates, the
+few business events through a server reporter, and auth events (basket-telemetry SPEC §11, tasks T1.9 and T2.5). How an app integrates, the
 reporter contract and the privacy rules are in
 [basket-telemetry/docs/sdk.md](https://github.com/WencesCapolo/basket-telemetry/blob/main/docs/sdk.md); this page
 covers the portal only.
@@ -40,6 +40,44 @@ queue at 200 items. Without `TELEMETRY_TOKEN` (dev, tests, CI) it does nothing. 
 | `access_request_approved` | a Solicitud is approved | `approve` in `src/app/actions/access-requests.ts` (portal) and `src/app/actions/app-access-requests.ts` (siblings, apex) | `app`, `role` |
 
 Each event carries the actor's Better Auth id as `userId`.
+
+## Auth events
+
+The portal is the only auth server, so only it reports auth events (`reportAuthEvent` in `src/lib/telemetry.ts`, the
+batch's `auth` array, accepted by the ingest from the `portal` token only). The Better Auth wiring is
+`src/lib/auth/telemetry-hooks.ts`, spread into the config in `src/lib/auth/server.ts`.
+
+| Event | When | Where | Fields |
+|---|---|---|---|
+| `login_success` | a session is created | `databaseHooks.session.create.after` | `userId`, `method`: `magic_link`, the OAuth provider id (`google`) or `impersonation` |
+| `login_failed` | a sign-in endpoint (`/sign-in/magic-link`, `/magic-link/verify`, `/callback/:id`, `/sign-in/social`) returns an error, or redirects with `?error=` | `hooks.after` | `method`, `detail.error` (Better Auth's code, e.g. `INVALID_TOKEN`), `email` only for a failed magic link request |
+| `magic_link_requested` | `/sign-in/magic-link` succeeds | `hooks.after` | `method`; `userId` when an identity has the address, otherwise the `email` |
+| `logout` | a session is deleted by `/sign-out` (a revoke or a ban is not a logout) | `databaseHooks.session.delete.after` | `userId` |
+| `no_access` | `/no-access` shows the form or a pending Solicitud | `src/app/(auth)/no-access/page.tsx` (`reportNoAccess` in `src/lib/access-requests/no-access.ts`) | `userId`, `app` (the requested app, resolved against the catalog), `detail.view` |
+
+An email is sent only when there is no user id, trimmed and lower-cased. The hooks never throw into Better Auth and
+never wait on the ingest; the identity lookup of a magic link request runs after the response.
+
+```mermaid
+sequenceDiagram
+  participant B as Browser
+  participant A as Better Auth (portal)
+  participant H as telemetry-hooks.ts
+  participant R as Reporter
+  participant T as basket-telemetry (:3011)
+  B->>A: GET /api/auth/magic-link/verify?token=…
+  alt valid token
+    A->>H: session.create.after(session, ctx)
+    H->>R: login_success {userId, method: magic_link}
+  else invalid token
+    A->>H: hooks.after (redirect ?error=INVALID_TOKEN)
+    H->>R: login_failed {method, detail.error}
+  end
+  A-->>B: 302 to the callback (or the error page)
+  R->>T: POST /ingest/server {auth: […]} (1 s batch)
+```
+
+A magic link verify: a login or a failed login, reported without delaying the redirect.
 
 ## Other links
 
