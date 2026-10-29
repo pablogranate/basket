@@ -16,7 +16,10 @@ import {
   resolveRequestApp,
 } from "@/lib/acceso/catalog";
 import { PORTAL_APP } from "@/lib/acceso/portal";
-import { resolveNoAccessView } from "@/lib/access-requests/no-access";
+import {
+  reportNoAccess,
+  resolveNoAccessView,
+} from "@/lib/access-requests/no-access";
 import { getOwnAccessRequest } from "@/lib/access-requests/requests";
 import { getUserContext } from "@/lib/auth";
 import {
@@ -62,6 +65,7 @@ export default async function NoAccessPage({ searchParams }: PageProps) {
     listEffectiveAccessForUser(context.userId),
   ]);
   const view = resolveNoAccessView({ holdsApp, pending: own.pending });
+  reportNoAccess({ userId: context.userId, app, view });
   const host = getRequestHost(await headers());
 
   if (view === "forward") {
