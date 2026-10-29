@@ -11,6 +11,7 @@ import { requireEditor } from "@/lib/auth";
 import { previewGridSync, runGridSync } from "@/lib/grid/sync";
 import { updateChangesMatchRow } from "@/lib/grid/sync-plan";
 import type { SyncDeletePassSkipReason } from "@/lib/grid/sync-plan";
+import { trackServerEvent } from "@/lib/telemetry";
 import { ensureErrorMessage } from "@/lib/utils";
 
 export type GridSyncPreview = {
@@ -84,7 +85,7 @@ export async function syncGridAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData, "/grid");
 
   try {
-    await requireEditor();
+    const ctx = await requireEditor();
 
     const result = await runGridSync("manual");
 
@@ -96,6 +97,11 @@ export async function syncGridAction(formData: FormData) {
       });
       return;
     }
+
+    trackServerEvent("grid_synced", ctx.userId, {
+      created: result.created,
+      updated: result.updated,
+    });
 
     revalidatePath("/grid");
 

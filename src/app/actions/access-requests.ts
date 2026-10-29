@@ -12,6 +12,7 @@ import {
 import { defineAction } from "@/lib/actions/define-action";
 import { listCatalogApps } from "@/lib/acceso/accesos";
 import { resolveRequestApp } from "@/lib/acceso/catalog";
+import { PORTAL_APP } from "@/lib/acceso/portal";
 import { buildNoAccessPath } from "@/lib/access-requests/no-access";
 import { notifyAccessRequest } from "@/lib/access-requests/notify";
 import {
@@ -38,6 +39,7 @@ import {
 } from "@/lib/email/mailer";
 import { appEnv } from "@/lib/env";
 import { linkProfileToPerson } from "@/lib/people/identity";
+import { trackServerEvent } from "@/lib/telemetry";
 
 const REQUEST_REVALIDATE_PATHS = [
   "/",
@@ -81,6 +83,11 @@ const submit = defineAction({
       userId: ctx.userId,
       app,
       email: ctx.email,
+    });
+
+    trackServerEvent("access_request_submitted", ctx.userId, {
+      app,
+      role: funcion.funcion,
     });
 
     // The request is persisted; the notification is best-effort on purpose.
@@ -223,6 +230,11 @@ const approve = defineAction({
 
       clearProfileCache();
 
+      trackServerEvent("access_request_approved", ctx.userId, {
+        app: PORTAL_APP,
+        role: accessRole,
+      });
+
       await writeAudit(ctx, {
         table: "access_requests",
         recordId: requestId,
@@ -270,6 +282,11 @@ const approve = defineAction({
     });
 
     clearProfileCache();
+
+    trackServerEvent("access_request_approved", ctx.userId, {
+      app: PORTAL_APP,
+      role: accessRole,
+    });
 
     await writeAudit(ctx, {
       table: "access_requests",

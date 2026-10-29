@@ -10,6 +10,7 @@ import {
   rejectAppAccessRequest,
 } from "@/lib/access-requests/app-approval";
 import { sendCollaboratorInviteEmail } from "@/lib/email/mailer";
+import { trackServerEvent } from "@/lib/telemetry";
 import { requireSuperAdmin } from "@/lib/usuarios/guard";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -25,6 +26,10 @@ vi.mock("@/lib/acceso/accesos", () => ({
   ]),
 }));
 vi.mock("@/lib/email/mailer", () => ({ sendCollaboratorInviteEmail: vi.fn() }));
+vi.mock("@/lib/telemetry", () => ({
+  reportServerError: vi.fn(),
+  trackServerEvent: vi.fn(),
+}));
 vi.mock("@/lib/env", () => ({
   appEnv: { portalBaseUrl: "https://portal.basket-app.com" },
 }));
@@ -106,6 +111,24 @@ describe("apex Solicitud actions", () => {
     expect(mockedRedirect).toHaveBeenCalledWith(
       expect.objectContaining({ intent: "success", redirectTo: "/" }),
     );
+  });
+
+  it("tracks access_request_approved with the app and role, as the super admin", async () => {
+    await approveAppAccessRequestAction(form({ rol: "coordinador" }));
+
+    expect(vi.mocked(trackServerEvent)).toHaveBeenCalledWith(
+      "access_request_approved",
+      "super-1",
+      { app: "facturacion", role: "coordinador" },
+    );
+  });
+
+  it("tracks no approval when it fails", async () => {
+    mockedApprove.mockRejectedValue(new Error("Esta solicitud ya fue resuelta."));
+
+    await approveAppAccessRequestAction(form({ rol: "coordinador" }));
+
+    expect(vi.mocked(trackServerEvent)).not.toHaveBeenCalled();
   });
 
   it("refuses an approval without a role", async () => {
