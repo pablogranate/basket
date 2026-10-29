@@ -58,6 +58,32 @@ export async function sendMagicLinkEmail({
   }
 }
 
+export async function sendLoginCodeEmail({
+  to,
+  code,
+}: {
+  to: string;
+  code: string;
+}) {
+  try {
+    await getTransport().sendMail({
+      from: appEnv.mailFrom,
+      to,
+      subject: `${code} es tu código de acceso a ${APP_NAME}`,
+      text: `Tu código de acceso a ${APP_NAME} es:\n\n${code}\n\nEscribilo en la pantalla de ingreso. Vence en 10 minutos.\n\nSi no solicitaste este acceso, ignora este correo.`,
+      html: `
+        <p>Tu código de acceso a <strong>${APP_NAME}</strong> es:</p>
+        <p style="font-size:28px;font-weight:700;letter-spacing:6px">${code}</p>
+        <p>Escribilo en la pantalla de ingreso. Vence en 10 minutos.</p>
+        <p style="color:#666;font-size:13px">Si no solicitaste este acceso, ignora este correo.</p>
+      `,
+    });
+  } catch (error) {
+    console.error("[mailer] failed to send login code", error);
+    throw error;
+  }
+}
+
 export async function sendCollaboratorInviteEmail({
   to,
   loginUrl,

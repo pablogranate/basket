@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { memoryAdapter } from "better-auth/adapters/memory";
 import { APIError } from "better-auth/api";
-import { magicLink } from "better-auth/plugins";
+import { emailOTP, magicLink } from "better-auth/plugins";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -31,6 +31,8 @@ describe("loginMethodOf", () => {
   it.each([
     [{ path: "/magic-link/verify" }, "magic_link"],
     [{ path: "/sign-in/magic-link" }, "magic_link"],
+    [{ path: "/email-otp/send-verification-otp" }, "email_otp"],
+    [{ path: "/sign-in/email-otp" }, "email_otp"],
     [{ path: "/callback/:id", params: { id: "google" } }, "google"],
     [{ path: "/sign-in/social", body: { provider: "google" } }, "google"],
     [{ path: "/admin/impersonate-user" }, "impersonation"],
@@ -123,6 +125,24 @@ describe("reportSignInOutcome", () => {
     });
   });
 
+  it("reports a wrong emailed code with the lower-cased email", () => {
+    reportSignInOutcome({
+      endpoint: {
+        path: "/sign-in/email-otp",
+        body: { email: " Fake.Person@Example.TEST ", otp: "000000" },
+      },
+      returned: new APIError("BAD_REQUEST", { code: "INVALID_OTP" }),
+      findUserIdByEmail: unknownEmail,
+    });
+
+    expect(mockedReport).toHaveBeenCalledWith({
+      type: "login_failed",
+      email: FAKE_EMAIL,
+      method: "email_otp",
+      detail: { error: "INVALID_OTP" },
+    });
+  });
+
   it("reports a failed Google callback with the provider as method", () => {
     reportSignInOutcome({
       endpoint: { path: "/callback/:id", params: { id: "google" } },
@@ -206,6 +226,7 @@ describe("authTelemetryOptions on a Better Auth instance", () => {
   function makeAuth() {
     const db: Record<string, unknown[]> = { user: [], session: [], account: [], verification: [] };
     const sent: Array<{ email: string; token: string }> = [];
+    const codes: Array<{ email: string; otp: string }> = [];
     const auth = betterAuth({
       secret: "test-better-auth-secret-value-0000000000",
       baseURL: "http://localhost:3000",
@@ -218,9 +239,15 @@ describe("authTelemetryOptions on a Better Auth instance", () => {
             sent.push({ email, token });
           },
         }),
+        emailOTP({
+          storeOTP: "hashed",
+          sendVerificationOTP: async ({ email, otp }) => {
+            codes.push({ email, otp });
+          },
+        }),
       ],
     });
-    return { auth, sent };
+    return { auth, sent, codes };
   }
 
   it("reports a magic link request, the login it leads to, and the logout", async () => {
@@ -273,6 +300,27 @@ describe("authTelemetryOptions on a Better Auth instance", () => {
       email: null,
       method: "magic_link",
       detail: { error: "INVALID_TOKEN" },
+    });
+  });
+
+  it("reports a sign-in with an emailed code as an email_otp login", async () => {
+    const { auth, codes } = makeAuth();
+
+    await auth.api.sendVerificationOTP({
+      body: { email: FAKE_EMAIL, type: "sign-in" },
+      headers: new Headers(),
+    });
+    expect(codes[0]).toMatchObject({ email: FAKE_EMAIL });
+
+    const signedIn = await auth.api.signInEmailOTP({
+      body: { email: FAKE_EMAIL, otp: codes[0]!.otp },
+      headers: new Headers(),
+    });
+
+    expect(mockedReport).toHaveBeenCalledWith({
+      type: "login_success",
+      userId: signedIn.user.id,
+      method: "email_otp",
     });
   });
 });
