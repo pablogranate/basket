@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { ArrowLeft, History, KeyRound, Mail, UserPlus } from "lucide-react";
+import { Activity, ArrowLeft, History, KeyRound, Mail, UserPlus } from "lucide-react";
 
 import {
   banIdentityAction,
@@ -28,6 +28,7 @@ import {
   listUsuarios,
   type UsuarioRow,
 } from "@/lib/usuarios/matrix";
+import { buildUserActivityUrl } from "@/lib/usuarios/activity-link";
 import { requireSuperAdmin } from "@/lib/usuarios/guard";
 import { cn } from "@/lib/utils";
 
@@ -163,6 +164,15 @@ export default async function UsuariosPage({ searchParams }: PageProps) {
                       </div>
                       <div className="text-xs text-[var(--n-500)]">{row.email}</div>
                       <IdentityBadges row={row} />
+                      <a
+                        href={buildUserActivityUrl(host, row.userId)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[var(--accent)] hover:underline"
+                      >
+                        <Activity className="size-3.5" />
+                        Ver actividad
+                      </a>
                     </td>
                     {apps.map((app) => {
                       if (locked) {
