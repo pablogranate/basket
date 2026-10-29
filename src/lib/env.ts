@@ -45,6 +45,11 @@ export const appEnv = {
   openwaApiKey: process.env.OPENWA_API_KEY ?? "",
   openwaNotifyEnabled: process.env.OPENWA_NOTIFY_ENABLED !== "false",
   notificationsEnabled: process.env.NOTIFICATIONS_ENABLED !== "false",
+  // basket-telemetry server ingest (loopback only). Without the token the
+  // reporter in src/lib/telemetry.ts sends nothing (dev, tests, CI).
+  telemetryIngestUrl:
+    process.env.TELEMETRY_INGEST_URL || "http://127.0.0.1:3011/ingest/server",
+  telemetryToken: process.env.TELEMETRY_TOKEN ?? "",
 };
 
 export function assertDatabaseUrl() {
