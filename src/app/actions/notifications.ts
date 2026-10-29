@@ -20,6 +20,7 @@ import { isWhatsAppSendEnabled } from "@/lib/env";
 import { buildMatchNotificationMessage } from "@/lib/integrations";
 import { sendWhatsAppText } from "@/lib/integrations/openwa";
 import { insertNotificationLogs } from "@/lib/notifications/log";
+import { trackServerEvent } from "@/lib/telemetry";
 import {
   buildRecipientLogRows,
   type ChannelOutcome,
@@ -48,7 +49,7 @@ const sendAllMatchNotifications = defineAction({
   // rejection.
   authzFailureNotice: true,
   parse: parseSendAllMatchNotifications,
-  async run(_ctx, { matchId }, meta) {
+  async run(ctx, { matchId }, meta) {
     if (!matchId) {
       return {
         error: "No se indicó el partido a notificar.",
@@ -78,6 +79,14 @@ const sendAllMatchNotifications = defineAction({
 
     const summary = await notifyMatch(matchRow as NotifyMatchRow, "manual");
 
+    if (summary.recipients > 0) {
+      trackServerEvent("match_notifications_sent", ctx.userId, {
+        match_id: matchId,
+        recipients_count: summary.recipients,
+        scope: "all",
+      });
+    }
+
     return {
       intent: summary.recipients === 0 ? ("error" as const) : ("success" as const),
       notice:
@@ -100,7 +109,7 @@ const sendAssignmentNotifications = defineAction({
   resolveRedirect: resolveMatchRedirect,
   authz: requireEditor,
   parse: parseSendAssignmentNotifications,
-  async run(_ctx, { matchId, assignmentIds }, meta) {
+  async run(ctx, { matchId, assignmentIds }, meta) {
     if (!matchId || !assignmentIds.length) {
       return { error: "No hay asignaciones para notificar." };
     }
@@ -213,6 +222,14 @@ const sendAssignmentNotifications = defineAction({
     }
 
     await insertNotificationLogs(logRows);
+
+    if (recipients.length > 0) {
+      trackServerEvent("match_notifications_sent", ctx.userId, {
+        match_id: matchId,
+        recipients_count: recipients.length,
+        scope: "assignments",
+      });
+    }
 
     return {
       intent: (skipped || noPhone) && !sent ? ("error" as const) : ("success" as const),

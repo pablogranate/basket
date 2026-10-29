@@ -36,6 +36,7 @@ import {
 } from "@/lib/data/attendance";
 import { shouldResetAttendance } from "@/lib/attendance";
 import { isUniqueViolation } from "@/lib/db/errors";
+import { trackServerEvent } from "@/lib/telemetry";
 import { maybeNull } from "@/lib/utils";
 
 // stampInsert/stampUpdate return snake_case payloads; Drizzle .values()/.set()
@@ -322,6 +323,12 @@ const createMatch = defineAction({
         after: { match_id: createdMatchId, count: assignments.length },
       });
     }
+
+    trackServerEvent("match_created", ctx.userId, {
+      match_id: createdMatchId,
+      has_assignments: assignments.length > 0,
+      staff_count: notify.length,
+    });
 
     return {
       notice: "Partido creado.",
@@ -714,14 +721,14 @@ const upsertAssignment = defineAction({
     const assignmentRoleId = input.roleId;
     const incomingPersonId = input.personId;
 
-    if (incomingPersonId) {
-      const roleRows = await db
-        .select({ name: rolesTable.name })
-        .from(rolesTable)
-        .where(eq(rolesTable.id, assignmentRoleId))
-        .limit(1);
+    const roleRows = await db
+      .select({ name: rolesTable.name })
+      .from(rolesTable)
+      .where(eq(rolesTable.id, assignmentRoleId))
+      .limit(1);
+    const roleName = roleRows[0]?.name ?? null;
 
-      const roleName = roleRows[0]?.name;
+    if (incomingPersonId) {
       const unqualified = roleName
         ? await findUnqualifiedAssignment([
             { personId: incomingPersonId, roleName },
@@ -803,6 +810,12 @@ const upsertAssignment = defineAction({
 
     const notify =
       incomingPersonId && incomingPersonId !== priorPersonId ? [row.id] : [];
+
+    trackServerEvent("staff_assigned", ctx.userId, {
+      match_id: row.match_id,
+      role_name: roleName,
+      is_new: priorRows.length === 0,
+    });
 
     return {
       notice: "Asignación actualizada.",

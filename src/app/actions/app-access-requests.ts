@@ -11,6 +11,7 @@ import {
 import { buildAppUrlFromAnyHost } from "@/lib/constants";
 import { sendCollaboratorInviteEmail } from "@/lib/email/mailer";
 import { appEnv } from "@/lib/env";
+import { trackServerEvent } from "@/lib/telemetry";
 import { requireSuperAdmin } from "@/lib/usuarios/guard";
 
 // Sibling Solicitudes decided from the apex bell. Super admins only, checked
@@ -48,6 +49,8 @@ const approve = defineAction({
       role,
       deciderId: actor.userId,
     });
+    trackServerEvent("access_request_approved", actor.userId, { app, role });
+
     const label = await appLabel(app);
 
     // The approval is committed: a failing invite must not undo it.

@@ -5,6 +5,7 @@ import {
   redirectWithNotice,
   rethrowNavigationError,
 } from "@/app/actions/helpers";
+import { reportServerError } from "@/lib/telemetry";
 import { ensureErrorMessage } from "@/lib/utils";
 
 export type ParseResult<I> =
@@ -54,6 +55,15 @@ type DefineActionOptions<Ctx, I> = {
   errorNotice?: string;
   onError?: (error: unknown) => void;
 };
+
+// The Better Auth id of the actor, when the authz context carries one.
+function actorUserId(ctx: unknown): string | null {
+  if (ctx && typeof ctx === "object" && "userId" in ctx) {
+    return typeof ctx.userId === "string" ? ctx.userId : null;
+  }
+
+  return null;
+}
 
 export function defineAction<Ctx, I>(
   options: DefineActionOptions<Ctx, I>,
@@ -122,6 +132,13 @@ export function defineAction<Ctx, I>(
     } catch (error) {
       rethrowNavigationError(error);
       options.onError?.(error);
+      // Only what run threw: a parse failure or a returned { error } is a
+      // domain outcome, not a failure of the app.
+      reportServerError(error, {
+        method: "POST",
+        routeType: "action",
+        userId: actorUserId(ctx),
+      });
       redirectWithNotice({
         redirectTo,
         intent: "error",

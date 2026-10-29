@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { revalidatePath } from "next/cache";
 import { redirectWithNotice } from "@/app/actions/helpers";
+import { reportServerError } from "@/lib/telemetry";
 import {
   defineAction,
   parsed,
@@ -41,7 +42,12 @@ vi.mock("@/app/actions/helpers", () => ({
   },
 }));
 
+vi.mock("@/lib/telemetry", () => ({
+  reportServerError: vi.fn(),
+}));
+
 const mockedRevalidatePath = vi.mocked(revalidatePath);
+const mockedReportServerError = vi.mocked(reportServerError);
 const mockedRedirectWithNotice = vi.mocked(redirectWithNotice);
 
 function lastRedirect() {
@@ -356,5 +362,98 @@ describe("defineAction", () => {
       intent: "error",
       notice: "No tenes permisos para aprobar solicitudes de acceso.",
     });
+  });
+
+  it("reports an error thrown by run to telemetry with the actor's id", async () => {
+    const error = new Error("db exploded");
+    const action = defineAction({
+      fallbackRedirect: "/grid",
+      authz: async () => ({ userId: "user-test-1" }),
+      parse: () => parsed({}),
+      run: async () => {
+        throw error;
+      },
+    });
+
+    await invoke(action);
+
+    expect(mockedReportServerError).toHaveBeenCalledWith(error, {
+      method: "POST",
+      routeType: "action",
+      userId: "user-test-1",
+    });
+  });
+
+  it("reports a thrown error without a user id when the authz context has none", async () => {
+    const action = defineAction({
+      fallbackRedirect: "/grid",
+      authz: async () => ({}),
+      parse: () => parsed({}),
+      run: async () => {
+        throw new Error("boom");
+      },
+    });
+
+    await invoke(action);
+
+    expect(mockedReportServerError).toHaveBeenCalledWith(expect.any(Error), {
+      method: "POST",
+      routeType: "action",
+      userId: null,
+    });
+  });
+
+  it("does not report domain outcomes: a parse failure, a run {error} or a success", async () => {
+    const outcomes = [
+      defineAction({
+        fallbackRedirect: "/grid",
+        authz: async () => ({ userId: "user-test-1" }),
+        parse: () => parseFailure<never>("Falta el partido."),
+        run: async () => ({ notice: "Listo." }),
+      }),
+      defineAction({
+        fallbackRedirect: "/grid",
+        authz: async () => ({ userId: "user-test-1" }),
+        parse: () => parsed({}),
+        run: async () => ({ error: "Ya existe." }),
+      }),
+      defineAction({
+        fallbackRedirect: "/grid",
+        authz: async () => ({ userId: "user-test-1" }),
+        parse: () => parsed({}),
+        run: async () => ({ notice: "Listo." }),
+      }),
+    ];
+
+    for (const action of outcomes) {
+      await invoke(action);
+    }
+
+    expect(mockedReportServerError).not.toHaveBeenCalled();
+  });
+
+  it("does not report navigation errors or an authz failure shown as a notice", async () => {
+    const navigating = defineAction({
+      fallbackRedirect: "/grid",
+      authz: async () => ({}),
+      parse: () => parsed({}),
+      run: async () => {
+        throw new h.NavigationSignal("NEXT_REDIRECT");
+      },
+    });
+    const denied = defineAction({
+      fallbackRedirect: "/grid",
+      authz: async () => {
+        throw new Error("No tenes permisos para editar.");
+      },
+      authzFailureNotice: true,
+      parse: () => parsed({}),
+      run: async () => ({ notice: "Listo." }),
+    });
+
+    await expect(navigating(new FormData())).rejects.toThrow("NEXT_REDIRECT");
+    await invoke(denied);
+
+    expect(mockedReportServerError).not.toHaveBeenCalled();
   });
 });

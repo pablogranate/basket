@@ -1,7 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Oswald, Poppins } from "next/font/google";
+import Script from "next/script";
 
 import { APP_NAME } from "@/lib/constants";
+import {
+  TELEMETRY_SDK_SRC,
+  TELEMETRY_STUB_SNIPPET,
+} from "@/lib/telemetry-browser";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -65,6 +70,12 @@ export default function RootLayout({
     >
       <body className="min-h-screen antialiased">
         {children}
+        {/* basket-telemetry: the stub queues window.bpt calls until the SDK
+            loads; the SDK is a no-op where /_t/ is not proxied (local dev). */}
+        <Script id="bpt-stub" strategy="beforeInteractive">
+          {TELEMETRY_STUB_SNIPPET}
+        </Script>
+        <Script src={TELEMETRY_SDK_SRC} strategy="afterInteractive" />
       </body>
     </html>
   );

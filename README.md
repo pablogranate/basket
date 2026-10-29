@@ -65,6 +65,8 @@ NEXT_PUBLIC_APP_TIMEZONE=America/Bogota
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
+Opcional, telemetría (basket-telemetry, ver `docs/telemetry.md`): `TELEMETRY_INGEST_URL` (por defecto `http://127.0.0.1:3011/ingest/server`) y `TELEMETRY_TOKEN`. Sin el token no se manda nada; en desarrollo se deja vacío.
+
 4. Levanta los contenedores locales y aplica las migraciones:
 
 ```bash
