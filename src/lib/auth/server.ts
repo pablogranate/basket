@@ -4,7 +4,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
-import { admin, magicLink } from "better-auth/plugins";
+import { admin, emailOTP, magicLink } from "better-auth/plugins";
 import { adminAc, userAc } from "better-auth/plugins/admin/access";
 
 import { authDb } from "@/lib/db/auth-client";
@@ -17,12 +17,13 @@ import {
   authVerification,
 } from "@/lib/auth/schema";
 import { appEnv, assertBetterAuthEnv } from "@/lib/env";
-import { sendMagicLinkEmail } from "@/lib/email/mailer";
+import { sendLoginCodeEmail, sendMagicLinkEmail } from "@/lib/email/mailer";
 
 assertBetterAuthEnv();
 
 const SIXTY_DAYS_SECONDS = 60 * 60 * 24 * 60;
 const ONE_DAY_SECONDS = 60 * 60 * 24;
+const TEN_MINUTES_SECONDS = 60 * 10;
 
 export const auth = betterAuth({
   secret: appEnv.betterAuthSecret,
@@ -59,7 +60,7 @@ export const auth = betterAuth({
   // never wait on the ingest.
   databaseHooks: authTelemetryOptions.databaseHooks,
   hooks: authTelemetryOptions.hooks,
-  // Same-email Google + magic-link identities collapse to one user. Both methods
+  // Same-email Google + email (code or link) identities collapse to one user. All
   // yield a verified email, so no trustedProviders shortcut is needed (D-10).
   account: {
     accountLinking: {
@@ -100,6 +101,20 @@ export const auth = betterAuth({
     magicLink({
       sendMagicLink: async ({ email, url }) => {
         await sendMagicLinkEmail({ to: email, url });
+      },
+    }),
+    // The login form signs in with an emailed code: it is typed into the same
+    // browser that asked for it, so the session lands in an iOS home-screen
+    // app too (a magic link opens in Safari, whose cookies the app does not
+    // share). magicLink stays so links already sent keep working.
+    emailOTP({
+      expiresIn: TEN_MINUTES_SECONDS,
+      storeOTP: "hashed",
+      sendVerificationOTP: async ({ email, otp, type }) => {
+        if (type !== "sign-in") {
+          return;
+        }
+        await sendLoginCodeEmail({ to: email, code: otp });
       },
     }),
     // nextCookies() MUST stay last so server-action Set-Cookie headers are handled.

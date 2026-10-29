@@ -1,15 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, Mail } from "lucide-react";
+import { ArrowRight, KeyRound, Mail } from "lucide-react";
 
 import { authClient } from "@/lib/auth/client";
 import { ensureErrorMessage } from "@/lib/utils";
 
-export function LoginFormClient({ callbackURL }: { callbackURL: string }) {
+const CODE_LENGTH = 6;
+
+export function LoginFormClient({
+  callbackURL,
+  staffEmailDomain,
+}: {
+  callbackURL: string;
+  staffEmailDomain: string;
+}) {
   const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
   const [googlePending, setGooglePending] = useState(false);
-  const [magicPending, setMagicPending] = useState(false);
+  const [codePending, setCodePending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,7 +40,10 @@ export function LoginFormClient({ callbackURL }: { callbackURL: string }) {
     }
   }
 
-  async function handleMagicLink(event: React.FormEvent<HTMLFormElement>) {
+  // Signs in with an emailed code rather than a link: the code is typed into
+  // this same browser, so the session also lands in an iOS home-screen app,
+  // which does not share cookies with the Safari a link would open in.
+  async function handleSendCode(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const normalized = email.trim().toLowerCase();
     if (!normalized) {
@@ -39,59 +51,125 @@ export function LoginFormClient({ callbackURL }: { callbackURL: string }) {
       return;
     }
     setError(null);
-    setMagicPending(true);
+    setCodePending(true);
     try {
-      const result = await authClient.signIn.magicLink({
+      const result = await authClient.emailOtp.sendVerificationOtp({
         email: normalized,
-        callbackURL,
+        type: "sign-in",
       });
       if (result.error) {
-        setError(result.error.message ?? "No se pudo enviar el enlace.");
+        setError(result.error.message ?? "No se pudo enviar el código.");
       } else {
+        setCode("");
         setSent(true);
       }
     } catch (err) {
       setError(ensureErrorMessage(err));
     } finally {
-      setMagicPending(false);
+      setCodePending(false);
     }
   }
 
+  async function handleVerifyCode(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (code.length !== CODE_LENGTH) {
+      setError(`Ingresa el código de ${CODE_LENGTH} dígitos.`);
+      return;
+    }
+    setError(null);
+    setCodePending(true);
+    try {
+      const result = await authClient.signIn.emailOtp({
+        email: email.trim().toLowerCase(),
+        otp: code,
+      });
+      if (result.error) {
+        setError(
+          result.error.code === "INVALID_OTP"
+            ? "El código no es correcto. Revisalo e intentá de nuevo."
+            : result.error.code === "OTP_EXPIRED" ||
+                result.error.code === "TOO_MANY_ATTEMPTS"
+              ? "El código venció. Pedí uno nuevo."
+              : (result.error.message ?? "No se pudo verificar el código."),
+        );
+        setCodePending(false);
+        return;
+      }
+      // Full navigation so the server renders with the new session cookie.
+      window.location.assign(callbackURL);
+    } catch (err) {
+      setError(ensureErrorMessage(err));
+      setCodePending(false);
+    }
+  }
+
+  const errorBanner = error ? (
+    <p className="rounded-[var(--panel-radius)] border border-[rgba(227,27,35,0.28)] bg-[rgba(227,27,35,0.06)] px-4 py-3 text-sm font-medium text-[var(--accent)]">
+      {error}
+    </p>
+  ) : null;
+
   if (sent) {
     return (
-      <div className="mt-5 rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] p-6 text-center">
-        <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent)]">
-          <Mail className="size-6" />
-        </div>
-        <h3 className="text-lg font-extrabold text-[var(--foreground)]">
-          Revisá tu correo
-        </h3>
-        <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-          Enviamos un enlace de acceso a{" "}
-          <span className="font-bold text-[var(--foreground)]">{email.trim()}</span>.
-          Abrilo en este dispositivo para entrar.
-        </p>
-        <button
-          type="button"
-          onClick={() => {
-            setSent(false);
-            setEmail("");
-          }}
-          className="mt-4 text-sm font-medium text-[var(--muted)] underline transition hover:text-[var(--accent)]"
+      <div className="mt-5 space-y-[18px]">
+        {errorBanner}
+        <form
+          onSubmit={handleVerifyCode}
+          className="rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background-soft)] p-6 text-center"
         >
-          Usar otro correo
-        </button>
+          <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent)]">
+            <KeyRound className="size-6" />
+          </div>
+          <h3 className="text-lg font-extrabold text-[var(--foreground)]">
+            Revisá tu correo
+          </h3>
+          <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
+            Enviamos un código de {CODE_LENGTH} dígitos a{" "}
+            <span className="font-bold text-[var(--foreground)]">{email.trim()}</span>.
+            Escribilo acá para entrar.
+          </p>
+          <input
+            type="text"
+            name="code"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            pattern="[0-9]*"
+            maxLength={CODE_LENGTH}
+            value={code}
+            onChange={(event) =>
+              setCode(event.target.value.replace(/\D/g, "").slice(0, CODE_LENGTH))
+            }
+            autoFocus
+            aria-label="Código de acceso"
+            className="mt-4 block h-14 w-full rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background)] text-center text-2xl font-bold tracking-[0.5em] text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[rgba(227,27,35,0.12)]"
+          />
+          <button
+            type="submit"
+            disabled={codePending || code.length !== CODE_LENGTH}
+            className="mt-4 flex h-[52px] w-full items-center justify-center gap-2 rounded-[var(--panel-radius)] bg-[var(--accent)] text-[15px] font-bold text-white shadow-[0_8px_24px_rgba(227,27,35,0.26)] transition hover:opacity-90 disabled:opacity-60"
+          >
+            {codePending ? "Verificando..." : "Entrar"}
+            <ArrowRight className="size-5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSent(false);
+              setCode("");
+              setError(null);
+            }}
+            className="mt-4 text-sm font-medium text-[var(--muted)] underline transition hover:text-[var(--accent)]"
+          >
+            Usar otro correo o pedir un código nuevo
+          </button>
+        </form>
       </div>
     );
   }
 
   return (
     <div className="mt-5 space-y-[18px]">
-      {error ? (
-        <p className="rounded-[var(--panel-radius)] border border-[rgba(227,27,35,0.28)] bg-[rgba(227,27,35,0.06)] px-4 py-3 text-sm font-medium text-[var(--accent)]">
-          {error}
-        </p>
-      ) : null}
+      {errorBanner}
 
       <button
         type="button"
@@ -102,6 +180,10 @@ export function LoginFormClient({ callbackURL }: { callbackURL: string }) {
         <GoogleMark />
         {googlePending ? "Conectando..." : "Ingresar con Google"}
       </button>
+      <p className="-mt-2 text-center text-xs text-[var(--muted)]">
+        Google solo para cuentas @{staffEmailDomain}. Con otro correo, pedí un
+        código abajo.
+      </p>
 
       <div className="flex items-center gap-3">
         <span className="h-px flex-1 bg-[var(--border)]" />
@@ -111,7 +193,7 @@ export function LoginFormClient({ callbackURL }: { callbackURL: string }) {
         <span className="h-px flex-1 bg-[var(--border)]" />
       </div>
 
-      <form onSubmit={handleMagicLink} className="space-y-[18px]">
+      <form onSubmit={handleSendCode} className="space-y-[18px]">
         <label className="block">
           <span className="mb-2 block text-sm font-bold text-[var(--foreground)]">
             Correo electrónico
@@ -134,10 +216,10 @@ export function LoginFormClient({ callbackURL }: { callbackURL: string }) {
 
         <button
           type="submit"
-          disabled={magicPending}
+          disabled={codePending}
           className="flex h-[52px] w-full items-center justify-center gap-2 rounded-[var(--panel-radius)] bg-[var(--accent)] text-[15px] font-bold text-white shadow-[0_8px_24px_rgba(227,27,35,0.26)] transition hover:opacity-90 disabled:opacity-60 xl:h-14 xl:text-base"
         >
-          {magicPending ? "Enviando..." : "Enviarme un enlace de acceso"}
+          {codePending ? "Enviando..." : "Enviarme un código de acceso"}
           <ArrowRight className="size-5" />
         </button>
       </form>
