@@ -12,7 +12,7 @@ import {
 } from "@/app/actions/teams";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { Select } from "basket-tv-ui";
 import { CLUB_COMPETITIONS, EXTERNAL_TEAM_LEAGUES } from "@/lib/club-catalog";
 import { shrinkLogoFile } from "@/lib/shrink-logo";
 import {

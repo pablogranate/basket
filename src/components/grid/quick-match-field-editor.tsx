@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, X } from "lucide-react";
 
 import { quickUpdateMatchFieldAction } from "@/app/actions/matches";
-import { Select } from "@/components/ui/select";
+import { Select } from "basket-tv-ui";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { cn } from "@/lib/utils";
 

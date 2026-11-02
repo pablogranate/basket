@@ -32,7 +32,7 @@ import { ClientTeamLogoMark } from "@/components/team-logo-mark-client";
 import { Button } from "@/components/ui/button";
 import { HoverAvatarBadge } from "@/components/ui/hover-avatar-badge";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { Select } from "basket-tv-ui";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Textarea } from "@/components/ui/textarea";
 import { ALL_CLUB_OPTIONS, CLUB_COMPETITIONS } from "@/lib/club-catalog";

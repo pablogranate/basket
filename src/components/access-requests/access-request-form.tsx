@@ -2,7 +2,7 @@ import { submitAccessRequestAction } from "@/app/actions/access-requests";
 import { CiudadFieldClient } from "@/components/shared/ciudad-field-client";
 import { PhoneFieldClient } from "@/components/access-requests/phone-field-client";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { Select } from "basket-tv-ui";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Textarea } from "@/components/ui/textarea";
 import { ACCESS_REQUEST_FUNCIONES } from "@/lib/access-requests/constants";

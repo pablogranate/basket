@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { mergePeopleAction } from "@/app/actions/people";
 import { PeopleRedirectToInput } from "@/components/people/people-redirect-to";
-import { Select } from "@/components/ui/select";
+import { Select } from "basket-tv-ui";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { groupMergeOptions, planFichaMerge, type MergeFicha } from "@/lib/people/merge";
 
