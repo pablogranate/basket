@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ShieldCheck } from "lucide-react";
 
 import { updatePersonAccessRoleAction } from "@/app/actions/people";
-import { Select } from "@/components/ui/select";
+import { Select } from "basket-tv-ui";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { APP_ROLE_DISPLAY_NAMES } from "@/lib/display";
 import { PeopleRedirectToInput } from "@/components/people/people-redirect-to";

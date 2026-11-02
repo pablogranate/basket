@@ -174,7 +174,7 @@ It is one of three sibling apps under `basket-app.com`: `portal.` (this), `analy
 
 ## Styling comes from basket-tv-ui
 
-The shell and the look shared by the basket-app.com apps live in one package, [`basket-tv-ui`](https://github.com/WencesCapolo/basket-tv-ui): the design tokens (`--n-*`, `--accent*`, `--ok*`, `--navy*`, `--border`, `--panel-radius`, shadows, fonts), the `Marco` shell (navy sidebar, header, Volver / Elegir aplicación), `ChipDeUsuario`, `BotonDeSalir` and `urlDelLanzador`.
+The shell and the look shared by the basket-app.com apps live in one package, [`basket-tv-ui`](https://github.com/WencesCapolo/basket-tv-ui): the design tokens (`--n-*`, `--accent*`, `--ok*`, `--warn*`, `--navy*`, `--border`, `--panel-radius`, shadows, fonts), the `Marco` shell (navy sidebar, header, Volver / Elegir aplicación), `ChipDeUsuario`, `BotonDeSalir`, `urlDelLanzador` and the `Select` dropdown (`import { Select } from "basket-tv-ui"`; there is no local `ui/select`).
 
 - Use the package; don't add general styling here. That means no new `:root` colour, radius, shadow or font tokens, no hardcoded palette hex values (use `bg-accent`, `text-n-600`, `var(--border)`…), and no local copies or variants of the shell, the user chip or the logout button.
 - If something general is missing (a token or a shell slot that another app would also want), add it to `basket-tv-ui`: change `src/`, run `pnpm build`, commit `src` and `dist` together, tag `vX.Y.Z`, then bump the `#vX.Y.Z` in this app's `package.json`.

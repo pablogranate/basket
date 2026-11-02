@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { Select } from "basket-tv-ui";
 import {
   CIUDAD_COUNTRIES,
   countryFlag,

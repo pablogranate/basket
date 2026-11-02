@@ -9,7 +9,7 @@ import {
 } from "@/app/actions/matches";
 import { type PersonFunctionKey, peopleAssignableTo } from "@/lib/functions";
 import type { GridOwner } from "@/lib/types";
-import { Select } from "@/components/ui/select";
+import { Select } from "basket-tv-ui";
 import { cn } from "@/lib/utils";
 
 export type MatchCellEditor = {

@@ -7,7 +7,7 @@ import { PhoneFieldClient } from "@/components/access-requests/phone-field-clien
 import { describeExistingAccountReasons } from "@/lib/access-requests/approval";
 import type { AccessRequestReviewItem } from "@/lib/access-requests/review-item";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { Select } from "basket-tv-ui";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ACCESS_TIER_OPTIONS } from "@/lib/roles";
 

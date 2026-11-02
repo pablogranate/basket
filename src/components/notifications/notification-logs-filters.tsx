@@ -6,7 +6,7 @@ import { useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { Select } from "basket-tv-ui";
 import type { NotificationLogFilters } from "@/lib/notifications/log-filters";
 import { cn } from "@/lib/utils";
 

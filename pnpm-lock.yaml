@@ -12,8 +12,8 @@ importers:
   .:
     dependencies:
       basket-tv-ui:
-        specifier: https://codeload.github.com/WencesCapolo/basket-tv-ui/tar.gz/refs/tags/v0.2.0
-        version: https://codeload.github.com/WencesCapolo/basket-tv-ui/tar.gz/refs/tags/v0.2.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        specifier: https://codeload.github.com/WencesCapolo/basket-tv-ui/tar.gz/refs/tags/v0.7.0
+        version: https://codeload.github.com/WencesCapolo/basket-tv-ui/tar.gz/refs/tags/v0.7.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       better-auth:
         specifier: 1.6.33
         version: 1.6.33(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(kysely@0.28.17)(postgres@3.4.9))(next@16.1.6(@babel/core@7.29.7)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vitest@4.1.8(@types/node@20.19.41)(vite@8.0.16(@types/node@20.19.41)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.23.13)))
@@ -297,11 +297,11 @@ packages:
 
   '@esbuild-kit/core-utils@3.3.2':
     resolution: {integrity: sha512-sPRAnw9CdSsRmEtnsl2WXWdyquogVpB3yZ3dgwJfe8zrOzTsV7cJvmwrKVa+0ma5BoiGJ+BoqkMvawbayKUsqQ==}
-    deprecated: 'Merged into tsx: https://tsx.is'
+    deprecated: 'Merged into tsx: https://tsx.hirok.io'
 
   '@esbuild-kit/esm-loader@2.6.5':
     resolution: {integrity: sha512-FxEMIkJKnodyA1OaCUoEvbYRkoZlLZ4d/eXFu9Fh8CbBBgP5EmZxrfTRyN0qpXZ4vOvqnE5YdRdcrmUUXuU+dA==}
-    deprecated: 'Merged into tsx: https://tsx.is'
+    deprecated: 'Merged into tsx: https://tsx.hirok.io'
 
   '@esbuild/aix-ppc64@0.25.12':
     resolution: {integrity: sha512-Hhmwd6CInZ3dwpuGTF8fJG6yoWmsToE+vYgD4nytZVxcu1ulHpUQRAB1UJ8+N1Am3Mz4+xOByoQoSZf4D+CpkA==}
@@ -1588,9 +1588,9 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
-  basket-tv-ui@https://codeload.github.com/WencesCapolo/basket-tv-ui/tar.gz/refs/tags/v0.2.0:
-    resolution: {tarball: https://codeload.github.com/WencesCapolo/basket-tv-ui/tar.gz/refs/tags/v0.2.0}
-    version: 0.2.0
+  basket-tv-ui@https://codeload.github.com/WencesCapolo/basket-tv-ui/tar.gz/refs/tags/v0.7.0:
+    resolution: {tarball: https://codeload.github.com/WencesCapolo/basket-tv-ui/tar.gz/refs/tags/v0.7.0}
+    version: 0.7.0
     peerDependencies:
       react: '>=19'
       react-dom: '>=19'
@@ -2087,6 +2087,7 @@ packages:
   eslint@9.39.4:
     resolution: {integrity: sha512-XoMjdBOwe/esVgEvLmNsD3IRHkm7fbKIUGvrleloJXUZgDHig2IPWNniv+GwjyJXzuNqVjlr5+4yVUZjycJwfQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'
@@ -4399,10 +4400,11 @@ snapshots:
 
   baseline-browser-mapping@2.10.33: {}
 
-  basket-tv-ui@https://codeload.github.com/WencesCapolo/basket-tv-ui/tar.gz/refs/tags/v0.2.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
+  basket-tv-ui@https://codeload.github.com/WencesCapolo/basket-tv-ui/tar.gz/refs/tags/v0.7.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
     dependencies:
       react: 19.2.3
       react-dom: 19.2.3(react@19.2.3)
+      tailwind-merge: 3.6.0
 
   better-auth@1.6.33(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(kysely@0.28.17)(postgres@3.4.9))(next@16.1.6(@babel/core@7.29.7)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vitest@4.1.8(@types/node@20.19.41)(vite@8.0.16(@types/node@20.19.41)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.23.13))):
     dependencies:

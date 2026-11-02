@@ -17,7 +17,7 @@ import { upsertPersonAction } from "@/app/actions/people";
 import { CiudadFieldClient } from "@/components/shared/ciudad-field-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { Select } from "basket-tv-ui";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Textarea } from "@/components/ui/textarea";
 import { PersonFunctionsField } from "@/components/people/person-functions-field";

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Check } from "lucide-react";
 
 import { setAppRoleAction } from "@/app/actions/usuarios";
-import { Select } from "@/components/ui/select";
+import { Select } from "basket-tv-ui";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { NO_ROLE_OPTION } from "@/lib/acceso/catalog";
 

@@ -7,7 +7,7 @@ import { useTransition } from "react";
 import { cn } from "@/lib/utils";
 
 import { SERVER_RENDERED_PEOPLE_PARAMS } from "@/components/people/people-redirect-to";
-import { Select } from "@/components/ui/select";
+import { Select } from "basket-tv-ui";
 import {
   ACCESS_FILTER_OPTIONS,
   type PeopleFilterOptions,

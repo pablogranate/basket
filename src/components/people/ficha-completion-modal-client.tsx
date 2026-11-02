@@ -9,7 +9,7 @@ import { completeFichaAction } from "@/app/actions/ficha-completion";
 import { CiudadFieldClient } from "@/components/shared/ciudad-field-client";
 import { PhoneFieldClient } from "@/components/access-requests/phone-field-client";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
+import { Select } from "basket-tv-ui";
 import { SubmitButton } from "@/components/ui/submit-button";
 import {
   ACCESS_REQUEST_FUNCIONES,
