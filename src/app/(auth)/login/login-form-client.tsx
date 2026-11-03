@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ArrowRight, KeyRound, Mail } from "lucide-react";
 
+import { CodeInput } from "@/components/ui/code-input";
 import { authClient } from "@/lib/auth/client";
 import { ensureErrorMessage } from "@/lib/utils";
 
@@ -128,21 +129,15 @@ export function LoginFormClient({
             <span className="font-bold text-[var(--foreground)]">{email.trim()}</span>.
             Escribilo acá para entrar.
           </p>
-          <input
-            type="text"
-            name="code"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            pattern="[0-9]*"
-            maxLength={CODE_LENGTH}
-            value={code}
-            onChange={(event) =>
-              setCode(event.target.value.replace(/\D/g, "").slice(0, CODE_LENGTH))
-            }
-            autoFocus
-            aria-label="Código de acceso"
-            className="mt-4 block h-14 w-full rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--background)] text-center text-2xl font-bold tracking-[0.5em] text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[rgba(227,27,35,0.12)]"
-          />
+          <div className="mt-4">
+            <CodeInput
+              length={CODE_LENGTH}
+              value={code}
+              onChange={setCode}
+              invalid={error !== null}
+              label="Código de acceso"
+            />
+          </div>
           <button
             type="submit"
             disabled={codePending || code.length !== CODE_LENGTH}

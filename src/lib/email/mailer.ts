@@ -71,17 +71,66 @@ export async function sendLoginCodeEmail({
       to,
       subject: `${code} es tu código de acceso a ${APP_NAME}`,
       text: `Tu código de acceso a ${APP_NAME} es:\n\n${code}\n\nEscribilo en la pantalla de ingreso. Vence en 10 minutos.\n\nSi no solicitaste este acceso, ignora este correo.`,
-      html: `
-        <p>Tu código de acceso a <strong>${APP_NAME}</strong> es:</p>
-        <p style="font-size:28px;font-weight:700;letter-spacing:6px">${code}</p>
-        <p>Escribilo en la pantalla de ingreso. Vence en 10 minutos.</p>
-        <p style="color:#666;font-size:13px">Si no solicitaste este acceso, ignora este correo.</p>
-      `,
+      html: loginCodeEmailHtml(code),
     });
   } catch (error) {
     console.error("[mailer] failed to send login code", error);
     throw error;
   }
+}
+
+function loginCodeEmailHtml(code: string) {
+  const font = "Poppins, 'Helvetica Neue', Arial, sans-serif";
+  const logoUrl = `${appEnv.portalBaseUrl}/basket-tv-horizontal-blanco.png`;
+  const digits = code
+    .split("")
+    .map(
+      (digit) =>
+        `<td style="width:44px;height:56px;border:1px solid #e7e4e2;border-radius:10px;background:#faf9f8;font-family:${font};font-size:28px;font-weight:700;color:#1c0d10;text-align:center;vertical-align:middle">${digit}</td>`,
+    )
+    .join('<td style="width:6px"></td>');
+
+  return `
+<!doctype html>
+<html lang="es">
+  <body style="margin:0;padding:0;background:#f4f2f1">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f2f1;padding:32px 16px">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e7e4e2">
+            <tr>
+              <td style="background:#e31b23;padding:24px 32px">
+                <img src="${logoUrl}" alt="Basket.tv" width="140" style="display:block;width:140px;height:auto;border:0" />
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:32px 32px 8px;font-family:${font}">
+                <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#e31b23">Código de acceso</p>
+                <h1 style="margin:0 0 12px;font-size:22px;font-weight:800;color:#1c0d10">Ingresá a ${APP_NAME}</h1>
+                <p style="margin:0;font-size:15px;line-height:1.5;color:#4a423f">Escribí este código en la pantalla de ingreso:</p>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:20px 32px">
+                <table role="presentation" cellpadding="0" cellspacing="0"><tr>${digits}</tr></table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 32px 32px;font-family:${font}">
+                <p style="margin:0;font-size:13px;color:#6b615f">Vence en 10 minutos.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 32px;background:#faf9f8;border-top:1px solid #e7e4e2;font-family:${font}">
+                <p style="margin:0;font-size:12px;line-height:1.5;color:#847b78">Si no solicitaste este acceso, ignorá este correo.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
 }
 
 export async function sendCollaboratorInviteEmail({
