@@ -27,6 +27,7 @@ import {
 import type { RoleRow } from "@/lib/database.types";
 import type { GridOwner, MatchListItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useStoredState } from "@/lib/use-stored-state";
 
 export type GridTableRow = {
   dayLabel: string;
@@ -151,56 +152,47 @@ function normalizeColumnOrder(value: unknown) {
   return ordered;
 }
 
-function readStoredList<T>(
-  storageKey: string,
-  normalize: (value: unknown) => T[] | null,
-): T[] {
-  if (typeof window === "undefined") {
-    return [];
-  }
-
+function parseStoredJson(raw: string | null): unknown {
   try {
-    return (
-      normalize(JSON.parse(window.localStorage.getItem(storageKey) ?? "null")) ??
-      []
-    );
+    return JSON.parse(raw ?? "null");
   } catch {
-    window.localStorage.removeItem(storageKey);
-    return [];
+    return null;
   }
 }
 
-function readStoredColumnWidths(): Record<string, number> {
-  if (typeof window === "undefined") {
+function parseHiddenColumns(raw: string | null): string[] {
+  return normalizeHiddenColumns(parseStoredJson(raw)) ?? [];
+}
+
+function parseColumnOrder(raw: string | null): string[] {
+  const stored = normalizeColumnOrder(parseStoredJson(raw));
+  return stored?.length ? stored : DEFAULT_COLUMN_ORDER;
+}
+
+function parseEditMode(raw: string | null) {
+  return raw === "true";
+}
+
+function parseColumnWidths(raw: string | null): Record<string, number> {
+  const parsed = parseStoredJson(raw);
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     return {};
   }
 
-  try {
-    const parsed: unknown = JSON.parse(
-      window.localStorage.getItem(COLUMN_WIDTHS_STORAGE_KEY) ?? "null",
-    );
+  const result: Record<string, number> = {};
 
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return {};
+  for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+    if (
+      typeof value === "number" &&
+      Number.isFinite(value) &&
+      value >= MIN_COLUMN_WIDTH
+    ) {
+      result[key] = Math.round(value);
     }
-
-    const result: Record<string, number> = {};
-
-    for (const [key, raw] of Object.entries(parsed as Record<string, unknown>)) {
-      if (
-        typeof raw === "number" &&
-        Number.isFinite(raw) &&
-        raw >= MIN_COLUMN_WIDTH
-      ) {
-        result[key] = Math.round(raw);
-      }
-    }
-
-    return result;
-  } catch {
-    window.localStorage.removeItem(COLUMN_WIDTHS_STORAGE_KEY);
-    return {};
   }
+
+  return result;
 }
 
 function getCellEditor(
@@ -406,23 +398,22 @@ export function GridTable({
   roles,
   todayKey,
 }: GridTableProps) {
-  const [hiddenColumns, setHiddenColumns] = useState<string[]>(() =>
-    readStoredList(HIDDEN_COLUMNS_STORAGE_KEY, normalizeHiddenColumns),
+  const [hiddenColumns, setHiddenColumns] = useStoredState(
+    HIDDEN_COLUMNS_STORAGE_KEY,
+    parseHiddenColumns,
   );
-  const [editMode, setEditMode] = useState(() => {
-    if (typeof window === "undefined") {
-      return false;
-    }
-
-    return window.localStorage.getItem(EDIT_MODE_STORAGE_KEY) === "true";
-  });
-  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(
-    () => readStoredColumnWidths(),
+  const [editMode, setEditMode] = useStoredState(
+    EDIT_MODE_STORAGE_KEY,
+    parseEditMode,
   );
-  const [columnOrder, setColumnOrder] = useState<string[]>(() => {
-    const stored = readStoredList(COLUMN_ORDER_STORAGE_KEY, normalizeColumnOrder);
-    return stored.length ? stored : DEFAULT_COLUMN_ORDER;
-  });
+  const [columnWidths, setColumnWidths] = useStoredState(
+    COLUMN_WIDTHS_STORAGE_KEY,
+    parseColumnWidths,
+  );
+  const [columnOrder, setColumnOrder] = useStoredState(
+    COLUMN_ORDER_STORAGE_KEY,
+    parseColumnOrder,
+  );
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
   const columnOrderRef = useRef(columnOrder);
   const columnWidthsRef = useRef(columnWidths);

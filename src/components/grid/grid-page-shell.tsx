@@ -1,12 +1,16 @@
 "use client";
 
-import { useState } from "react";
 import { PanelRightClose, PanelRightOpen } from "lucide-react";
 
+import { useStoredState } from "@/lib/use-stored-state";
 import { cn } from "@/lib/utils";
 
 const SUMMARY_COLLAPSED_STORAGE_KEY =
   "basket-production.grid.summary-collapsed.v1";
+
+function parseCollapsed(raw: string | null) {
+  return raw === "true";
+}
 
 type GridPageShellProps = {
   children: React.ReactNode;
@@ -14,15 +18,10 @@ type GridPageShellProps = {
 };
 
 export function GridPageShell({ children, aside }: GridPageShellProps) {
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window === "undefined") {
-      return false;
-    }
-
-    return (
-      window.localStorage.getItem(SUMMARY_COLLAPSED_STORAGE_KEY) === "true"
-    );
-  });
+  const [collapsed, setCollapsed] = useStoredState(
+    SUMMARY_COLLAPSED_STORAGE_KEY,
+    parseCollapsed,
+  );
 
   function toggleCollapsed() {
     setCollapsed((current) => {
