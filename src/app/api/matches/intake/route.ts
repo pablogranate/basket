@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { withApiKey } from "@/lib/api/with-api-key";
+import { reportError } from "@/lib/log";
 
 function firstString(...values: unknown[]) {
   for (const value of values) {
@@ -189,13 +190,16 @@ export const POST = withApiKey(async (request) => {
       match: normalizeLookupPayload(payload),
     });
   } catch (error) {
+    reportError("[matches-intake] external lookup failed", error, {
+      method: "POST",
+      route: "/api/matches/intake",
+      routeType: "route",
+      status: 500,
+    });
     return NextResponse.json(
       {
         configured: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : "No fue posible consultar la API externa.",
+        message: "No fue posible consultar la API externa.",
       },
       { status: 500 },
     );

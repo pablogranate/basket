@@ -15,6 +15,7 @@ import {
   buildMatchCardSections,
   type MatchCardSection,
 } from "@/lib/grid/match-card-sections";
+import { DomainError } from "@/lib/errors";
 
 // On-demand detail sections for a single grid card. The collapsed card no longer
 // serializes its production/cameras/talent/observations rows into the Flight
@@ -26,7 +27,7 @@ export async function getMatchCardSectionsAction(
   const ctx = await requireUserContext();
 
   if (!isDashboardPathAllowedForRole("/grid", ctx.role)) {
-    throw new Error("No tenes permisos para ver este partido.");
+    throw new DomainError("No tenes permisos para ver este partido.");
   }
 
   const matchRows = await db

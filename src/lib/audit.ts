@@ -253,12 +253,9 @@ export async function writeAudit(
       after: (after ?? null) as Json,
     });
   } catch (error) {
-    console.error("[audit] failed to write audit_log row", {
-      table: args.table,
-      recordId: args.recordId,
-      action: args.action,
-      error,
+    // The caller logs and reports it once.
+    throw new Error(`audit_log write failed (${args.table} ${args.action})`, {
+      cause: error,
     });
-    throw error;
   }
 }

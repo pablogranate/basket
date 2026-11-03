@@ -8,11 +8,12 @@ import {
   rethrowNavigationError,
 } from "@/app/actions/helpers";
 import { requireEditor } from "@/lib/auth";
+import { userErrorMessage } from "@/lib/errors";
 import { previewGridSync, runGridSync } from "@/lib/grid/sync";
 import { updateChangesMatchRow } from "@/lib/grid/sync-plan";
 import type { SyncDeletePassSkipReason } from "@/lib/grid/sync-plan";
+import { reportError } from "@/lib/log";
 import { trackServerEvent } from "@/lib/telemetry";
-import { ensureErrorMessage } from "@/lib/utils";
 
 export type GridSyncPreview = {
   creates: number;
@@ -83,9 +84,11 @@ function buildSyncNotice(result: Awaited<ReturnType<typeof runGridSync>>) {
 
 export async function syncGridAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData, "/grid");
+  let userId: string | null = null;
 
   try {
     const ctx = await requireEditor();
+    userId = ctx.userId;
 
     const result = await runGridSync("manual");
 
@@ -116,11 +119,17 @@ export async function syncGridAction(formData: FormData) {
     });
   } catch (error) {
     rethrowNavigationError(error);
+    reportError("[grid-sync] manual run failed", error, {
+      method: "POST",
+      route: "syncGridAction",
+      routeType: "action",
+      userId,
+    });
 
     redirectWithNotice({
       redirectTo,
       intent: "error",
-      notice: ensureErrorMessage(error),
+      notice: userErrorMessage(error),
     });
   }
 }

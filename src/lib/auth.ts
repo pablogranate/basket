@@ -17,6 +17,9 @@ import { db } from "@/lib/db/client";
 import { profileColumns } from "@/lib/db/rows";
 import { profiles as profilesTable } from "@/lib/db/schema";
 import { can, CAPABILITY_DENIED_MESSAGE } from "@/lib/roles";
+import { DomainError } from "@/lib/errors";
+import { reportError } from "@/lib/log";
+import type { ServerErrorContext } from "@/lib/telemetry";
 
 export type UserContext = Awaited<ReturnType<typeof getUserContext>>;
 
@@ -118,6 +121,12 @@ export const getUserContext = cache(async () => {
   };
 });
 
+// Resolving the user context runs on every request; its failures degrade to
+// no access, so they are reported here.
+function authContext(userId: string): ServerErrorContext {
+  return { route: "getUserContext", routeType: "auth", userId };
+}
+
 // The portal role comes from auth_effective_access (ADR 0010), uncached. The
 // Auth DB being unreachable denies access: there is no second source.
 async function resolvePortalAccess(
@@ -126,7 +135,7 @@ async function resolvePortalAccess(
   try {
     return await getPortalAccess(authUserId);
   } catch (error) {
-    console.error("[auth] failed to load portal Acceso", error);
+    reportError("[auth] failed to load portal Acceso", error, authContext(authUserId));
     return null;
   }
 }
@@ -159,7 +168,7 @@ async function createSuperAdminCuenta(
       return created;
     }
   } catch (error) {
-    console.error("[auth] failed to create a super admin Cuenta", error);
+    reportError("[auth] failed to create a super admin Cuenta", error, authContext(authUserId));
   }
 
   profileCache.delete(authUserId);
@@ -180,7 +189,7 @@ async function loadProfile(
       .limit(1);
     profile = (byAuthId[0] as ProfileRow | undefined) ?? null;
   } catch (error) {
-    console.error("[auth] failed to load profile by auth_user_id", error);
+    reportError("[auth] failed to load profile by auth_user_id", error, authContext(authUserId));
   }
 
   // First login: stamp auth_user_id onto the email-matched, still-unlinked row
@@ -214,12 +223,12 @@ async function loadProfile(
             .returning(profileColumns)) as ProfileRow[];
           profile = link[0] ?? candidate;
         } catch (error) {
-          console.error("[auth] failed to auto-link profile by email", error);
+          reportError("[auth] failed to auto-link profile by email", error, authContext(authUserId));
           profile = candidate;
         }
       }
     } catch (error) {
-      console.error("[auth] failed to load unlinked profiles", error);
+      reportError("[auth] failed to load unlinked profiles", error, authContext(authUserId));
     }
   }
 
@@ -254,7 +263,7 @@ export async function requireEditor() {
   const context = await requireUserContext();
 
   if (!context.canEdit) {
-    throw new Error(CAPABILITY_DENIED_MESSAGE.edit);
+    throw new DomainError(CAPABILITY_DENIED_MESSAGE.edit);
   }
 
   return context;

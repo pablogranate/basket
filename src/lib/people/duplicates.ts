@@ -13,6 +13,7 @@ import {
   orderFichaPair,
   type MergeFicha,
 } from "@/lib/people/merge";
+import { DomainError } from "@/lib/errors";
 
 // The "Posibles fichas duplicadas" review: fichas with a Cuenta next to the
 // Cuenta-less fichas that look like the same person, and the pairs an admin
@@ -76,7 +77,7 @@ export async function dismissDuplicatePair(
   input: { personId: string; otherPersonId: string; actor: Actor },
 ): Promise<void> {
   if (input.personId === input.otherPersonId) {
-    throw new Error("Elegí dos fichas distintas.");
+    throw new DomainError("Elegí dos fichas distintas.");
   }
 
   const [personId, otherPersonId] = orderFichaPair(input.personId, input.otherPersonId);

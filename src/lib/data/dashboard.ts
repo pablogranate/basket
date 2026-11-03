@@ -57,6 +57,7 @@ import type {
   PersonListItem,
   PersonPortalAccess,
 } from "@/lib/types";
+import { logError } from "@/lib/log";
 
 export type GridFilters = {
   view: "day" | "month";
@@ -275,8 +276,17 @@ export async function getGridData(ctx: UserContext, filters: GridFilters) {
   };
 }
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// null when there is no such match (a malformed id included); a failed query
+// throws.
 export async function getMatchDetailData(ctx: UserContext, matchId: string) {
   void ctx;
+
+  if (!UUID_PATTERN.test(matchId)) {
+    return null;
+  }
 
   const [
     matchRows,
@@ -365,9 +375,8 @@ export async function getMatchDetailData(ctx: UserContext, matchId: string) {
         .from(personFunctionsTable),
     ]);
 
-  // supabase-js `.single()` errored on a missing match; preserve the throw.
   if (!matchRows[0]) {
-    throw new Error(`Match ${matchId} not found`);
+    return null;
   }
   const matchRow = {
     ...matchRows[0],
@@ -597,7 +606,7 @@ export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]>
       // The Acceso column degrades to "desconocido" rather than taking the
       // whole list down with the Auth DB.
       listPortalRolesByUser().catch((error: unknown) => {
-        console.error("[people] failed to load portal accesos", error);
+        logError("[people] failed to load portal accesos", error);
         return null;
       }),
     ]);

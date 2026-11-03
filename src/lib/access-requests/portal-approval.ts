@@ -17,6 +17,7 @@ import {
   profiles as profilesTable,
 } from "@/lib/db/schema";
 import { moveCuentaToApplicant, settleApplicant } from "@/lib/people/identity";
+import { DomainError } from "@/lib/errors";
 
 export type PortalApprovalInput = {
   requestId: string;
@@ -209,7 +210,7 @@ export async function rejectInFavorOfExistingAccount(input: {
     .limit(1);
 
   if (!existing?.authUserId) {
-    throw new Error("Esa cuenta nunca entró al portal: elegí pasar la ficha a esta cuenta.");
+    throw new DomainError("Esa cuenta nunca entró al portal: elegí pasar la ficha a esta cuenta.");
   }
 
   const existingUserId = existing.authUserId;
@@ -224,7 +225,7 @@ export async function rejectInFavorOfExistingAccount(input: {
     });
 
     if (claimed.userId === existingUserId) {
-      throw new Error("La solicitud ya viene de esa cuenta.");
+      throw new DomainError("La solicitud ya viene de esa cuenta.");
     }
 
     if (!hasAccess) {

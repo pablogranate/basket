@@ -4,6 +4,7 @@ import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
 
 import { appEnv, assertSmtpEnv } from "@/lib/env";
+import { logError } from "@/lib/log";
 
 const globalForMailer = globalThis as unknown as {
   mailTransport?: Transporter;
@@ -53,7 +54,7 @@ export async function sendMagicLinkEmail({
       `,
     });
   } catch (error) {
-    console.error("[mailer] failed to send magic link", error);
+    logError("[mailer] failed to send magic link", error);
     throw error;
   }
 }
@@ -74,7 +75,7 @@ export async function sendLoginCodeEmail({
       html: loginCodeEmailHtml(code),
     });
   } catch (error) {
-    console.error("[mailer] failed to send login code", error);
+    logError("[mailer] failed to send login code", error);
     throw error;
   }
 }
@@ -155,7 +156,7 @@ export async function sendCollaboratorInviteEmail({
       `,
     });
   } catch (error) {
-    console.error("[mailer] failed to send collaborator invite", error);
+    logError("[mailer] failed to send collaborator invite", error);
     throw error;
   }
 }
@@ -184,7 +185,7 @@ export async function sendUseExistingAccountEmail({
       `,
     });
   } catch (error) {
-    console.error("[mailer] failed to send use-existing-account email", error);
+    logError("[mailer] failed to send use-existing-account email", error);
     throw error;
   }
 }
@@ -206,7 +207,7 @@ export async function sendMatchNotificationEmail({
       text,
     });
   } catch (error) {
-    console.error("[mailer] failed to send match notification", error);
+    logError("[mailer] failed to send match notification", error);
     throw error;
   }
 }
@@ -228,7 +229,7 @@ export async function sendFixturesSyncAlertEmail({
       text,
     });
   } catch (error) {
-    console.error("[mailer] failed to send fixtures sync alert", error);
+    logError("[mailer] failed to send fixtures sync alert", error);
     throw error;
   }
 }
@@ -272,7 +273,7 @@ export async function sendAccessRequestEmail({
       text: lines.join("\n"),
     });
   } catch (error) {
-    console.error("[mailer] failed to send access request notice", error);
+    logError("[mailer] failed to send access request notice", error);
     throw error;
   }
 }

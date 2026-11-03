@@ -12,7 +12,8 @@ import {
   roles as rolesTable,
 } from "@/lib/db/schema";
 import type { ReportMatchRow } from "@/lib/grid/report-stats";
-import { ensureErrorMessage } from "@/lib/utils";
+import { reportError } from "@/lib/log";
+import { unexpectedErrorMessage } from "@/lib/utils";
 
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
@@ -42,7 +43,7 @@ type MatchQueryRow = {
 
 export const GET = withAuth(
   { capability: "dashboard.full" },
-  async (request) => {
+  async (request, context) => {
     const url = new URL(request.url);
     const parsed = paramsSchema.safeParse({
       from: url.searchParams.get("from") ?? "",
@@ -134,9 +135,15 @@ export const GET = withAuth(
 
       return NextResponse.json({ matches });
     } catch (caught) {
-      console.error("[grid-reports] failed to load matches", caught);
+      reportError("[grid-reports] failed to load matches", caught, {
+        method: "GET",
+        route: "/api/grid/reports",
+        routeType: "route",
+        status: 500,
+        userId: context.userId,
+      });
       return NextResponse.json(
-        { error: ensureErrorMessage(caught) },
+        { error: unexpectedErrorMessage() },
         { status: 500 },
       );
     }

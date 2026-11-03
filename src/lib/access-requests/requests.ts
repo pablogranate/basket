@@ -6,6 +6,7 @@ import type { AccessRequestStatus } from "@/lib/access-requests/constants";
 import { authAccessRequest, authAuditLog, authUser } from "@/lib/auth/schema";
 import type { AuthDbExecutor } from "@/lib/db/auth-client";
 import { isUniqueViolation } from "@/lib/db/errors";
+import { DomainError } from "@/lib/errors";
 
 // The one module that reads and writes Solicitudes de acceso
 // (`auth_access_request`, ADR 0011). A Solicitud asks for one app. The status
@@ -116,7 +117,7 @@ export async function submitAccessRequest(
     return { id: inserted[0]!.id, email };
   } catch (error) {
     if (isUniqueViolation(error)) {
-      throw new Error("Ya tenés una solicitud pendiente.");
+      throw new DomainError("Ya tenés una solicitud pendiente.");
     }
 
     throw error;
@@ -160,7 +161,7 @@ export async function claimAccessRequest(
     });
 
   if (!claimed[0]) {
-    throw new Error("Esta solicitud ya fue resuelta.");
+    throw new DomainError("Esta solicitud ya fue resuelta.");
   }
 
   return {

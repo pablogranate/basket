@@ -5,7 +5,8 @@ import {
   redirectWithNotice,
   rethrowNavigationError,
 } from "@/app/actions/helpers";
-import { reportServerError } from "@/lib/telemetry";
+import { userErrorMessage } from "@/lib/errors";
+import { reportError } from "@/lib/log";
 import { ensureErrorMessage } from "@/lib/utils";
 
 export type ParseResult<I> =
@@ -51,9 +52,10 @@ type DefineActionOptions<Ctx, I> = {
   run: (ctx: Ctx, input: I, meta: ActionMeta) => Promise<ActionOutcome>;
   // Static paths revalidated on success, before run's own revalidate list.
   revalidate?: string[];
-  // Fixed catch notice instead of ensureErrorMessage(error).
+  // Fixed catch notice instead of a DomainError's message or the generic one.
   errorNotice?: string;
-  onError?: (error: unknown) => void;
+  // Prefix of the log line of an unexpected failure.
+  logTag?: string;
 };
 
 // The Better Auth id of the actor, when the authz context carries one.
@@ -131,10 +133,9 @@ export function defineAction<Ctx, I>(
       });
     } catch (error) {
       rethrowNavigationError(error);
-      options.onError?.(error);
-      // Only what run threw: a parse failure or a returned { error } is a
-      // domain outcome, not a failure of the app.
-      reportServerError(error, {
+      // Only what run threw: a parse failure, a returned { error } or a
+      // DomainError is a domain outcome, not a failure of the app.
+      reportError(options.logTag ?? "[action] failed", error, {
         method: "POST",
         routeType: "action",
         userId: actorUserId(ctx),
@@ -142,7 +143,7 @@ export function defineAction<Ctx, I>(
       redirectWithNotice({
         redirectTo,
         intent: "error",
-        notice: options.errorNotice ?? ensureErrorMessage(error),
+        notice: options.errorNotice ?? userErrorMessage(error),
       });
     }
   };

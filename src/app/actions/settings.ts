@@ -34,6 +34,7 @@ import {
   clearPortalGeminiConfigCache,
   isGeminiModel,
 } from "@/lib/settings";
+import { DomainError } from "@/lib/errors";
 
 function isAllowedValue<T extends readonly string[]>(value: string, options: T) {
   return options.includes(value as T[number]);
@@ -249,7 +250,7 @@ const saveAnnouncement = defineAction({
 
       const row = rows[0];
       if (!row) {
-        throw new Error("No se encontró el comunicado.");
+        throw new DomainError("No se encontró el comunicado.");
       }
       persistedAnnouncementId = row.id;
 
@@ -277,7 +278,7 @@ const saveAnnouncement = defineAction({
 
       const row = rows[0];
       if (!row) {
-        throw new Error("No pudimos crear el comunicado.");
+        throw new DomainError("No pudimos crear el comunicado.");
       }
       persistedAnnouncementId = row.id;
 

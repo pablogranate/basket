@@ -4,6 +4,7 @@ import { z } from "zod";
 import { withAuth } from "@/lib/api/with-auth";
 import { AI_COPY } from "@/lib/copy";
 import { getGeminiRuntimeConfig } from "@/lib/settings";
+import { logUpstreamError, upstreamDetail } from "@/lib/log";
 
 type GeminiResponse = {
   candidates?: Array<{
@@ -120,20 +121,18 @@ export const POST = withAuth({}, async (request) => {
   );
 
   if (!response.ok) {
-    const detail = await response.text();
-    console.error("[ai][speedtest] gemini request failed", {
-      requestId,
-      model,
-      source,
-      status: response.status,
-      detail,
-    });
+    const body = await response.text();
+    logUpstreamError(
+      "[ai][speedtest] gemini request failed",
+      { status: response.status, body },
+      { requestId, model, source },
+    );
 
     return NextResponse.json(
       {
         error:
           "No pudimos leer la captura con Gemini. Revisa la configuración o intenta con otra imagen.",
-        detail,
+        detail: upstreamDetail(body),
       },
       { status: 502 },
     );

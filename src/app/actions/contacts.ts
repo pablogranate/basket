@@ -13,6 +13,7 @@ import {
 } from "@/lib/db/schema";
 import { getRoleDisplayName } from "@/lib/display";
 import { getAttendanceState, type AttendanceState } from "@/lib/grid/attendance";
+import { DomainError } from "@/lib/errors";
 
 export type MatchContact = {
   personId: string;
@@ -54,7 +55,7 @@ export async function getMatchContactsAction(
   const ctx = await requireUserContext();
 
   if (!isDashboardPathAllowedForRole("/grid", ctx.role)) {
-    throw new Error("No tenes permisos para ver estos contactos.");
+    throw new DomainError("No tenes permisos para ver estos contactos.");
   }
 
   const matchRows = await db
@@ -192,7 +193,7 @@ export async function getPeopleContactsAction(
   const ctx = await requireUserContext();
 
   if (!isDashboardPathAllowedForRole("/grid", ctx.role)) {
-    throw new Error("No tenes permisos para ver estos contactos.");
+    throw new DomainError("No tenes permisos para ver estos contactos.");
   }
 
   const ids = [

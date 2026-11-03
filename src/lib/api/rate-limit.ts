@@ -1,4 +1,5 @@
 import { RateLimiterMemory } from "rate-limiter-flexible";
+import { logError } from "@/lib/log";
 
 export const GUEST_RATE_LIMIT_POINTS = 5;
 export const GUEST_RATE_LIMIT_DURATION_SECONDS = 60;
@@ -39,7 +40,7 @@ export async function consumeGuestRateLimit(
       };
     }
 
-    console.error("[rate-limit] unexpected guest rate limiter error", error);
+    logError("[rate-limit] unexpected guest rate limiter error", error);
     return {
       allowed: false,
       remainingPoints: 0,

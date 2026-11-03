@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { and, desc, eq, inArray, ne, notInArray } from "drizzle-orm";
 
+import { failedActionResult } from "@/app/actions/helpers";
 import { requireEditor } from "@/lib/auth";
 import { isImageDataUrl } from "@/lib/club-logo";
 import { db } from "@/lib/db/client";
@@ -20,7 +21,8 @@ import {
 } from "@/lib/leagues/leagues";
 import { splitTeamCompetitions } from "@/lib/team-directory";
 import { slugifyTeamValue } from "@/lib/teams/slug";
-import { ensureErrorMessage, maybeNull } from "@/lib/utils";
+import { maybeNull } from "@/lib/utils";
+import { DomainError } from "@/lib/errors";
 
 const FALLBACK_SEASON = "2025/26";
 
@@ -179,8 +181,10 @@ export type UpsertTeamResult = {
 export async function upsertTeamAction(
   formData: FormData,
 ): Promise<UpsertTeamResult> {
+  let userId: string | null = null;
+
   try {
-    await requireEditor();
+    userId = (await requireEditor()).userId;
 
     const editedTeamId = maybeNull(String(formData.get("teamId") ?? ""));
     const name = String(formData.get("officialName") ?? "").trim();
@@ -227,7 +231,7 @@ export async function upsertTeamAction(
         .limit(1);
 
       if (!editedTeam[0]) {
-        throw new Error("No se encontró el equipo a editar.");
+        throw new DomainError("No se encontró el equipo a editar.");
       }
 
       clubId = editedTeam[0].club_id;
@@ -302,8 +306,10 @@ export async function upsertTeamAction(
 
     return { ok: true };
   } catch (error) {
-    console.error("[teams] failed to upsert team", error);
-    return { ok: false, error: ensureErrorMessage(error) };
+    return failedActionResult("[teams] failed to upsert team", error, {
+      route: "upsertTeamAction",
+      userId,
+    });
   }
 }
 
@@ -318,8 +324,10 @@ export async function assignTeamsToLeagueAction({
   mode: "move" | "add";
   fromLeague?: string | null;
 }): Promise<UpsertTeamResult> {
+  let userId: string | null = null;
+
   try {
-    await requireEditor();
+    userId = (await requireEditor()).userId;
 
     const ids = Array.from(new Set(teamIds.filter(Boolean)));
     const targetName = leagueName.trim();
@@ -389,8 +397,10 @@ export async function assignTeamsToLeagueAction({
 
     return { ok: true };
   } catch (error) {
-    console.error("[teams] failed to assign teams to league", error);
-    return { ok: false, error: ensureErrorMessage(error) };
+    return failedActionResult("[teams] failed to assign teams to league", error, {
+      route: "assignTeamsToLeagueAction",
+      userId,
+    });
   }
 }
 
@@ -400,8 +410,10 @@ export async function reorderLeagueTabsAction({
 }: {
   leagueNames: string[];
 }): Promise<UpsertTeamResult> {
+  let userId: string | null = null;
+
   try {
-    await requireEditor();
+    userId = (await requireEditor()).userId;
 
     const names = Array.from(
       new Set(leagueNames.map((name) => name.trim()).filter(Boolean)),
@@ -417,8 +429,10 @@ export async function reorderLeagueTabsAction({
 
     return { ok: true };
   } catch (error) {
-    console.error("[teams] failed to reorder league tabs", error);
-    return { ok: false, error: ensureErrorMessage(error) };
+    return failedActionResult("[teams] failed to reorder league tabs", error, {
+      route: "reorderLeagueTabsAction",
+      userId,
+    });
   }
 }
 
@@ -433,8 +447,10 @@ export async function removeTeamFromLeaguesAction({
   teamId: string;
   leagueNames: string[];
 }): Promise<RemoveTeamResult> {
+  let userId: string | null = null;
+
   try {
-    await requireEditor();
+    userId = (await requireEditor()).userId;
 
     const names = leagueNames.map((name) => name.trim()).filter(Boolean);
 
@@ -487,8 +503,10 @@ export async function removeTeamFromLeaguesAction({
 
     return { ok: true, teamDeleted };
   } catch (error) {
-    console.error("[teams] failed to remove team from leagues", error);
-    return { ok: false, error: ensureErrorMessage(error) };
+    return failedActionResult("[teams] failed to remove team from leagues", error, {
+      route: "removeTeamFromLeaguesAction",
+      userId,
+    });
   }
 }
 
@@ -499,8 +517,10 @@ export async function archiveTeamsAction({
 }: {
   teamIds: string[];
 }): Promise<UpsertTeamResult> {
+  let userId: string | null = null;
+
   try {
-    await requireEditor();
+    userId = (await requireEditor()).userId;
 
     const ids = Array.from(new Set(teamIds.filter(Boolean)));
     if (!ids.length) {
@@ -517,7 +537,9 @@ export async function archiveTeamsAction({
 
     return { ok: true };
   } catch (error) {
-    console.error("[teams] failed to archive teams", error);
-    return { ok: false, error: ensureErrorMessage(error) };
+    return failedActionResult("[teams] failed to archive teams", error, {
+      route: "archiveTeamsAction",
+      userId,
+    });
   }
 }

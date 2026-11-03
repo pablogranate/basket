@@ -13,6 +13,8 @@ import {
   type SyncLogFilters,
 } from "@/lib/sync/log-filters";
 import type { SyncLogEntry } from "@/lib/types";
+import { DomainError } from "@/lib/errors";
+import { logError } from "@/lib/log";
 
 const ARG_TZ = "America/Argentina/Buenos_Aires";
 
@@ -35,7 +37,7 @@ export async function getSyncLogs(
   }: { page?: number; filters?: SyncLogFilters } = {},
 ): Promise<SyncLogsPage> {
   if (!can(ctx, "admin")) {
-    throw new Error("Solo un admin puede ver el registro de sincronizaciones.");
+    throw new DomainError("Solo un admin puede ver el registro de sincronizaciones.");
   }
 
   const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
@@ -89,7 +91,7 @@ export async function getSyncLogs(
       pageCount,
     };
   } catch (error) {
-    console.error("[grid-sync] failed to load sync log", error);
+    logError("[grid-sync] failed to load sync log", error);
     return { rows: [], total: 0, page: safePage, pageCount: 0 };
   }
 }

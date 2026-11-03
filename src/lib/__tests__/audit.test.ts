@@ -162,7 +162,6 @@ describe("writeAudit", () => {
     const ctx = makeUserContext({ profileId: "actor-6" });
     makeDbMock();
     insertBehavior.shouldThrow = true;
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     await expect(
       writeAudit(ctx, {
@@ -172,9 +171,6 @@ describe("writeAudit", () => {
         before: null,
         after: {},
       }),
-    ).rejects.toBeTruthy();
-
-    expect(errorSpy).toHaveBeenCalled();
-    errorSpy.mockRestore();
+    ).rejects.toThrow("audit_log write failed (people INSERT)");
   });
 });

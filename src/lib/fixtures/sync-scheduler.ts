@@ -8,6 +8,9 @@ import { FIXTURE_TIMEZONE } from "@/lib/fixtures/schedule";
 import { runFixturesSync } from "@/lib/fixtures/sync";
 import { buildFixturesSyncAlert, type FixturesSyncAlert } from "@/lib/fixtures/sync-alert";
 import { defaultFixturesSyncWindow } from "@/lib/fixtures/window";
+import { describeError, reportError } from "@/lib/log";
+
+const JOB_CONTEXT = { route: "fixtures-sync", routeType: "job" };
 
 let scheduled = false;
 
@@ -37,15 +40,18 @@ async function runScheduledSync() {
     }
 
     result.warnings.forEach((warning) => console.warn(`[fixtures-sync] ${warning}`));
-    result.errors.forEach((error) => console.error(`[fixtures-sync] ${error}`));
+    result.errors.forEach((message) => {
+      // A feed failure is caught inside the run and kept as text.
+      const error = new Error(message);
+      error.name = "FixturesFeedError";
+      reportError("[fixtures-sync] feed failed", error, JOB_CONTEXT);
+    });
     console.info(
       `[fixtures-sync] cron run done (${result.from} a ${result.to}): ${result.upserted} guardados, ${result.deleted} eliminados, ${result.linked} vinculados`,
     );
   } catch (error) {
-    console.error("[fixtures-sync] cron run failed", error);
-    await sendAlert(
-      buildFixturesSyncAlert({ error: error instanceof Error ? (error.stack ?? error.message) : String(error) }),
-    );
+    reportError("[fixtures-sync] cron run failed", error, JOB_CONTEXT);
+    await sendAlert(buildFixturesSyncAlert({ error: describeError(error) }));
   }
 }
 

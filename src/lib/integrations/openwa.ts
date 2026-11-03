@@ -2,6 +2,7 @@ import "server-only";
 
 import { appEnv, isWhatsAppSendEnabled } from "@/lib/env";
 import { normalizeToWhatsAppChatId } from "@/lib/integrations/whatsapp-chat-id";
+import { logError, logUpstreamError } from "@/lib/log";
 
 export async function sendWhatsAppText(params: {
   phone: string | null | undefined;
@@ -32,17 +33,16 @@ export async function sendWhatsAppText(params: {
     );
 
     if (!response.ok) {
-      const detail = await response.text();
-      console.error("[openwa] sendText failed", {
+      logUpstreamError("[openwa] sendText failed", {
         status: response.status,
-        detail,
+        body: await response.text(),
       });
       return { ok: false, error: `OpenWA respondió ${response.status}.` };
     }
 
     return { ok: true };
   } catch (error) {
-    console.error("[openwa] sendText threw", error);
+    logError("[openwa] sendText threw", error);
     return { ok: false, error: "No se pudo conectar con OpenWA." };
   }
 }

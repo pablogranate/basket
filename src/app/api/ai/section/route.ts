@@ -10,6 +10,7 @@ import { consumeGuestRateLimit } from "@/lib/api/rate-limit";
 import { withAuth } from "@/lib/api/with-auth";
 import { AI_COPY } from "@/lib/copy";
 import { getGeminiRuntimeConfig } from "@/lib/settings";
+import { logUpstreamError, upstreamDetail } from "@/lib/log";
 
 function getClientKey(request: Request) {
   const forwarded = request.headers.get("x-forwarded-for");
@@ -148,21 +149,18 @@ export const POST = withAuth({ allowGuest: true }, async (request, ctx) => {
   );
 
   if (!response.ok) {
-    const text = await response.text();
-    console.error("[ai][section] gemini request failed", {
-      section: payload.data.section,
-      contextLabel: payload.data.contextLabel,
-      model,
-      source,
-      status: response.status,
-      detail: text,
-    });
+    const body = await response.text();
+    logUpstreamError(
+      "[ai][section] gemini request failed",
+      { status: response.status, body },
+      { section: payload.data.section, model, source },
+    );
 
     return NextResponse.json(
       {
         error:
           "No pudimos consultar Gemini. Revisa la API key o el modelo configurado.",
-        detail: text,
+        detail: upstreamDetail(body),
       },
       { status: 502 },
     );

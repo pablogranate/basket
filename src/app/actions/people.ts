@@ -37,7 +37,9 @@ import {
 } from "@/lib/db/schema";
 import { dismissDuplicatePair, restoreDuplicatePair } from "@/lib/people/duplicates";
 import { mergeFichas } from "@/lib/people/identity";
-import { ensureErrorMessage, resolveCheckboxFlag } from "@/lib/utils";
+import { resolveCheckboxFlag } from "@/lib/utils";
+import { DomainError, userErrorMessage } from "@/lib/errors";
+import { reportError } from "@/lib/log";
 
 // profiles is the single authorization table now (no Supabase Auth users).
 // Match email case-insensitively in JS over the small profiles set to avoid
@@ -77,7 +79,7 @@ async function revokePlatformAccessByEmail(
   // Productores may only revoke Externo logins; revoking an admin/Productor
   // account needs a higher rank (canGrantRole).
   if (!canGrantRole(manager, await getCurrentPortalRole(profile))) {
-    throw new Error("Solo un admin puede revocar este acceso.");
+    throw new DomainError("Solo un admin puede revocar este acceso.");
   }
 
   if (profile.auth_user_id) {
@@ -90,8 +92,10 @@ async function revokePlatformAccessByEmail(
   try {
     await removeCuenta(profile.id);
   } catch (error) {
-    console.error("[acceso] portal Acceso revoked but Cuenta not deleted", error);
-    throw error;
+    // The action logs and reports it once; the message names the half-done state.
+    throw new Error("portal Acceso revoked but Cuenta not deleted", {
+      cause: error,
+    });
   }
 
   clearProfileCache();
@@ -118,7 +122,7 @@ const upsertPerson = defineAction({
   authz: requireEditor,
   parse: parseUpsertPerson,
   revalidate: ["/people"],
-  onError: (error) => console.error("[people] upsert failed", error),
+  logTag: "[people] upsert failed",
   async run(ctx, { personId, payload, selectedFunctions, selectedTeamIds }) {
     let rows: { id: string }[];
 
@@ -157,7 +161,7 @@ const upsertPerson = defineAction({
 
     const row = rows[0];
     if (!row) {
-      throw new Error("No se encontró el registro de personal.");
+      throw new DomainError("No se encontró el registro de personal.");
     }
     const savedPersonId = row.id;
 
@@ -226,7 +230,7 @@ const deletePerson = defineAction({
     const person = await findPersonSummaryById(personId);
 
     if (!person) {
-      throw new Error("No se encontró el usuario a eliminar.");
+      throw new DomainError("No se encontró el usuario a eliminar.");
     }
 
     if (can(context, "admin") && person.email) {
@@ -337,21 +341,22 @@ const revokePersonAccess = defineAction({
   authzFailureNotice: true,
   parse: parsePersonId,
   revalidate: ["/people"],
+  logTag: "[people] access revoke failed",
   async run(ctx, { personId }) {
     const person = await findPersonSummaryById(personId);
 
     if (!person) {
-      throw new Error("No se encontró el usuario.");
+      throw new DomainError("No se encontró el usuario.");
     }
 
     if (!person.email) {
-      throw new Error("Este usuario no tiene correo asociado.");
+      throw new DomainError("Este usuario no tiene correo asociado.");
     }
 
     const revoked = await revokePlatformAccessByEmail(person.email, ctx);
 
     if (!revoked) {
-      throw new Error("No se encontró acceso de plataforma para revocar.");
+      throw new DomainError("No se encontró acceso de plataforma para revocar.");
     }
 
     return { notice: "Acceso a la plataforma revocado." };
@@ -373,17 +378,17 @@ const updatePersonAccessRole = defineAction({
     const person = await findPersonSummaryById(personId);
 
     if (!person) {
-      throw new Error("No se encontró el usuario.");
+      throw new DomainError("No se encontró el usuario.");
     }
 
     if (!person.email) {
-      throw new Error("Este usuario no tiene correo asociado.");
+      throw new DomainError("Este usuario no tiene correo asociado.");
     }
 
     const profile = await findProfileByEmail(person.email);
 
     if (!profile) {
-      throw new Error("Este usuario no tiene acceso activo a la plataforma.");
+      throw new DomainError("Este usuario no tiene acceso activo a la plataforma.");
     }
 
     const currentRole = await getCurrentPortalRole(profile);
@@ -394,12 +399,12 @@ const updatePersonAccessRole = defineAction({
       !canGrantRole(ctx, currentRole) ||
       !canGrantRole(ctx, requestedAccessRole)
     ) {
-      throw new Error("Solo un admin puede cambiar este nivel de acceso.");
+      throw new DomainError("Solo un admin puede cambiar este nivel de acceso.");
     }
 
     // Self-demotion would lock the current admin out on the next request.
     if (profile.id === ctx.profileId && requestedAccessRole !== currentRole) {
-      throw new Error("No podés cambiar tu propio nivel de acceso.");
+      throw new DomainError("No podés cambiar tu propio nivel de acceso.");
     }
 
     const userId = await linkCuentaIdentity({
@@ -460,11 +465,17 @@ export async function togglePersonActiveAction(formData: FormData) {
     revalidatePath("/people");
   } catch (error) {
     rethrowNavigationError(error);
+    reportError("[people] active toggle failed", error, {
+      method: "POST",
+      route: "togglePersonActiveAction",
+      routeType: "action",
+      userId: ctx.userId,
+    });
     const redirectTo = getRedirectTarget(formData, "/people");
     redirectWithNotice({
       redirectTo,
       intent: "error",
-      notice: ensureErrorMessage(error),
+      notice: userErrorMessage(error),
     });
   }
 }

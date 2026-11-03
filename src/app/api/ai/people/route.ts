@@ -4,6 +4,7 @@ import { z } from "zod";
 import { withAuth } from "@/lib/api/with-auth";
 import { AI_COPY } from "@/lib/copy";
 import { getGeminiRuntimeConfig } from "@/lib/settings";
+import { logUpstreamError, upstreamDetail } from "@/lib/log";
 
 const requestSchema = z.object({
   question: z.string().trim().min(3).max(500),
@@ -89,20 +90,18 @@ export const POST = withAuth(
   );
 
   if (!response.ok) {
-    const text = await response.text();
-    console.error("[ai][people] gemini request failed", {
-      model,
-      source,
-      peopleCount: payload.data.people.length,
-      status: response.status,
-      detail: text,
-    });
+    const body = await response.text();
+    logUpstreamError(
+      "[ai][people] gemini request failed",
+      { status: response.status, body },
+      { model, source, peopleCount: payload.data.people.length },
+    );
 
     return NextResponse.json(
       {
         error:
           "No pudimos consultar Gemini. Revisa la API key o el modelo configurado.",
-        detail: text,
+        detail: upstreamDetail(body),
       },
       { status: 502 },
     );

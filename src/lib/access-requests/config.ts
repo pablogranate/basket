@@ -7,6 +7,7 @@ import {
 } from "@/lib/access-requests/recipients";
 import { db } from "@/lib/db/client";
 import { appSettings as appSettingsTable } from "@/lib/db/schema";
+import { logError } from "@/lib/log";
 
 export const ACCESS_REQUEST_RECIPIENTS_SETTING_KEY = "access_request_recipients";
 
@@ -68,7 +69,7 @@ export async function getAccessRequestRecipientConfig(): Promise<AccessRequestRe
   } catch (error) {
     // A missing app_settings row (or table) must never stop a signup: fall back
     // to the seeded routing so the notification still reaches producción.
-    console.error("[access-requests] failed to load recipient config", error);
+    logError("[access-requests] failed to load recipient config", error);
     return DEFAULT_ACCESS_REQUEST_RECIPIENTS;
   }
 }

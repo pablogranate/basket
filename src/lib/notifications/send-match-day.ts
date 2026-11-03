@@ -18,6 +18,7 @@ import {
   buildMatchNotificationSubject,
 } from "@/lib/integrations";
 import { sendWhatsAppText } from "@/lib/integrations/openwa";
+import { reportError } from "@/lib/log";
 import { insertNotificationLogs } from "@/lib/notifications/log";
 import {
   buildRecipientLogRows,
@@ -36,14 +37,15 @@ import {
   isMatchDueForNotification,
   NOTIFIABLE_MATCH_STATUSES,
 } from "@/lib/notifications/schedule";
-import { ensureErrorMessage } from "@/lib/utils";
 
 // Per-match send time is keyed on kickoff clock time (see schedule.ts). The
 // hourly tick fires this for any match whose send time has passed. Per-match
 // display timezone is display-only (D4c).
 const ARG_TZ = "America/Argentina/Buenos_Aires";
+const JOB_CONTEXT = { route: "notifications", routeType: "job" };
 // Small gap between WhatsApp sends to avoid OpenWA throttling/ban (D9b).
 const WHATSAPP_GAP_MS = 1500;
+const EMAIL_SEND_ERROR = "No se pudo enviar el correo.";
 
 type Trigger = "cron" | "catchup" | "boot";
 
@@ -113,7 +115,9 @@ export async function runMatchDayNotifications(trigger: Trigger) {
         ),
       )) as typeof candidates;
   } catch (error) {
-    console.error("[notifications] failed to load matches", error);
+    reportError("[notifications] failed to load matches", error, JOB_CONTEXT, {
+      trigger,
+    });
     return;
   }
 
@@ -135,10 +139,10 @@ export async function runMatchDayNotifications(trigger: Trigger) {
     try {
       await notifyMatch(match, trigger);
     } catch (error) {
-      console.error(
-        `[notifications] match ${match.id} failed; skipping`,
-        error,
-      );
+      reportError("[notifications] match failed; skipping", error, JOB_CONTEXT, {
+        match_id: match.id,
+        trigger,
+      });
     }
   }
 }
@@ -254,12 +258,13 @@ export async function notifyMatch(
           });
           outcomes.push({ channel: "email", attempted: true, ok: true });
           emailSent += 1;
-        } catch (error) {
+        } catch {
           outcomes.push({
             channel: "email",
             attempted: true,
             ok: false,
-            error: ensureErrorMessage(error),
+            // The mailer logged the cause; the delivery log shows a fixed text.
+            error: EMAIL_SEND_ERROR,
           });
           emailSkipped += 1;
         }
@@ -269,7 +274,7 @@ export async function notifyMatch(
     if (!outcomes.length) {
       noContact += 1;
       console.warn(
-        `[notifications] ${recipient.personName} has no phone or email; skipped`,
+        `[notifications] person ${recipient.personId} has no phone or email; skipped`,
       );
     }
 
@@ -293,9 +298,11 @@ export async function notifyMatch(
       .set({ dayNotifiedAt: new Date().toISOString() })
       .where(eq(matchesTable.id, match.id));
   } catch (error) {
-    console.error(
-      `[notifications] failed to mark match ${match.id} as notified`,
+    reportError(
+      "[notifications] failed to mark match as notified",
       error,
+      { route: "notifications", routeType: trigger === "manual" ? "action" : "job" },
+      { match_id: match.id, trigger },
     );
   }
 
