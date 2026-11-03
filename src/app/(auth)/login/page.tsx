@@ -17,6 +17,7 @@ import {
 } from "@/lib/auth/login-callback";
 import { parseNotice } from "@/lib/search-params";
 import { getUserContext } from "@/lib/auth";
+import { appEnv } from "@/lib/env";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -45,7 +46,7 @@ export default async function LoginPage({ searchParams }: PageProps) {
     );
   }
 
-  // Route the OAuth / magic-link callback back through this page so the
+  // Route the OAuth callback and the post-code navigation back through this page so the
   // destination is resolved once the session exists.
   const callbackURL = buildLoginCallbackURL(redirectTarget);
 
@@ -140,7 +141,10 @@ export default async function LoginPage({ searchParams }: PageProps) {
 
               <PageMessage intent={intent} message={notice} />
 
-              <LoginFormClient callbackURL={callbackURL} />
+              <LoginFormClient
+                callbackURL={callbackURL}
+                staffEmailDomain={appEnv.staffEmailDomain}
+              />
             </div>
 
             <p className="mt-6 flex items-center justify-center text-center text-sm font-medium text-[var(--muted)] xl:mt-8">

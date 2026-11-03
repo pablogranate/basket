@@ -9,6 +9,8 @@ import { reportAuthEvent } from "@/lib/telemetry";
 
 const MAGIC_LINK_REQUEST_PATH = "/sign-in/magic-link";
 const MAGIC_LINK_VERIFY_PATH = "/magic-link/verify";
+const EMAIL_OTP_REQUEST_PATH = "/email-otp/send-verification-otp";
+const EMAIL_OTP_SIGN_IN_PATH = "/sign-in/email-otp";
 const OAUTH_CALLBACK_PATH = "/callback/:id";
 const SOCIAL_SIGN_IN_PATH = "/sign-in/social";
 const SIGN_OUT_PATH = "/sign-out";
@@ -17,8 +19,17 @@ const IMPERSONATE_PATH = "/admin/impersonate-user";
 const SIGN_IN_PATHS = new Set([
   MAGIC_LINK_REQUEST_PATH,
   MAGIC_LINK_VERIFY_PATH,
+  EMAIL_OTP_REQUEST_PATH,
+  EMAIL_OTP_SIGN_IN_PATH,
   OAUTH_CALLBACK_PATH,
   SOCIAL_SIGN_IN_PATH,
+]);
+
+// Sign-in endpoints whose body carries the email being signed in.
+const EMAIL_BODY_PATHS = new Set([
+  MAGIC_LINK_REQUEST_PATH,
+  EMAIL_OTP_REQUEST_PATH,
+  EMAIL_OTP_SIGN_IN_PATH,
 ]);
 
 // What Better Auth hands a database hook or an after hook about the endpoint
@@ -40,12 +51,15 @@ function stringField(source: unknown, key: string): string | null {
 }
 
 // How the person signed in: the provider of the OAuth callback (google), the
-// magic link, or the admin plugin's impersonation.
+// magic link, the emailed code, or the admin plugin's impersonation.
 export function loginMethodOf(endpoint: AuthEndpointLike): string {
   switch (endpoint?.path) {
     case MAGIC_LINK_REQUEST_PATH:
     case MAGIC_LINK_VERIFY_PATH:
       return "magic_link";
+    case EMAIL_OTP_REQUEST_PATH:
+    case EMAIL_OTP_SIGN_IN_PATH:
+      return "email_otp";
     case OAUTH_CALLBACK_PATH:
       return stringField(endpoint.params, "id") ?? "oauth";
     case SOCIAL_SIGN_IN_PATH:
@@ -152,10 +166,9 @@ export function reportSignInOutcome(input: {
 
     const method = loginMethodOf(endpoint);
     const failure = endpointFailure(input.returned);
-    const email =
-      path === MAGIC_LINK_REQUEST_PATH
-        ? (stringField(endpoint.body, "email")?.trim().toLowerCase() ?? null)
-        : null;
+    const email = EMAIL_BODY_PATHS.has(path)
+      ? (stringField(endpoint.body, "email")?.trim().toLowerCase() ?? null)
+      : null;
 
     if (failure) {
       reportAuthEvent({
