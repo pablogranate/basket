@@ -1,0 +1,31 @@
+name: Deploy to the Entorno de desarrollo
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+# Shared with deploy.yml: both build on the same VPS, so never at once.
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 162.249.168.210
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            # A failed step must not reach pm2 restart: a broken .next serves 502s.
+            set -e
+            cd /opt/basket-app-dev
+            git fetch origin staging
+            git reset --hard origin/staging
+            npm install --no-save --no-package-lock
+            npm run build
+            pm2 restart basket-app-dev

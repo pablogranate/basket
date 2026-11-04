@@ -9,6 +9,7 @@ import {
   LOGOUT_PATH,
 } from "@/lib/constants";
 import { appEnv } from "@/lib/env";
+import { resolveSessionCookiePrefix } from "@/lib/environment";
 
 function isGuestMiJornadaPath(pathname: string) {
   return (
@@ -41,7 +42,11 @@ export async function updateSession(request: NextRequest) {
 
   // Optimistic cookie-presence check only (no DB). Role/profile gating stays in
   // getUserContext + the dashboard layout.
-  const hasSession = Boolean(getSessionCookie(request));
+  const hasSession = Boolean(
+    getSessionCookie(request, {
+      cookiePrefix: resolveSessionCookiePrefix(appEnv.betterAuthUrl),
+    }),
+  );
   const host = getRequestHost(request.headers);
 
   // Apex directory: the RSC page resolves the destination (directory, the one

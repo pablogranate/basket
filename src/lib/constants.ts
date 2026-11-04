@@ -1,5 +1,6 @@
 import type { AppRole, Database } from "@/lib/database.types";
 import { BUSINESS_LABELS, PRODUCT_COPY } from "@/lib/copy";
+import { isDevEnvironmentHost } from "@/lib/environment";
 import { can } from "@/lib/roles";
 
 export const APP_NAME = PRODUCT_COPY.appName;
@@ -226,6 +227,10 @@ export function buildSiblingAppUrl(host: string, subdomain: string) {
 // unrecognized hosts (raw IP, preview domains) so callers never render a broken
 // link. Mirrors buildSiblingAppUrl's local-vs-prod protocol/port handling.
 export function buildApexUrl(host: string): string | null {
+  // The Entorno de desarrollo has no Lanzador: the apex is production's.
+  if (isDevEnvironmentHost(host)) {
+    return null;
+  }
   const [hostname, port] = host.split(":");
   const apex = BASKET_APP_DOMAINS.find(
     (domain) => hostname === domain || hostname.endsWith(`.${domain}`),
@@ -243,6 +248,12 @@ export function buildApexUrl(host: string): string | null {
 // a portal page can link to facturación without building
 // facturacion.portal.basket-app.com. Null for unrecognized hosts.
 export function buildAppUrlFromAnyHost(host: string, subdomain: string): string | null {
+  if (isDevEnvironmentHost(host)) {
+    const hostname = host.split(":")[0];
+    const domain = BASKET_APP_DOMAINS.find((name) => hostname.endsWith(`.${name}`));
+    return domain ? `https://dev.${subdomain}.${domain}` : null;
+  }
+
   const apexUrl = buildApexUrl(host);
 
   if (!apexUrl) {

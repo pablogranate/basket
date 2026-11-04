@@ -46,6 +46,10 @@ _Avoid_: access check, permission check (too generic)
 The portal roles admin and editor — people who see the whole dashboard. Collaborators are not full-access.
 _Avoid_: staff role, elevated role
 
+**Entorno de desarrollo**:
+The copy of the portal and cashflow at `dev.<app>.basket-app.com`, on the production VPS but with its own databases, its own session cookie and its own secret, deployed from the `staging` branch. A login there is not a login in production and the other way round. It has no Lanzador, and its schedulers and notifications are off.
+_Avoid_: staging (in prose), dev server, preview
+
 **Generator**:
 The promotional-image generator at `generator.basket-app.com` — a static browser tool with no backend of its own. It carries no auth code; its gate is enforced in front of it, not inside it.
 _Avoid_: image generator app (when the sibling is meant)

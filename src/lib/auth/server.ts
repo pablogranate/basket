@@ -17,6 +17,7 @@ import {
   authVerification,
 } from "@/lib/auth/schema";
 import { appEnv, assertBetterAuthEnv } from "@/lib/env";
+import { resolveSessionCookiePrefix } from "@/lib/environment";
 import { sendLoginCodeEmail, sendMagicLinkEmail } from "@/lib/email/mailer";
 
 assertBetterAuthEnv();
@@ -54,6 +55,7 @@ export const auth = betterAuth({
     crossSubDomainCookies: resolveCrossSubdomainCookieConfig(
       appEnv.betterAuthUrl,
     ),
+    cookiePrefix: resolveSessionCookiePrefix(appEnv.betterAuthUrl),
   },
   // Auth events for basket-telemetry (docs/telemetry.md): login_success,
   // login_failed, magic_link_requested and logout. The hooks never throw and

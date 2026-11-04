@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
 
+# Shared with deploy-staging.yml: both build on the same VPS, so never at once.
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
