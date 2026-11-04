@@ -4,7 +4,7 @@ import { syncGridAction } from "@/app/actions/grid-sync";
 import { redirectWithNotice } from "@/app/actions/helpers";
 import { requireEditor } from "@/lib/auth";
 import { runGridSync } from "@/lib/grid/sync";
-import { trackServerEvent } from "@/lib/telemetry";
+import { telemetry } from "@/lib/telemetry";
 import { makeUserContext } from "@/test/fixtures/user-context";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -13,7 +13,9 @@ vi.mock("@/lib/grid/sync", () => ({
   previewGridSync: vi.fn(),
   runGridSync: vi.fn(),
 }));
-vi.mock("@/lib/telemetry", () => ({ trackServerEvent: vi.fn() }));
+vi.mock("@/lib/telemetry", () => ({
+  telemetry: { reportServerError: vi.fn(), trackServerEvent: vi.fn(), flush: vi.fn() },
+}));
 vi.mock("@/app/actions/helpers", () => ({
   getRedirectTarget: (_formData: FormData, fallback: string) => fallback,
   redirectWithNotice: vi.fn(),
@@ -53,7 +55,7 @@ describe("syncGridAction telemetry", () => {
 
     await syncGridAction(new FormData());
 
-    expect(vi.mocked(trackServerEvent)).toHaveBeenCalledWith(
+    expect(vi.mocked(telemetry.trackServerEvent)).toHaveBeenCalledWith(
       "grid_synced",
       "user-test-1",
       { created: 3, updated: 5 },
@@ -68,6 +70,6 @@ describe("syncGridAction telemetry", () => {
 
     await syncGridAction(new FormData());
 
-    expect(vi.mocked(trackServerEvent)).not.toHaveBeenCalled();
+    expect(vi.mocked(telemetry.trackServerEvent)).not.toHaveBeenCalled();
   });
 });

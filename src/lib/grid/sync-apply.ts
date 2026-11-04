@@ -70,9 +70,6 @@ export async function applyGridSync(plan: SyncPlan, now: Date): Promise<ApplyGri
         .update(peopleTable)
         .set({ deletedAt: null, updatedAt: nowIso })
         .where(eq(peopleTable.id, id));
-      console.info(
-        `[grid-sync] resurrected person ${id} (asignado en la grilla pero fuera de la pestaña de contactos)`,
-      );
     } catch (error) {
       failedPersonIds.set(id, storedErrorMessage(error));
     }

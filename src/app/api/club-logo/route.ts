@@ -5,14 +5,14 @@ import { withAuth } from "@/lib/api/with-auth";
 import { clubLogoVersionSql, parseImageDataUrl } from "@/lib/club-logo";
 import { db } from "@/lib/db/client";
 import { clubs } from "@/lib/db/schema";
-import { logError } from "@/lib/log";
+import { reportError } from "@/lib/log";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Crests stay in clubs.logo_url as data URLs; this route serves them as plain
 // images so pages carry a short URL instead of ~130 KB of base64 per club.
-export const GET = withAuth({}, async (request) => {
+export const GET = withAuth({ route: "/api/club-logo" }, async (request) => {
   const url = new URL(request.url);
   const clubId = url.searchParams.get("club")?.trim() ?? "";
   const requestedVersion = url.searchParams.get("v")?.trim() ?? "";
@@ -32,7 +32,7 @@ export const GET = withAuth({}, async (request) => {
       .where(eq(clubs.id, clubId))
       .limit(1);
   } catch (error) {
-    logError("[club-logo] failed to load logo", error);
+    reportError(error, "/api/club-logo");
     return NextResponse.json(
       { error: "No se pudo cargar el escudo." },
       { status: 500 },

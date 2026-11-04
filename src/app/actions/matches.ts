@@ -1,5 +1,6 @@
 "use server";
 
+import { addFields } from "basket-tv-telemetry/log";
 import { and, eq, inArray, ne, sql } from "drizzle-orm";
 
 import { defineAction } from "@/lib/actions/define-action";
@@ -36,7 +37,7 @@ import {
 } from "@/lib/data/attendance";
 import { shouldResetAttendance } from "@/lib/attendance";
 import { isUniqueViolation } from "@/lib/db/errors";
-import { trackServerEvent } from "@/lib/telemetry";
+import { telemetry } from "@/lib/telemetry";
 import { maybeNull } from "@/lib/utils";
 import { DomainError } from "@/lib/errors";
 
@@ -203,6 +204,7 @@ async function loadStaffRoleIdsByName() {
 }
 
 const createMatch = defineAction({
+  name: "createMatchAction",
   fallbackRedirect: "/grid",
   authz: requireEditor,
   parse: parseCreateMatch,
@@ -325,11 +327,12 @@ const createMatch = defineAction({
       });
     }
 
-    trackServerEvent("match_created", ctx.userId, {
+    telemetry.trackServerEvent("match_created", ctx.userId, {
       match_id: createdMatchId,
       has_assignments: assignments.length > 0,
       staff_count: notify.length,
     });
+    addFields({ match: { id: createdMatchId, staff_count: notify.length } });
 
     return {
       notice: "Partido creado.",
@@ -355,6 +358,7 @@ export async function createMatchAction(formData: FormData) {
 }
 
 const updateMatch = defineAction({
+  name: "updateMatchAction",
   fallbackRedirect: "/grid",
   authz: requireEditor,
   parse: parseUpdateMatch,
@@ -517,6 +521,8 @@ const updateMatch = defineAction({
       });
     }
 
+    addFields({ match: { id: matchId } });
+
     return {
       notice: "Partido actualizado.",
       notify,
@@ -531,6 +537,7 @@ export async function updateMatchAction(formData: FormData) {
 }
 
 const quickUpdateMatchField = defineAction({
+  name: "quickUpdateMatchFieldAction",
   fallbackRedirect: "/grid",
   authz: requireEditor,
   parse: parseQuickUpdateMatchField,
@@ -611,6 +618,7 @@ const quickUpdateMatchField = defineAction({
       before: null,
       after: { id: matchId, ...payload },
     });
+    addFields({ match: { id: matchId } });
 
     return {
       notice: "Partido actualizado.",
@@ -624,12 +632,14 @@ export async function quickUpdateMatchFieldAction(formData: FormData) {
 }
 
 const deleteMatch = defineAction({
+  name: "deleteMatchAction",
   fallbackRedirect: "/grid",
   authz: requireEditor,
   parse: parseDeleteMatch,
   revalidate: ["/grid"],
   async run(ctx, { matchId }) {
     await db.delete(matchesTable).where(eq(matchesTable.id, matchId));
+    addFields({ match: { id: matchId } });
 
     await writeAudit(ctx, {
       table: "matches",
@@ -652,6 +662,7 @@ export async function deleteMatchAction(formData: FormData) {
 // enforced inside recordAttendanceConfirmation; this wrapper only surfaces the
 // outcome as a notice. Lives in /mi-jornada, never the editor match view.
 const setAttendanceConfirmation = defineAction({
+  name: "setAttendanceConfirmationAction",
   fallbackRedirect: "/mi-jornada",
   authz: requireUserContext,
   parse: parseSetAttendanceConfirmation,
@@ -692,6 +703,7 @@ export async function setAttendanceConfirmationAction(formData: FormData) {
 // accepted. Auth-only like the attendance action: ownership, the match window and
 // the role gate all live in recordEncoderNumbers.
 const setEncoderNumbers = defineAction({
+  name: "setEncoderNumbersAction",
   fallbackRedirect: "/mi-jornada",
   authz: requireUserContext,
   parse: parseSetEncoderNumbers,
@@ -714,6 +726,7 @@ export async function setEncoderNumbersAction(formData: FormData) {
 }
 
 const upsertAssignment = defineAction({
+  name: "upsertAssignmentAction",
   fallbackRedirect: "/grid",
   authz: requireEditor,
   parse: parseUpsertAssignment,
@@ -812,7 +825,8 @@ const upsertAssignment = defineAction({
     const notify =
       incomingPersonId && incomingPersonId !== priorPersonId ? [row.id] : [];
 
-    trackServerEvent("staff_assigned", ctx.userId, {
+    addFields({ match: { id: row.match_id } });
+    telemetry.trackServerEvent("staff_assigned", ctx.userId, {
       match_id: row.match_id,
       role_name: roleName,
       is_new: priorRows.length === 0,

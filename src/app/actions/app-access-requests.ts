@@ -1,5 +1,7 @@
 "use server";
 
+import { addFields } from "basket-tv-telemetry/log";
+
 import { listCatalogApps } from "@/lib/acceso/accesos";
 import { appSubdomain } from "@/lib/acceso/catalog";
 import { defineAction } from "@/lib/actions/define-action";
@@ -11,7 +13,7 @@ import {
 import { buildAppUrlFromAnyHost } from "@/lib/constants";
 import { sendCollaboratorInviteEmail } from "@/lib/email/mailer";
 import { appEnv } from "@/lib/env";
-import { reportServerError, trackServerEvent } from "@/lib/telemetry";
+import { telemetry } from "@/lib/telemetry";
 import { requireSuperAdmin } from "@/lib/usuarios/guard";
 
 // Sibling Solicitudes decided from the apex bell. Super admins only, checked
@@ -33,11 +35,11 @@ function appUrl(app: string): string {
 }
 
 const approve = defineAction({
+  name: "approveAppAccessRequestAction",
   fallbackRedirect: APEX_REDIRECT,
   authz: requireSuperAdmin,
   parse: parseAppAccessRequestDecision,
   revalidate: [APEX_REDIRECT],
-  logTag: "[access-requests] apex approval failed",
   async run(actor, { requestId, app, role }) {
     if (!role) {
       return { error: "Elegí un rol." };
@@ -49,7 +51,9 @@ const approve = defineAction({
       role,
       deciderId: actor.userId,
     });
-    trackServerEvent("access_request_approved", actor.userId, { app, role });
+    const accessRequest = { app, role };
+    telemetry.trackServerEvent("access_request_approved", actor.userId, accessRequest);
+    addFields({ access_request: accessRequest });
 
     const label = await appLabel(app);
 
@@ -61,13 +65,8 @@ const approve = defineAction({
         loginUrl: appUrl(app),
         appName: label,
       });
-    } catch (error) {
-      // The mailer already logged it.
-      reportServerError(error, {
-        route: "approveAppAccessRequestAction",
-        routeType: "action",
-        userId: actor.userId,
-      });
+    } catch {
+      // The mailer reported it.
       emailNotice = " No pudimos enviarle el correo de aviso.";
     }
 
@@ -82,11 +81,11 @@ export async function approveAppAccessRequestAction(formData: FormData) {
 }
 
 const reject = defineAction({
+  name: "rejectAppAccessRequestAction",
   fallbackRedirect: APEX_REDIRECT,
   authz: requireSuperAdmin,
   parse: parseAppAccessRequestDecision,
   revalidate: [APEX_REDIRECT],
-  logTag: "[access-requests] apex rejection failed",
   async run(actor, { requestId, app }) {
     await rejectAppAccessRequest({ requestId, app, deciderId: actor.userId });
 

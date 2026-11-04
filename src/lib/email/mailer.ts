@@ -4,7 +4,7 @@ import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
 
 import { appEnv, assertSmtpEnv } from "@/lib/env";
-import { logError } from "@/lib/log";
+import { reportError } from "@/lib/log";
 
 const globalForMailer = globalThis as unknown as {
   mailTransport?: Transporter;
@@ -54,7 +54,7 @@ export async function sendMagicLinkEmail({
       `,
     });
   } catch (error) {
-    logError("[mailer] failed to send magic link", error);
+    reportError(error, "sendMagicLinkEmail");
     throw error;
   }
 }
@@ -75,7 +75,7 @@ export async function sendLoginCodeEmail({
       html: loginCodeEmailHtml(code),
     });
   } catch (error) {
-    logError("[mailer] failed to send login code", error);
+    reportError(error, "sendLoginCodeEmail");
     throw error;
   }
 }
@@ -156,7 +156,7 @@ export async function sendCollaboratorInviteEmail({
       `,
     });
   } catch (error) {
-    logError("[mailer] failed to send collaborator invite", error);
+    reportError(error, "sendCollaboratorInviteEmail");
     throw error;
   }
 }
@@ -185,7 +185,7 @@ export async function sendUseExistingAccountEmail({
       `,
     });
   } catch (error) {
-    logError("[mailer] failed to send use-existing-account email", error);
+    reportError(error, "sendUseExistingAccountEmail");
     throw error;
   }
 }
@@ -207,7 +207,7 @@ export async function sendMatchNotificationEmail({
       text,
     });
   } catch (error) {
-    logError("[mailer] failed to send match notification", error);
+    reportError(error, "sendMatchNotificationEmail");
     throw error;
   }
 }
@@ -229,7 +229,7 @@ export async function sendFixturesSyncAlertEmail({
       text,
     });
   } catch (error) {
-    logError("[mailer] failed to send fixtures sync alert", error);
+    reportError(error, "sendFixturesSyncAlertEmail");
     throw error;
   }
 }
@@ -273,7 +273,7 @@ export async function sendAccessRequestEmail({
       text: lines.join("\n"),
     });
   } catch (error) {
-    logError("[mailer] failed to send access request notice", error);
+    reportError(error, "sendAccessRequestEmail");
     throw error;
   }
 }
