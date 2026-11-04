@@ -62,6 +62,7 @@ const ANNOUNCEMENT_REVALIDATE_PATHS = [
 ];
 
 const saveGeminiSettings = defineAction({
+  name: "saveGeminiSettingsAction",
   fallbackRedirect: "/settings",
   authz: requireAdmin,
   parse: parseSaveGeminiSettings,
@@ -200,6 +201,7 @@ export async function saveGeminiSettingsAction(formData: FormData) {
 }
 
 const savePreferences = defineAction({
+  name: "savePreferencesAction",
   fallbackRedirect: "/settings",
   authz: requireAdmin,
   parse: parseSavePreferences,
@@ -226,6 +228,7 @@ export async function savePreferencesAction(formData: FormData) {
 }
 
 const saveAnnouncement = defineAction({
+  name: "saveAnnouncementAction",
   fallbackRedirect: "/settings",
   authz: requireAdmin,
   parse: parseSaveAnnouncement,
@@ -331,6 +334,7 @@ export async function saveAnnouncementAction(formData: FormData) {
 }
 
 const saveAccessRequestRecipients = defineAction({
+  name: "saveAccessRequestRecipientsAction",
   fallbackRedirect: "/settings",
   authz: requireAdmin,
   parse: parseSaveAccessRequestRecipients,

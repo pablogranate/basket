@@ -1,5 +1,7 @@
 import "server-only";
 
+import { addFields } from "basket-tv-telemetry/log";
+
 import { listAppRequestRecipients } from "@/lib/access-requests/app-recipients";
 import { getAccessRequestRecipientConfig } from "@/lib/access-requests/config";
 import { resolveRequestRecipients } from "@/lib/access-requests/recipients";
@@ -7,13 +9,13 @@ import { requestAsksFuncion } from "@/lib/acceso/catalog";
 import { buildApexUrl } from "@/lib/constants";
 import { sendAccessRequestEmail } from "@/lib/email/mailer";
 import { appEnv } from "@/lib/env";
-import { logError } from "@/lib/log";
+import { reportError } from "@/lib/log";
 
 async function loadAppRecipients(app: string): Promise<string[]> {
   try {
     return await listAppRequestRecipients(app);
   } catch (error) {
-    logError("[access-requests] failed to load app recipients", error);
+    reportError(error, "listAppRequestRecipients");
     return [];
   }
 }
@@ -53,11 +55,7 @@ export async function notifyAccessRequest(request: {
   });
 
   if (!recipients.length) {
-    console.warn(
-      `[access-requests] no recipients configured for app "${request.app}"${
-        request.funcion ? `, funcion "${request.funcion}"` : ""
-      }`,
-    );
+    addFields({ notification: { recipients: 0, email_sent: 0 } });
     return { sent: 0, failed: 0 };
   }
 
@@ -72,12 +70,9 @@ export async function notifyAccessRequest(request: {
   );
 
   const failed = results.filter((result) => result.status === "rejected").length;
-
-  if (failed) {
-    console.error(
-      `[access-requests] ${failed}/${recipients.length} notification emails failed`,
-    );
-  }
+  addFields({
+    notification: { recipients: recipients.length, email_sent: recipients.length - failed },
+  });
 
   return { sent: recipients.length - failed, failed };
 }

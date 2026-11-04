@@ -1,10 +1,11 @@
+import { addFields } from "basket-tv-telemetry/log";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { withAuth } from "@/lib/api/with-auth";
 import { AI_COPY } from "@/lib/copy";
 import { getGeminiRuntimeConfig } from "@/lib/settings";
-import { logUpstreamError, upstreamDetail } from "@/lib/log";
+import { upstreamDetail } from "@/lib/log";
 
 type GeminiResponse = {
   candidates?: Array<{
@@ -37,7 +38,7 @@ function extractJson(text: string) {
   return text.slice(start, end + 1);
 }
 
-export const POST = withAuth({}, async (request) => {
+export const POST = withAuth({ route: "/api/ai/speedtest" }, async (request) => {
   const formData = await request.formData();
   const image = formData.get("image");
 
@@ -56,7 +57,6 @@ export const POST = withAuth({}, async (request) => {
   }
 
   const bytes = Buffer.from(await image.arrayBuffer()).toString("base64");
-  const requestId = crypto.randomUUID();
   const { apiKey, model, source } = await getGeminiRuntimeConfig();
 
   if (!apiKey) {
@@ -86,13 +86,7 @@ export const POST = withAuth({}, async (request) => {
     '{"ping":null,"upload":null,"download":null,"provider":null,"locationServer":null,"dateTime":null,"note":null}',
   ].join("\n");
 
-  console.info("[ai][speedtest] start", {
-    requestId,
-    mimeType: image.type,
-    size: image.size,
-    model,
-    source,
-  });
+  addFields({ gemini: { model, source, image_bytes: image.size } });
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -122,11 +116,10 @@ export const POST = withAuth({}, async (request) => {
 
   if (!response.ok) {
     const body = await response.text();
-    logUpstreamError(
-      "[ai][speedtest] gemini request failed",
-      { status: response.status, body },
-      { requestId, model, source },
-    );
+    addFields({
+      reason: "upstream_error",
+      gemini: { model, source, image_bytes: image.size, status: response.status },
+    });
 
     return NextResponse.json(
       {
@@ -145,11 +138,7 @@ export const POST = withAuth({}, async (request) => {
     .trim();
 
   if (!answer) {
-    console.warn("[ai][speedtest] empty answer", {
-      requestId,
-      model,
-      source,
-    });
+    addFields({ reason: "empty_answer" });
     return NextResponse.json(
       { error: "Gemini no devolvió contenido para esta captura." },
       { status: 502 },
@@ -159,12 +148,7 @@ export const POST = withAuth({}, async (request) => {
   const jsonText = extractJson(answer);
 
   if (!jsonText) {
-    console.warn("[ai][speedtest] missing json block", {
-      requestId,
-      model,
-      source,
-      answer,
-    });
+    addFields({ reason: "missing_json" });
     return NextResponse.json(
       { error: "No pudimos convertir la lectura del speedtest a datos estructurados." },
       { status: 502 },
@@ -175,14 +159,8 @@ export const POST = withAuth({}, async (request) => {
 
   try {
     parsedJson = JSON.parse(jsonText);
-  } catch (error) {
-    console.warn("[ai][speedtest] invalid json", {
-      requestId,
-      model,
-      source,
-      jsonText,
-      error,
-    });
+  } catch {
+    addFields({ reason: "invalid_json" });
     return NextResponse.json(
       { error: "La respuesta de Gemini no vino en JSON válido." },
       { status: 502 },
@@ -192,26 +170,12 @@ export const POST = withAuth({}, async (request) => {
   const extracted = extractedSchema.safeParse(parsedJson);
 
   if (!extracted.success) {
-    console.warn("[ai][speedtest] schema mismatch", {
-      requestId,
-      model,
-      source,
-      parsedJson,
-    });
+    addFields({ reason: "schema_mismatch" });
     return NextResponse.json(
       { error: "La lectura del speedtest no devolvió el formato esperado." },
       { status: 502 },
     );
   }
-
-  console.info("[ai][speedtest] success", {
-    requestId,
-    model,
-    source,
-    hasUpload: Boolean(extracted.data.upload),
-    hasPing: Boolean(extracted.data.ping),
-    hasDownload: Boolean(extracted.data.download),
-  });
 
   return NextResponse.json({
     extracted: extracted.data,

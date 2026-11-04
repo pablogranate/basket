@@ -1,9 +1,10 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GET } from "@/app/api/gates/[app]/route";
 import { getEffectiveAccess } from "@/lib/acceso/accesos";
 import { getUserContext } from "@/lib/auth";
 import { appEnv } from "@/lib/env";
+import { captureLogLines } from "@/test/fixtures/log-lines";
 import { makeGuestContext, makeUserContext } from "@/test/fixtures/user-context";
 
 vi.mock("@/lib/auth", () => ({
@@ -162,5 +163,64 @@ describe("GET /api/gates/monitor", () => {
 
     expect(response.status).toBe(404);
     expect(mockedGetAccess).not.toHaveBeenCalled();
+  });
+});
+
+// nginx asks the gate on every request to a gated app: each answer is one
+// JSON line, and a rejection is an expected outcome, not an error.
+describe("the gate's log line", () => {
+  let log: ReturnType<typeof captureLogLines>;
+
+  beforeEach(() => {
+    log = captureLogLines();
+  });
+
+  afterEach(() => {
+    log.restore();
+    vi.clearAllMocks();
+  });
+
+  it("writes exactly one info line for a request without a session", async () => {
+    mockedGetUserContext.mockResolvedValue(makeGuestContext());
+
+    await callGate("generator");
+
+    expect(log.lines).toHaveLength(1);
+    expect(log.lines[0]).toMatchObject({
+      level: "info",
+      kind: "request",
+      method: "GET",
+      route: "/api/gates/[app]",
+      status: 401,
+      outcome: "rejected",
+      reason: "no_session",
+    });
+  });
+
+  it("writes exactly one info line for an identity without access to the app", async () => {
+    mockedGetUserContext.mockResolvedValue(makeUserContext());
+    mockedGetAccess.mockResolvedValue(null);
+
+    await callGate("generator");
+
+    expect(log.lines).toHaveLength(1);
+    expect(log.lines[0]).toMatchObject({
+      level: "info",
+      status: 403,
+      outcome: "rejected",
+      reason: "no_access",
+      gate: { app: "generator" },
+    });
+  });
+
+  it("writes exactly one ok line when it lets the identity through, without its email", async () => {
+    mockedGetUserContext.mockResolvedValue(makeUserContext());
+    mockedGetAccess.mockResolvedValue(accessFor("user-test-1", "read"));
+
+    await callGate("generator");
+
+    expect(log.lines).toHaveLength(1);
+    expect(log.lines[0]).toMatchObject({ level: "info", status: 204, outcome: "ok" });
+    expect(JSON.stringify(log.lines[0])).not.toContain("@");
   });
 });

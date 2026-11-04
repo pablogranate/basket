@@ -23,7 +23,7 @@ import { can } from "@/lib/roles";
 import { getActiveAnnouncement } from "@/lib/data/announcements";
 import { appEnv } from "@/lib/env";
 import { getFichaCompletionPrompt } from "@/lib/people/ficha-completion-data";
-import { logError } from "@/lib/log";
+import { reportError } from "@/lib/log";
 
 export default async function DashboardLayout({
   children,
@@ -134,7 +134,7 @@ async function resolveDirectoryLink(
 
     return directoryLinkFor({ apps, apexUrl });
   } catch (error) {
-    logError("[acceso] failed to count the user's apps", error);
+    reportError(error, "resolveDirectoryLink");
     return null;
   }
 }

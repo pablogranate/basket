@@ -42,11 +42,11 @@ async function requireTarget(userId: string) {
 }
 
 const setAppRole = defineAction({
+  name: "setAppRoleAction",
   fallbackRedirect: USUARIOS_REDIRECT,
   authz: requireSuperAdmin,
   parse: parseSetAppRole,
   revalidate: [USUARIOS_REDIRECT],
-  logTag: "[usuarios] role change failed",
   async run(actor, { userId, app, role }) {
     const catalogApp = (await getRoleCatalog()).find((entry) => entry.key === app);
 
@@ -110,11 +110,11 @@ export async function setAppRoleAction(formData: FormData) {
 // lands on this identity. Verified up front, as a first magic-link login
 // would leave it, so same-email Google sign-in links instead of duplicating.
 const createIdentity = defineAction({
+  name: "createIdentityAction",
   fallbackRedirect: USUARIOS_REDIRECT,
   authz: requireSuperAdmin,
   parse: parseCreateIdentity,
   revalidate: [USUARIOS_REDIRECT],
-  logTag: "[usuarios] identity create failed",
   async run(actor, { email, name }) {
     if (await findIdentityByEmail(email)) {
       return { error: `Ya existe una identidad con ${email}.` };
@@ -142,11 +142,11 @@ export async function createIdentityAction(formData: FormData) {
 
 // Banning also deletes every session of the identity (admin plugin).
 const banIdentity = defineAction({
+  name: "banIdentityAction",
   fallbackRedirect: USUARIOS_REDIRECT,
   authz: requireSuperAdmin,
   parse: parseIdentityTarget,
   revalidate: [USUARIOS_REDIRECT],
-  logTag: "[usuarios] ban failed",
   async run(actor, { userId }) {
     const target = await requireTarget(userId);
 
@@ -174,11 +174,11 @@ export async function banIdentityAction(formData: FormData) {
 }
 
 const unbanIdentity = defineAction({
+  name: "unbanIdentityAction",
   fallbackRedirect: USUARIOS_REDIRECT,
   authz: requireSuperAdmin,
   parse: parseIdentityTarget,
   revalidate: [USUARIOS_REDIRECT],
-  logTag: "[usuarios] unban failed",
   async run(actor, { userId }) {
     const target = await requireTarget(userId);
 
@@ -199,11 +199,11 @@ export async function unbanIdentityAction(formData: FormData) {
 }
 
 const revokeSessions = defineAction({
+  name: "revokeSessionsAction",
   fallbackRedirect: USUARIOS_REDIRECT,
   authz: requireSuperAdmin,
   parse: parseIdentityTarget,
   revalidate: [USUARIOS_REDIRECT],
-  logTag: "[usuarios] revoke sessions failed",
   async run(actor, { userId }) {
     const target = await requireTarget(userId);
 
@@ -227,11 +227,11 @@ export async function revokeSessionsAction(formData: FormData) {
 }
 
 const setSuperAdminFlag = defineAction({
+  name: "setSuperAdminAction",
   fallbackRedirect: USUARIOS_REDIRECT,
   authz: requireSuperAdmin,
   parse: parseSetSuperAdmin,
   revalidate: [USUARIOS_REDIRECT],
-  logTag: "[usuarios] super admin change failed",
   async run(actor, { userId, superAdmin }) {
     const target = await requireTarget(userId);
     const changed = await setSuperAdmin({
@@ -260,11 +260,11 @@ export async function setSuperAdminAction(formData: FormData) {
 // Who hears about a new Solicitud for one app. The portal is not editable here:
 // it routes by Función from Configuración.
 const setRequestRecipients = defineAction({
+  name: "setAppRequestRecipientsAction",
   fallbackRedirect: USUARIOS_REDIRECT,
   authz: requireSuperAdmin,
   parse: parseSetAppRequestRecipients,
   revalidate: [USUARIOS_REDIRECT],
-  logTag: "[usuarios] recipients change failed",
   async run(_actor, { app, emails }) {
     const catalogApp = (await getRoleCatalog()).find((entry) => entry.key === app);
 

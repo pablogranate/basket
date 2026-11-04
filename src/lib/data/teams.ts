@@ -17,7 +17,7 @@ import {
   splitTeamCompetitions,
 } from "@/lib/team-directory";
 import { slugifyTeamValue } from "@/lib/teams/slug";
-import { logError } from "@/lib/log";
+import { reportError } from "@/lib/log";
 
 const DEFAULT_LEAGUE_URL = "https://www.laliganacional.com.ar/";
 
@@ -221,7 +221,7 @@ export async function getTeamDirectory(
       TEAM_DIRECTORY_QUERY,
     )) as TeamDirectoryRow[];
   } catch (error) {
-    logError("[teams] failed to load team directory", error);
+    reportError(error, "getTeamDirectory");
     return [];
   }
 
@@ -253,7 +253,7 @@ export async function getTeamFromDbBySlug(
       where: eq(teams.slug, slug),
     })) as TeamDirectoryRow | undefined;
   } catch (error) {
-    logError("[teams] failed to load team by slug", error);
+    reportError(error, "getTeamFromDbBySlug");
     return null;
   }
 
@@ -298,7 +298,7 @@ export async function getTeamPickerCatalog(
       })),
     );
   } catch (error) {
-    logError("[teams] failed to load the team picker catalog", error);
+    reportError(error, "getTeamPickerCatalog");
     return EMPTY_TEAM_PICKER_CATALOG;
   }
 }
@@ -313,7 +313,7 @@ export async function getTeamDirectoryLeagues(
   try {
     return await listLeagues();
   } catch (error) {
-    logError("[teams] failed to load the leagues", error);
+    reportError(error, "getTeamDirectoryLeagues");
     return [];
   }
 }

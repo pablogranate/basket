@@ -13,6 +13,7 @@ import { DomainError } from "@/lib/errors";
 // approval: holding the portal Acceso already is one. The session is the only
 // input to whose ficha this is.
 const complete = defineAction({
+  name: "completeFichaAction",
   fallbackRedirect: "/mi-jornada",
   authz: requireAccess,
   authzFailureNotice: true,

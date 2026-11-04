@@ -29,6 +29,13 @@ export default defineConfig({
     // import("../route")`); under parallel worker contention that transform can
     // exceed the 5s default and flake. Give them headroom.
     testTimeout: 20000,
+    server: {
+      deps: {
+        // Its Next entry imports `next/headers` without an extension, which
+        // only a bundler resolves: let Vite transform it like app code.
+        inline: ["basket-tv-telemetry"],
+      },
+    },
     env: {
       AUTH_DATABASE_URL: "postgres://test:test@localhost:5432/test",
       BETTER_AUTH_SECRET: "test-better-auth-secret-value-0000000000",
