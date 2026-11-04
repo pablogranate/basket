@@ -1,5 +1,6 @@
 "use server";
 
+import { addFields } from "basket-tv-telemetry/log";
 import { eq } from "drizzle-orm";
 
 import {
@@ -39,7 +40,7 @@ import {
 } from "@/lib/email/mailer";
 import { appEnv } from "@/lib/env";
 import { linkProfileToPerson } from "@/lib/people/identity";
-import { reportServerError, trackServerEvent } from "@/lib/telemetry";
+import { telemetry } from "@/lib/telemetry";
 import { DomainError } from "@/lib/errors";
 import { reportError } from "@/lib/log";
 
@@ -51,6 +52,7 @@ const REQUEST_REVALIDATE_PATHS = [
 ];
 
 const submit = defineAction({
+  name: "submitAccessRequestAction",
   fallbackRedirect: "/no-access",
   authz: requireUserContext,
   parse: parseSubmitAccessRequest,
@@ -87,20 +89,15 @@ const submit = defineAction({
       email: ctx.email,
     });
 
-    trackServerEvent("access_request_submitted", ctx.userId, {
-      app,
-      role: funcion.funcion,
-    });
+    const accessRequest = { app, role: funcion.funcion };
+    telemetry.trackServerEvent("access_request_submitted", ctx.userId, accessRequest);
+    addFields({ access_request: accessRequest });
 
     // The request is persisted; the notification is best-effort on purpose.
     try {
       await notifyAccessRequest({ ...request, app, appLabel, email });
     } catch (error) {
-      reportError("[access-requests] notification failed", error, {
-        route: "submitAccessRequestAction",
-        routeType: "action",
-        userId: ctx.userId,
-      });
+      reportError(error, "submitAccessRequestAction");
     }
 
     return {
@@ -117,6 +114,7 @@ export async function submitAccessRequestAction(formData: FormData) {
 // The portal bell decides portal Solicitudes only: the claim is scoped to the
 // portal, so a request for another app can't be settled from here.
 const reject = defineAction({
+  name: "rejectAccessRequestAction",
   fallbackRedirect: "/grid",
   authz: requireAccessRequestApprover,
   // A permission error surfaces as a notice instead of an unhandled action
@@ -144,6 +142,7 @@ export async function rejectAccessRequestAction(formData: FormData) {
 }
 
 const approve = defineAction({
+  name: "approveAccessRequestAction",
   fallbackRedirect: "/grid",
   authz: requireAccessRequestApprover,
   authzFailureNotice: true,
@@ -212,13 +211,8 @@ const approve = defineAction({
           existingEmail: kept.existingEmail,
           loginUrl: `${appEnv.portalBaseUrl}/login`,
         });
-      } catch (error) {
-        // The mailer already logged it.
-        reportServerError(error, {
-          route: "approveAccessRequestAction",
-          routeType: "action",
-          userId: ctx.userId,
-        });
+      } catch {
+        // The mailer reported it.
         keptNotice = " No pudimos enviarle el correo de aviso.";
       }
 
@@ -241,10 +235,9 @@ const approve = defineAction({
 
       clearProfileCache();
 
-      trackServerEvent("access_request_approved", ctx.userId, {
-        app: PORTAL_APP,
-        role: accessRole,
-      });
+      const accessRequest = { app: PORTAL_APP, role: accessRole };
+      telemetry.trackServerEvent("access_request_approved", ctx.userId, accessRequest);
+      addFields({ access_request: accessRequest });
 
       await writeAudit(ctx, {
         table: "access_requests",
@@ -270,13 +263,8 @@ const approve = defineAction({
           to: moved.email,
           loginUrl: `${appEnv.portalBaseUrl}/login`,
         });
-      } catch (error) {
-        // The mailer already logged it.
-        reportServerError(error, {
-          route: "approveAccessRequestAction",
-          routeType: "action",
-          userId: ctx.userId,
-        });
+      } catch {
+        // The mailer reported it.
         movedNotice = " No pudimos enviarle el correo de aviso.";
       }
 
@@ -299,10 +287,9 @@ const approve = defineAction({
 
     clearProfileCache();
 
-    trackServerEvent("access_request_approved", ctx.userId, {
-      app: PORTAL_APP,
-      role: accessRole,
-    });
+    const accessRequest = { app: PORTAL_APP, role: accessRole };
+    telemetry.trackServerEvent("access_request_approved", ctx.userId, accessRequest);
+    addFields({ access_request: accessRequest });
 
     await writeAudit(ctx, {
       table: "access_requests",
@@ -329,13 +316,8 @@ const approve = defineAction({
         to: result.email,
         loginUrl: `${appEnv.portalBaseUrl}/login`,
       });
-    } catch (error) {
-      // The mailer already logged it.
-      reportServerError(error, {
-        route: "approveAccessRequestAction",
-        routeType: "action",
-        userId: ctx.userId,
-      });
+    } catch {
+      // The mailer reported it.
       emailNotice = " No pudimos enviarle el correo de aviso.";
     }
 
@@ -351,6 +333,7 @@ export async function approveAccessRequestAction(formData: FormData) {
 // an admin confirms is the same person (D-09). Admin-only — the review list
 // lives on an admin-only page.
 const link = defineAction({
+  name: "linkProfileToPersonAction",
   fallbackRedirect: "/notifications/solicitudes",
   authz: requireAdmin,
   authzFailureNotice: true,

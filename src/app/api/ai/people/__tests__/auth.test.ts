@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { getUserContext } from "@/lib/auth";
 import { getGeminiRuntimeConfig } from "@/lib/settings";
 import { makeGuestContext, makeUserContext } from "@/test/fixtures/user-context";
+import { noParams } from "@/test/fixtures/route-context";
 
 vi.mock("@/lib/auth", () => ({
   getUserContext: vi.fn(),
@@ -45,7 +46,7 @@ describe("api/ai/people POST auth", () => {
     mockedGetUserContext.mockResolvedValue(makeGuestContext());
     const { POST } = await import("../route");
 
-    const response = await POST(buildRequest());
+    const response = await POST(buildRequest(), noParams);
 
     expect(response.status).toBe(401);
     expect(mockedGetGeminiRuntimeConfig).not.toHaveBeenCalled();
@@ -57,7 +58,7 @@ describe("api/ai/people POST auth", () => {
     );
     const { POST } = await import("../route");
 
-    const response = await POST(buildRequest());
+    const response = await POST(buildRequest(), noParams);
 
     expect(response.status).toBe(403);
     expect(mockedGetGeminiRuntimeConfig).not.toHaveBeenCalled();
@@ -80,7 +81,7 @@ describe("api/ai/people POST auth", () => {
     });
     const { POST } = await import("../route");
 
-    const response = await POST(buildRequest());
+    const response = await POST(buildRequest(), noParams);
 
     expect(mockedGetGeminiRuntimeConfig).toHaveBeenCalledTimes(1);
     expect(response.status).toBe(400);

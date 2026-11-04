@@ -3,7 +3,7 @@ import "server-only";
 import { db } from "@/lib/db/client";
 import { notificationLogs as notificationLogsTable } from "@/lib/db/schema";
 import type { NotificationLogRow } from "@/lib/notifications/log-rows";
-import { logError } from "@/lib/log";
+import { reportError } from "@/lib/log";
 
 // Observability only: a logging failure must NEVER break a send or block the
 // day_notified_at stamp. Insert is best-effort and isolated — errors are logged
@@ -29,6 +29,6 @@ export async function insertNotificationLogs(rows: NotificationLogRow[]) {
       })),
     );
   } catch (error) {
-    logError("[notifications] failed to write delivery log", error);
+    reportError(error, "insertNotificationLogs");
   }
 }

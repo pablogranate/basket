@@ -1,5 +1,6 @@
 import "server-only";
 
+import { addFields } from "basket-tv-telemetry/log";
 import { and, desc, eq, gte, inArray, isNotNull, lt, lte } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
@@ -33,7 +34,7 @@ import type {
   PlanGridSyncInput,
   SyncPlan,
 } from "@/lib/grid/sync-plan";
-import { logError, storedErrorMessage } from "@/lib/log";
+import { reportError, storedErrorMessage } from "@/lib/log";
 
 const SHEET_ID = "18Zqlayhde5XpOehkXOa1FKtaBSXhDGDfvqMvstT5Rm8";
 
@@ -95,7 +96,7 @@ export async function getLastSuccessfulSync(): Promise<SyncRunRow | null> {
 
     return (rows[0] as SyncRunRow | undefined) ?? null;
   } catch (error) {
-    logError("[grid-sync] failed to read last successful run", error);
+    reportError(error, "getLastSuccessfulSync");
     return null;
   }
 }
@@ -300,12 +301,6 @@ export async function runGridSync(
     result.tabsMissing = plan.tabsMissing;
     result.unchanged = plan.unchanged;
 
-    // Warnings are informative only: they never block a run and never enter
-    // the run log or result.errors.
-    if (plan.warnings.length) {
-      console.info(`[grid-sync] ${plan.warnings.length} warning(s); the preview lists them`);
-    }
-
     const applied = await applyGridSync(plan, now);
 
     result.created = applied.created;
@@ -315,6 +310,22 @@ export async function runGridSync(
     result.assignmentsDeleted = applied.assignmentsDeleted;
     result.peopleCreated = applied.peopleCreated;
     result.errors = [...plan.errors, ...applied.errors];
+    // Warnings are informative only (the preview lists them): they never
+    // block a run and never enter the run log or result.errors.
+    addFields({
+      grid_sync: {
+        created: result.created,
+        updated: result.updated,
+        deleted: result.deleted,
+        unchanged: result.unchanged,
+        assignments_upserted: result.assignmentsUpserted,
+        assignments_deleted: result.assignmentsDeleted,
+        people_created: result.peopleCreated,
+        people_resurrected: plan.peopleToResurrect.length,
+        errors: result.errors.length,
+        warnings: plan.warnings.length,
+      },
+    });
 
     await db.insert(gridSyncRunsTable).values({
       trigger,

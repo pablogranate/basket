@@ -34,15 +34,12 @@ export function rethrowNavigationError(error: unknown) {
   unstable_rethrow(error);
 }
 
-// The catch of an action that answers { ok: false, error } instead of
-// redirecting: a DomainError keeps its message; anything else is logged,
-// reported and answered with the generic message.
-export function failedActionResult(
-  tag: string,
-  error: unknown,
-  context: { route: string; userId: string | null },
-): { ok: false; error: string } {
+// The catch of an action (wrapped in withActionLog) that answers
+// { ok: false, error } instead of redirecting: a DomainError keeps its
+// message; anything else is reported on the action's line and answered with
+// the generic message.
+export function failedActionResult(error: unknown): { ok: false; error: string } {
   rethrowNavigationError(error);
-  reportError(tag, error, { ...context, routeType: "action" });
+  reportError(error, "action");
   return { ok: false, error: userErrorMessage(error) };
 }

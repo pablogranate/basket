@@ -1,5 +1,7 @@
 "use server";
 
+import { addFields } from "basket-tv-telemetry/log";
+import { withActionLog } from "basket-tv-telemetry/next";
 import { revalidatePath } from "next/cache";
 
 import {
@@ -13,7 +15,7 @@ import { previewGridSync, runGridSync } from "@/lib/grid/sync";
 import { updateChangesMatchRow } from "@/lib/grid/sync-plan";
 import type { SyncDeletePassSkipReason } from "@/lib/grid/sync-plan";
 import { reportError } from "@/lib/log";
-import { trackServerEvent } from "@/lib/telemetry";
+import { telemetry } from "@/lib/telemetry";
 
 export type GridSyncPreview = {
   creates: number;
@@ -34,7 +36,7 @@ export type GridSyncPreview = {
 // Plan-only preview for the manual sync: fetch → parse → snapshots → plan,
 // nothing written. Confirming re-runs the full sync fresh — the previewed plan
 // is informative and never applied as-is.
-export async function previewGridSyncAction(): Promise<GridSyncPreview> {
+export const previewGridSyncAction = withActionLog("previewGridSyncAction", async (): Promise<GridSyncPreview> => {
   await requireEditor();
 
   const plan = await previewGridSync();
@@ -59,7 +61,7 @@ export async function previewGridSyncAction(): Promise<GridSyncPreview> {
     tabsMissing: plan.tabsMissing,
     deletePassSkipped: plan.deletePassSkipped,
   };
-}
+});
 
 function buildSyncNotice(result: Awaited<ReturnType<typeof runGridSync>>) {
   const parts = [
@@ -82,17 +84,15 @@ function buildSyncNotice(result: Awaited<ReturnType<typeof runGridSync>>) {
   return `Sincronización lista — ${parts.join(", ")}.`;
 }
 
-export async function syncGridAction(formData: FormData) {
+export const syncGridAction = withActionLog("syncGridAction", async (formData: FormData) => {
   const redirectTo = getRedirectTarget(formData, "/grid");
-  let userId: string | null = null;
-
   try {
     const ctx = await requireEditor();
-    userId = ctx.userId;
 
     const result = await runGridSync("manual");
 
     if (result.skipped) {
+      addFields({ outcome: "rejected", reason: "sync_in_progress" });
       redirectWithNotice({
         redirectTo,
         intent: "error",
@@ -101,7 +101,7 @@ export async function syncGridAction(formData: FormData) {
       return;
     }
 
-    trackServerEvent("grid_synced", ctx.userId, {
+    telemetry.trackServerEvent("grid_synced", ctx.userId, {
       created: result.created,
       updated: result.updated,
     });
@@ -119,12 +119,7 @@ export async function syncGridAction(formData: FormData) {
     });
   } catch (error) {
     rethrowNavigationError(error);
-    reportError("[grid-sync] manual run failed", error, {
-      method: "POST",
-      route: "syncGridAction",
-      routeType: "action",
-      userId,
-    });
+    reportError(error, "syncGridAction");
 
     redirectWithNotice({
       redirectTo,
@@ -132,4 +127,4 @@ export async function syncGridAction(formData: FormData) {
       notice: userErrorMessage(error),
     });
   }
-}
+});
