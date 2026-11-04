@@ -1,6 +1,5 @@
 import "server-only";
 
-import { reportError } from "@/lib/log";
 import {
   getEffectiveAccess,
   grantRole,
@@ -30,7 +29,7 @@ export async function getPortalAccess(
   }
 
   if (!isAppRole(access.role)) {
-    reportError(new Error("portal Acceso holds an unknown role"), "getPortalAccess", { routeType: "auth" });
+    console.error("[acceso] portal Acceso holds an unknown role", access.role);
     return null;
   }
 

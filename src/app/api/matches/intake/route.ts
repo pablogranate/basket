@@ -138,7 +138,7 @@ function normalizeLookupPayload(payload: unknown) {
   };
 }
 
-export const POST = withApiKey("/api/matches/intake", async (request) => {
+export const POST = withApiKey(async (request) => {
   const { externalId } = (await request.json()) as { externalId?: string };
   const normalizedExternalId = externalId?.trim() ?? "";
 
@@ -190,7 +190,12 @@ export const POST = withApiKey("/api/matches/intake", async (request) => {
       match: normalizeLookupPayload(payload),
     });
   } catch (error) {
-    reportError(error, "/api/matches/intake");
+    reportError("[matches-intake] external lookup failed", error, {
+      method: "POST",
+      route: "/api/matches/intake",
+      routeType: "route",
+      status: 500,
+    });
     return NextResponse.json(
       {
         configured: false,

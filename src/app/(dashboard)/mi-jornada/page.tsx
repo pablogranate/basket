@@ -10,7 +10,7 @@ import { getCollaboratorDayData } from "@/lib/data/collaborators";
 import { appEnv } from "@/lib/env";
 import { resolveTeamLogoMap } from "@/lib/team-logos";
 import { cn } from "@/lib/utils";
-import { reportError } from "@/lib/log";
+import { logError } from "@/lib/log";
 
 function capitalizeSentence(value: string) {
   if (!value) {
@@ -203,7 +203,7 @@ export default async function CollaboratorDayPage() {
       email: user.email,
       profileName: user.profile?.full_name ?? null,
     }).catch((error) => {
-      reportError(error, "CollaboratorDayPage");
+      logError("[mi-jornada] failed to load collaborator data", error);
       return EMPTY_DAY_DATA as CollaboratorDayData;
     });
 

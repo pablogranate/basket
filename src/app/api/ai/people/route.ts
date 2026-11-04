@@ -1,11 +1,10 @@
-import { addFields } from "basket-tv-telemetry/log";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { withAuth } from "@/lib/api/with-auth";
 import { AI_COPY } from "@/lib/copy";
 import { getGeminiRuntimeConfig } from "@/lib/settings";
-import { upstreamDetail } from "@/lib/log";
+import { logUpstreamError, upstreamDetail } from "@/lib/log";
 
 const requestSchema = z.object({
   question: z.string().trim().min(3).max(500),
@@ -36,7 +35,7 @@ type GeminiResponse = {
 };
 
 export const POST = withAuth(
-  { route: "/api/ai/people", capability: "dashboard.full" },
+  { capability: "dashboard.full" },
   async (request) => {
   const payload = requestSchema.safeParse(await request.json());
 
@@ -92,10 +91,11 @@ export const POST = withAuth(
 
   if (!response.ok) {
     const body = await response.text();
-    addFields({
-      reason: "upstream_error",
-      gemini: { status: response.status, model, source, people: payload.data.people.length },
-    });
+    logUpstreamError(
+      "[ai][people] gemini request failed",
+      { status: response.status, body },
+      { model, source, peopleCount: payload.data.people.length },
+    );
 
     return NextResponse.json(
       {

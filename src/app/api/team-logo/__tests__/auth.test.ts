@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { getUserContext } from "@/lib/auth";
 import { makeGuestContext, makeUserContext } from "@/test/fixtures/user-context";
-import { noParams } from "@/test/fixtures/route-context";
 
 vi.mock("@/lib/auth", () => ({
   getUserContext: vi.fn(),
@@ -25,7 +24,7 @@ describe("api/team-logo GET auth", () => {
     mockedGetUserContext.mockResolvedValue(makeGuestContext());
     const { GET } = await import("../route");
 
-    const response = await GET(buildRequest(), noParams);
+    const response = await GET(buildRequest());
 
     expect(response.status).toBe(401);
   });
@@ -34,7 +33,7 @@ describe("api/team-logo GET auth", () => {
     mockedGetUserContext.mockResolvedValue(makeUserContext({ role: "collaborator" }));
     const { GET } = await import("../route");
 
-    const response = await GET(buildRequest(), noParams);
+    const response = await GET(buildRequest());
 
     expect(response.status).toBe(200);
     const body = await response.json();
@@ -45,7 +44,7 @@ describe("api/team-logo GET auth", () => {
     mockedGetUserContext.mockResolvedValue(makeUserContext({ role: "collaborator" }));
     const { GET } = await import("../route");
 
-    const response = await GET(buildRequest(""), noParams);
+    const response = await GET(buildRequest(""));
 
     expect(response.status).toBe(400);
   });

@@ -1,4 +1,3 @@
-import { addFields } from "basket-tv-telemetry/log";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -11,7 +10,7 @@ import { consumeGuestRateLimit } from "@/lib/api/rate-limit";
 import { withAuth } from "@/lib/api/with-auth";
 import { AI_COPY } from "@/lib/copy";
 import { getGeminiRuntimeConfig } from "@/lib/settings";
-import { upstreamDetail } from "@/lib/log";
+import { logUpstreamError, upstreamDetail } from "@/lib/log";
 
 function getClientKey(request: Request) {
   const forwarded = request.headers.get("x-forwarded-for");
@@ -44,7 +43,7 @@ type GeminiResponse = {
   }>;
 };
 
-export const POST = withAuth({ route: "/api/ai/section", allowGuest: true }, async (request, ctx) => {
+export const POST = withAuth({ allowGuest: true }, async (request, ctx) => {
   if (!ctx.userId) {
     const limit = await consumeGuestRateLimit(getClientKey(request));
 
@@ -151,10 +150,11 @@ export const POST = withAuth({ route: "/api/ai/section", allowGuest: true }, asy
 
   if (!response.ok) {
     const body = await response.text();
-    addFields({
-      reason: "upstream_error",
-      gemini: { status: response.status, model, source, section: payload.data.section },
-    });
+    logUpstreamError(
+      "[ai][section] gemini request failed",
+      { status: response.status, body },
+      { section: payload.data.section, model, source },
+    );
 
     return NextResponse.json(
       {

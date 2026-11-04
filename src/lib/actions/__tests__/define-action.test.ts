@@ -3,8 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { revalidatePath } from "next/cache";
 import { redirectWithNotice } from "@/app/actions/helpers";
 import { DomainError } from "@/lib/errors";
-import { telemetry } from "@/lib/telemetry";
-import { captureLogLines } from "@/test/fixtures/log-lines";
+import { reportServerError } from "@/lib/telemetry";
 import {
   defineAction,
   parsed,
@@ -12,14 +11,8 @@ import {
 } from "@/lib/actions/define-action";
 
 const h = vi.hoisted(() => {
-  // Shaped like Next's redirect error, so the action's line treats it as
-  // control flow, as it does a real redirect.
-  class RedirectSignal extends Error {
-    digest = "NEXT_REDIRECT;replace;/grid;307;";
-  }
-  class NavigationSignal extends Error {
-    digest = "NEXT_REDIRECT;replace;/login;307;";
-  }
+  class RedirectSignal extends Error {}
+  class NavigationSignal extends Error {}
 
   return { RedirectSignal, NavigationSignal };
 });
@@ -50,12 +43,13 @@ vi.mock("@/app/actions/helpers", () => ({
   },
 }));
 
-vi.mock("@/lib/telemetry", () => ({
-  telemetry: { reportServerError: vi.fn(), trackServerEvent: vi.fn(), flush: vi.fn() },
+vi.mock("@/lib/telemetry", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/telemetry")>()),
+  reportServerError: vi.fn(),
 }));
 
 const mockedRevalidatePath = vi.mocked(revalidatePath);
-const mockedReportServerError = vi.mocked(telemetry.reportServerError);
+const mockedReportServerError = vi.mocked(reportServerError);
 const mockedRedirectWithNotice = vi.mocked(redirectWithNotice);
 
 function lastRedirect() {
@@ -67,14 +61,11 @@ async function invoke(action: (formData: FormData) => Promise<void>, formData = 
 }
 
 describe("defineAction", () => {
-  let log: ReturnType<typeof captureLogLines>;
-
   beforeEach(() => {
-    log = captureLogLines();
+    vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
   afterEach(() => {
-    log.restore();
     vi.restoreAllMocks();
     vi.clearAllMocks();
   });
@@ -82,7 +73,6 @@ describe("defineAction", () => {
   it("runs authz → parse → run and redirects with the success notice", async () => {
     const order: string[] = [];
     const action = defineAction({
-      name: "testAction",
       fallbackRedirect: "/people",
       authz: async () => {
         order.push("authz");
@@ -121,7 +111,6 @@ describe("defineAction", () => {
 
   it("honours the form's redirectTo over the fallback", async () => {
     const action = defineAction({
-      name: "testAction",
       fallbackRedirect: "/grid",
       authz: async () => ({}),
       parse: () => parsed({}),
@@ -138,7 +127,6 @@ describe("defineAction", () => {
 
   it("lets run override the success redirect target", async () => {
     const action = defineAction({
-      name: "testAction",
       fallbackRedirect: "/grid",
       authz: async () => ({}),
       parse: () => parsed({}),
@@ -154,7 +142,6 @@ describe("defineAction", () => {
 
   it("passes the resolved redirect target to run", async () => {
     const action = defineAction({
-      name: "testAction",
       fallbackRedirect: "/mi-jornada",
       authz: async () => ({}),
       parse: () => parsed({}),
@@ -171,7 +158,6 @@ describe("defineAction", () => {
 
   it("uses resolveRedirect instead of getRedirectTarget when provided", async () => {
     const action = defineAction({
-      name: "testAction",
       fallbackRedirect: "/grid",
       resolveRedirect: (formData) => `/match/${String(formData.get("matchId") ?? "")}`,
       authz: async () => ({}),
@@ -189,7 +175,6 @@ describe("defineAction", () => {
 
   it("turns a run {error} into an error notice without revalidating", async () => {
     const action = defineAction({
-      name: "testAction",
       fallbackRedirect: "/people",
       authz: async () => ({}),
       parse: () => parsed({}),
@@ -209,7 +194,6 @@ describe("defineAction", () => {
 
   it("lets a run {error} redirect somewhere else", async () => {
     const action = defineAction({
-      name: "testAction",
       fallbackRedirect: "/grid",
       resolveRedirect: () => "/match/",
       authz: async () => ({}),
@@ -229,7 +213,6 @@ describe("defineAction", () => {
 
   it("keeps a non-success intent returned by run and still revalidates", async () => {
     const action = defineAction({
-      name: "testAction",
       fallbackRedirect: "/grid",
       authz: async () => ({}),
       parse: () => parsed({}),
@@ -253,7 +236,6 @@ describe("defineAction", () => {
 
   it("shows a DomainError's message as the notice and does not report it", async () => {
     const action = defineAction({
-      name: "testAction",
       fallbackRedirect: "/roles",
       authz: async () => ({}),
       parse: () => parsed({}),
@@ -272,17 +254,15 @@ describe("defineAction", () => {
       notice: "No se encontró el rol.",
     });
     expect(mockedReportServerError).not.toHaveBeenCalled();
-    expect(log.lines).toEqual([
-      expect.objectContaining({ level: "info", outcome: "rejected", reason: "domain_rule" }),
-    ]);
+    expect(console.error).not.toHaveBeenCalled();
   });
 
-  it("shows the generic notice for an unexpected error and writes it once on the action's line", async () => {
+  it("shows the generic notice for an unexpected error and logs it once under logTag", async () => {
     const action = defineAction({
-      name: "upsertRoleAction",
       fallbackRedirect: "/roles",
       authz: async () => ({}),
       parse: () => parsed({}),
+      logTag: "[roles] upsert failed",
       run: async () => {
         throw new TypeError("db exploded");
       },
@@ -293,19 +273,14 @@ describe("defineAction", () => {
     expect(lastRedirect()?.notice).toBe(
       "Ocurrió un error inesperado. Probá de nuevo.",
     );
-    expect(log.lines).toHaveLength(1);
-    expect(log.lines[0]).toMatchObject({
-      level: "error",
-      kind: "action",
-      route: "upsertRoleAction",
-      outcome: "error",
-      error: { type: "TypeError", message: "db exploded" },
-    });
+    expect(console.error).toHaveBeenCalledTimes(1);
+    expect(console.error).toHaveBeenCalledWith(
+      "[roles] upsert failed: TypeError: db exploded",
+    );
   });
 
   it("prefers the fixed errorNotice over the generic one", async () => {
     const action = defineAction({
-      name: "testAction",
       fallbackRedirect: "/settings",
       authz: async () => ({}),
       parse: () => parsed({}),
@@ -325,7 +300,6 @@ describe("defineAction", () => {
   it("never calls run when parse fails and surfaces the parse error", async () => {
     const run = vi.fn(async () => ({ notice: "no debería llegar acá" }));
     const action = defineAction({
-      name: "testAction",
       fallbackRedirect: "/settings",
       authz: async () => ({}),
       parse: () => parseFailure<never>("El comunicado necesita título y mensaje."),
@@ -344,7 +318,6 @@ describe("defineAction", () => {
 
   it("rethrows navigation errors thrown inside run instead of swallowing them", async () => {
     const action = defineAction({
-      name: "testAction",
       fallbackRedirect: "/grid",
       authz: async () => ({}),
       parse: () => parsed({}),
@@ -359,7 +332,6 @@ describe("defineAction", () => {
 
   it("propagates an authz failure unhandled by default", async () => {
     const action = defineAction({
-      name: "testAction",
       fallbackRedirect: "/grid",
       authz: async () => {
         throw new Error("No tenes permisos para editar.");
@@ -376,7 +348,6 @@ describe("defineAction", () => {
 
   it("surfaces an authz failure as an error notice when authzFailureNotice is set", async () => {
     const action = defineAction({
-      name: "testAction",
       fallbackRedirect: "/grid",
       authz: async () => {
         throw new Error("No tenes permisos para aprobar solicitudes de acceso.");
@@ -395,12 +366,11 @@ describe("defineAction", () => {
     });
   });
 
-  it("reports an error thrown by run once, from inside the action's line", async () => {
+  it("reports an error thrown by run to telemetry with the actor's id", async () => {
     const error = new Error("db exploded");
     const action = defineAction({
-      name: "testAction",
       fallbackRedirect: "/grid",
-      authz: async () => ({ userId: "user-test-1", role: "editor" }),
+      authz: async () => ({ userId: "user-test-1" }),
       parse: () => parsed({}),
       run: async () => {
         throw error;
@@ -409,68 +379,47 @@ describe("defineAction", () => {
 
     await invoke(action);
 
-    expect(mockedReportServerError).toHaveBeenCalledTimes(1);
-    expect(mockedReportServerError).toHaveBeenCalledWith(
-      error,
-      expect.objectContaining({ route_type: "action" }),
-    );
-    expect(log.lines[0]).toMatchObject({ user_id: "user-test-1", role: "editor" });
+    expect(mockedReportServerError).toHaveBeenCalledWith(error, {
+      method: "POST",
+      routeType: "action",
+      userId: "user-test-1",
+    });
   });
 
-  it.each([
-    ["a success", { notice: "Listo." }, parsed({}), { level: "info", outcome: "ok" }],
-    [
-      "a run {error}",
-      { error: "Ya existe." },
-      parsed({}),
-      { level: "info", outcome: "rejected", reason: "domain_rule" },
-    ],
-    [
-      "a parse failure",
-      { notice: "Listo." },
-      parseFailure<never>("Falta el partido."),
-      { level: "info", outcome: "rejected", reason: "invalid_input" },
-    ],
-  ] as const)("writes exactly one line for %s, with its outcome", async (_name, outcome, parse, line) => {
+  it("reports a thrown error without a user id when the authz context has none", async () => {
     const action = defineAction({
-      name: "createMatchAction",
       fallbackRedirect: "/grid",
-      authz: async () => ({ userId: "user-test-1", role: "editor" }),
-      parse: () => parse,
-      run: async () => outcome,
+      authz: async () => ({}),
+      parse: () => parsed({}),
+      run: async () => {
+        throw new Error("boom");
+      },
     });
 
     await invoke(action);
 
-    expect(log.lines).toHaveLength(1);
-    expect(log.lines[0]).toMatchObject({
-      kind: "action",
-      route: "createMatchAction",
-      user_id: "user-test-1",
-      role: "editor",
-      ...line,
+    expect(mockedReportServerError).toHaveBeenCalledWith(expect.any(Error), {
+      method: "POST",
+      routeType: "action",
+      userId: null,
     });
-    expect(log.lines[0].duration_ms).toEqual(expect.any(Number));
   });
 
   it("does not report domain outcomes: a parse failure, a run {error} or a success", async () => {
     const outcomes = [
       defineAction({
-        name: "testAction",
         fallbackRedirect: "/grid",
         authz: async () => ({ userId: "user-test-1" }),
         parse: () => parseFailure<never>("Falta el partido."),
         run: async () => ({ notice: "Listo." }),
       }),
       defineAction({
-        name: "testAction",
         fallbackRedirect: "/grid",
         authz: async () => ({ userId: "user-test-1" }),
         parse: () => parsed({}),
         run: async () => ({ error: "Ya existe." }),
       }),
       defineAction({
-        name: "testAction",
         fallbackRedirect: "/grid",
         authz: async () => ({ userId: "user-test-1" }),
         parse: () => parsed({}),
@@ -487,7 +436,6 @@ describe("defineAction", () => {
 
   it("does not report navigation errors or an authz failure shown as a notice", async () => {
     const navigating = defineAction({
-      name: "testAction",
       fallbackRedirect: "/grid",
       authz: async () => ({}),
       parse: () => parsed({}),
@@ -496,7 +444,6 @@ describe("defineAction", () => {
       },
     });
     const denied = defineAction({
-      name: "testAction",
       fallbackRedirect: "/grid",
       authz: async () => {
         throw new Error("No tenes permisos para editar.");

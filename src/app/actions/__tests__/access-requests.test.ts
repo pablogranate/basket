@@ -6,7 +6,7 @@ import { listCatalogApps } from "@/lib/acceso/accesos";
 import { notifyAccessRequest } from "@/lib/access-requests/notify";
 import { submitAccessRequest } from "@/lib/access-requests/requests";
 import { requireUserContext } from "@/lib/auth";
-import { telemetry } from "@/lib/telemetry";
+import { trackServerEvent } from "@/lib/telemetry";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/auth", () => ({
@@ -31,8 +31,10 @@ vi.mock("@/lib/db/auth-client", () => ({ authDb: { name: "authDb" } }));
 vi.mock("@/lib/db/client", () => ({ db: {} }));
 vi.mock("@/lib/email/mailer", () => ({ sendCollaboratorInviteEmail: vi.fn() }));
 vi.mock("@/lib/people/identity", () => ({ linkProfileToPerson: vi.fn() }));
-vi.mock("@/lib/telemetry", () => ({
-  telemetry: { reportServerError: vi.fn(), trackServerEvent: vi.fn(), flush: vi.fn() },
+vi.mock("@/lib/telemetry", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/telemetry")>()),
+  reportServerError: vi.fn(),
+  trackServerEvent: vi.fn(),
 }));
 vi.mock("@/app/actions/helpers", () => ({
   getRedirectTarget: (formData: FormData, fallback: string) =>
@@ -99,7 +101,7 @@ describe("submitAccessRequestAction", () => {
   it("tracks access_request_submitted with the app and the requested Función only", async () => {
     await submitAccessRequestAction(form({ app: "portal", funcion: "Relator" }));
 
-    expect(vi.mocked(telemetry.trackServerEvent)).toHaveBeenCalledWith(
+    expect(vi.mocked(trackServerEvent)).toHaveBeenCalledWith(
       "access_request_submitted",
       "user-1",
       { app: "portal", role: "Relator" },
@@ -109,7 +111,7 @@ describe("submitAccessRequestAction", () => {
   it("tracks nothing when the Solicitud is refused", async () => {
     await submitAccessRequestAction(form({ app: "portal" }));
 
-    expect(vi.mocked(telemetry.trackServerEvent)).not.toHaveBeenCalled();
+    expect(vi.mocked(trackServerEvent)).not.toHaveBeenCalled();
   });
 
   it("files an unknown app as a portal Solicitud", async () => {
@@ -136,6 +138,7 @@ describe("submitAccessRequestAction", () => {
 
   it("keeps the Solicitud when the notification fails", async () => {
     vi.mocked(notifyAccessRequest).mockRejectedValue(new Error("smtp down"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
 
     await submitAccessRequestAction(form({ app: "facturacion" }));
 

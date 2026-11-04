@@ -16,105 +16,59 @@ Error messages are scrubbed before they are sent (see below).
 |---|---|---|
 | Browser | page views, active time, clicks, `window.onerror` and `unhandledrejection` | the SDK: `<Script src="/_t/sdk.js">` in `src/app/layout.tsx`, after the 1-line stub that queues `window.bpt` calls until it loads |
 | Browser | a render error that reaches the root | `src/app/error.tsx` and `src/app/global-error.tsx` call `window.bpt?.captureError` (`captureBoundaryError` in `src/lib/telemetry-browser.ts`) and show the Spanish fallback (`src/components/errors/error-fallback.tsx`) |
-| Server | an uncaught error of a render, route handler, server action or the proxy | `onRequestError` in `src/instrumentation.ts`, with the method, the route pattern (`/match/[id]`, never the concrete path), the route type and the `request_id` of the log line the error marked; `register()` and its schedulers are unchanged |
-| Server | an error thrown inside a server action's `run` | `src/lib/actions/define-action.ts`. Parse failures, a returned `{ error }`, a `DomainError` and an authz failure shown as a notice are not reported |
+| Server | an uncaught error of a render, route handler, server action or the proxy | `onRequestError` in `src/instrumentation.ts`, with the method, the route pattern (`/match/[id]`, never the concrete path) and the route type; `register()` and its schedulers are unchanged |
+| Server | an error thrown inside a server action's `run` | `src/lib/actions/define-action.ts`, with the actor's Better Auth id. Parse failures, a returned `{ error }`, a `DomainError` and an authz failure shown as a notice are not reported |
 | Server | an unexpected error caught before it reaches either hook | `reportError` in `src/lib/log.ts`, from the catch blocks listed in [Caught errors](#caught-errors) |
 | Server | business events | the actions below |
 
 `window.bpt` is typed in `src/types/bpt.d.ts`, copied from basket-telemetry `src/sdk/sdk.d.ts`.
 
-The server reporter is the shared package [basket-tv-telemetry](https://github.com/WencesCapolo/basket-tv-telemetry)
-(`createReporter`), created once in `src/lib/telemetry.ts` as `telemetry` (`telemetry.reportServerError`,
-`telemetry.trackServerEvent`). The package owns batching (1 s, one `POST` to the loopback ingest with
-`Authorization: Bearer <TELEMETRY_TOKEN>`), the 1.5 s timeout, the 200-item queue cap and the scrubbing of error
-messages (`scrubMessage`: cut at `params:`, emails, quoted values, objects, numbers and amounts masked); its fixtures
-pin both. Without `TELEMETRY_TOKEN` (dev, tests, CI) it does nothing. Inside a wide event it fills `request_id`,
-`method`, `route`, `status` and `userId` from the event, so a report links to its log line. `src/lib/telemetry.ts`
-keeps only the app's config and the Portal's own auth-event sender (below). Next bundles the package: it stays out of
-`serverExternalPackages`, and `vitest.config.mts` inlines it for the same reason.
+The server reporter is `src/lib/telemetry.ts` (`reportServerError`, `trackServerEvent`). It batches for 1 s and sends
+one `POST` to the loopback ingest with `Authorization: Bearer <TELEMETRY_TOKEN>` (body per SPEC §6.2: `v: 1`,
+`events`, `errors`). It aborts a send after 1.5 s, never throws, is never awaited on a response path, and caps its
+queue at 200 items. Without `TELEMETRY_TOKEN` (dev, tests, CI) it does nothing. An error message is cut at `params:`
+(a failed query's parameters) and has emails, quoted values, objects and numbers masked; the stack keeps its frames.
 
 ## Caught errors
 
 `onRequestError` and `defineAction` see only what is thrown. Code that catches an error and carries on (an action that
-answers `{ ok: false }`, a scheduler, a best-effort email, a loader that degrades) calls `reportError(error, route)`
-from `src/lib/log.ts`. Each failure is printed once and reported once:
-
-- **Inside a request, action or job** it marks that unit's line (`markError`: `level: "error"`, `outcome: "error"`,
-  `error: { type, message }` scrubbed, no stack) and reports the error with the unit's route and request id.
-- **Outside one** (a page render's loader, an email that Better Auth sends) it writes one `kind: "message"` line of its
-  own with `route` = the function that failed, at most once per 5 minutes per route with a `repeats` count
-  (`emitThrottled`), and reports every occurrence with `route_type: "render"` (`"auth"` for the user context).
+answers `{ ok: false }`, a scheduler, a best-effort email, a loader that degrades) calls `reportError(tag, error,
+context)` from `src/lib/log.ts`, which writes one log line and sends the error to the reporter. Each failure is logged
+once and reported once.
 
 - **Expected outcomes are not failures.** A domain rule throws a `DomainError` (`src/lib/errors.ts`), whose Spanish
-  message is shown as it is. `reportError` ignores it; the line says `outcome: "rejected"`.
+  message is shown as it is. `reportError` ignores it.
 - **What the user sees.** Any other error shows `unexpectedErrorMessage()` (`src/lib/utils.ts`): "Ocurrió un error
   inesperado. Probá de nuevo." `ensureErrorMessage` is for domain messages only.
 - **What is stored.** Text a page reads back later (grid sync runs and their step errors, notification delivery logs)
   is a `DomainError`'s message, the scrubbed message (`storedErrorMessage`) or a fixed text.
 
-| Where | Line it marks | `route_type` |
+| Where | `route` | `routeType` |
 |---|---|---|
-| actions that answer `{ ok: false }` (`teams.ts`, `leagues.ts`, `fixtures.ts`) through `failedActionResult` in `src/app/actions/helpers.ts`, and `syncGridAction`, `togglePersonActiveAction` | the action's | `action` |
-| best-effort emails (the mailer reports its own failures and rethrows; callers only change the notice) and the request notification in `access-requests.ts` | the action's | `action` |
-| grid sync, fixtures sync (a failed run or a failed feed) and match-day notification crons | the job's | `job` |
-| user context resolution (`src/lib/auth.ts`), which degrades to no access | the request's or action's, else its own `getUserContext` line | `auth` outside a unit |
-| page loaders that degrade (`src/lib/data/*`, the dashboard layout, `/mi-jornada`, the latest announcement) | their own line, `route` = the loader | `render` |
-| `GET /api/grid/reports`, `GET /api/club-logo` and `POST /api/matches/intake` when they answer `500` | the request's | `route` |
+| actions that answer `{ ok: false }` (`teams.ts`, `leagues.ts`, `fixtures.ts`) through `failedActionResult` in `src/app/actions/helpers.ts`, and `syncGridAction`, `togglePersonActiveAction` | the action's name | `action` |
+| best-effort emails and the request notification in `access-requests.ts` and `app-access-requests.ts` | the action's name | `action` |
+| grid sync cron (`src/lib/grid/sync-scheduler.ts`) | `grid-sync` | `job` |
+| fixtures sync cron, a failed run or a failed feed (`src/lib/fixtures/sync-scheduler.ts`) | `fixtures-sync` | `job` |
+| match-day notifications (`src/lib/notifications/send-match-day.ts`) | `notifications` | `job` (`action` for a manual send) |
+| user context resolution (`src/lib/auth.ts`), which degrades to no access | `getUserContext` | `auth` |
+| the latest announcement (`src/lib/data/announcements.ts`), which degrades to none | `loadLatestAnnouncement` | `render` |
+| `GET /api/grid/reports` and `POST /api/matches/intake` when they answer `500` | the route pattern, with `status: 500` | `route` |
 
 The match pages (`/match/[id]` and `/match/[id]/notificar`) answer `404` only when the match does not exist; a failed
 query reaches `error.tsx` and is reported by `onRequestError`.
 
-## Server logs
+## Server log lines
 
-The server writes one JSON line per unit of work on stdout (pm2's log), in the format of basket-telemetry's "Server
-logs" contract (`docs/sdk.md`), built by `basket-tv-telemetry/log` and `basket-tv-telemetry/next`. The line is
-created when the unit starts, the code below it adds fields (`addFields`), and it is written once at the end. Fields
-are ids, counts, enums and booleans: never names, emails, phone numbers or free text. `level` is `error` only for
-`outcome: "error"` (a thrown error, a 5xx); a 4xx and a domain rejection are `info`.
+Server code logs a failure with `logError(tag, error, extra?)` or `reportError`, never `console.error(…, error)`. The
+line is one line: the tag, the error's name, its message passed through `scrubErrorMessage` (the same rule as the
+reporter), the scrubbed name and message of its `cause` when it has one, and the `extra` fields (ids, counts, enums):
 
-| `kind` | Unit | Built by | `route` |
-|---|---|---|---|
-| `request` | every API route handler | `withAuth` / `withApiKey` (`src/lib/api/`), which wrap `withRequestLog`; the Better Auth catch-all wraps `withRequestLog` itself. `/api/health` is not logged | the pattern: `/api/gates/[app]` |
-| `action` | every server action | `defineAction` (option `name`), and `withActionLog` for the actions outside it | the exported action's name: `createMatchAction` |
-| `job` | one scheduler run | `runJob` in `src/lib/log.ts` | `grid_sync`, `fixtures_sync`, `match_day_notifications` |
-| `message` | a failure outside any unit | `reportError` | the function that failed |
-| `start` | a scheduler at boot: `scheduler: "started" \| "disabled" \| "invalid_cron"`, `cron` | `logSchedulerStart` | the job's name |
-
-`user_id` (the Better Auth id) and `role` (the portal role, only with portal access) come from `getUserContext`
-(`src/lib/auth.ts`) and from `defineAction`'s authz context. A request answers with its `X-Request-Id` (the incoming
-one when it is safe to reuse); a server action cannot set headers, so its id is only in the line and in the error's
-report. Page renders get no line.
-
-A gate check that nginx's `auth_request` makes on every request to a gated app:
-
-```json
-{"ts":"2026-11-04T18:04:05.123Z","level":"info","kind":"request","request_id":"8f14e45f-…","method":"GET","route":"/api/gates/[app]","status":401,"duration_ms":3,"outcome":"rejected","reason":"no_session"}
+```text
+[leagues] failed to create league: Error: Failed query: insert into "…" ("…") values ($1) (cause Error: duplicate key value violates unique constraint "…")
 ```
 
-**Rejections.** `withAuth` answers `401` with `reason: "no_session"` and `403` with `reason: "no_access"`; the gates
-(`/api/gates/[app]`, `/api/gates/superadmin`) add `no_access` for an identity without access to the app;
-`withApiKey` answers `401` with `reason: "invalid_key"`. `defineAction` sets `reason: "invalid_input"` (a parse
-failure), `"domain_rule"` (a returned `{ error }` or a `DomainError`) or `"no_access"` (an authz failure shown as a
-notice). The AI routes set `reason` on a `502` (`upstream_error`, `empty_answer`, `missing_json`, `invalid_json`,
-`schema_mismatch`) with `gemini: { model, source, status }`.
-
-**Business context**, one object per domain thing the unit touched:
-
-| Field | Where |
-|---|---|
-| `match: { id, staff_count }` | `createMatchAction` (`staff_count`: assignments with a person); `id` only on the other match actions and the manual notifications |
-| `notification: { recipients, wa_sent, email_sent }` | the manual notification actions; the access request notice (`email_sent` only) |
-| `notification: { due, failed, recipients, wa_sent, email_sent }` and `trigger` | the `match_day_notifications` job, summed over the due matches |
-| `grid_sync: { created, updated, deleted, unchanged, assignments_upserted, assignments_deleted, people_created, people_resurrected, errors, warnings }` | `runGridSync`, for the cron and the manual sync |
-| `fixtures_sync: { upserted, deleted, linked, warnings, feed_errors }`, `alert` | the `fixtures_sync` job |
-| `access_request: { app, role }` | submitting and approving a Solicitud (portal and apex) |
-| `skipped` | a job run that did nothing: `recent_success`, `in_progress`, `cooldown` |
-| `gate: { app }` | `/api/gates/[app]` |
-
-The match-day notifications job writes its line every hour, `notification.due: 0` included, so a missing hourly line
-means the scheduler stopped. Other lines stay free text only where no unit applies: the env checks at boot
-(`src/lib/env.ts`), and the list of matches a grid sync deleted (`src/lib/grid/sync-apply.ts`), kept because the
-deleted matches' audit rows cascade away with them.
+A failed upstream call logs its status and at most 200 scrubbed characters of the body (`logUpstreamError`). Log lines
+carry ids, not names.
 
 ## Business events
 
@@ -132,8 +86,7 @@ Each event carries the actor's Better Auth id as `userId`.
 ## Auth events
 
 The portal is the only auth server, so only it reports auth events (`reportAuthEvent` in `src/lib/telemetry.ts`, the
-batch's `auth` array, accepted by the ingest from the `portal` token only). The package has no sender for them, so
-`src/lib/telemetry.ts` keeps a small one with the same batching, timeout and no-op rules. The Better Auth wiring is
+batch's `auth` array, accepted by the ingest from the `portal` token only). The Better Auth wiring is
 `src/lib/auth/telemetry-hooks.ts`, spread into the config in `src/lib/auth/server.ts`.
 
 | Event | When | Where | Fields |
@@ -194,14 +147,14 @@ sequenceDiagram
   participant B as Browser
   participant S as SDK (/_t/sdk.js)
   participant N as Next (portal)
-  participant R as Reporter (basket-tv-telemetry)
+  participant R as Reporter (src/lib/telemetry.ts)
   participant T as basket-telemetry (:3011)
   B->>N: request (page, route handler or server action)
   N-->>N: an uncaught error
-  N->>R: onRequestError → reportServerError(err, {method, route, route_type, request_id})
+  N->>R: onRequestError → reportServerError(err, {method, route, routeType})
   N-->>B: error response / error.tsx fallback
   Note over N,R: a server action error is caught by defineAction,<br/>reported with the actor's id, and shown as a notice
-  Note over N,R: an error caught elsewhere (an action, a scheduler)<br/>goes through reportError: it marks the unit's line, one report
+  Note over N,R: an error caught elsewhere (an action, a scheduler)<br/>goes through reportError: one log line, one report
   R->>T: POST /ingest/server (1 s batch, Bearer TELEMETRY_TOKEN, 1.5 s timeout)
   B->>B: a render error reaches error.tsx / global-error.tsx
   B->>S: window.bpt?.captureError(error, {boundary, digest})

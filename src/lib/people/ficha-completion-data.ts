@@ -16,7 +16,7 @@ import { people as peopleTable, roles as rolesTable } from "@/lib/db/schema";
 import { shouldAskFichaCompletion } from "@/lib/people/ficha-completion";
 import { listApprovalCandidates } from "@/lib/people/identity";
 import { normalizeText } from "@/lib/utils";
-import { reportError } from "@/lib/log";
+import { logError } from "@/lib/log";
 
 export type FichaCompletionPrompt = {
   funcion: AccessRequestFuncion | null;
@@ -85,7 +85,7 @@ export async function getFichaCompletionPrompt(
     };
   } catch (error) {
     // The modal is a nudge: a failed read skips it rather than the page.
-    reportError(error, "getFichaCompletionPrompt");
+    logError("[acceso] failed to resolve the ficha completion", error);
     return null;
   }
 }

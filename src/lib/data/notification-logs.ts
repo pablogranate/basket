@@ -15,7 +15,7 @@ import {
 } from "@/lib/notifications/log-filters";
 import type { NotificationLogEntry } from "@/lib/types";
 import { DomainError } from "@/lib/errors";
-import { reportError } from "@/lib/log";
+import { logError } from "@/lib/log";
 
 const ARG_TZ = "America/Argentina/Buenos_Aires";
 
@@ -113,7 +113,7 @@ export async function getNotificationLogs(
       pageCount,
     };
   } catch (error) {
-    reportError(error, "getNotificationLogs");
+    logError("[notifications] failed to load delivery log", error);
     return { rows: [], total: 0, page: safePage, pageCount: 0 };
   }
 }

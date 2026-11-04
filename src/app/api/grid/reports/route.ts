@@ -42,8 +42,8 @@ type MatchQueryRow = {
 };
 
 export const GET = withAuth(
-  { route: "/api/grid/reports", capability: "dashboard.full" },
-  async (request) => {
+  { capability: "dashboard.full" },
+  async (request, context) => {
     const url = new URL(request.url);
     const parsed = paramsSchema.safeParse({
       from: url.searchParams.get("from") ?? "",
@@ -135,7 +135,13 @@ export const GET = withAuth(
 
       return NextResponse.json({ matches });
     } catch (caught) {
-      reportError(caught, "/api/grid/reports");
+      reportError("[grid-reports] failed to load matches", caught, {
+        method: "GET",
+        route: "/api/grid/reports",
+        routeType: "route",
+        status: 500,
+        userId: context.userId,
+      });
       return NextResponse.json(
         { error: unexpectedErrorMessage() },
         { status: 500 },

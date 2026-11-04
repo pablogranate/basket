@@ -8,7 +8,6 @@ import { consumeGuestRateLimit } from "@/lib/api/rate-limit";
 import { getUserContext } from "@/lib/auth";
 import { getGeminiRuntimeConfig } from "@/lib/settings";
 import { makeGuestContext, makeUserContext } from "@/test/fixtures/user-context";
-import { noParams } from "@/test/fixtures/route-context";
 
 vi.mock("@/lib/auth", () => ({
   getUserContext: vi.fn(),
@@ -81,7 +80,7 @@ describe("api/ai/section POST", () => {
     });
     const { POST } = await import("../route");
 
-    const response = await POST(buildRequest(refBody()), noParams);
+    const response = await POST(buildRequest(refBody()));
 
     expect(response.status).toBe(429);
     expect(mockedResolveContext).not.toHaveBeenCalled();
@@ -100,7 +99,6 @@ describe("api/ai/section POST", () => {
 
     const response = await POST(
       buildRequest(refBody({ contextRef: { section: "people" } })),
-      noParams,
     );
 
     expect(response.status).toBe(403);
@@ -115,7 +113,7 @@ describe("api/ai/section POST", () => {
     mockedGetGeminiRuntimeConfig.mockResolvedValue(geminiConfigWithoutKey);
     const { POST } = await import("../route");
 
-    const response = await POST(buildRequest(refBody()), noParams);
+    const response = await POST(buildRequest(refBody()));
 
     // No client blob is trusted: the route derived the dataset itself.
     expect(mockedResolveContext).toHaveBeenCalledTimes(1);
@@ -130,7 +128,6 @@ describe("api/ai/section POST", () => {
 
     const response = await POST(
       buildRequest(refBody({ contextRef: { section: "bogus-section" } })),
-      noParams,
     );
 
     expect(response.status).toBe(400);
@@ -150,7 +147,6 @@ describe("api/ai/section POST", () => {
         contextLabel: "Incidencias visibles",
         context: [{ incidencia: "A" }],
       }),
-      noParams,
     );
 
     expect(mockedIsSectionAllowed).not.toHaveBeenCalled();

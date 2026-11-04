@@ -7,7 +7,7 @@ import {
 } from "@/lib/access-requests/recipients";
 import { db } from "@/lib/db/client";
 import { appSettings as appSettingsTable } from "@/lib/db/schema";
-import { reportError } from "@/lib/log";
+import { logError } from "@/lib/log";
 
 export const ACCESS_REQUEST_RECIPIENTS_SETTING_KEY = "access_request_recipients";
 
@@ -48,7 +48,7 @@ export function parseRecipientConfig(
       ),
     };
   } catch (error) {
-    reportError(error, "parseRecipientConfig");
+    console.warn("[access-requests] unreadable recipient config", error);
     return DEFAULT_ACCESS_REQUEST_RECIPIENTS;
   }
 }
@@ -69,7 +69,7 @@ export async function getAccessRequestRecipientConfig(): Promise<AccessRequestRe
   } catch (error) {
     // A missing app_settings row (or table) must never stop a signup: fall back
     // to the seeded routing so the notification still reaches producción.
-    reportError(error, "getAccessRequestRecipientConfig");
+    logError("[access-requests] failed to load recipient config", error);
     return DEFAULT_ACCESS_REQUEST_RECIPIENTS;
   }
 }
