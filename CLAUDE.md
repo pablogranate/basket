@@ -137,10 +137,10 @@ It is one of three sibling apps under `basket-app.com`: `portal.` (this), `analy
 
 ## Logging
 
-- Server code writes one JSON line per request, action and job (`basket-tv-telemetry`; see `docs/telemetry.md`, "Server logs"). No `console.*` in server code beyond the exceptions listed there.
-- Add context to the current line with `addFields({ match: { id } })`: ids, counts, enums, booleans only.
-- A caught unexpected failure goes through `reportError(error, route)` (`src/lib/log.ts`): it marks the current line and reports once.
-- New server actions go through `defineAction({ name, … })` or `withActionLog`; new API routes through `withAuth({ route, … })` / `withApiKey(route, …)`.
+- `console.error` (11×): failed DB queries / unexpected failures, namespaced with a bracket tag, e.g. `console.error("[auth] failed to load profile", profileQuery.error);` (`src/lib/auth.ts`).
+- `console.warn` (8×): recoverable / degraded conditions.
+- `console.info` (4×): notable runtime events.
+- Use a bracketed module prefix (`[auth]`, etc.) when logging.
 
 ## Comments
 

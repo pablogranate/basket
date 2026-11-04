@@ -1,91 +1,80 @@
-import { scrubMessage } from "basket-tv-telemetry";
-import {
-  currentEvent,
-  emit,
-  emitThrottled,
-  markError,
-  runLogged,
-  startEvent,
-  type WideEvent,
-} from "basket-tv-telemetry/log";
-
 import { isDomainError } from "@/lib/errors";
-import { telemetry } from "@/lib/telemetry";
+import {
+  reportServerError,
+  scrubErrorMessage,
+  type ServerErrorContext,
+} from "@/lib/telemetry";
+
+// Ids, counts and enums only.
+export type LogFields = Readonly<
+  Record<string, string | number | boolean | null | undefined>
+>;
 
 const MAX_DETAIL_LENGTH = 200;
 
-const ROUTE_TYPE: Partial<Record<WideEvent["kind"], string>> = {
-  request: "route",
-  action: "action",
-  job: "job",
-};
+function describeOne(error: unknown): string {
+  if (error instanceof Error) {
+    return `${error.name || "Error"}: ${scrubErrorMessage(error.message)}`;
+  }
 
-// A caught failure that is not a DomainError (an outcome, not a failure) is
-// printed once and reported once. Inside a request, action or job it marks
-// that unit's line, whose route the report takes. Outside one (a page render's
-// loader, an email Better Auth sends) it is a `message` line of its own,
-// throttled per route: a dependency that is down fails on every render.
+  return `${typeof error}: ${scrubErrorMessage(String(error))}`;
+}
+
+// A failed query wraps the driver's error, whose message says what went wrong.
+export function describeError(error: unknown): string {
+  const cause = error instanceof Error ? error.cause : undefined;
+  return cause instanceof Error
+    ? `${describeOne(error)} (cause ${describeOne(cause)})`
+    : describeOne(error);
+}
+
+function formatFields(fields: LogFields | undefined): string {
+  if (!fields) {
+    return "";
+  }
+
+  const pairs = Object.entries(fields)
+    .filter(([, value]) => value !== undefined)
+    .map(([key, value]) => `${key}=${String(value)}`);
+  return pairs.length ? ` ${pairs.join(" ")}` : "";
+}
+
+// One line per failure: the tag, the error's name and its scrubbed message,
+// then the extra fields. Never the error object.
+export function logError(tag: string, error: unknown, extra?: LogFields): void {
+  console.error(`${tag}: ${describeError(error)}${formatFields(extra)}`);
+}
+
+// Logs and reports a caught failure once. A DomainError is an outcome, not a
+// failure: nothing is logged or reported.
 export function reportError(
+  tag: string,
   error: unknown,
-  route: string,
-  context: { routeType?: "render" | "auth"; userId?: string | null } = {},
+  context: ServerErrorContext,
+  extra?: LogFields,
 ): void {
   if (isDomainError(error)) {
     return;
   }
 
-  const event = currentEvent();
-
-  if (event) {
-    markError(error, event);
-    telemetry.reportServerError(error, {
-      route_type: ROUTE_TYPE[event.kind],
-      userId: context.userId ?? undefined,
-    });
-    return;
-  }
-
-  const line = startEvent("message", { route });
-  markError(error, line);
-  emitThrottled(route, line);
-  telemetry.reportServerError(error, {
-    route,
-    route_type: context.routeType ?? "render",
-    userId: context.userId,
-  });
-}
-
-// One `job` line per scheduler run. A failure is reported and ends the run;
-// it never reaches the cron.
-export async function runJob(route: string, run: () => Promise<void>): Promise<void> {
-  await runLogged(startEvent("job", { route }), async () => {
-    try {
-      await run();
-    } catch (error) {
-      reportError(error, route);
-    }
-  });
-}
-
-// One `start` line per scheduler at boot: whether it runs, and on what cron.
-export function logSchedulerStart(
-  route: string,
-  scheduler: "started" | "disabled" | "invalid_cron",
-  cron?: string,
-): void {
-  emit({
-    ts: new Date().toISOString(),
-    level: scheduler === "invalid_cron" ? "error" : "info",
-    kind: "start",
-    route,
-    scheduler,
-    cron,
-  });
+  logError(tag, error, extra);
+  reportServerError(error, context);
 }
 
 // The start of an upstream response body, scrubbed.
 export function upstreamDetail(body: string): string {
-  return scrubMessage(body).slice(0, MAX_DETAIL_LENGTH);
+  return scrubErrorMessage(body).slice(0, MAX_DETAIL_LENGTH);
+}
+
+// A failed upstream call: its status and the start of its body.
+export function logUpstreamError(
+  tag: string,
+  response: { status: number; body: string },
+  extra?: LogFields,
+): void {
+  console.error(
+    `${tag}: status=${response.status}${formatFields(extra)} detail=${upstreamDetail(response.body)}`,
+  );
 }
 
 // A message to store where a page or a response reads it back later: a
@@ -100,7 +89,7 @@ export function storedErrorMessage(error: unknown): string {
     error instanceof Error
       ? error.message
       : (error as { message?: unknown } | null)?.message;
-  return scrubMessage(
+  return scrubErrorMessage(
     typeof message === "string" && message ? message : String(error),
   );
 }

@@ -14,7 +14,7 @@ import {
 } from "@/lib/sync/log-filters";
 import type { SyncLogEntry } from "@/lib/types";
 import { DomainError } from "@/lib/errors";
-import { reportError } from "@/lib/log";
+import { logError } from "@/lib/log";
 
 const ARG_TZ = "America/Argentina/Buenos_Aires";
 
@@ -91,7 +91,7 @@ export async function getSyncLogs(
       pageCount,
     };
   } catch (error) {
-    reportError(error, "getSyncLogs");
+    logError("[grid-sync] failed to load sync log", error);
     return { rows: [], total: 0, page: safePage, pageCount: 0 };
   }
 }

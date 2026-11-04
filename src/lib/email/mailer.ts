@@ -4,7 +4,7 @@ import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
 
 import { appEnv, assertSmtpEnv } from "@/lib/env";
-import { reportError } from "@/lib/log";
+import { logError } from "@/lib/log";
 
 const globalForMailer = globalThis as unknown as {
   mailTransport?: Transporter;
@@ -54,7 +54,7 @@ export async function sendMagicLinkEmail({
       `,
     });
   } catch (error) {
-    reportError(error, "sendMagicLinkEmail");
+    logError("[mailer] failed to send magic link", error);
     throw error;
   }
 }
@@ -75,7 +75,7 @@ export async function sendLoginCodeEmail({
       html: loginCodeEmailHtml(code),
     });
   } catch (error) {
-    reportError(error, "sendLoginCodeEmail");
+    logError("[mailer] failed to send login code", error);
     throw error;
   }
 }
@@ -156,7 +156,7 @@ export async function sendCollaboratorInviteEmail({
       `,
     });
   } catch (error) {
-    reportError(error, "sendCollaboratorInviteEmail");
+    logError("[mailer] failed to send collaborator invite", error);
     throw error;
   }
 }
@@ -185,7 +185,7 @@ export async function sendUseExistingAccountEmail({
       `,
     });
   } catch (error) {
-    reportError(error, "sendUseExistingAccountEmail");
+    logError("[mailer] failed to send use-existing-account email", error);
     throw error;
   }
 }
@@ -207,7 +207,7 @@ export async function sendMatchNotificationEmail({
       text,
     });
   } catch (error) {
-    reportError(error, "sendMatchNotificationEmail");
+    logError("[mailer] failed to send match notification", error);
     throw error;
   }
 }
@@ -229,7 +229,7 @@ export async function sendFixturesSyncAlertEmail({
       text,
     });
   } catch (error) {
-    reportError(error, "sendFixturesSyncAlertEmail");
+    logError("[mailer] failed to send fixtures sync alert", error);
     throw error;
   }
 }
@@ -273,7 +273,7 @@ export async function sendAccessRequestEmail({
       text: lines.join("\n"),
     });
   } catch (error) {
-    reportError(error, "sendAccessRequestEmail");
+    logError("[mailer] failed to send access request notice", error);
     throw error;
   }
 }

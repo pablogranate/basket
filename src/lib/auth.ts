@@ -1,4 +1,3 @@
-import { addFields } from "basket-tv-telemetry/log";
 import { cache } from "react";
 
 import { headers } from "next/headers";
@@ -20,8 +19,9 @@ import { profiles as profilesTable } from "@/lib/db/schema";
 import { can, CAPABILITY_DENIED_MESSAGE } from "@/lib/roles";
 import { DomainError } from "@/lib/errors";
 import { reportError } from "@/lib/log";
+import type { ServerErrorContext } from "@/lib/telemetry";
 
-export type UserContext = Awaited<ReturnType<typeof resolveUserContext>>;
+export type UserContext = Awaited<ReturnType<typeof getUserContext>>;
 
 // Cross-request profile cache: the Cuenta only (the role is read per request
 // from the Auth DB, see resolvePortalAccess). Profiles change rarely and only through the
@@ -59,7 +59,7 @@ async function resolveProfile(
   return profile;
 }
 
-const resolveUserContext = cache(async () => {
+export const getUserContext = cache(async () => {
   const session = await auth.api.getSession({ headers: await headers() });
 
   if (!session?.user) {
@@ -121,25 +121,10 @@ const resolveUserContext = cache(async () => {
   };
 });
 
-// The request, action or job line names who it ran for. The portal role only
-// when the identity has portal access: a gate user may have none.
-export async function getUserContext(): Promise<UserContext> {
-  const context = await resolveUserContext();
-
-  if (context.userId) {
-    addFields({
-      user_id: context.userId,
-      role: context.hasAccess ? context.role : undefined,
-    });
-  }
-
-  return context;
-}
-
 // Resolving the user context runs on every request; its failures degrade to
 // no access, so they are reported here.
-function reportAuthFailure(error: unknown, userId: string) {
-  reportError(error, "getUserContext", { routeType: "auth", userId });
+function authContext(userId: string): ServerErrorContext {
+  return { route: "getUserContext", routeType: "auth", userId };
 }
 
 // The portal role comes from auth_effective_access (ADR 0010), uncached. The
@@ -150,7 +135,7 @@ async function resolvePortalAccess(
   try {
     return await getPortalAccess(authUserId);
   } catch (error) {
-    reportAuthFailure(error, authUserId);
+    reportError("[auth] failed to load portal Acceso", error, authContext(authUserId));
     return null;
   }
 }
@@ -179,11 +164,11 @@ async function createSuperAdminCuenta(
         profile: created,
         expiresAt: Date.now() + PROFILE_CACHE_TTL_MS,
       });
-      addFields({ super_admin_cuenta_created: true });
+      console.info("[auth] created the Cuenta of a super admin", authUserId);
       return created;
     }
   } catch (error) {
-    reportAuthFailure(error, authUserId);
+    reportError("[auth] failed to create a super admin Cuenta", error, authContext(authUserId));
   }
 
   profileCache.delete(authUserId);
@@ -204,7 +189,7 @@ async function loadProfile(
       .limit(1);
     profile = (byAuthId[0] as ProfileRow | undefined) ?? null;
   } catch (error) {
-    reportAuthFailure(error, authUserId);
+    reportError("[auth] failed to load profile by auth_user_id", error, authContext(authUserId));
   }
 
   // First login: stamp auth_user_id onto the email-matched, still-unlinked row
@@ -238,12 +223,12 @@ async function loadProfile(
             .returning(profileColumns)) as ProfileRow[];
           profile = link[0] ?? candidate;
         } catch (error) {
-          reportAuthFailure(error, authUserId);
+          reportError("[auth] failed to auto-link profile by email", error, authContext(authUserId));
           profile = candidate;
         }
       }
     } catch (error) {
-      reportAuthFailure(error, authUserId);
+      reportError("[auth] failed to load unlinked profiles", error, authContext(authUserId));
     }
   }
 

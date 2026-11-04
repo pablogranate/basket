@@ -1,6 +1,5 @@
 import "server-only";
 
-import { addFields } from "basket-tv-telemetry/log";
 import cron from "node-cron";
 
 import { sendFixturesSyncAlertEmail } from "@/lib/email/mailer";
@@ -9,9 +8,9 @@ import { FIXTURE_TIMEZONE } from "@/lib/fixtures/schedule";
 import { runFixturesSync } from "@/lib/fixtures/sync";
 import { buildFixturesSyncAlert, type FixturesSyncAlert } from "@/lib/fixtures/sync-alert";
 import { defaultFixturesSyncWindow } from "@/lib/fixtures/window";
-import { logSchedulerStart, reportError, runJob, storedErrorMessage } from "@/lib/log";
+import { describeError, reportError } from "@/lib/log";
 
-const JOB = "fixtures_sync";
+const JOB_CONTEXT = { route: "fixtures-sync", routeType: "job" };
 
 let scheduled = false;
 
@@ -20,50 +19,40 @@ async function sendAlert(alert: FixturesSyncAlert | null) {
     return;
   }
   if (!isSmtpConfigured) {
-    addFields({ alert: "smtp_missing" });
+    console.warn("[fixtures-sync] SMTP not configured; alert not sent");
     return;
   }
 
   try {
     await sendFixturesSyncAlertEmail({ to: appEnv.fixturesSyncAlertEmail, ...alert });
-    addFields({ alert: "sent" });
   } catch {
-    // The mailer reported it; a failed alert must not end the run.
-    addFields({ alert: "failed" });
+    // The mailer already logged it; a failed alert must not crash the cron.
   }
 }
 
 async function runScheduledSync() {
-  let result: Awaited<ReturnType<typeof runFixturesSync>>;
   try {
-    result = await runFixturesSync(defaultFixturesSyncWindow(new Date()));
+    const result = await runFixturesSync(defaultFixturesSyncWindow(new Date()));
+    await sendAlert(buildFixturesSyncAlert({ result }));
+    if (result.skipped) {
+      console.info(`[fixtures-sync] cron run skipped (${result.reason})`);
+      return;
+    }
+
+    result.warnings.forEach((warning) => console.warn(`[fixtures-sync] ${warning}`));
+    result.errors.forEach((message) => {
+      // A feed failure is caught inside the run and kept as text.
+      const error = new Error(message);
+      error.name = "FixturesFeedError";
+      reportError("[fixtures-sync] feed failed", error, JOB_CONTEXT);
+    });
+    console.info(
+      `[fixtures-sync] cron run done (${result.from} a ${result.to}): ${result.upserted} guardados, ${result.deleted} eliminados, ${result.linked} vinculados`,
+    );
   } catch (error) {
-    reportError(error, JOB);
-    await sendAlert(buildFixturesSyncAlert({ error: storedErrorMessage(error) }));
-    return;
+    reportError("[fixtures-sync] cron run failed", error, JOB_CONTEXT);
+    await sendAlert(buildFixturesSyncAlert({ error: describeError(error) }));
   }
-
-  await sendAlert(buildFixturesSyncAlert({ result }));
-  if (result.skipped) {
-    addFields({ skipped: result.reason });
-    return;
-  }
-
-  result.errors.forEach((message) => {
-    // A feed failure is caught inside the run and kept as text.
-    const error = new Error(message);
-    error.name = "FixturesFeedError";
-    reportError(error, JOB);
-  });
-  addFields({
-    fixtures_sync: {
-      upserted: result.upserted,
-      deleted: result.deleted,
-      linked: result.linked,
-      warnings: result.warnings.length,
-      feed_errors: result.errors.length,
-    },
-  });
 }
 
 export function registerFixturesSyncScheduler() {
@@ -72,12 +61,12 @@ export function registerFixturesSyncScheduler() {
   }
 
   if (!appEnv.fixturesSyncEnabled) {
-    logSchedulerStart(JOB, "disabled");
+    console.info("[fixtures-sync] scheduler disabled (FIXTURES_SYNC_ENABLED=false)");
     return;
   }
 
   if (!cron.validate(appEnv.fixturesSyncCron)) {
-    logSchedulerStart(JOB, "invalid_cron", appEnv.fixturesSyncCron);
+    console.error(`[fixtures-sync] invalid FIXTURES_SYNC_CRON "${appEnv.fixturesSyncCron}"; scheduler not started`);
     return;
   }
 
@@ -85,9 +74,9 @@ export function registerFixturesSyncScheduler() {
   cron.schedule(
     appEnv.fixturesSyncCron,
     () => {
-      void runJob(JOB, runScheduledSync);
+      void runScheduledSync();
     },
     { timezone: FIXTURE_TIMEZONE },
   );
-  logSchedulerStart(JOB, "started", appEnv.fixturesSyncCron);
+  console.info(`[fixtures-sync] scheduler started (${appEnv.fixturesSyncCron} ${FIXTURE_TIMEZONE})`);
 }

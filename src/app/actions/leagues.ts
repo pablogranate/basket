@@ -1,6 +1,5 @@
 "use server";
 
-import { withActionLog } from "basket-tv-telemetry/next";
 import { revalidatePath } from "next/cache";
 
 import { failedActionResult } from "@/app/actions/helpers";
@@ -13,9 +12,13 @@ export type LeagueActionResult =
 
 async function runLeagueWrite(
   write: () => Promise<LeagueResult>,
+  failure: string,
+  route: string,
 ): Promise<LeagueActionResult> {
+  let userId: string | null = null;
+
   try {
-    await requireEditor();
+    userId = (await requireEditor()).userId;
     const result = await write();
 
     if (!result.ok) {
@@ -25,24 +28,32 @@ async function runLeagueWrite(
     revalidatePath("/teams");
     return { ok: true, name: result.league.name };
   } catch (error) {
-    return failedActionResult(error);
+    return failedActionResult(`[leagues] ${failure}`, error, { route, userId });
   }
 }
 
-export const createLeagueAction = withActionLog("createLeagueAction", async ({
+export async function createLeagueAction({
   name,
 }: {
   name: string;
-}): Promise<LeagueActionResult> => {
-  return runLeagueWrite(() => createLeague(name));
-});
+}): Promise<LeagueActionResult> {
+  return runLeagueWrite(
+    () => createLeague(name),
+    "failed to create league",
+    "createLeagueAction",
+  );
+}
 
-export const renameLeagueAction = withActionLog("renameLeagueAction", async ({
+export async function renameLeagueAction({
   currentName,
   name,
 }: {
   currentName: string;
   name: string;
-}): Promise<LeagueActionResult> => {
-  return runLeagueWrite(() => renameLeague({ currentName, name }));
-});
+}): Promise<LeagueActionResult> {
+  return runLeagueWrite(
+    () => renameLeague({ currentName, name }),
+    "failed to rename league",
+    "renameLeagueAction",
+  );
+}

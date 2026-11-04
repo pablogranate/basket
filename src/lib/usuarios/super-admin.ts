@@ -1,6 +1,5 @@
 import "server-only";
 
-import { addFields } from "basket-tv-telemetry/log";
 import { and, eq, sql } from "drizzle-orm";
 
 import { authAuditLog, authUser } from "@/lib/auth/schema";
@@ -119,7 +118,10 @@ export async function setSuperAdmin(input: {
       detail: { source: input.source, previousRole: target.role },
     });
 
-    addFields({ super_admin: { target_id: target.id, set: input.superAdmin, source: input.source } });
+    console.info(
+      `[usuarios] super admin ${input.superAdmin ? "set" : "removed"}`,
+      { target: target.id, actor: input.actorId, source: input.source },
+    );
 
     return true;
   });

@@ -1,6 +1,5 @@
 "use server";
 
-import { withActionLog } from "basket-tv-telemetry/next";
 import { asc, eq, inArray } from "drizzle-orm";
 
 import { requireUserContext } from "@/lib/auth";
@@ -50,9 +49,9 @@ type Accumulated = MatchContact & { sortKey: number };
 // On-demand contact roster for a single match card. Reads only the fields the
 // contacts modal renders (no audit/history graph) and is gated to the same
 // roles that may open /grid, since it returns staff phone/email (PII).
-export const getMatchContactsAction = withActionLog("getMatchContactsAction", async (
+export async function getMatchContactsAction(
   matchId: string,
-): Promise<MatchContact[]> => {
+): Promise<MatchContact[]> {
   const ctx = await requireUserContext();
 
   if (!isDashboardPathAllowedForRole("/grid", ctx.role)) {
@@ -174,7 +173,7 @@ export const getMatchContactsAction = withActionLog("getMatchContactsAction", as
       email: contact.email,
       attendance: contact.attendance,
     }));
-});
+}
 
 export type PersonContact = {
   id: string;
@@ -188,9 +187,9 @@ const MAX_CONTACT_IDS = 50;
 // Phone/email for the people the match edit modal is about to notify. The grid
 // no longer ships contacts with its people list, so the modal asks for just the
 // assigned people when it opens. Same gate as getMatchContactsAction.
-export const getPeopleContactsAction = withActionLog("getPeopleContactsAction", async (
+export async function getPeopleContactsAction(
   personIds: string[],
-): Promise<PersonContact[]> => {
+): Promise<PersonContact[]> {
   const ctx = await requireUserContext();
 
   if (!isDashboardPathAllowedForRole("/grid", ctx.role)) {
@@ -217,4 +216,4 @@ export const getPeopleContactsAction = withActionLog("getPeopleContactsAction", 
     })
     .from(peopleTable)
     .where(inArray(peopleTable.id, ids));
-});
+}

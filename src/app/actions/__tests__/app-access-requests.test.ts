@@ -10,7 +10,7 @@ import {
   rejectAppAccessRequest,
 } from "@/lib/access-requests/app-approval";
 import { sendCollaboratorInviteEmail } from "@/lib/email/mailer";
-import { telemetry } from "@/lib/telemetry";
+import { trackServerEvent } from "@/lib/telemetry";
 import { requireSuperAdmin } from "@/lib/usuarios/guard";
 import { DomainError } from "@/lib/errors";
 
@@ -27,8 +27,10 @@ vi.mock("@/lib/acceso/accesos", () => ({
   ]),
 }));
 vi.mock("@/lib/email/mailer", () => ({ sendCollaboratorInviteEmail: vi.fn() }));
-vi.mock("@/lib/telemetry", () => ({
-  telemetry: { reportServerError: vi.fn(), trackServerEvent: vi.fn(), flush: vi.fn() },
+vi.mock("@/lib/telemetry", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/telemetry")>()),
+  reportServerError: vi.fn(),
+  trackServerEvent: vi.fn(),
 }));
 vi.mock("@/lib/env", () => ({
   appEnv: { portalBaseUrl: "https://portal.basket-app.com" },
@@ -116,7 +118,7 @@ describe("apex Solicitud actions", () => {
   it("tracks access_request_approved with the app and role, as the super admin", async () => {
     await approveAppAccessRequestAction(form({ rol: "coordinador" }));
 
-    expect(vi.mocked(telemetry.trackServerEvent)).toHaveBeenCalledWith(
+    expect(vi.mocked(trackServerEvent)).toHaveBeenCalledWith(
       "access_request_approved",
       "super-1",
       { app: "facturacion", role: "coordinador" },
@@ -128,7 +130,7 @@ describe("apex Solicitud actions", () => {
 
     await approveAppAccessRequestAction(form({ rol: "coordinador" }));
 
-    expect(vi.mocked(telemetry.trackServerEvent)).not.toHaveBeenCalled();
+    expect(vi.mocked(trackServerEvent)).not.toHaveBeenCalled();
   });
 
   it("refuses an approval without a role", async () => {

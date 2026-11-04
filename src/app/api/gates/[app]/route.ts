@@ -1,10 +1,9 @@
-import { addFields } from "basket-tv-telemetry/log";
 import { NextResponse } from "next/server";
 
 import { getEffectiveAccess } from "@/lib/acceso/accesos";
 import type { SiblingApp } from "@/lib/acceso/catalog";
 import { buildNoAccessPath } from "@/lib/access-requests/no-access";
-import { rejectRequest, withAuth } from "@/lib/api/with-auth";
+import { withAuth } from "@/lib/api/with-auth";
 import { appEnv } from "@/lib/env";
 
 // App gate consumed by infrastructure (nginx auth_request) — see ADR 0006 for
@@ -35,26 +34,28 @@ function parseGatedApp(app: string): SiblingApp | null {
     : null;
 }
 
-// Answers every nginx subrequest, so a rejection is an info line with its
-// reason: no session, or no access to the app.
-export const GET = withAuth(
-  { route: "/api/gates/[app]" },
-  async (_request, context, { params }: { params: Promise<{ app: string }> }) => {
-    const app = parseGatedApp((await params).app);
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ app: string }> },
+) {
+  const { app: raw } = await params;
+  const app = parseGatedApp(raw);
 
-    if (!app) {
-      return NextResponse.json({ error: "App desconocida." }, { status: 404 });
-    }
+  if (!app) {
+    return NextResponse.json({ error: "App desconocida." }, { status: 404 });
+  }
 
-    addFields({ gate: { app } });
-
-    // No capability: a Cuenta's portal role says nothing about sibling
-    // access. Identity alone admits nobody: any `generator` role does, and a
-    // super admin resolves to its admin role.
+  // withAuth answers 401 without a session; no capability — a Cuenta's portal
+  // role says nothing about sibling access. Identity alone admits nobody: any
+  // `generator` role does, and a super admin resolves to its admin role.
+  return withAuth({}, async (_request, context) => {
     const access = await getEffectiveAccess(context.userId!, app);
 
     if (!access) {
-      rejectRequest("no_access");
+      console.error("[gate] rejected identity without access", {
+        app,
+        userId: context.userId,
+      });
       return NextResponse.json(
         { error: "No tenés acceso a esta app." },
         {
@@ -73,5 +74,5 @@ export const GET = withAuth(
         [GATE_USER_HEADER]: context.email ?? "",
       },
     });
-  },
-);
+  })(request);
+}

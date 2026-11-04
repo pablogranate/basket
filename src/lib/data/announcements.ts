@@ -63,7 +63,10 @@ async function loadLatestAnnouncement(activeOnly: boolean) {
   } catch (error) {
     // Announcements are optional for the dashboard shell: a failed read is
     // reported and the page renders without one.
-    reportError(error, "loadLatestAnnouncement");
+    reportError("[announcements] failed to load the latest announcement", error, {
+      route: "loadLatestAnnouncement",
+      routeType: "render",
+    });
     return null;
   }
 }

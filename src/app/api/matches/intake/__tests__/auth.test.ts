@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { noParams } from "@/test/fixtures/route-context";
 
 const ORIGINAL_KEY = process.env.INTAKE_API_KEY;
 
@@ -30,7 +29,7 @@ describe("api/matches/intake POST machine-auth", () => {
   it("returns 401 when the api key header is missing (handler not executed)", async () => {
     const { POST } = await import("../route");
 
-    const response = await POST(buildRequest(), noParams);
+    const response = await POST(buildRequest());
 
     expect(response.status).toBe(401);
   });
@@ -38,7 +37,7 @@ describe("api/matches/intake POST machine-auth", () => {
   it("returns 401 when the api key header is wrong (handler not executed)", async () => {
     const { POST } = await import("../route");
 
-    const response = await POST(buildRequest({ "x-intake-key": "wrong" }), noParams);
+    const response = await POST(buildRequest({ "x-intake-key": "wrong" }));
 
     expect(response.status).toBe(401);
   });
@@ -48,7 +47,6 @@ describe("api/matches/intake POST machine-auth", () => {
 
     const response = await POST(
       buildRequest({ "x-intake-key": "test-intake-secret" }),
-      noParams,
     );
 
     // Handler ran: empty externalId short-circuits to 400 (not 401).

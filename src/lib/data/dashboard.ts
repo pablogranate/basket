@@ -57,7 +57,7 @@ import type {
   PersonListItem,
   PersonPortalAccess,
 } from "@/lib/types";
-import { reportError } from "@/lib/log";
+import { logError } from "@/lib/log";
 
 export type GridFilters = {
   view: "day" | "month";
@@ -606,7 +606,7 @@ export async function getPeopleData(ctx: UserContext): Promise<PersonListItem[]>
       // The Acceso column degrades to "desconocido" rather than taking the
       // whole list down with the Auth DB.
       listPortalRolesByUser().catch((error: unknown) => {
-        reportError(error, "getPeopleData");
+        logError("[people] failed to load portal accesos", error);
         return null;
       }),
     ]);

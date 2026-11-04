@@ -1,6 +1,5 @@
 "use server";
 
-import { withActionLog } from "basket-tv-telemetry/next";
 import { revalidatePath } from "next/cache";
 
 import { and, desc, eq, inArray, ne, notInArray } from "drizzle-orm";
@@ -179,11 +178,13 @@ export type UpsertTeamResult = {
   error?: string;
 };
 
-export const upsertTeamAction = withActionLog("upsertTeamAction", async (
+export async function upsertTeamAction(
   formData: FormData,
-): Promise<UpsertTeamResult> => {
+): Promise<UpsertTeamResult> {
+  let userId: string | null = null;
+
   try {
-    await requireEditor();
+    userId = (await requireEditor()).userId;
 
     const editedTeamId = maybeNull(String(formData.get("teamId") ?? ""));
     const name = String(formData.get("officialName") ?? "").trim();
@@ -305,11 +306,14 @@ export const upsertTeamAction = withActionLog("upsertTeamAction", async (
 
     return { ok: true };
   } catch (error) {
-    return failedActionResult(error);
+    return failedActionResult("[teams] failed to upsert team", error, {
+      route: "upsertTeamAction",
+      userId,
+    });
   }
-});
+}
 
-export const assignTeamsToLeagueAction = withActionLog("assignTeamsToLeagueAction", async ({
+export async function assignTeamsToLeagueAction({
   teamIds,
   leagueName,
   mode,
@@ -319,9 +323,11 @@ export const assignTeamsToLeagueAction = withActionLog("assignTeamsToLeagueActio
   leagueName: string;
   mode: "move" | "add";
   fromLeague?: string | null;
-}): Promise<UpsertTeamResult> => {
+}): Promise<UpsertTeamResult> {
+  let userId: string | null = null;
+
   try {
-    await requireEditor();
+    userId = (await requireEditor()).userId;
 
     const ids = Array.from(new Set(teamIds.filter(Boolean)));
     const targetName = leagueName.trim();
@@ -391,18 +397,23 @@ export const assignTeamsToLeagueAction = withActionLog("assignTeamsToLeagueActio
 
     return { ok: true };
   } catch (error) {
-    return failedActionResult(error);
+    return failedActionResult("[teams] failed to assign teams to league", error, {
+      route: "assignTeamsToLeagueAction",
+      userId,
+    });
   }
-});
+}
 
 // Persists the league tab order shown on /teams.
-export const reorderLeagueTabsAction = withActionLog("reorderLeagueTabsAction", async ({
+export async function reorderLeagueTabsAction({
   leagueNames,
 }: {
   leagueNames: string[];
-}): Promise<UpsertTeamResult> => {
+}): Promise<UpsertTeamResult> {
+  let userId: string | null = null;
+
   try {
-    await requireEditor();
+    userId = (await requireEditor()).userId;
 
     const names = Array.from(
       new Set(leagueNames.map((name) => name.trim()).filter(Boolean)),
@@ -418,23 +429,28 @@ export const reorderLeagueTabsAction = withActionLog("reorderLeagueTabsAction", 
 
     return { ok: true };
   } catch (error) {
-    return failedActionResult(error);
+    return failedActionResult("[teams] failed to reorder league tabs", error, {
+      route: "reorderLeagueTabsAction",
+      userId,
+    });
   }
-});
+}
 
 export type RemoveTeamResult = UpsertTeamResult & {
   teamDeleted?: boolean;
 };
 
-export const removeTeamFromLeaguesAction = withActionLog("removeTeamFromLeaguesAction", async ({
+export async function removeTeamFromLeaguesAction({
   teamId,
   leagueNames,
 }: {
   teamId: string;
   leagueNames: string[];
-}): Promise<RemoveTeamResult> => {
+}): Promise<RemoveTeamResult> {
+  let userId: string | null = null;
+
   try {
-    await requireEditor();
+    userId = (await requireEditor()).userId;
 
     const names = leagueNames.map((name) => name.trim()).filter(Boolean);
 
@@ -487,19 +503,24 @@ export const removeTeamFromLeaguesAction = withActionLog("removeTeamFromLeaguesA
 
     return { ok: true, teamDeleted };
   } catch (error) {
-    return failedActionResult(error);
+    return failedActionResult("[teams] failed to remove team from leagues", error, {
+      route: "removeTeamFromLeaguesAction",
+      userId,
+    });
   }
-});
+}
 
 // A team without any league is archived on /teams. Unlike removing it from its
 // leagues, archiving keeps the team (and its club) so it can be assigned again.
-export const archiveTeamsAction = withActionLog("archiveTeamsAction", async ({
+export async function archiveTeamsAction({
   teamIds,
 }: {
   teamIds: string[];
-}): Promise<UpsertTeamResult> => {
+}): Promise<UpsertTeamResult> {
+  let userId: string | null = null;
+
   try {
-    await requireEditor();
+    userId = (await requireEditor()).userId;
 
     const ids = Array.from(new Set(teamIds.filter(Boolean)));
     if (!ids.length) {
@@ -516,6 +537,9 @@ export const archiveTeamsAction = withActionLog("archiveTeamsAction", async ({
 
     return { ok: true };
   } catch (error) {
-    return failedActionResult(error);
+    return failedActionResult("[teams] failed to archive teams", error, {
+      route: "archiveTeamsAction",
+      userId,
+    });
   }
-});
+}

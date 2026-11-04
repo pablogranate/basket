@@ -1,6 +1,5 @@
 "use server";
 
-import { withActionLog } from "basket-tv-telemetry/next";
 import { asc, eq } from "drizzle-orm";
 
 import { requireUserContext } from "@/lib/auth";
@@ -22,9 +21,9 @@ import { DomainError } from "@/lib/errors";
 // serializes its production/cameras/talent/observations rows into the Flight
 // payload; they are fetched here only when a card is expanded. Reads just the
 // fields the sections render and is gated to the roles that may open /grid.
-export const getMatchCardSectionsAction = withActionLog("getMatchCardSectionsAction", async (
+export async function getMatchCardSectionsAction(
   matchId: string,
-): Promise<MatchCardSection[]> => {
+): Promise<MatchCardSection[]> {
   const ctx = await requireUserContext();
 
   if (!isDashboardPathAllowedForRole("/grid", ctx.role)) {
@@ -81,4 +80,4 @@ export const getMatchCardSectionsAction = withActionLog("getMatchCardSectionsAct
       person: row.person?.full_name ? row.person : null,
     })),
   });
-});
+}

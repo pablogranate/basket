@@ -1,6 +1,5 @@
 "use server";
 
-import { withActionLog } from "basket-tv-telemetry/next";
 import { revalidatePath } from "next/cache";
 
 import { eq } from "drizzle-orm";
@@ -119,11 +118,11 @@ async function findPersonSummaryById(personId: string) {
 }
 
 const upsertPerson = defineAction({
-  name: "upsertPersonAction",
   fallbackRedirect: "/people",
   authz: requireEditor,
   parse: parseUpsertPerson,
   revalidate: ["/people"],
+  logTag: "[people] upsert failed",
   async run(ctx, { personId, payload, selectedFunctions, selectedTeamIds }) {
     let rows: { id: string }[];
 
@@ -223,7 +222,6 @@ export async function upsertPersonAction(formData: FormData) {
 }
 
 const deletePerson = defineAction({
-  name: "deletePersonAction",
   fallbackRedirect: "/people",
   authz: requireAdmin,
   parse: parsePersonId,
@@ -258,7 +256,6 @@ export async function deletePersonAction(formData: FormData) {
 }
 
 const mergePeople = defineAction({
-  name: "mergePeopleAction",
   fallbackRedirect: "/people",
   authz: requireAdmin,
   authzFailureNotice: true,
@@ -287,7 +284,6 @@ export async function mergePeopleAction(formData: FormData) {
 
 // "No es la misma persona" on the duplicates review, and its undo.
 const dismissPair = defineAction({
-  name: "dismissDuplicatePairAction",
   fallbackRedirect: "/notifications/solicitudes",
   authz: requireAdmin,
   authzFailureNotice: true,
@@ -313,7 +309,6 @@ export async function dismissDuplicatePairAction(formData: FormData) {
 }
 
 const restorePair = defineAction({
-  name: "restoreDuplicatePairAction",
   fallbackRedirect: "/notifications/solicitudes",
   authz: requireAdmin,
   authzFailureNotice: true,
@@ -339,7 +334,6 @@ export async function restoreDuplicatePairAction(formData: FormData) {
 }
 
 const revokePersonAccess = defineAction({
-  name: "revokePersonAccessAction",
   fallbackRedirect: "/people",
   authz: requireAccessManager,
   // A permission error surfaces as a notice instead of an unhandled action
@@ -347,6 +341,7 @@ const revokePersonAccess = defineAction({
   authzFailureNotice: true,
   parse: parsePersonId,
   revalidate: ["/people"],
+  logTag: "[people] access revoke failed",
   async run(ctx, { personId }) {
     const person = await findPersonSummaryById(personId);
 
@@ -375,7 +370,6 @@ export async function revokePersonAccessAction(formData: FormData) {
 // Re-tier an existing platform login without revoking it first: only the
 // portal Acceso changes, so no invite email is re-sent.
 const updatePersonAccessRole = defineAction({
-  name: "updatePersonAccessRoleAction",
   fallbackRedirect: "/people",
   authz: requireAccessManager,
   authzFailureNotice: true,
@@ -443,7 +437,7 @@ export async function updatePersonAccessRoleAction(formData: FormData) {
 
 // Holdout from defineAction: the success path stays on the page (revalidate
 // only, no redirect); only failures redirect with a notice.
-export const togglePersonActiveAction = withActionLog("togglePersonActiveAction", async (formData: FormData) => {
+export async function togglePersonActiveAction(formData: FormData) {
   const ctx = await requireEditor();
 
   const personId = String(formData.get("personId") ?? "").trim();
@@ -471,7 +465,12 @@ export const togglePersonActiveAction = withActionLog("togglePersonActiveAction"
     revalidatePath("/people");
   } catch (error) {
     rethrowNavigationError(error);
-    reportError(error, "togglePersonActiveAction");
+    reportError("[people] active toggle failed", error, {
+      method: "POST",
+      route: "togglePersonActiveAction",
+      routeType: "action",
+      userId: ctx.userId,
+    });
     const redirectTo = getRedirectTarget(formData, "/people");
     redirectWithNotice({
       redirectTo,
@@ -479,4 +478,4 @@ export const togglePersonActiveAction = withActionLog("togglePersonActiveAction"
       notice: userErrorMessage(error),
     });
   }
-});
+}

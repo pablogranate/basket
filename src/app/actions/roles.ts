@@ -14,7 +14,6 @@ import { roles as rolesTable } from "@/lib/db/schema";
 import { DomainError } from "@/lib/errors";
 
 const upsertRole = defineAction({
-  name: "upsertRoleAction",
   fallbackRedirect: "/roles",
   authz: requireAdmin,
   parse: parseUpsertRole,
@@ -75,7 +74,6 @@ export async function upsertRoleAction(formData: FormData) {
 }
 
 const deleteRole = defineAction({
-  name: "deleteRoleAction",
   fallbackRedirect: "/roles",
   authz: requireAdmin,
   parse: parseDeleteRole,
