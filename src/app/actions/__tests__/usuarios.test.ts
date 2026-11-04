@@ -15,6 +15,7 @@ import { auth } from "@/lib/auth/server";
 import { requireSuperAdmin } from "@/lib/usuarios/guard";
 import { findIdentity, getRoleCatalog } from "@/lib/usuarios/matrix";
 import { setSuperAdmin } from "@/lib/usuarios/super-admin";
+import { DomainError } from "@/lib/errors";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers()) }));
@@ -178,7 +179,7 @@ describe("usuarios actions", () => {
 
   it("surfaces the last-super-admin refusal as an error notice", async () => {
     vi.mocked(setSuperAdmin).mockRejectedValue(
-      new Error("No se puede quitar el último super admin."),
+      new DomainError("No se puede quitar el último super admin."),
     );
 
     await expect(

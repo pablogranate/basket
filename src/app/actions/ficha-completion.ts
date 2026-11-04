@@ -7,6 +7,7 @@ import { writeAudit } from "@/lib/audit";
 import { db } from "@/lib/db/client";
 import { resolveFuncionRoleId } from "@/lib/people/ficha-completion-data";
 import { completeOwnFicha } from "@/lib/people/identity";
+import { DomainError } from "@/lib/errors";
 
 // A portal user fills in their own ficha from the completion modal. No
 // approval: holding the portal Acceso already is one. The session is the only
@@ -19,7 +20,7 @@ const complete = defineAction({
   revalidate: ["/people"],
   async run(ctx, { funcion, phone, ciudad }) {
     if (!ctx.profileId || !ctx.email) {
-      throw new Error("Tu cuenta no está lista para cargar una ficha.");
+      throw new DomainError("Tu cuenta no está lista para cargar una ficha.");
     }
 
     const { profileId, email } = ctx;

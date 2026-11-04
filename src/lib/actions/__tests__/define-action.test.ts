@@ -1,7 +1,8 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { revalidatePath } from "next/cache";
 import { redirectWithNotice } from "@/app/actions/helpers";
+import { DomainError } from "@/lib/errors";
 import { reportServerError } from "@/lib/telemetry";
 import {
   defineAction,
@@ -42,7 +43,8 @@ vi.mock("@/app/actions/helpers", () => ({
   },
 }));
 
-vi.mock("@/lib/telemetry", () => ({
+vi.mock("@/lib/telemetry", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/telemetry")>()),
   reportServerError: vi.fn(),
 }));
 
@@ -59,7 +61,12 @@ async function invoke(action: (formData: FormData) => Promise<void>, formData = 
 }
 
 describe("defineAction", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.clearAllMocks();
   });
 
@@ -227,14 +234,14 @@ describe("defineAction", () => {
     );
   });
 
-  it("turns a thrown run error into an ensureErrorMessage notice", async () => {
+  it("shows a DomainError's message as the notice and does not report it", async () => {
     const action = defineAction({
       fallbackRedirect: "/roles",
       authz: async () => ({}),
       parse: () => parsed({}),
       revalidate: ["/roles"],
       run: async () => {
-        throw new Error("No se encontró el rol.");
+        throw new DomainError("No se encontró el rol.");
       },
     });
 
@@ -246,9 +253,33 @@ describe("defineAction", () => {
       intent: "error",
       notice: "No se encontró el rol.",
     });
+    expect(mockedReportServerError).not.toHaveBeenCalled();
+    expect(console.error).not.toHaveBeenCalled();
   });
 
-  it("prefers the fixed errorNotice over the thrown message", async () => {
+  it("shows the generic notice for an unexpected error and logs it once under logTag", async () => {
+    const action = defineAction({
+      fallbackRedirect: "/roles",
+      authz: async () => ({}),
+      parse: () => parsed({}),
+      logTag: "[roles] upsert failed",
+      run: async () => {
+        throw new TypeError("db exploded");
+      },
+    });
+
+    await invoke(action);
+
+    expect(lastRedirect()?.notice).toBe(
+      "Ocurrió un error inesperado. Probá de nuevo.",
+    );
+    expect(console.error).toHaveBeenCalledTimes(1);
+    expect(console.error).toHaveBeenCalledWith(
+      "[roles] upsert failed: TypeError: db exploded",
+    );
+  });
+
+  it("prefers the fixed errorNotice over the generic one", async () => {
     const action = defineAction({
       fallbackRedirect: "/settings",
       authz: async () => ({}),
@@ -264,35 +295,6 @@ describe("defineAction", () => {
     expect(lastRedirect()?.notice).toBe(
       "No pudimos guardar la configuración de Gemini.",
     );
-  });
-
-  it("calls onError for real failures only", async () => {
-    const onError = vi.fn();
-    const failing = defineAction({
-      fallbackRedirect: "/people",
-      authz: async () => ({}),
-      parse: () => parsed({}),
-      onError,
-      run: async () => {
-        throw new Error("boom");
-      },
-    });
-
-    await invoke(failing);
-    expect(onError).toHaveBeenCalledTimes(1);
-
-    onError.mockClear();
-
-    const succeeding = defineAction({
-      fallbackRedirect: "/people",
-      authz: async () => ({}),
-      parse: () => parsed({}),
-      onError,
-      run: async () => ({ notice: "Listo." }),
-    });
-
-    await invoke(succeeding);
-    expect(onError).not.toHaveBeenCalled();
   });
 
   it("never calls run when parse fails and surfaces the parse error", async () => {

@@ -578,7 +578,7 @@ async function MatchDetailContent({
 }) {
   const user = await requireUserContext();
   const redirectTo = `/match/${matchId}`;
-  const data = await getMatchDetailData(user, matchId).catch(() => null);
+  const data = await getMatchDetailData(user, matchId);
 
   if (!data) {
     notFound();

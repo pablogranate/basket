@@ -17,7 +17,8 @@ Error messages are scrubbed before they are sent (see below).
 | Browser | page views, active time, clicks, `window.onerror` and `unhandledrejection` | the SDK: `<Script src="/_t/sdk.js">` in `src/app/layout.tsx`, after the 1-line stub that queues `window.bpt` calls until it loads |
 | Browser | a render error that reaches the root | `src/app/error.tsx` and `src/app/global-error.tsx` call `window.bpt?.captureError` (`captureBoundaryError` in `src/lib/telemetry-browser.ts`) and show the Spanish fallback (`src/components/errors/error-fallback.tsx`) |
 | Server | an uncaught error of a render, route handler, server action or the proxy | `onRequestError` in `src/instrumentation.ts`, with the method, the route pattern (`/match/[id]`, never the concrete path) and the route type; `register()` and its schedulers are unchanged |
-| Server | an error thrown inside a server action's `run` | `src/lib/actions/define-action.ts`, with the actor's Better Auth id. Parse failures, a returned `{ error }` and an authz failure shown as a notice are not reported |
+| Server | an error thrown inside a server action's `run` | `src/lib/actions/define-action.ts`, with the actor's Better Auth id. Parse failures, a returned `{ error }`, a `DomainError` and an authz failure shown as a notice are not reported |
+| Server | an unexpected error caught before it reaches either hook | `reportError` in `src/lib/log.ts`, from the catch blocks listed in [Caught errors](#caught-errors) |
 | Server | business events | the actions below |
 
 `window.bpt` is typed in `src/types/bpt.d.ts`, copied from basket-telemetry `src/sdk/sdk.d.ts`.
@@ -27,6 +28,47 @@ one `POST` to the loopback ingest with `Authorization: Bearer <TELEMETRY_TOKEN>`
 `events`, `errors`). It aborts a send after 1.5 s, never throws, is never awaited on a response path, and caps its
 queue at 200 items. Without `TELEMETRY_TOKEN` (dev, tests, CI) it does nothing. An error message is cut at `params:`
 (a failed query's parameters) and has emails, quoted values, objects and numbers masked; the stack keeps its frames.
+
+## Caught errors
+
+`onRequestError` and `defineAction` see only what is thrown. Code that catches an error and carries on (an action that
+answers `{ ok: false }`, a scheduler, a best-effort email, a loader that degrades) calls `reportError(tag, error,
+context)` from `src/lib/log.ts`, which writes one log line and sends the error to the reporter. Each failure is logged
+once and reported once.
+
+- **Expected outcomes are not failures.** A domain rule throws a `DomainError` (`src/lib/errors.ts`), whose Spanish
+  message is shown as it is. `reportError` ignores it.
+- **What the user sees.** Any other error shows `unexpectedErrorMessage()` (`src/lib/utils.ts`): "Ocurrió un error
+  inesperado. Probá de nuevo." `ensureErrorMessage` is for domain messages only.
+- **What is stored.** Text a page reads back later (grid sync runs and their step errors, notification delivery logs)
+  is a `DomainError`'s message, the scrubbed message (`storedErrorMessage`) or a fixed text.
+
+| Where | `route` | `routeType` |
+|---|---|---|
+| actions that answer `{ ok: false }` (`teams.ts`, `leagues.ts`, `fixtures.ts`) through `failedActionResult` in `src/app/actions/helpers.ts`, and `syncGridAction`, `togglePersonActiveAction` | the action's name | `action` |
+| best-effort emails and the request notification in `access-requests.ts` and `app-access-requests.ts` | the action's name | `action` |
+| grid sync cron (`src/lib/grid/sync-scheduler.ts`) | `grid-sync` | `job` |
+| fixtures sync cron, a failed run or a failed feed (`src/lib/fixtures/sync-scheduler.ts`) | `fixtures-sync` | `job` |
+| match-day notifications (`src/lib/notifications/send-match-day.ts`) | `notifications` | `job` (`action` for a manual send) |
+| user context resolution (`src/lib/auth.ts`), which degrades to no access | `getUserContext` | `auth` |
+| the latest announcement (`src/lib/data/announcements.ts`), which degrades to none | `loadLatestAnnouncement` | `render` |
+| `GET /api/grid/reports` and `POST /api/matches/intake` when they answer `500` | the route pattern, with `status: 500` | `route` |
+
+The match pages (`/match/[id]` and `/match/[id]/notificar`) answer `404` only when the match does not exist; a failed
+query reaches `error.tsx` and is reported by `onRequestError`.
+
+## Server log lines
+
+Server code logs a failure with `logError(tag, error, extra?)` or `reportError`, never `console.error(…, error)`. The
+line is one line: the tag, the error's name, its message passed through `scrubErrorMessage` (the same rule as the
+reporter), the scrubbed name and message of its `cause` when it has one, and the `extra` fields (ids, counts, enums):
+
+```text
+[leagues] failed to create league: Error: Failed query: insert into "…" ("…") values ($1) (cause Error: duplicate key value violates unique constraint "…")
+```
+
+A failed upstream call logs its status and at most 200 scrubbed characters of the body (`logUpstreamError`). Log lines
+carry ids, not names.
 
 ## Business events
 
@@ -90,6 +132,7 @@ A magic link verify: a login or a failed login, reported without delaying the re
 |---|---|---|
 | `TELEMETRY_INGEST_URL` | `http://127.0.0.1:3011/ingest/server` | basket-telemetry's server ingest, on loopback (nginx does not expose it) |
 | `TELEMETRY_TOKEN` | empty: nothing is sent | the `portal` token in basket-telemetry's `INGEST_TOKENS`; only in the VPS env |
+| `NODE_OPTIONS` | unset | `--enable-source-maps` in the pm2 env of `basket-app`, so server stacks point at the source; not in the repo (there is no pm2 ecosystem file) |
 
 ## Source maps
 
@@ -111,6 +154,7 @@ sequenceDiagram
   N->>R: onRequestError → reportServerError(err, {method, route, routeType})
   N-->>B: error response / error.tsx fallback
   Note over N,R: a server action error is caught by defineAction,<br/>reported with the actor's id, and shown as a notice
+  Note over N,R: an error caught elsewhere (an action, a scheduler)<br/>goes through reportError: one log line, one report
   R->>T: POST /ingest/server (1 s batch, Bearer TELEMETRY_TOKEN, 1.5 s timeout)
   B->>B: a render error reaches error.tsx / global-error.tsx
   B->>S: window.bpt?.captureError(error, {boundary, digest})

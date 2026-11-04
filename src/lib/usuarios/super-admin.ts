@@ -4,6 +4,7 @@ import { and, eq, sql } from "drizzle-orm";
 
 import { authAuditLog, authUser } from "@/lib/auth/schema";
 import { authDb } from "@/lib/db/auth-client";
+import { DomainError } from "@/lib/errors";
 
 // Super admin = auth_user.role 'superadmin', not banned (ADR 0010), the same
 // rule auth_effective_access applies. Read uncached from the Auth DB: the
@@ -87,7 +88,7 @@ export async function setSuperAdmin(input: {
       .for("update");
 
     if (!target) {
-      throw new Error("No se encontró la identidad.");
+      throw new DomainError("No se encontró la identidad.");
     }
 
     if ((target.role === SUPER_ADMIN_ROLE) === input.superAdmin) {
@@ -99,7 +100,7 @@ export async function setSuperAdmin(input: {
       activeSuperAdmins.length <= 1 &&
       activeSuperAdmins.some((row) => row.id === target.id)
     ) {
-      throw new Error(LAST_SUPER_ADMIN_MESSAGE);
+      throw new DomainError(LAST_SUPER_ADMIN_MESSAGE);
     }
 
     await tx

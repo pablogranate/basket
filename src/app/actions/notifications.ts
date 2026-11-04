@@ -35,6 +35,7 @@ import {
   notifyMatch,
   type NotifyMatchRow,
 } from "@/lib/notifications/send-match-day";
+import { DomainError } from "@/lib/errors";
 
 // Manual "Enviar notificación a todos": fires WhatsApp + email to every current
 // assignee, always (regardless of day_notified_at), then (re)stamps the marker
@@ -74,7 +75,7 @@ const sendAllMatchNotifications = defineAction({
 
     const matchRow = matchRows[0];
     if (!matchRow) {
-      throw new Error("No se encontró el partido.");
+      throw new DomainError("No se encontró el partido.");
     }
 
     const summary = await notifyMatch(matchRow as NotifyMatchRow, "manual");
@@ -130,7 +131,7 @@ const sendAssignmentNotifications = defineAction({
 
     const matchRow = matchRows[0];
     if (!matchRow) {
-      throw new Error("No se encontró el partido.");
+      throw new DomainError("No se encontró el partido.");
     }
 
     const rawAssignmentRows = await db

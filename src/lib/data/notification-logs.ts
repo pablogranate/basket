@@ -14,6 +14,8 @@ import {
   type NotificationLogFilters,
 } from "@/lib/notifications/log-filters";
 import type { NotificationLogEntry } from "@/lib/types";
+import { DomainError } from "@/lib/errors";
+import { logError } from "@/lib/log";
 
 const ARG_TZ = "America/Argentina/Buenos_Aires";
 
@@ -40,7 +42,7 @@ export async function getNotificationLogs(
   }: { page?: number; filters?: NotificationLogFilters } = {},
 ): Promise<NotificationLogsPage> {
   if (!can(ctx, "admin")) {
-    throw new Error("Solo un admin puede ver el registro de notificaciones.");
+    throw new DomainError("Solo un admin puede ver el registro de notificaciones.");
   }
 
   const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
@@ -111,7 +113,7 @@ export async function getNotificationLogs(
       pageCount,
     };
   } catch (error) {
-    console.error("[notifications] failed to load delivery log", error);
+    logError("[notifications] failed to load delivery log", error);
     return { rows: [], total: 0, page: safePage, pageCount: 0 };
   }
 }

@@ -64,8 +64,8 @@ export async function grantPortalRoleWithCuenta(
       });
     }
   } catch (error) {
-    console.error("[acceso] portal Acceso granted but Cuenta not written", error);
-    throw error;
+    // The caller logs and reports it once; the message names the half-done state.
+    throw new Error("portal Acceso granted but Cuenta not written", { cause: error });
   } finally {
     clearProfileCache();
   }
@@ -99,8 +99,8 @@ export async function revokePortalRoleWithCuenta(
     await removeCuenta(cuenta.id);
     return true;
   } catch (error) {
-    console.error("[acceso] portal Acceso revoked but Cuenta not deleted", error);
-    throw error;
+    // The caller logs and reports it once; the message names the half-done state.
+    throw new Error("portal Acceso revoked but Cuenta not deleted", { cause: error });
   } finally {
     clearProfileCache();
   }

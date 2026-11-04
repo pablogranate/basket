@@ -23,6 +23,7 @@ import { isAppRole } from "@/lib/roles";
 import { findIdentity, getRoleCatalog } from "@/lib/usuarios/matrix";
 import { requireSuperAdmin } from "@/lib/usuarios/guard";
 import { recordIdentityEvent, setSuperAdmin } from "@/lib/usuarios/super-admin";
+import { DomainError } from "@/lib/errors";
 
 // The apex users section (ADR 0010). requireSuperAdmin runs first in every
 // action: 404 off the apex, /no-access for anyone but a super admin. Changes
@@ -34,7 +35,7 @@ async function requireTarget(userId: string) {
   const identity = await findIdentity(userId);
 
   if (!identity) {
-    throw new Error("No se encontró la identidad.");
+    throw new DomainError("No se encontró la identidad.");
   }
 
   return identity;
@@ -45,7 +46,7 @@ const setAppRole = defineAction({
   authz: requireSuperAdmin,
   parse: parseSetAppRole,
   revalidate: [USUARIOS_REDIRECT],
-  onError: (error) => console.error("[usuarios] role change failed", error),
+  logTag: "[usuarios] role change failed",
   async run(actor, { userId, app, role }) {
     const catalogApp = (await getRoleCatalog()).find((entry) => entry.key === app);
 
@@ -113,7 +114,7 @@ const createIdentity = defineAction({
   authz: requireSuperAdmin,
   parse: parseCreateIdentity,
   revalidate: [USUARIOS_REDIRECT],
-  onError: (error) => console.error("[usuarios] identity create failed", error),
+  logTag: "[usuarios] identity create failed",
   async run(actor, { email, name }) {
     if (await findIdentityByEmail(email)) {
       return { error: `Ya existe una identidad con ${email}.` };
@@ -145,7 +146,7 @@ const banIdentity = defineAction({
   authz: requireSuperAdmin,
   parse: parseIdentityTarget,
   revalidate: [USUARIOS_REDIRECT],
-  onError: (error) => console.error("[usuarios] ban failed", error),
+  logTag: "[usuarios] ban failed",
   async run(actor, { userId }) {
     const target = await requireTarget(userId);
 
@@ -177,7 +178,7 @@ const unbanIdentity = defineAction({
   authz: requireSuperAdmin,
   parse: parseIdentityTarget,
   revalidate: [USUARIOS_REDIRECT],
-  onError: (error) => console.error("[usuarios] unban failed", error),
+  logTag: "[usuarios] unban failed",
   async run(actor, { userId }) {
     const target = await requireTarget(userId);
 
@@ -202,7 +203,7 @@ const revokeSessions = defineAction({
   authz: requireSuperAdmin,
   parse: parseIdentityTarget,
   revalidate: [USUARIOS_REDIRECT],
-  onError: (error) => console.error("[usuarios] revoke sessions failed", error),
+  logTag: "[usuarios] revoke sessions failed",
   async run(actor, { userId }) {
     const target = await requireTarget(userId);
 
@@ -230,7 +231,7 @@ const setSuperAdminFlag = defineAction({
   authz: requireSuperAdmin,
   parse: parseSetSuperAdmin,
   revalidate: [USUARIOS_REDIRECT],
-  onError: (error) => console.error("[usuarios] super admin change failed", error),
+  logTag: "[usuarios] super admin change failed",
   async run(actor, { userId, superAdmin }) {
     const target = await requireTarget(userId);
     const changed = await setSuperAdmin({
@@ -263,7 +264,7 @@ const setRequestRecipients = defineAction({
   authz: requireSuperAdmin,
   parse: parseSetAppRequestRecipients,
   revalidate: [USUARIOS_REDIRECT],
-  onError: (error) => console.error("[usuarios] recipients change failed", error),
+  logTag: "[usuarios] recipients change failed",
   async run(_actor, { app, emails }) {
     const catalogApp = (await getRoleCatalog()).find((entry) => entry.key === app);
 

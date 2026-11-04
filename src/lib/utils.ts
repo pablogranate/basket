@@ -39,6 +39,12 @@ export function pickFirstString(
   return "";
 }
 
+export function unexpectedErrorMessage() {
+  return "Ocurrió un error inesperado. Probá de nuevo.";
+}
+
+// For expected domain errors only: an unexpected error's message is written
+// for developers, so catch blocks show unexpectedErrorMessage() instead.
 export function ensureErrorMessage(error: unknown) {
   if (error instanceof Error) {
     return error.message;

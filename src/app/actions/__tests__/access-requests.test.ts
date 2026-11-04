@@ -31,7 +31,8 @@ vi.mock("@/lib/db/auth-client", () => ({ authDb: { name: "authDb" } }));
 vi.mock("@/lib/db/client", () => ({ db: {} }));
 vi.mock("@/lib/email/mailer", () => ({ sendCollaboratorInviteEmail: vi.fn() }));
 vi.mock("@/lib/people/identity", () => ({ linkProfileToPerson: vi.fn() }));
-vi.mock("@/lib/telemetry", () => ({
+vi.mock("@/lib/telemetry", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/telemetry")>()),
   reportServerError: vi.fn(),
   trackServerEvent: vi.fn(),
 }));

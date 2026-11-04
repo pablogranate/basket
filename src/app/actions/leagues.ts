@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 
+import { failedActionResult } from "@/app/actions/helpers";
 import { requireEditor } from "@/lib/auth";
 import { createLeague, renameLeague, type LeagueResult } from "@/lib/leagues/leagues";
-import { ensureErrorMessage } from "@/lib/utils";
 
 export type LeagueActionResult =
   | { ok: true; name: string }
@@ -13,9 +13,12 @@ export type LeagueActionResult =
 async function runLeagueWrite(
   write: () => Promise<LeagueResult>,
   failure: string,
+  route: string,
 ): Promise<LeagueActionResult> {
+  let userId: string | null = null;
+
   try {
-    await requireEditor();
+    userId = (await requireEditor()).userId;
     const result = await write();
 
     if (!result.ok) {
@@ -25,8 +28,7 @@ async function runLeagueWrite(
     revalidatePath("/teams");
     return { ok: true, name: result.league.name };
   } catch (error) {
-    console.error(`[leagues] ${failure}`, error);
-    return { ok: false, error: ensureErrorMessage(error) };
+    return failedActionResult(`[leagues] ${failure}`, error, { route, userId });
   }
 }
 
@@ -35,7 +37,11 @@ export async function createLeagueAction({
 }: {
   name: string;
 }): Promise<LeagueActionResult> {
-  return runLeagueWrite(() => createLeague(name), "failed to create league");
+  return runLeagueWrite(
+    () => createLeague(name),
+    "failed to create league",
+    "createLeagueAction",
+  );
 }
 
 export async function renameLeagueAction({
@@ -48,5 +54,6 @@ export async function renameLeagueAction({
   return runLeagueWrite(
     () => renameLeague({ currentName, name }),
     "failed to rename league",
+    "renameLeagueAction",
   );
 }

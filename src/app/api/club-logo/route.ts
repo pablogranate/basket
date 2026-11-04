@@ -5,6 +5,7 @@ import { withAuth } from "@/lib/api/with-auth";
 import { clubLogoVersionSql, parseImageDataUrl } from "@/lib/club-logo";
 import { db } from "@/lib/db/client";
 import { clubs } from "@/lib/db/schema";
+import { logError } from "@/lib/log";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -31,7 +32,7 @@ export const GET = withAuth({}, async (request) => {
       .where(eq(clubs.id, clubId))
       .limit(1);
   } catch (error) {
-    console.error("[club-logo] failed to load logo", error);
+    logError("[club-logo] failed to load logo", error);
     return NextResponse.json(
       { error: "No se pudo cargar el escudo." },
       { status: 500 },

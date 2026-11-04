@@ -33,6 +33,7 @@ import type {
   PlanGridSyncInput,
   SyncPlan,
 } from "@/lib/grid/sync-plan";
+import { logError, storedErrorMessage } from "@/lib/log";
 
 const SHEET_ID = "18Zqlayhde5XpOehkXOa1FKtaBSXhDGDfvqMvstT5Rm8";
 
@@ -72,16 +73,6 @@ async function fetchTabCsv(tabName: string) {
   return response.text();
 }
 
-// postgres driver errors are plain objects, not Error instances in every case;
-// String() on them can yield "[object Object]", so read `.message` explicitly.
-function toErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  const message = (error as { message?: unknown } | null)?.message;
-  return typeof message === "string" && message ? message : String(error);
-}
-
 function chunk<T>(items: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < items.length; i += size) {
@@ -104,7 +95,7 @@ export async function getLastSuccessfulSync(): Promise<SyncRunRow | null> {
 
     return (rows[0] as SyncRunRow | undefined) ?? null;
   } catch (error) {
-    console.error("[grid-sync] failed to read last successful run", error);
+    logError("[grid-sync] failed to read last successful run", error);
     return null;
   }
 }
@@ -241,7 +232,7 @@ async function buildGridSyncPlan(now: Date, source: SheetSource): Promise<SyncPl
         )) as DeleteCandidateSnapshot[];
     } catch (candidatesError) {
       // A failed candidate read must not abort a run that already saved.
-      deleteCandidatesError = toErrorMessage(candidatesError);
+      deleteCandidatesError = storedErrorMessage(candidatesError);
     }
   }
 
@@ -312,7 +303,7 @@ export async function runGridSync(
     // Warnings are informative only: they never block a run and never enter
     // the run log or result.errors.
     if (plan.warnings.length) {
-      console.info("[grid-sync] warnings:", plan.warnings);
+      console.info(`[grid-sync] ${plan.warnings.length} warning(s); the preview lists them`);
     }
 
     const applied = await applyGridSync(plan, now);
@@ -342,7 +333,7 @@ export async function runGridSync(
 
     return result;
   } catch (error) {
-    const message = toErrorMessage(error);
+    const message = storedErrorMessage(error);
     result.errors.push(message);
 
     await db.insert(gridSyncRunsTable).values({

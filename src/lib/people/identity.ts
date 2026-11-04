@@ -22,6 +22,7 @@ import {
   personFunctions as personFunctionsTable,
   profiles as profilesTable,
 } from "@/lib/db/schema";
+import { DomainError } from "@/lib/errors";
 
 // Ficha ↔ cuenta identity. A ficha is a `people` row (the person as production
 // staff); a cuenta is a `profiles` row (the login). This module owns every write
@@ -124,7 +125,7 @@ export async function moveCuentaToApplicant(
     .limit(1);
 
   if (!person?.profileId) {
-    throw new Error("Esa ficha ya no tiene una cuenta para pasar.");
+    throw new DomainError("Esa ficha ya no tiene una cuenta para pasar.");
   }
 
   const [profile] = await exec
@@ -134,11 +135,11 @@ export async function moveCuentaToApplicant(
     .limit(1);
 
   if (!profile) {
-    throw new Error("Esa ficha ya no tiene una cuenta para pasar.");
+    throw new DomainError("Esa ficha ya no tiene una cuenta para pasar.");
   }
 
   if (profile.authUserId === input.authUserId) {
-    throw new Error("Esa ficha ya entra con esta cuenta.");
+    throw new DomainError("Esa ficha ya entra con esta cuenta.");
   }
 
   const clash = await exec
@@ -153,7 +154,7 @@ export async function moveCuentaToApplicant(
     .limit(1);
 
   if (clash[0]) {
-    throw new Error("Ya hay otra cuenta del portal con ese mail.");
+    throw new DomainError("Ya hay otra cuenta del portal con ese mail.");
   }
 
   await exec
@@ -206,7 +207,7 @@ export async function linkProfileToPerson(
     .returning({ id: peopleTable.id });
 
   if (!linked[0]) {
-    throw new Error("Esa ficha ya está vinculada a otra cuenta.");
+    throw new DomainError("Esa ficha ya está vinculada a otra cuenta.");
   }
 }
 
@@ -262,13 +263,13 @@ export async function mergeFichas(
   const other = rows.find((row) => row.id === input.otherPersonId);
 
   if (!current || !other) {
-    throw new Error("Una de las fichas ya no existe.");
+    throw new DomainError("Una de las fichas ya no existe.");
   }
 
   const plan = planFichaMerge(current, other);
 
   if (plan.kind === "blocked") {
-    throw new Error(plan.reason);
+    throw new DomainError(plan.reason);
   }
 
   await mergePersonInto(exec, {
@@ -376,7 +377,7 @@ export async function completeOwnFicha(
     .limit(1);
 
   if (existing[0]) {
-    throw new Error("Tu ficha ya está completa.");
+    throw new DomainError("Tu ficha ya está completa.");
   }
 
   const target = resolveApprovalTarget({
@@ -417,7 +418,7 @@ export async function completeOwnFicha(
       .returning({ id: peopleTable.id });
 
     if (!linked[0]) {
-      throw new Error("La ficha con tu correo ya está vinculada a otra cuenta.");
+      throw new DomainError("La ficha con tu correo ya está vinculada a otra cuenta.");
     }
 
     return { kind: "linked", personId: linked[0].id };
@@ -442,7 +443,7 @@ export async function completeOwnFicha(
     .returning({ id: peopleTable.id });
 
   if (!inserted[0]) {
-    throw new Error("No pudimos crear tu ficha.");
+    throw new DomainError("No pudimos crear tu ficha.");
   }
 
   return { kind: "created", personId: inserted[0].id };
@@ -536,7 +537,7 @@ async function upsertPerson(
       .returning({ id: peopleTable.id });
 
     if (!updated[0]) {
-      throw new Error("No pudimos crear la ficha de la persona.");
+      throw new DomainError("No pudimos crear la ficha de la persona.");
     }
 
     return updated[0].id;
@@ -561,7 +562,7 @@ async function upsertPerson(
     .returning({ id: peopleTable.id });
 
   if (!inserted[0]) {
-    throw new Error("No pudimos crear la ficha de la persona.");
+    throw new DomainError("No pudimos crear la ficha de la persona.");
   }
 
   return inserted[0].id;
@@ -581,11 +582,11 @@ async function mergePersonInto(
     .limit(1);
 
   if (!from || from.deletedAt) {
-    throw new Error("La ficha a fusionar ya no existe.");
+    throw new DomainError("La ficha a fusionar ya no existe.");
   }
 
   if (from.profileId) {
-    throw new Error("La ficha a fusionar tiene cuenta del portal: no se puede archivar.");
+    throw new DomainError("La ficha a fusionar tiene cuenta del portal: no se puede archivar.");
   }
 
   await exec

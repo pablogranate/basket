@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { appSettings as appSettingsTable } from "@/lib/db/schema";
 import { appEnv } from "@/lib/env";
+import { logError } from "@/lib/log";
 
 export const GEMINI_API_KEY_COOKIE = "bp_gemini_api_key";
 export const GEMINI_MODEL_COOKIE = "bp_gemini_model";
@@ -105,7 +106,7 @@ async function loadPortalGeminiConfig(): Promise<PortalGeminiConfig> {
     };
   } catch (error) {
     if (!isMissingAppSettingsError(error)) {
-      console.error("[settings] unexpected portal Gemini config error", error);
+      logError("[settings] unexpected portal Gemini config error", error);
     }
 
     return {

@@ -1,6 +1,7 @@
 import { requireUserContext } from "@/lib/auth";
 import type { UserContext } from "@/lib/auth";
 import { can, CAPABILITY_DENIED_MESSAGE, type Capability } from "@/lib/roles";
+import { DomainError } from "@/lib/errors";
 
 export async function requireCapability(
   capability: Capability,
@@ -8,7 +9,7 @@ export async function requireCapability(
   const context = await requireUserContext();
 
   if (!can(context, capability)) {
-    throw new Error(CAPABILITY_DENIED_MESSAGE[capability]);
+    throw new DomainError(CAPABILITY_DENIED_MESSAGE[capability]);
   }
 
   return context;

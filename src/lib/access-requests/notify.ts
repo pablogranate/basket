@@ -7,12 +7,13 @@ import { requestAsksFuncion } from "@/lib/acceso/catalog";
 import { buildApexUrl } from "@/lib/constants";
 import { sendAccessRequestEmail } from "@/lib/email/mailer";
 import { appEnv } from "@/lib/env";
+import { logError } from "@/lib/log";
 
 async function loadAppRecipients(app: string): Promise<string[]> {
   try {
     return await listAppRequestRecipients(app);
   } catch (error) {
-    console.error("[access-requests] failed to load app recipients", error);
+    logError("[access-requests] failed to load app recipients", error);
     return [];
   }
 }

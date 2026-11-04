@@ -10,6 +10,7 @@ import {
 } from "@/lib/access-requests/requests";
 import { authAppRole } from "@/lib/auth/schema";
 import { authDb } from "@/lib/db/auth-client";
+import { DomainError } from "@/lib/errors";
 
 // A sibling Solicitud is decided in the Auth DB alone: the claim, the Acceso
 // and the audit row commit together, so a request is never `aprobada` without
@@ -27,7 +28,7 @@ export async function approveAppAccessRequest(
   input: Decision & { role: string },
 ): Promise<AppApproval> {
   if (input.app === PORTAL_APP) {
-    throw new Error("Las solicitudes del portal se aprueban con su formulario.");
+    throw new DomainError("Las solicitudes del portal se aprueban con su formulario.");
   }
 
   return authDb.transaction(async (tx) => {
@@ -40,7 +41,7 @@ export async function approveAppAccessRequest(
       .limit(1);
 
     if (!role) {
-      throw new Error("Ese rol no existe en la app pedida.");
+      throw new DomainError("Ese rol no existe en la app pedida.");
     }
 
     const claimed = await claimAccessRequest(tx, {
@@ -75,7 +76,7 @@ export async function approveAppAccessRequest(
 // Silent (D-16): nothing tells the applicant.
 export async function rejectAppAccessRequest(input: Decision): Promise<void> {
   if (input.app === PORTAL_APP) {
-    throw new Error("Las solicitudes del portal se rechazan desde su formulario.");
+    throw new DomainError("Las solicitudes del portal se rechazan desde su formulario.");
   }
 
   await authDb.transaction(async (tx) => {

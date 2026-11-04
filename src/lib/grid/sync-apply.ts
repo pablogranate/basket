@@ -10,6 +10,8 @@ import {
   people as peopleTable,
 } from "@/lib/db/schema";
 import type { PersonRef, SyncPlan } from "@/lib/grid/sync-plan";
+import { DomainError } from "@/lib/errors";
+import { storedErrorMessage } from "@/lib/log";
 
 export type ApplyGridSyncResult = {
   created: number;
@@ -20,16 +22,6 @@ export type ApplyGridSyncResult = {
   peopleCreated: number;
   errors: string[];
 };
-
-// postgres driver errors are plain objects, not Error instances in every case;
-// String() on them can yield "[object Object]", so read `.message` explicitly.
-function toErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  const message = (error as { message?: unknown } | null)?.message;
-  return typeof message === "string" && message ? message : String(error);
-}
 
 function chunk<T>(items: T[], size: number): T[][] {
   const out: T[][] = [];
@@ -68,21 +60,21 @@ export async function applyGridSync(plan: SyncPlan, now: Date): Promise<ApplyGri
       personIdByKey.set(key, created[0].id);
       result.peopleCreated += 1;
     } catch (error) {
-      failedPersonKeys.set(key, toErrorMessage(error));
+      failedPersonKeys.set(key, storedErrorMessage(error));
     }
   }
 
-  for (const { id, name } of plan.peopleToResurrect) {
+  for (const { id } of plan.peopleToResurrect) {
     try {
       await db
         .update(peopleTable)
         .set({ deletedAt: null, updatedAt: nowIso })
         .where(eq(peopleTable.id, id));
       console.info(
-        `[grid-sync] resurrected "${name}" (asignado en la grilla pero fuera de la pestaña de contactos)`,
+        `[grid-sync] resurrected person ${id} (asignado en la grilla pero fuera de la pestaña de contactos)`,
       );
     } catch (error) {
-      failedPersonIds.set(id, toErrorMessage(error));
+      failedPersonIds.set(id, storedErrorMessage(error));
     }
   }
 
@@ -90,17 +82,17 @@ export async function applyGridSync(plan: SyncPlan, now: Date): Promise<ApplyGri
     if (ref.kind === "id") {
       const failure = failedPersonIds.get(ref.id);
       if (failure) {
-        throw new Error(failure);
+        throw new DomainError(failure);
       }
       return ref.id;
     }
     const failure = failedPersonKeys.get(ref.key);
     if (failure) {
-      throw new Error(failure);
+      throw new DomainError(failure);
     }
     const id = personIdByKey.get(ref.key);
     if (!id) {
-      throw new Error(`No se pudo crear la persona planificada ("${ref.key}").`);
+      throw new DomainError(`No se pudo crear la persona planificada ("${ref.key}").`);
     }
     return id;
   };
@@ -143,7 +135,7 @@ export async function applyGridSync(plan: SyncPlan, now: Date): Promise<ApplyGri
       } catch (insertError) {
         // DB unique-index backstop (race or pre-existing duplicate).
         if (isUniqueViolation(insertError) && item.values.productionCode) {
-          throw new Error(
+          throw new DomainError(
             `El ID "${item.values.productionCode}" ya existe en la base de datos. Probá con otro.`,
           );
         }
@@ -157,7 +149,7 @@ export async function applyGridSync(plan: SyncPlan, now: Date): Promise<ApplyGri
         await upsertAssignment(insertedId, assignment.roleId, personId);
       }
     } catch (error) {
-      result.errors.push(`${item.label}: ${toErrorMessage(error)}`);
+      result.errors.push(`${item.label}: ${storedErrorMessage(error)}`);
     }
   }
 
@@ -186,7 +178,7 @@ export async function applyGridSync(plan: SyncPlan, now: Date): Promise<ApplyGri
         result.assignmentsDeleted += 1;
       }
     } catch (error) {
-      result.errors.push(`${item.label}: ${toErrorMessage(error)}`);
+      result.errors.push(`${item.label}: ${storedErrorMessage(error)}`);
     }
   }
 
@@ -209,7 +201,7 @@ export async function applyGridSync(plan: SyncPlan, now: Date): Promise<ApplyGri
     } catch (removeError) {
       // Error-tolerant: a delete failure must not abort a run that already
       // created/updated successfully.
-      result.errors.push(toErrorMessage(removeError));
+      result.errors.push(storedErrorMessage(removeError));
       continue;
     }
     result.deleted += rowChunk.length;

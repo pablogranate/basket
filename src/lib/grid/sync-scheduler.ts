@@ -4,6 +4,7 @@ import cron from "node-cron";
 
 import { appEnv } from "@/lib/env";
 import { getLastSuccessfulSync, runGridSync } from "@/lib/grid/sync";
+import { reportError } from "@/lib/log";
 
 // Skip a cron run if a success started within this window. Guards against
 // duplicate fires across server restarts or multiple workers sharing the DB,
@@ -35,7 +36,10 @@ async function runScheduledSync() {
       `[grid-sync] cron run done: ${result.created} creados, ${result.updated} actualizados, ${result.unchanged} sin cambios, ${result.deleted} eliminados, asignaciones +${result.assignmentsUpserted}/-${result.assignmentsDeleted}`,
     );
   } catch (error) {
-    console.error("[grid-sync] cron run failed", error);
+    reportError("[grid-sync] cron run failed", error, {
+      route: "grid-sync",
+      routeType: "job",
+    });
   }
 }
 

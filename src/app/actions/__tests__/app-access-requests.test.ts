@@ -12,6 +12,7 @@ import {
 import { sendCollaboratorInviteEmail } from "@/lib/email/mailer";
 import { trackServerEvent } from "@/lib/telemetry";
 import { requireSuperAdmin } from "@/lib/usuarios/guard";
+import { DomainError } from "@/lib/errors";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/usuarios/guard", () => ({ requireSuperAdmin: vi.fn() }));
@@ -26,7 +27,8 @@ vi.mock("@/lib/acceso/accesos", () => ({
   ]),
 }));
 vi.mock("@/lib/email/mailer", () => ({ sendCollaboratorInviteEmail: vi.fn() }));
-vi.mock("@/lib/telemetry", () => ({
+vi.mock("@/lib/telemetry", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/telemetry")>()),
   reportServerError: vi.fn(),
   trackServerEvent: vi.fn(),
 }));
@@ -124,7 +126,7 @@ describe("apex Solicitud actions", () => {
   });
 
   it("tracks no approval when it fails", async () => {
-    mockedApprove.mockRejectedValue(new Error("Esta solicitud ya fue resuelta."));
+    mockedApprove.mockRejectedValue(new DomainError("Esta solicitud ya fue resuelta."));
 
     await approveAppAccessRequestAction(form({ rol: "coordinador" }));
 
@@ -141,7 +143,7 @@ describe("apex Solicitud actions", () => {
   });
 
   it("surfaces a role outside the catalog as an error notice", async () => {
-    mockedApprove.mockRejectedValue(new Error("Ese rol no existe en la app pedida."));
+    mockedApprove.mockRejectedValue(new DomainError("Ese rol no existe en la app pedida."));
 
     await approveAppAccessRequestAction(form({ rol: "write" }));
 
@@ -152,7 +154,7 @@ describe("apex Solicitud actions", () => {
   });
 
   it("tells the losing decider the request was already resolved", async () => {
-    mockedApprove.mockRejectedValue(new Error("Esta solicitud ya fue resuelta."));
+    mockedApprove.mockRejectedValue(new DomainError("Esta solicitud ya fue resuelta."));
 
     await approveAppAccessRequestAction(form({ rol: "coordinador" }));
 

@@ -11,6 +11,7 @@ import {
   authEffectiveAccess,
   authUser,
 } from "@/lib/auth/schema";
+import { DomainError } from "@/lib/errors";
 
 // Acceso: one identity's role in one app (CONTEXT.md "Unified auth", ADR
 // 0010). Read per request, never cached: revoking denies on the next hit.
@@ -147,7 +148,7 @@ export async function retireIdentityInto(
   }
 
   if (from.role === "superadmin") {
-    throw new Error("La otra cuenta es de un super admin: no se puede borrar desde acá.");
+    throw new DomainError("La otra cuenta es de un super admin: no se puede borrar desde acá.");
   }
 
   const held = await exec

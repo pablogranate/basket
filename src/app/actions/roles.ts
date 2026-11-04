@@ -11,6 +11,7 @@ import { stampInsert, stampUpdate, writeAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth-access";
 import { db } from "@/lib/db/client";
 import { roles as rolesTable } from "@/lib/db/schema";
+import { DomainError } from "@/lib/errors";
 
 const upsertRole = defineAction({
   fallbackRedirect: "/roles",
@@ -53,7 +54,7 @@ const upsertRole = defineAction({
 
     const row = rows[0];
     if (!row) {
-      throw new Error("No se encontró el rol.");
+      throw new DomainError("No se encontró el rol.");
     }
 
     await writeAudit(ctx, {

@@ -6,6 +6,7 @@ import { getPortalAccess } from "@/lib/acceso/portal";
 import type { AppRole } from "@/lib/database.types";
 import { db } from "@/lib/db/client";
 import { profiles } from "@/lib/db/schema";
+import { logError } from "@/lib/log";
 
 // Returns the portal role of the Cuenta with this email, or null when there is
 // no Cuenta or its identity holds no portal Acceso. Callers use it to decide
@@ -39,7 +40,7 @@ export async function getPlatformAccessRole(
 
     return (await getPortalAccess(authUserId))?.role ?? null;
   } catch (error) {
-    console.error("[platform-access] unexpected failure", error);
+    logError("[platform-access] unexpected failure", error);
     return null;
   }
 }

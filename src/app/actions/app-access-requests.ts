@@ -11,7 +11,7 @@ import {
 import { buildAppUrlFromAnyHost } from "@/lib/constants";
 import { sendCollaboratorInviteEmail } from "@/lib/email/mailer";
 import { appEnv } from "@/lib/env";
-import { trackServerEvent } from "@/lib/telemetry";
+import { reportServerError, trackServerEvent } from "@/lib/telemetry";
 import { requireSuperAdmin } from "@/lib/usuarios/guard";
 
 // Sibling Solicitudes decided from the apex bell. Super admins only, checked
@@ -37,7 +37,7 @@ const approve = defineAction({
   authz: requireSuperAdmin,
   parse: parseAppAccessRequestDecision,
   revalidate: [APEX_REDIRECT],
-  onError: (error) => console.error("[access-requests] apex approval failed", error),
+  logTag: "[access-requests] apex approval failed",
   async run(actor, { requestId, app, role }) {
     if (!role) {
       return { error: "Elegí un rol." };
@@ -62,7 +62,12 @@ const approve = defineAction({
         appName: label,
       });
     } catch (error) {
-      console.error("[access-requests] invite email failed", error);
+      // The mailer already logged it.
+      reportServerError(error, {
+        route: "approveAppAccessRequestAction",
+        routeType: "action",
+        userId: actor.userId,
+      });
       emailNotice = " No pudimos enviarle el correo de aviso.";
     }
 
@@ -81,7 +86,7 @@ const reject = defineAction({
   authz: requireSuperAdmin,
   parse: parseAppAccessRequestDecision,
   revalidate: [APEX_REDIRECT],
-  onError: (error) => console.error("[access-requests] apex rejection failed", error),
+  logTag: "[access-requests] apex rejection failed",
   async run(actor, { requestId, app }) {
     await rejectAppAccessRequest({ requestId, app, deciderId: actor.userId });
 

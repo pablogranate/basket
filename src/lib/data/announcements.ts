@@ -4,6 +4,7 @@ import type { UserContext } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { announcements } from "@/lib/db/schema";
 import type { AnnouncementRow } from "@/lib/database.types";
+import { reportError } from "@/lib/log";
 
 export type AnnouncementSummary = Pick<
   AnnouncementRow,
@@ -58,11 +59,14 @@ async function loadLatestAnnouncement(activeOnly: boolean) {
       .orderBy(desc(announcements.updatedAt))
       .limit(1);
 
-    // Announcements are optional for the dashboard shell. If the table,
-    // policies, or feature wiring are not available yet, fail closed and
-    // keep the rest of the app interactive without noisy overlays.
     return (rows[0] as AnnouncementSummary | undefined) ?? null;
-  } catch {
+  } catch (error) {
+    // Announcements are optional for the dashboard shell: a failed read is
+    // reported and the page renders without one.
+    reportError("[announcements] failed to load the latest announcement", error, {
+      route: "loadLatestAnnouncement",
+      routeType: "render",
+    });
     return null;
   }
 }

@@ -38,6 +38,7 @@ import { shouldResetAttendance } from "@/lib/attendance";
 import { isUniqueViolation } from "@/lib/db/errors";
 import { trackServerEvent } from "@/lib/telemetry";
 import { maybeNull } from "@/lib/utils";
+import { DomainError } from "@/lib/errors";
 
 // stampInsert/stampUpdate return snake_case payloads; Drizzle .values()/.set()
 // take camelCase. These mappers translate, copying only keys actually present
@@ -261,7 +262,7 @@ const createMatch = defineAction({
     }
 
     if (!createdMatchId) {
-      throw new Error("No pudimos crear el partido.");
+      throw new DomainError("No pudimos crear el partido.");
     }
 
     await writeAudit(ctx, {
@@ -566,7 +567,7 @@ const quickUpdateMatchField = defineAction({
         break;
       case "kickoffTime": {
         if (!/^\d{2}:\d{2}$/.test(rawValue)) {
-          throw new Error("Hora inválida.");
+          throw new DomainError("Hora inválida.");
         }
 
         const matchRows = await db
@@ -580,7 +581,7 @@ const quickUpdateMatchField = defineAction({
 
         const matchRow = matchRows[0];
         if (!matchRow) {
-          throw new Error("No se encontró el partido.");
+          throw new DomainError("No se encontró el partido.");
         }
 
         payload.kickoff_at = buildKickoffAt({
@@ -595,7 +596,7 @@ const quickUpdateMatchField = defineAction({
         break;
       }
       default:
-        throw new Error("Campo de edición rápida no soportado.");
+        throw new DomainError("Campo de edición rápida no soportado.");
     }
 
     await db
@@ -796,7 +797,7 @@ const upsertAssignment = defineAction({
 
     const row = rows[0];
     if (!row) {
-      throw new Error("No pudimos guardar la asignación.");
+      throw new DomainError("No pudimos guardar la asignación.");
     }
 
     await writeAudit(ctx, {

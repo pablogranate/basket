@@ -39,7 +39,9 @@ import {
 } from "@/lib/email/mailer";
 import { appEnv } from "@/lib/env";
 import { linkProfileToPerson } from "@/lib/people/identity";
-import { trackServerEvent } from "@/lib/telemetry";
+import { reportServerError, trackServerEvent } from "@/lib/telemetry";
+import { DomainError } from "@/lib/errors";
+import { reportError } from "@/lib/log";
 
 const REQUEST_REVALIDATE_PATHS = [
   "/",
@@ -55,7 +57,7 @@ const submit = defineAction({
   revalidate: REQUEST_REVALIDATE_PATHS,
   async run(ctx, input) {
     if (!ctx.userId || !ctx.email) {
-      throw new Error("Necesitás iniciar sesión para pedir acceso.");
+      throw new DomainError("Necesitás iniciar sesión para pedir acceso.");
     }
 
     const apps = await listCatalogApps();
@@ -94,7 +96,11 @@ const submit = defineAction({
     try {
       await notifyAccessRequest({ ...request, app, appLabel, email });
     } catch (error) {
-      console.error("[access-requests] notification failed", error);
+      reportError("[access-requests] notification failed", error, {
+        route: "submitAccessRequestAction",
+        routeType: "action",
+        userId: ctx.userId,
+      });
     }
 
     return {
@@ -170,7 +176,7 @@ const approve = defineAction({
         .limit(1);
 
       if (!roleRows[0]) {
-        throw new Error("La función elegida ya no existe.");
+        throw new DomainError("La función elegida ya no existe.");
       }
     }
 
@@ -207,7 +213,12 @@ const approve = defineAction({
           loginUrl: `${appEnv.portalBaseUrl}/login`,
         });
       } catch (error) {
-        console.error("[access-requests] use-existing-account email failed", error);
+        // The mailer already logged it.
+        reportServerError(error, {
+          route: "approveAccessRequestAction",
+          routeType: "action",
+          userId: ctx.userId,
+        });
         keptNotice = " No pudimos enviarle el correo de aviso.";
       }
 
@@ -260,7 +271,12 @@ const approve = defineAction({
           loginUrl: `${appEnv.portalBaseUrl}/login`,
         });
       } catch (error) {
-        console.error("[access-requests] invite email failed", error);
+        // The mailer already logged it.
+        reportServerError(error, {
+          route: "approveAccessRequestAction",
+          routeType: "action",
+          userId: ctx.userId,
+        });
         movedNotice = " No pudimos enviarle el correo de aviso.";
       }
 
@@ -314,7 +330,12 @@ const approve = defineAction({
         loginUrl: `${appEnv.portalBaseUrl}/login`,
       });
     } catch (error) {
-      console.error("[access-requests] invite email failed", error);
+      // The mailer already logged it.
+      reportServerError(error, {
+        route: "approveAccessRequestAction",
+        routeType: "action",
+        userId: ctx.userId,
+      });
       emailNotice = " No pudimos enviarle el correo de aviso.";
     }
 
