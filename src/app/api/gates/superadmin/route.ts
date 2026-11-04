@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { withAuth } from "@/lib/api/with-auth";
+import { rejectRequest, withAuth } from "@/lib/api/with-auth";
 import { findActiveSuperAdmin } from "@/lib/usuarios/super-admin";
 
 // Superadmin gate consumed by nginx auth_request in front of the telemetry
@@ -12,20 +12,16 @@ import { findActiveSuperAdmin } from "@/lib/usuarios/super-admin";
 //
 // Read uncached through findActiveSuperAdmin, not from the session's
 // superAdmin flag: a demoted or banned super admin must lose the panel at once.
-export async function GET(request: Request) {
-  return withAuth({}, async (_request, context) => {
-    const superAdmin = await findActiveSuperAdmin(context.userId!);
+export const GET = withAuth({ route: "/api/gates/superadmin" }, async (_request, context) => {
+  const superAdmin = await findActiveSuperAdmin(context.userId!);
 
-    if (!superAdmin) {
-      console.error("[gate] rejected identity that is not a super admin", {
-        userId: context.userId,
-      });
-      return NextResponse.json(
-        { error: "Solo un super admin puede entrar." },
-        { status: 403 },
-      );
-    }
+  if (!superAdmin) {
+    rejectRequest("no_access");
+    return NextResponse.json(
+      { error: "Solo un super admin puede entrar." },
+      { status: 403 },
+    );
+  }
 
-    return new Response(null, { status: 204 });
-  })(request);
-}
+  return new Response(null, { status: 204 });
+});

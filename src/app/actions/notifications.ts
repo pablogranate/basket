@@ -1,5 +1,6 @@
 "use server";
 
+import { addFields } from "basket-tv-telemetry/log";
 import { and, eq, inArray } from "drizzle-orm";
 
 import { defineAction } from "@/lib/actions/define-action";
@@ -20,7 +21,7 @@ import { isWhatsAppSendEnabled } from "@/lib/env";
 import { buildMatchNotificationMessage } from "@/lib/integrations";
 import { sendWhatsAppText } from "@/lib/integrations/openwa";
 import { insertNotificationLogs } from "@/lib/notifications/log";
-import { trackServerEvent } from "@/lib/telemetry";
+import { telemetry } from "@/lib/telemetry";
 import {
   buildRecipientLogRows,
   type ChannelOutcome,
@@ -43,6 +44,7 @@ import { DomainError } from "@/lib/errors";
 // core as the cron via notifyMatch. Admin client is justified here — it mirrors
 // the cron's privileged send and authorization is enforced by requireEditor.
 const sendAllMatchNotifications = defineAction({
+  name: "sendAllMatchNotificationsAction",
   fallbackRedirect: "/grid",
   resolveRedirect: resolveMatchRedirect,
   authz: requireEditor,
@@ -79,9 +81,17 @@ const sendAllMatchNotifications = defineAction({
     }
 
     const summary = await notifyMatch(matchRow as NotifyMatchRow, "manual");
+    addFields({
+      match: { id: matchId },
+      notification: {
+        recipients: summary.recipients,
+        wa_sent: summary.waSent,
+        email_sent: summary.emailSent,
+      },
+    });
 
     if (summary.recipients > 0) {
-      trackServerEvent("match_notifications_sent", ctx.userId, {
+      telemetry.trackServerEvent("match_notifications_sent", ctx.userId, {
         match_id: matchId,
         recipients_count: summary.recipients,
         scope: "all",
@@ -106,6 +116,7 @@ export async function sendAllMatchNotificationsAction(formData: FormData) {
 }
 
 const sendAssignmentNotifications = defineAction({
+  name: "sendAssignmentNotificationsAction",
   fallbackRedirect: "/grid",
   resolveRedirect: resolveMatchRedirect,
   authz: requireEditor,
@@ -223,9 +234,13 @@ const sendAssignmentNotifications = defineAction({
     }
 
     await insertNotificationLogs(logRows);
+    addFields({
+      match: { id: matchId },
+      notification: { recipients: recipients.length, wa_sent: sent, email_sent: 0 },
+    });
 
     if (recipients.length > 0) {
-      trackServerEvent("match_notifications_sent", ctx.userId, {
+      telemetry.trackServerEvent("match_notifications_sent", ctx.userId, {
         match_id: matchId,
         recipients_count: recipients.length,
         scope: "assignments",

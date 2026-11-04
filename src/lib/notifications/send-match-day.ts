@@ -2,6 +2,7 @@ import "server-only";
 
 import { and, eq, gte, inArray, isNull, lte } from "drizzle-orm";
 import { formatInTimeZone } from "date-fns-tz";
+import { addFields } from "basket-tv-telemetry/log";
 
 import { db } from "@/lib/db/client";
 import {
@@ -42,7 +43,6 @@ import {
 // hourly tick fires this for any match whose send time has passed. Per-match
 // display timezone is display-only (D4c).
 const ARG_TZ = "America/Argentina/Buenos_Aires";
-const JOB_CONTEXT = { route: "notifications", routeType: "job" };
 // Small gap between WhatsApp sends to avoid OpenWA throttling/ban (D9b).
 const WHATSAPP_GAP_MS = 1500;
 const EMAIL_SEND_ERROR = "No se pudo enviar el correo.";
@@ -115,9 +115,7 @@ export async function runMatchDayNotifications(trigger: Trigger) {
         ),
       )) as typeof candidates;
   } catch (error) {
-    reportError("[notifications] failed to load matches", error, JOB_CONTEXT, {
-      trigger,
-    });
+    reportError(error, "runMatchDayNotifications");
     return;
   }
 
@@ -126,23 +124,21 @@ export async function runMatchDayNotifications(trigger: Trigger) {
     isMatchDueForNotification(match, now),
   );
 
-  if (!matches.length) {
-    console.info(`[notifications] ${trigger}: no due matches at ${now.toISOString()}`);
-    return;
-  }
-
-  console.info(
-    `[notifications] ${trigger}: ${matches.length} due match(es) at ${now.toISOString()}`,
-  );
+  // Written even when nothing is due: the hourly line shows the scheduler is
+  // alive. The event holds this object, so the counts added below reach it.
+  const totals = { due: matches.length, failed: 0, recipients: 0, wa_sent: 0, email_sent: 0 };
+  addFields({ trigger, notification: totals });
 
   for (const match of matches) {
     try {
-      await notifyMatch(match, trigger);
+      const summary = await notifyMatch(match, trigger);
+      totals.recipients += summary.recipients;
+      totals.wa_sent += summary.waSent;
+      totals.email_sent += summary.emailSent;
     } catch (error) {
-      reportError("[notifications] match failed; skipping", error, JOB_CONTEXT, {
-        match_id: match.id,
-        trigger,
-      });
+      // The match stays unmarked: the next tick retries it.
+      totals.failed += 1;
+      reportError(error, "runMatchDayNotifications");
     }
   }
 }
@@ -228,7 +224,6 @@ export async function notifyMatch(
           error: "OpenWA no está configurado.",
         });
         waSkipped += 1;
-        console.warn("[notifications] OpenWA not configured; WhatsApp skipped");
       }
     }
 
@@ -273,9 +268,6 @@ export async function notifyMatch(
 
     if (!outcomes.length) {
       noContact += 1;
-      console.warn(
-        `[notifications] person ${recipient.personId} has no phone or email; skipped`,
-      );
     }
 
     logRows.push(
@@ -298,20 +290,8 @@ export async function notifyMatch(
       .set({ dayNotifiedAt: new Date().toISOString() })
       .where(eq(matchesTable.id, match.id));
   } catch (error) {
-    reportError(
-      "[notifications] failed to mark match as notified",
-      error,
-      { route: "notifications", routeType: trigger === "manual" ? "action" : "job" },
-      { match_id: match.id, trigger },
-    );
+    reportError(error, "notifyMatch");
   }
-
-  console.info(
-    `[notifications] match ${match.id} (${match.home_team} vs ${match.away_team}): ` +
-      `WhatsApp ${waSent} sent / ${waSkipped} skipped, ` +
-      `email ${emailSent} sent / ${emailSkipped} skipped, ` +
-      `${noContact} without contact, ${recipients.length} recipient(s)`,
-  );
 
   return {
     recipients: recipients.length,

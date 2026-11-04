@@ -1,3 +1,5 @@
+import { addFields } from "basket-tv-telemetry/log";
+import { withActionLog } from "basket-tv-telemetry/next";
 import { revalidatePath } from "next/cache";
 
 import {
@@ -5,7 +7,7 @@ import {
   redirectWithNotice,
   rethrowNavigationError,
 } from "@/app/actions/helpers";
-import { userErrorMessage } from "@/lib/errors";
+import { isDomainError, userErrorMessage } from "@/lib/errors";
 import { reportError } from "@/lib/log";
 import { ensureErrorMessage } from "@/lib/utils";
 
@@ -37,6 +39,8 @@ export type ActionOutcome =
 export type ActionMeta = { redirectTo: string };
 
 type DefineActionOptions<Ctx, I> = {
+  // The exported action's name: the `route` of its log line.
+  name: string;
   // Fallback for getRedirectTarget when the form carries no redirectTo.
   fallbackRedirect: string;
   // Replaces getRedirectTarget entirely (actions whose base target is derived
@@ -54,23 +58,26 @@ type DefineActionOptions<Ctx, I> = {
   revalidate?: string[];
   // Fixed catch notice instead of a DomainError's message or the generic one.
   errorNotice?: string;
-  // Prefix of the log line of an unexpected failure.
-  logTag?: string;
 };
 
-// The Better Auth id of the actor, when the authz context carries one.
-function actorUserId(ctx: unknown): string | null {
-  if (ctx && typeof ctx === "object" && "userId" in ctx) {
-    return typeof ctx.userId === "string" ? ctx.userId : null;
-  }
+// The actor's Better Auth id and portal role, when the authz context has them.
+// Only the keys it has: an undefined one would erase what getUserContext set.
+function actorFields(ctx: unknown): { user_id?: string; role?: string } {
+  const { userId, role } = (ctx ?? {}) as { userId?: unknown; role?: unknown };
+  return {
+    ...(typeof userId === "string" ? { user_id: userId } : {}),
+    ...(typeof role === "string" ? { role } : {}),
+  };
+}
 
-  return null;
+function rejected(reason: string) {
+  addFields({ outcome: "rejected", reason });
 }
 
 export function defineAction<Ctx, I>(
   options: DefineActionOptions<Ctx, I>,
 ): (formData: FormData) => Promise<void> {
-  return async function action(formData: FormData) {
+  return withActionLog(options.name, async (formData: FormData) => {
     const redirectTo = options.resolveRedirect
       ? options.resolveRedirect(formData)
       : getRedirectTarget(formData, options.fallbackRedirect);
@@ -86,6 +93,7 @@ export function defineAction<Ctx, I>(
         throw error;
       }
 
+      rejected("no_access");
       redirectWithNotice({
         redirectTo,
         intent: "error",
@@ -94,10 +102,13 @@ export function defineAction<Ctx, I>(
       return;
     }
 
+    addFields(actorFields(ctx));
+
     try {
       const parseResult = options.parse(formData);
 
       if (!parseResult.ok) {
+        rejected("invalid_input");
         redirectWithNotice({
           redirectTo,
           intent: "error",
@@ -109,6 +120,7 @@ export function defineAction<Ctx, I>(
       const outcome = await options.run(ctx, parseResult.input, { redirectTo });
 
       if ("error" in outcome) {
+        rejected("domain_rule");
         redirectWithNotice({
           redirectTo: outcome.redirectTo ?? redirectTo,
           intent: "error",
@@ -135,16 +147,16 @@ export function defineAction<Ctx, I>(
       rethrowNavigationError(error);
       // Only what run threw: a parse failure, a returned { error } or a
       // DomainError is a domain outcome, not a failure of the app.
-      reportError(options.logTag ?? "[action] failed", error, {
-        method: "POST",
-        routeType: "action",
-        userId: actorUserId(ctx),
-      });
+      if (isDomainError(error)) {
+        rejected("domain_rule");
+      } else {
+        reportError(error, options.name);
+      }
       redirectWithNotice({
         redirectTo,
         intent: "error",
         notice: options.errorNotice ?? userErrorMessage(error),
       });
     }
-  };
+  });
 }

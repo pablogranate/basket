@@ -48,3 +48,24 @@ jobs:
           BETTER_AUTH_SECRET: ci-placeholder-secret-not-used-at-runtime
           GOOGLE_CLIENT_ID: ci-placeholder
           GOOGLE_CLIENT_SECRET: ci-placeholder
+
+      # The build passes even when the edge middleware cannot load a module;
+      # only a request shows it, so start the app and hit a few routes.
+      - name: Smoke test
+        run: |
+          pnpm start -p 3123 > server.log 2>&1 &
+          for i in $(seq 1 30); do curl -s -o /dev/null http://localhost:3123/api/health && break; sleep 1; done
+          fail=0
+          for p in / /login /api/health; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "http://localhost:3123$p")
+            echo "$p $code"
+            if [ "$code" = "000" ] || [ "$code" = "500" ]; then fail=1; fi
+          done
+          if grep -qE 'Failed to load external module|Native module not found' server.log; then fail=1; fi
+          pkill -f next-server || true
+          [ "$fail" = 0 ] || { cat server.log; exit 1; }
+        env:
+          AUTH_DATABASE_URL: postgres://ci:ci@localhost:5432/ci
+          BETTER_AUTH_SECRET: ci-placeholder-secret-not-used-at-runtime
+          GOOGLE_CLIENT_ID: ci-placeholder
+          GOOGLE_CLIENT_SECRET: ci-placeholder

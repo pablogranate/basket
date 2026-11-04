@@ -1,8 +1,10 @@
 import "server-only";
 
+import { addFields } from "basket-tv-telemetry/log";
+
 import { appEnv, isWhatsAppSendEnabled } from "@/lib/env";
 import { normalizeToWhatsAppChatId } from "@/lib/integrations/whatsapp-chat-id";
-import { logError, logUpstreamError } from "@/lib/log";
+import { reportError } from "@/lib/log";
 
 export async function sendWhatsAppText(params: {
   phone: string | null | undefined;
@@ -33,16 +35,15 @@ export async function sendWhatsAppText(params: {
     );
 
     if (!response.ok) {
-      logUpstreamError("[openwa] sendText failed", {
-        status: response.status,
-        body: await response.text(),
-      });
+      // The delivery log keeps the status per recipient; the line, the last one.
+      addFields({ openwa: { status: response.status } });
+      await response.body?.cancel();
       return { ok: false, error: `OpenWA respondió ${response.status}.` };
     }
 
     return { ok: true };
   } catch (error) {
-    logError("[openwa] sendText threw", error);
+    reportError(error, "sendWhatsAppText");
     return { ok: false, error: "No se pudo conectar con OpenWA." };
   }
 }

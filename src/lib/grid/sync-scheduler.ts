@@ -1,45 +1,33 @@
 import "server-only";
 
+import { addFields } from "basket-tv-telemetry/log";
 import cron from "node-cron";
 
 import { appEnv } from "@/lib/env";
 import { getLastSuccessfulSync, runGridSync } from "@/lib/grid/sync";
-import { reportError } from "@/lib/log";
+import { logSchedulerStart, runJob } from "@/lib/log";
 
 // Skip a cron run if a success started within this window. Guards against
 // duplicate fires across server restarts or multiple workers sharing the DB,
 // while still allowing the normal 30-minute cadence through.
 const MIN_GAP_MS = 25 * 60 * 1000; // 25m
+const JOB = "grid_sync";
 
 let scheduled = false;
 
 async function runScheduledSync() {
-  try {
-    const last = await getLastSuccessfulSync();
-    if (last?.started_at) {
-      const elapsed = Date.now() - new Date(last.started_at).getTime();
-      if (elapsed < MIN_GAP_MS) {
-        console.info(
-          `[grid-sync] skipping cron run; last success ${Math.round(elapsed / 60000)}m ago`,
-        );
-        return;
-      }
-    }
-
-    const result = await runGridSync("cron");
-    if (result.skipped) {
-      console.info("[grid-sync] cron run skipped (sync already in progress)");
+  const last = await getLastSuccessfulSync();
+  if (last?.started_at) {
+    const elapsed = Date.now() - new Date(last.started_at).getTime();
+    if (elapsed < MIN_GAP_MS) {
+      addFields({ skipped: "recent_success" });
       return;
     }
+  }
 
-    console.info(
-      `[grid-sync] cron run done: ${result.created} creados, ${result.updated} actualizados, ${result.unchanged} sin cambios, ${result.deleted} eliminados, asignaciones +${result.assignmentsUpserted}/-${result.assignmentsDeleted}`,
-    );
-  } catch (error) {
-    reportError("[grid-sync] cron run failed", error, {
-      route: "grid-sync",
-      routeType: "job",
-    });
+  const result = await runGridSync("cron");
+  if (result.skipped) {
+    addFields({ skipped: "in_progress" });
   }
 }
 
@@ -49,18 +37,18 @@ export function registerGridSyncScheduler() {
   }
 
   if (!appEnv.gridSyncEnabled) {
-    console.info("[grid-sync] scheduler disabled (GRID_SYNC_ENABLED=false)");
+    logSchedulerStart(JOB, "disabled");
     return;
   }
 
   if (!cron.validate(appEnv.gridSyncCron)) {
-    console.error(`[grid-sync] invalid GRID_SYNC_CRON "${appEnv.gridSyncCron}"; scheduler not started`);
+    logSchedulerStart(JOB, "invalid_cron", appEnv.gridSyncCron);
     return;
   }
 
   scheduled = true;
   cron.schedule(appEnv.gridSyncCron, () => {
-    void runScheduledSync();
+    void runJob(JOB, runScheduledSync);
   });
-  console.info(`[grid-sync] scheduler started (${appEnv.gridSyncCron})`);
+  logSchedulerStart(JOB, "started", appEnv.gridSyncCron);
 }

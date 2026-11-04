@@ -1,5 +1,6 @@
 import "server-only";
 
+import { addFields } from "basket-tv-telemetry/log";
 import { and, count, eq } from "drizzle-orm";
 
 import type { UserContext } from "@/lib/auth";
@@ -31,7 +32,7 @@ export async function importLegacyFinishedLeagues(
   for (const label of labels) {
     await finishLeague(exec, { label, actor: input.actor });
   }
-  console.info("[fixtures] imported legacy finished leagues", { labels });
+  addFields({ legacy_finished_leagues: { imported: labels.length } });
 }
 
 async function hasFinishedLeagueRecord(exec: DbExecutor, profileId: string) {

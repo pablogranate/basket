@@ -1,14 +1,16 @@
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GET as appGate } from "@/app/api/gates/[app]/route";
 import { GET } from "@/app/api/gates/superadmin/route";
 import { getEffectiveAccess } from "@/lib/acceso/accesos";
 import { getUserContext } from "@/lib/auth";
 import { findActiveSuperAdmin } from "@/lib/usuarios/super-admin";
+import { captureLogLines } from "@/test/fixtures/log-lines";
 import { makeGuestContext, makeUserContext } from "@/test/fixtures/user-context";
+import { noParams } from "@/test/fixtures/route-context";
 
 vi.mock("@/lib/auth", () => ({
   getUserContext: vi.fn(),
@@ -26,7 +28,7 @@ const mockedGetUserContext = vi.mocked(getUserContext);
 const mockedFindSuperAdmin = vi.mocked(findActiveSuperAdmin);
 
 function callGate() {
-  return GET(new Request("https://portal.basket-app.test/api/gates/superadmin"));
+  return GET(new Request("https://portal.basket-app.test/api/gates/superadmin"), noParams);
 }
 
 // The superadmin gate in front of server.basket-app.com (telemetry panel):
@@ -101,5 +103,39 @@ describe("GET /api/gates/superadmin", () => {
 
     expect(response.status).toBe(404);
     expect(vi.mocked(getEffectiveAccess)).not.toHaveBeenCalled();
+  });
+});
+
+describe("the superadmin gate's log line", () => {
+  let log: ReturnType<typeof captureLogLines>;
+
+  beforeEach(() => {
+    log = captureLogLines();
+  });
+
+  afterEach(() => {
+    log.restore();
+    vi.clearAllMocks();
+  });
+
+  it.each([
+    ["no session", makeGuestContext(), 401, "no_session"],
+    ["a session that is not a super admin", makeUserContext({ role: "admin" }), 403, "no_access"],
+  ] as const)("writes exactly one info line for %s", async (_name, context, status, reason) => {
+    mockedGetUserContext.mockResolvedValue(context);
+    mockedFindSuperAdmin.mockResolvedValue(null);
+
+    await callGate();
+
+    expect(log.lines).toEqual([
+      expect.objectContaining({
+        level: "info",
+        kind: "request",
+        route: "/api/gates/superadmin",
+        status,
+        outcome: "rejected",
+        reason,
+      }),
+    ]);
   });
 });
