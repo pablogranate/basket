@@ -5,17 +5,20 @@ on:
     branches: [staging]
   workflow_dispatch:
 
-# Shared with deploy.yml: both build on the same VPS, so never at once.
 concurrency:
-  group: deploy-vps
+  group: deploy-staging
   cancel-in-progress: false
+
+# The deploy does not use the GITHUB_TOKEN: it reaches the VPS over SSH.
+permissions: {}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
+        # Pinned by commit: this action receives the key that logs in as root.
+        uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
         with:
           host: 162.249.168.210
           username: ${{ secrets.VPS_USER }}
@@ -23,6 +26,11 @@ jobs:
           script: |
             # A failed step must not reach pm2 restart: a broken .next serves 502s.
             set -e
+            # One build at a time on the VPS, for every app and environment
+            # (cashflow's deploys take the same lock). A shared concurrency group
+            # would not do: a staging push would cancel a waiting production deploy.
+            exec 9>/var/lock/basket-vps-deploy.lock
+            flock -w 1800 9
             cd /opt/basket-app-dev
             git fetch origin staging
             git reset --hard origin/staging

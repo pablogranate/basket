@@ -1,49 +1,86 @@
-# Entorno de desarrollo: puesta en marcha
+# Entorno de desarrollo: setting it up
 
-`dev.portal.basket-app.com` y `dev.cashflow.basket-app.com`, en el VPS de producción (ADR 0015). Every step runs as root on the VPS unless it says otherwise. Run them in order: cashflow reads the dev portal's session, so the portal goes first.
+This runbook sets up `dev.portal.basket-app.com` and `dev.cashflow.basket-app.com` on the production VPS (ADR 0015). Every step runs as root on the VPS unless it says otherwise. Run them in order: cashflow reads the dev portal's session, so the portal goes first.
 
 | Piece | Portal | Cashflow |
 |---|---|---|
 | Host | `dev.portal.basket-app.com` | `dev.cashflow.basket-app.com` |
 | Folder | `/opt/basket-app-dev` | `/opt/cashflow-bp-dev` |
 | pm2 | `basket-app-dev` | `cashflow-bp-dev` |
-| Port | 3012 | 3013 |
-| Databases | `basket_portal_dev` (in `basket-portal-db`), `basket_auth_dev` (in `basket-auth-db`) | `basket_cashflow_dev` (in `basket_cashflow`) |
+| Port (127.0.0.1) | 3012 | 3013 |
+| Databases (role = database) | `basket_portal_dev` in `basket-portal-db`, `basket_auth_dev` in `basket-auth-db` | `basket_cashflow_dev` in `basket_cashflow` |
 | Deploy | `deploy-staging.yml`, on push to `staging` | `deploy-dev.yml`, on push to `staging` |
+
+The apps refuse to start when a database does not match the environment: in development every database name ends in `_dev`, and in production none does.
 
 ## 0. Before you start
 
-1. **Room on the VPS.** `free -h`: the two apps take about 1 GB more, and a build takes more for a while. `ss -ltn | grep -E ':301[23] '` must print nothing; if a port is taken, pick another one and change it here, in cashflow's `deploy-dev.yml`, `ecosystem.dev.config.cjs` and its nginx file.
-2. **DNS (DonWeb).** Two A records to `162.249.168.210`: `dev.portal` and `dev.cashflow`.
-3. **Google OAuth.** In the portal's OAuth client add the authorized origin `https://dev.portal.basket-app.com` and the redirect URI `https://dev.portal.basket-app.com/api/auth/callback/google`.
-4. **The `staging` branch** in both repos, from `main` once the PRs that add the dev deploy are merged:
+1. **Check room on the VPS.**
+   - Run `free -h`. The two apps take about 1 GB more, and a build briefly takes more on top of that.
+   - Run `ss -ltn | grep -E ':301[23] '`. It must print nothing. If a port is taken, pick another one and change it here and in cashflow (`deploy-dev.yml`, `ecosystem.dev.config.cjs` and its nginx file).
+2. **Add the DNS records (DonWeb).** Two A records pointing to `162.249.168.210`: `dev.portal` and `dev.cashflow`.
+3. **Update Google OAuth.** In the portal's OAuth client, add the authorized origin `https://dev.portal.basket-app.com` and the redirect URI `https://dev.portal.basket-app.com/api/auth/callback/google`.
+4. **Create the `staging` branch in both repos.** Do it once the PRs that add the dev deploy are merged into `main`:
    ```bash
    git push origin origin/main:refs/heads/staging
    ```
+   Protect `staging` the way `main` is protected: a PR with a review, and no direct pushes. Code on `staging` runs as root on this VPS (ADR 0015, Consequences).
 
 ## 1. Databases
 
-Copies of production. The dev Auth DB keeps users, accounts and Accesos but no sessions or verifications, so nobody arrives logged in.
+Each database is a copy of production, owned by a `_dev` role of the same name that cannot read production. The copy leaves out ownership, grants and comments. The production roles never appear in a dev URL.
+
+The script below reads the passwords from `/root/dev-db-passwords`, so they are never typed on the command line or printed to the screen. It creates that file if it does not exist. The same passwords go into the dev `.env` files below. Never refresh a database while its app is running: `pm2 stop` it first.
 
 ```bash
-# Auth
-docker exec basket-auth-db createdb -U basket_auth basket_auth_dev
-docker exec basket-auth-db pg_dump -U basket_auth -d basket_auth \
-    --exclude-table-data=public.auth_session --exclude-table-data=public.auth_verification \
-  | docker exec -i basket-auth-db psql -q -U basket_auth -d basket_auth_dev
+set -euo pipefail
+umask 077
+PASSWORDS=/root/dev-db-passwords
+[ -f "$PASSWORDS" ] || for db in basket_portal_dev basket_auth_dev basket_cashflow_dev; do
+  echo "$db=$(openssl rand -hex 24)"
+done > "$PASSWORDS"
 
-# Portal domain
-docker exec basket-portal-db createdb -U basket_portal basket_portal_dev
-docker exec basket-portal-db pg_dump -U basket_portal -d basket_portal \
-  | docker exec -i basket-portal-db psql -q -U basket_portal -d basket_portal_dev
+# copy_db <container> <superuser> <source db> <dev db> [extra pg_dump args...]
+copy_db() {
+  local c=$1 su=$2 src=$3 dst=$4; shift 4
+  local pass; pass=$(grep "^$dst=" "$PASSWORDS" | cut -d= -f2)
+  DEV_PASS="$pass" docker exec -i -e DEV_PASS "$c" sh -c "psql -v ON_ERROR_STOP=1 -U $su -d postgres" <<SQL
+\getenv pass DEV_PASS
+SELECT NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$dst') AS crear \gset
+\if :crear
+  CREATE ROLE $dst LOGIN;
+\endif
+ALTER ROLE $dst PASSWORD :'pass';
+SQL
+  docker exec "$c" dropdb --if-exists --force -U "$su" "$dst"
+  docker exec "$c" createdb -U "$su" -O "$dst" "$dst"
+  for ext in $(docker exec "$c" psql -U "$su" -d "$src" -Atc "SELECT extname FROM pg_extension WHERE extname <> 'plpgsql'"); do
+    docker exec "$c" psql -v ON_ERROR_STOP=1 -U "$su" -d "$dst" -c "CREATE EXTENSION IF NOT EXISTS \"$ext\""
+  done
+  docker exec "$c" pg_dump -U "$su" -d "$src" --no-owner --no-privileges --no-comments "$@" \
+    | docker exec -i "$c" psql -q -v ON_ERROR_STOP=1 -U "$dst" -d "$dst"
+}
 
-# Cashflow
-docker exec basket_cashflow createdb -U basket_cashflow basket_cashflow_dev
-docker exec basket_cashflow pg_dump -U basket_cashflow -d basket_cashflow \
-  | docker exec -i basket_cashflow psql -q -U basket_cashflow -d basket_cashflow_dev
+copy_db basket-auth-db basket_auth basket_auth basket_auth_dev \
+  --exclude-table-data=public.auth_session --exclude-table-data=public.auth_verification
+copy_db basket-portal-db basket_portal basket_portal basket_portal_dev
+copy_db basket_cashflow basket_cashflow basket_cashflow basket_cashflow_dev \
+  --exclude-table-data=public.claves_de_cashflow --exclude-table-data=public.sesiones_de_clave
+
+# Users keep their Accesos, but no Google token from production.
+docker exec basket-auth-db psql -v ON_ERROR_STOP=1 -U basket_auth_dev -d basket_auth_dev \
+  -c "UPDATE auth_account SET access_token = NULL, refresh_token = NULL, id_token = NULL"
+
+# Cashflow reads the leagues of the dev portal with its existing catalog role.
+# Don't rerun cashflow's rol-de-solo-lectura.sql: it would change that role's production password.
+docker exec basket-portal-db psql -v ON_ERROR_STOP=1 -U basket_portal_dev -d basket_portal_dev <<'SQL'
+GRANT CONNECT ON DATABASE basket_portal_dev TO cashflow_catalogo;
+GRANT USAGE ON SCHEMA public TO cashflow_catalogo;
+GRANT SELECT (id, slug, name) ON public.leagues TO cashflow_catalogo;
+SQL
 ```
 
-Roles are per container, so the grants in the dump (cashflow's catalog role, the readers' views) already apply to the copies. To refresh a copy later, `dropdb` it and repeat its block.
+Never run `REASSIGN OWNED BY` a production role to fix an ownership problem. It acts on everything that role owns, including the production databases.
 
 ## 2. Portal
 
@@ -57,20 +94,21 @@ Edit `.env.local`:
 
 | Variable | Value |
 |---|---|
-| `DATABASE_URL` | the production one, with the database `basket_portal_dev` |
-| `AUTH_DATABASE_URL` | the production one, with the database `basket_auth_dev` |
-| `BETTER_AUTH_SECRET` | a new one: `openssl rand -base64 32`. Never production's |
+| `DATABASE_URL` | `postgres://basket_portal_dev:<password>@127.0.0.1:5434/basket_portal_dev` |
+| `AUTH_DATABASE_URL` | `postgres://basket_auth_dev:<password>@127.0.0.1:5433/basket_auth_dev` |
+| `BETTER_AUTH_SECRET` | a new one from `openssl rand -base64 32`. Never production's. |
 | `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL` | `https://dev.portal.basket-app.com` |
-| `GRID_SYNC_ENABLED`, `FIXTURES_SYNC_ENABLED`, `NOTIFICATIONS_ENABLED`, `OPENWA_NOTIFY_ENABLED` | `false`. They default to on, and the data has real phones and emails |
+| `GRID_SYNC_ENABLED`, `FIXTURES_SYNC_ENABLED`, `NOTIFICATIONS_ENABLED`, `OPENWA_NOTIFY_ENABLED` | delete them. On a dev host they are off unless set to `true`. |
 | `OPENWA_API_URL`, `OPENWA_API_KEY`, `TELEMETRY_TOKEN` | empty |
+| `CABB_USER_*`, `CABB_PASS*` | empty, so a manual fixtures sync can't log into the real Gesdeportiva accounts |
 | `INTAKE_API_KEY` | a new one |
-| `SMTP_USER`, `SMTP_PASS` | empty. Invitations and access-request mails would reach real people. Staff log in with Google; fill them only while testing a magic link |
+| `SMTP_USER`, `SMTP_PASS` | empty. Otherwise invitations and access-request mails would reach real people. Staff log in with Google. Fill these only while you test a magic link. |
 
-Delete any `SERVER`/`SERVER_PASS` lines the copy brought. Then:
+Delete any `SERVER`/`SERVER_PASS` lines the copy brought along. Then:
 
 ```bash
 npm install --no-save --no-package-lock && npm run build
-pm2 start npm --name basket-app-dev --cwd /opt/basket-app-dev -- start -- -p 3012
+pm2 start npm --name basket-app-dev --cwd /opt/basket-app-dev -- start -- -p 3012 -H 127.0.0.1
 pm2 save
 ```
 
@@ -82,7 +120,17 @@ cd /opt/cashflow-bp-dev && git checkout staging
 cp /opt/cashflow-bp/.env .env && chmod 600 .env
 ```
 
-Edit `.env` as cashflow's README § Entorno de desarrollo says: `NEXT_PUBLIC_PORTAL_URL=https://dev.portal.basket-app.com`, the dev portal's `BETTER_AUTH_SECRET` and `basket_auth_dev`, `DATABASE_URL` to `basket_cashflow_dev`, `CATALOG_DATABASE_URL` to `basket_portal_dev`, `PORT=3013`, `TELEMETRY_TOKEN` empty. The Asistente keeps the same `ANTHROPIC_API_KEY`.
+Edit `.env` as cashflow's README (section "Entorno de desarrollo") describes:
+
+- `NEXT_PUBLIC_PORTAL_URL=https://dev.portal.basket-app.com`
+- The dev portal's `BETTER_AUTH_SECRET`
+- `AUTH_DATABASE_URL` set to `basket_auth_dev` (as `basket_auth_dev`)
+- `DATABASE_URL` set to `basket_cashflow_dev` (as `basket_cashflow_dev`)
+- `CATALOG_DATABASE_URL` set to `basket_portal_dev` (same `cashflow_catalogo` user and password)
+- `PORT=3013`
+- `TELEMETRY_TOKEN` empty
+
+The Asistente keeps the same `ANTHROPIC_API_KEY`.
 
 ```bash
 COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm install --frozen-lockfile && pnpm build && pnpm db:migrate
@@ -91,9 +139,9 @@ pm2 start ecosystem.dev.config.cjs && pm2 save
 
 ## 4. nginx and TLS
 
-nginx `sites-enabled/*` are links: write the files in `sites-available`.
+nginx `sites-enabled/*` are links, so write the files in `sites-available`.
 
-1. **Port 80 first, so certbot can answer.** For each host, a block that only proxies:
+1. **Start with port 80 only, so certbot can answer.** Create one block per host that only proxies:
    ```nginx
    server {
        listen 80;
@@ -106,21 +154,31 @@ nginx `sites-enabled/*` are links: write the files in `sites-available`.
        }
    }
    ```
-   Same for `dev.cashflow.basket-app.com` → 3013. Link both, `nginx -t && systemctl reload nginx`.
-2. **Certificates.** `certbot --nginx -d dev.portal.basket-app.com` and `certbot --nginx -d dev.cashflow.basket-app.com`. Certbot adds the 443 block to each file.
-3. **Portal.** Copy the headers and limits of the production portal's server block (not the apex or generator blocks) into `dev.portal`'s 443 block, keeping port 3012.
-4. **Cashflow.** Replace its file with the repo's `deploy/nginx/dev.cashflow.basket-app.com.conf`. Its certificate paths are the ones certbot just created.
-5. `nginx -t && systemctl reload nginx`.
+   Do the same for `dev.cashflow.basket-app.com` with port 3013. Link both, then run `nginx -t && systemctl reload nginx`.
+2. **Get the certificates.** Run `certbot --nginx --redirect -d dev.portal.basket-app.com` and `certbot --nginx --redirect -d dev.cashflow.basket-app.com`. Certbot adds a 443 block to each file.
+3. **Finish the portal block.** Copy the headers and limits of the production portal's server block into the 443 block of `dev.portal`. Leave out the apex and generator blocks, and keep port 3012. Add `add_header X-Robots-Tag "noindex, nofollow" always;`.
+4. **Replace the cashflow file.** Use the repo's `deploy/nginx/dev.cashflow.basket-app.com.conf`. Its certificate paths are the ones certbot just created.
+5. Run `nginx -t && systemctl reload nginx`.
 
 ## 5. Check
 
-- `https://dev.portal.basket-app.com/login` → log in with Google. In the browser the cookie is `__Secure-basket-dev.session_token`; production's `__Secure-better-auth.session_token` is still there and `portal.basket-app.com` stays logged in.
-- `https://dev.cashflow.basket-app.com` opens without asking you to log in again.
-- `pm2 logs basket-app-dev --lines 50` shows the schedulers as disabled.
+- **Login:** open `https://dev.portal.basket-app.com/login` and log in with Google.
+- **Cookies:** the browser has `__Secure-basket-dev.session_token`. Production's `__Secure-better-auth.session_token` is still there, and `portal.basket-app.com` is still logged in.
+- **Shared login:** `https://dev.cashflow.basket-app.com` opens without asking you to log in again.
+- **Schedulers:** `pm2 logs basket-app-dev --lines 50 --nostream` shows them as disabled.
 
 ## Working with it
 
-- Merge or push a branch to `staging`; the dev deploy runs. Then merge to `main` as usual.
-- Portal Domain DB migrations are applied by hand: run them on `basket_portal_dev` first (`docker exec -i basket-portal-db psql -U basket_portal -d basket_portal_dev < file.sql`). Auth migrations: `npm run db:auth:migrate` in `/opt/basket-app-dev`. Cashflow's deploy migrates on its own.
-- The `/usuarios` section lives on the apex only, so it is not available in development; Accesos come from the copy.
-- Off-site backups list their databases by name; check that basket-tv-infra does not pick up the `_dev` ones.
+- **Deploys:** merge or push a branch to `staging` and the dev deploy runs. Then merge to `main` as usual. A deploy waits while another app's deploy holds `/var/lock/basket-vps-deploy.lock`.
+- **Domain DB migrations** are applied by hand. Run each one on development first:
+  ```bash
+  docker exec -i basket-portal-db psql -v ON_ERROR_STOP=1 -U basket_portal_dev -d basket_portal_dev < file.sql
+  ```
+- **Auth migrations:** in `/opt/basket-app-dev`, run
+  ```bash
+  node --env-file=.env.local node_modules/drizzle-kit/bin.cjs migrate --config drizzle.auth.config.ts
+  ```
+  `npm run db:auth:migrate` does not read `.env.local`.
+- **Cashflow migrations:** its deploy migrates on its own.
+- **No apex:** `/usuarios` and the Solicitudes of sibling apps live on the apex only, so they are not available in development. Accesos come from the copy. Links to apps without a dev copy (analytics, incidencias, ops) lead nowhere, or to production in the case of the Incidencias item.
+- **Backups:** off-site backups list their databases by name. Check that basket-tv-infra does not pick up the `_dev` ones.

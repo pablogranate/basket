@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { buildApexUrl, buildAppUrlFromAnyHost } from "@/lib/constants";
-import { isDevEnvironmentHost, resolveSessionCookiePrefix } from "@/lib/environment";
+import {
+  databaseMatchesEnvironment,
+  isDevEnvironmentHost,
+  isSideEffectEnabled,
+  stripDevLabel,
+  withDevLabel,
+} from "@/lib/environment";
+
+const DEV = "https://dev.portal.basket-app.com";
+const PRODUCTION = "https://portal.basket-app.com";
 
 describe("isDevEnvironmentHost", () => {
   it("recognizes an app in the Entorno de desarrollo", () => {
@@ -17,35 +25,45 @@ describe("isDevEnvironmentHost", () => {
   });
 });
 
-describe("resolveSessionCookiePrefix", () => {
-  it("keeps Better Auth's default prefix in production", () => {
-    expect(resolveSessionCookiePrefix("https://portal.basket-app.com")).toBe("better-auth");
-    expect(resolveSessionCookiePrefix("http://localhost:3000")).toBe("better-auth");
+describe("the dev label", () => {
+  it("comes off a dev host and nothing else", () => {
+    expect(stripDevLabel("dev.portal.basket-app.com")).toBe("portal.basket-app.com");
+    expect(stripDevLabel("portal.basket-app.com")).toBe("portal.basket-app.com");
   });
 
-  it("gives the Entorno de desarrollo its own cookie", () => {
-    expect(resolveSessionCookiePrefix("https://dev.portal.basket-app.com")).toBe("basket-dev");
+  it("goes on an origin keeping its protocol and port", () => {
+    expect(withDevLabel("https://cashflow.basket-app.com")).toBe(
+      "https://dev.cashflow.basket-app.com",
+    );
+    expect(withDevLabel("http://portal.basket-app.localhost:3000")).toBe(
+      "http://dev.portal.basket-app.localhost:3000",
+    );
   });
 });
 
-describe("app URLs in the Entorno de desarrollo", () => {
-  it("has no Lanzador", () => {
-    expect(buildApexUrl("dev.portal.basket-app.com")).toBeNull();
+describe("databaseMatchesEnvironment", () => {
+  const db = (name: string) => `postgres://u:p@127.0.0.1:5434/${name}`;
+
+  it("wants _dev databases in the Entorno de desarrollo", () => {
+    expect(databaseMatchesEnvironment({ baseUrl: DEV, databaseUrl: db("basket_portal_dev") })).toBe(true);
+    expect(databaseMatchesEnvironment({ baseUrl: DEV, databaseUrl: db("basket_portal") })).toBe(false);
   });
 
-  it("links each app to its development copy", () => {
-    expect(buildAppUrlFromAnyHost("dev.portal.basket-app.com", "portal")).toBe(
-      "https://dev.portal.basket-app.com",
-    );
-    expect(buildAppUrlFromAnyHost("dev.portal.basket-app.com", "cashflow")).toBe(
-      "https://dev.cashflow.basket-app.com",
-    );
+  it("refuses _dev databases outside it", () => {
+    expect(databaseMatchesEnvironment({ baseUrl: PRODUCTION, databaseUrl: db("basket_portal") })).toBe(true);
+    expect(databaseMatchesEnvironment({ baseUrl: PRODUCTION, databaseUrl: db("basket_auth_dev") })).toBe(false);
+    expect(
+      databaseMatchesEnvironment({ baseUrl: "http://localhost:3000", databaseUrl: db("basket_portal") }),
+    ).toBe(true);
   });
+});
 
-  it("keeps the production links unchanged", () => {
-    expect(buildApexUrl("portal.basket-app.com")).toBe("https://basket-app.com");
-    expect(buildAppUrlFromAnyHost("portal.basket-app.com", "cashflow")).toBe(
-      "https://cashflow.basket-app.com",
-    );
+describe("isSideEffectEnabled", () => {
+  it("defaults to on in production and off in the Entorno de desarrollo", () => {
+    expect(isSideEffectEnabled(undefined, { devEnvironment: false })).toBe(true);
+    expect(isSideEffectEnabled("false", { devEnvironment: false })).toBe(false);
+    expect(isSideEffectEnabled(undefined, { devEnvironment: true })).toBe(false);
+    expect(isSideEffectEnabled("1", { devEnvironment: true })).toBe(false);
+    expect(isSideEffectEnabled("true", { devEnvironment: true })).toBe(true);
   });
 });

@@ -8,7 +8,10 @@ import { admin, emailOTP, magicLink } from "better-auth/plugins";
 import { adminAc, userAc } from "better-auth/plugins/admin/access";
 
 import { authDb } from "@/lib/db/auth-client";
-import { resolveCrossSubdomainCookieConfig } from "@/lib/auth/cookie-domain";
+import {
+  resolveCrossSubdomainCookieConfig,
+  resolveSessionCookiePrefix,
+} from "@/lib/auth/cookie-domain";
 import { authTelemetryOptions } from "@/lib/auth/telemetry-hooks";
 import {
   authAccount,
@@ -17,7 +20,6 @@ import {
   authVerification,
 } from "@/lib/auth/schema";
 import { appEnv, assertBetterAuthEnv } from "@/lib/env";
-import { resolveSessionCookiePrefix } from "@/lib/environment";
 import { sendLoginCodeEmail, sendMagicLinkEmail } from "@/lib/email/mailer";
 
 assertBetterAuthEnv();

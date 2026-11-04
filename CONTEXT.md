@@ -47,7 +47,7 @@ The portal roles admin and editor — people who see the whole dashboard. Collab
 _Avoid_: staff role, elevated role
 
 **Entorno de desarrollo**:
-The copy of the portal and cashflow at `dev.<app>.basket-app.com`, on the production VPS but with its own databases, its own session cookie and its own secret, deployed from the `staging` branch. A login there is not a login in production and the other way round. It has no Lanzador, and its schedulers and notifications are off.
+The copy of the portal and cashflow at `dev.<app>.basket-app.com`, with its own data. A login there is not a login in production, and the other way round. It has no Lanzador.
 _Avoid_: staging (in prose), dev server, preview
 
 **Generator**:

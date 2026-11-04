@@ -1,6 +1,6 @@
 import type { AppRole, Database } from "@/lib/database.types";
 import { BUSINESS_LABELS, PRODUCT_COPY } from "@/lib/copy";
-import { isDevEnvironmentHost } from "@/lib/environment";
+import { isDevEnvironmentHost, stripDevLabel, withDevLabel } from "@/lib/environment";
 import { can } from "@/lib/roles";
 
 export const APP_NAME = PRODUCT_COPY.appName;
@@ -228,9 +228,10 @@ export function buildSiblingAppUrl(host: string, subdomain: string) {
 // link. Mirrors buildSiblingAppUrl's local-vs-prod protocol/port handling.
 export function buildApexUrl(host: string): string | null {
   // The Entorno de desarrollo has no Lanzador: the apex is production's.
-  if (isDevEnvironmentHost(host)) {
-    return null;
-  }
+  return isDevEnvironmentHost(host) ? null : findApexUrl(host);
+}
+
+function findApexUrl(host: string): string | null {
   const [hostname, port] = host.split(":");
   const apex = BASKET_APP_DOMAINS.find(
     (domain) => hostname === domain || hostname.endsWith(`.${domain}`),
@@ -247,14 +248,9 @@ export function buildApexUrl(host: string): string | null {
 // One app's origin from any basket-app host (apex or a sibling subdomain), so
 // a portal page can link to facturación without building
 // facturacion.portal.basket-app.com. Null for unrecognized hosts.
+// From the Entorno de desarrollo, links stay in it (dev.<app>.basket-app.com).
 export function buildAppUrlFromAnyHost(host: string, subdomain: string): string | null {
-  if (isDevEnvironmentHost(host)) {
-    const hostname = host.split(":")[0];
-    const domain = BASKET_APP_DOMAINS.find((name) => hostname.endsWith(`.${name}`));
-    return domain ? `https://dev.${subdomain}.${domain}` : null;
-  }
-
-  const apexUrl = buildApexUrl(host);
+  const apexUrl = findApexUrl(stripDevLabel(host));
 
   if (!apexUrl) {
     return null;
@@ -262,7 +258,7 @@ export function buildAppUrlFromAnyHost(host: string, subdomain: string): string 
 
   const url = new URL(apexUrl);
   url.hostname = `${subdomain}.${url.hostname}`;
-  return url.origin;
+  return isDevEnvironmentHost(host) ? withDevLabel(url.origin) : url.origin;
 }
 
 export type ApexDestination<App extends string = string> =

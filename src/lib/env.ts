@@ -1,7 +1,16 @@
+import {
+  databaseMatchesEnvironment,
+  isDevEnvironmentUrl,
+  isSideEffectEnabled,
+} from "@/lib/environment";
+
 const BETTER_AUTH_URL =
   process.env.BETTER_AUTH_URL ??
   process.env.NEXT_PUBLIC_APP_URL ??
   "http://localhost:3000";
+
+const sideEffect = (raw: string | undefined) =>
+  isSideEffectEnabled(raw, { devEnvironment: isDevEnvironmentUrl(BETTER_AUTH_URL) });
 
 export const appEnv = {
   appTimezone: process.env.NEXT_PUBLIC_APP_TIMEZONE ?? "America/Bogota",
@@ -28,9 +37,9 @@ export const appEnv = {
   smtpPass: process.env.SMTP_PASS ?? "",
   mailFrom: process.env.MAIL_FROM ?? process.env.SMTP_USER ?? "",
   intakeApiKey: process.env.INTAKE_API_KEY ?? "",
-  gridSyncEnabled: process.env.GRID_SYNC_ENABLED !== "false",
+  gridSyncEnabled: sideEffect(process.env.GRID_SYNC_ENABLED),
   gridSyncCron: process.env.GRID_SYNC_CRON ?? "*/30 * * * *",
-  fixturesSyncEnabled: process.env.FIXTURES_SYNC_ENABLED !== "false",
+  fixturesSyncEnabled: sideEffect(process.env.FIXTURES_SYNC_ENABLED),
   fixturesSyncCron: process.env.FIXTURES_SYNC_CRON ?? "0 6,16 * * *",
   fixturesSyncAlertEmail: process.env.FIXTURES_SYNC_ALERT_EMAIL ?? "wences.capolo@basquetpass.tv",
   // Two Gesdeportiva accounts with disjoint data (ADC: Liga Nacional,
@@ -43,8 +52,8 @@ export const appEnv = {
   })),
   openwaApiUrl: process.env.OPENWA_API_URL ?? "",
   openwaApiKey: process.env.OPENWA_API_KEY ?? "",
-  openwaNotifyEnabled: process.env.OPENWA_NOTIFY_ENABLED !== "false",
-  notificationsEnabled: process.env.NOTIFICATIONS_ENABLED !== "false",
+  openwaNotifyEnabled: sideEffect(process.env.OPENWA_NOTIFY_ENABLED),
+  notificationsEnabled: sideEffect(process.env.NOTIFICATIONS_ENABLED),
   // basket-telemetry server ingest (loopback only). Without the token the
   // reporter in src/lib/telemetry.ts sends nothing (dev, tests, CI).
   telemetryIngestUrl:
@@ -58,12 +67,22 @@ export function assertDatabaseUrl() {
       "Missing DATABASE_URL. The portal domain database requires a connection string.",
     );
   }
+  assertDatabaseInEnvironment("DATABASE_URL", appEnv.databaseUrl);
 }
 
 export function assertAuthDatabaseUrl() {
   if (!appEnv.authDatabaseUrl) {
     throw new Error(
       "Missing AUTH_DATABASE_URL. The Better Auth identity database requires a connection string.",
+    );
+  }
+  assertDatabaseInEnvironment("AUTH_DATABASE_URL", appEnv.authDatabaseUrl);
+}
+
+function assertDatabaseInEnvironment(variable: string, databaseUrl: string) {
+  if (!databaseMatchesEnvironment({ baseUrl: appEnv.betterAuthUrl, databaseUrl })) {
+    throw new Error(
+      `${variable} does not belong to this environment: in the Entorno de desarrollo every database ends in _dev, and in production none does (BETTER_AUTH_URL=${appEnv.betterAuthUrl}).`,
     );
   }
 }

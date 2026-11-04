@@ -4,11 +4,6 @@ on:
   push:
     branches: [main]
 
-# Shared with deploy-staging.yml: both build on the same VPS, so never at once.
-concurrency:
-  group: deploy-vps
-  cancel-in-progress: false
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -22,6 +17,11 @@ jobs:
           script: |
             # A failed step must not reach pm2 restart: a broken .next serves 502s.
             set -e
+            # One build at a time on the VPS, for every app and environment
+            # (cashflow's deploys take the same lock). A shared concurrency group
+            # would not do: a staging push would cancel a waiting production deploy.
+            exec 9>/var/lock/basket-vps-deploy.lock
+            flock -w 1800 9
             cd /opt/basket-app
             git pull
             npm install --no-save --no-package-lock
