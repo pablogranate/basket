@@ -14,6 +14,8 @@ jobs:
           host: 162.249.168.210
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          # Longer than the flock wait (30 min): the default 10 min would cut a deploy waiting for the lock.
+          command_timeout: 45m
           script: |
             # A failed step must not reach pm2 restart: a broken .next serves 502s.
             set -e
@@ -26,4 +28,5 @@ jobs:
             git pull
             npm install --no-save --no-package-lock
             npm run build
-            pm2 restart basket-app
+            # 9>&-: a pm2 daemon started here must not inherit the deploy lock.
+            pm2 restart basket-app 9>&-

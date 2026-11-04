@@ -28,11 +28,13 @@ The apps refuse to start when a database does not match the environment: in deve
 
 ## 1. Databases
 
-Each database is a copy of production, owned by a `_dev` role of the same name that cannot read production. The copy leaves out ownership, grants and comments. The production roles never appear in a dev URL.
+Each database is a copy of production, owned by a `_dev` role of the same name that has no grants on production. The copy leaves out ownership, grants and comments, and the production roles never appear in a dev URL. Passwords live in `/root/dev-db-passwords` (created on the first run, mode 600), never on a command line. They go into the dev `.env` files below.
 
-The script below reads the passwords from `/root/dev-db-passwords`, so they are never typed on the command line or printed to the screen. It creates that file if it does not exist. The same passwords go into the dev `.env` files below. Never refresh a database while its app is running: `pm2 stop` it first.
+Save the script and run it. It can be rerun to refresh the copies; `pm2 stop basket-app-dev cashflow-bp-dev` first, because it drops them.
 
 ```bash
+cat > /root/copy-dev-dbs.sh <<'SCRIPT'
+#!/usr/bin/env bash
 set -euo pipefail
 umask 077
 PASSWORDS=/root/dev-db-passwords
@@ -40,47 +42,61 @@ PASSWORDS=/root/dev-db-passwords
   echo "$db=$(openssl rand -hex 24)"
 done > "$PASSWORDS"
 
-# copy_db <container> <superuser> <source db> <dev db> [extra pg_dump args...]
+# psql in <container> as its superuser (POSTGRES_USER of the image).
+su_psql() { local c=$1; shift; docker exec -i "$c" sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" "$@"' psql "$@"; }
+
+# copy_db <container> <source db> <dev db> [extra pg_dump args...]
 copy_db() {
-  local c=$1 su=$2 src=$3 dst=$4; shift 4
+  local c=$1 src=$2 dst=$3; shift 3
+  case $dst in *_dev) ;; *) echo "refusing to replace $dst: not a _dev database" >&2; return 1 ;; esac
   local pass; pass=$(grep "^$dst=" "$PASSWORDS" | cut -d= -f2)
-  DEV_PASS="$pass" docker exec -i -e DEV_PASS "$c" sh -c "psql -v ON_ERROR_STOP=1 -U $su -d postgres" <<SQL
+  DEV_PASS="$pass" docker exec -i -e DEV_PASS "$c" sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres' <<SQL
 \getenv pass DEV_PASS
 SELECT NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$dst') AS crear \gset
 \if :crear
   CREATE ROLE $dst LOGIN;
 \endif
 ALTER ROLE $dst PASSWORD :'pass';
+DROP DATABASE IF EXISTS $dst WITH (FORCE);
+CREATE DATABASE $dst OWNER $dst;
 SQL
-  docker exec "$c" dropdb --if-exists --force -U "$su" "$dst"
-  docker exec "$c" createdb -U "$su" -O "$dst" "$dst"
-  for ext in $(docker exec "$c" psql -U "$su" -d "$src" -Atc "SELECT extname FROM pg_extension WHERE extname <> 'plpgsql'"); do
-    docker exec "$c" psql -v ON_ERROR_STOP=1 -U "$su" -d "$dst" -c "CREATE EXTENSION IF NOT EXISTS \"$ext\""
-  done
-  docker exec "$c" pg_dump -U "$su" -d "$src" --no-owner --no-privileges --no-comments "$@" \
+  # Extensions need a superuser: create them first. Today they all live in public
+  # (pg_trgm); one in another schema would clash with the dump's CREATE SCHEMA.
+  local extensions; extensions=$(su_psql "$c" -d "$src" -Atc \
+    "SELECT extname || ' ' || extnamespace::regnamespace FROM pg_extension WHERE extname <> 'plpgsql'")
+  while read -r ext schema; do
+    if [ -z "$ext" ]; then continue; fi
+    if [ "$schema" != "public" ]; then echo "extension $ext is in $schema: copy it by hand" >&2; return 1; fi
+    su_psql "$c" -d "$dst" -c "CREATE EXTENSION IF NOT EXISTS \"$ext\""
+  done <<< "$extensions"
+  docker exec "$c" sh -c 'pg_dump -U "$POSTGRES_USER" "$@"' pg_dump -d "$src" --no-owner --no-privileges --no-comments "$@" \
     | docker exec -i "$c" psql -q -v ON_ERROR_STOP=1 -U "$dst" -d "$dst"
 }
 
-copy_db basket-auth-db basket_auth basket_auth basket_auth_dev \
+copy_db basket-auth-db basket_auth basket_auth_dev \
   --exclude-table-data=public.auth_session --exclude-table-data=public.auth_verification
-copy_db basket-portal-db basket_portal basket_portal basket_portal_dev
-copy_db basket_cashflow basket_cashflow basket_cashflow basket_cashflow_dev \
+copy_db basket-portal-db basket_portal basket_portal_dev
+copy_db basket_cashflow basket_cashflow basket_cashflow_dev \
   --exclude-table-data=public.claves_de_cashflow --exclude-table-data=public.sesiones_de_clave
 
 # Users keep their Accesos, but no Google token from production.
 docker exec basket-auth-db psql -v ON_ERROR_STOP=1 -U basket_auth_dev -d basket_auth_dev \
   -c "UPDATE auth_account SET access_token = NULL, refresh_token = NULL, id_token = NULL"
 
-# Cashflow reads the leagues of the dev portal with its existing catalog role.
-# Don't rerun cashflow's rol-de-solo-lectura.sql: it would change that role's production password.
-docker exec basket-portal-db psql -v ON_ERROR_STOP=1 -U basket_portal_dev -d basket_portal_dev <<'SQL'
+# Cashflow reads the dev portal's leagues with its existing catalog role (pool of 1
+# per instance, within its CONNECTION LIMIT 5). Don't rerun cashflow's
+# rol-de-solo-lectura.sql: it would change that role's production password.
+docker exec -i basket-portal-db psql -v ON_ERROR_STOP=1 -U basket_portal_dev -d basket_portal_dev <<'SQL'
 GRANT CONNECT ON DATABASE basket_portal_dev TO cashflow_catalogo;
 GRANT USAGE ON SCHEMA public TO cashflow_catalogo;
 GRANT SELECT (id, slug, name) ON public.leagues TO cashflow_catalogo;
 SQL
+echo "Copies ready."
+SCRIPT
+bash /root/copy-dev-dbs.sh
 ```
 
-Never run `REASSIGN OWNED BY` a production role to fix an ownership problem. It acts on everything that role owns, including the production databases.
+The source database names (`basket_auth`, `basket_portal`, `basket_cashflow`) are production's; check them with `docker exec <container> psql -U "$POSTGRES_USER" -l` if one fails. Never run `REASSIGN OWNED BY` a production role to fix an ownership problem. It acts on everything that role owns, including the production databases.
 
 ## 2. Portal
 
