@@ -71,6 +71,12 @@ describe("parseCabbCsv", () => {
     expect(fixture).toMatchObject({ homePoints: null, awayPoints: null });
   });
 
+  it("reads 00:00 as a time CABB has not set", () => {
+    const [fixture] = parseCabbCsv(csv(ROWS.quotedVenue.replace(";21:30;", ";00:00;"))).fixtures;
+
+    expect(fixture?.matchTime).toBeNull();
+  });
+
   it("reads the suspended flag", () => {
     const [fixture] = parseCabbCsv(csv(ROWS.suspended)).fixtures;
 
