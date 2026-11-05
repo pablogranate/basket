@@ -8,7 +8,10 @@ import { admin, emailOTP, magicLink } from "better-auth/plugins";
 import { adminAc, userAc } from "better-auth/plugins/admin/access";
 
 import { authDb } from "@/lib/db/auth-client";
-import { resolveCrossSubdomainCookieConfig } from "@/lib/auth/cookie-domain";
+import {
+  resolveCrossSubdomainCookieConfig,
+  resolveSessionCookiePrefix,
+} from "@/lib/auth/cookie-domain";
 import { authTelemetryOptions } from "@/lib/auth/telemetry-hooks";
 import {
   authAccount,
@@ -54,6 +57,7 @@ export const auth = betterAuth({
     crossSubDomainCookies: resolveCrossSubdomainCookieConfig(
       appEnv.betterAuthUrl,
     ),
+    cookiePrefix: resolveSessionCookiePrefix(appEnv.betterAuthUrl),
   },
   // Auth events for basket-telemetry (docs/telemetry.md): login_success,
   // login_failed, magic_link_requested and logout. The hooks never throw and

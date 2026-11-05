@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildApexUrl,
+  buildAppUrlFromAnyHost,
   buildSiblingAppUrl,
   getRequestHost,
   isApexHost,
@@ -151,5 +153,31 @@ describe("isUsuariosPath", () => {
     expect(isUsuariosPath("/usuarios/x")).toBe(true);
     expect(isUsuariosPath("/usuarios-old")).toBe(false);
     expect(isUsuariosPath("/people")).toBe(false);
+  });
+});
+
+describe("app URLs from the Entorno de desarrollo", () => {
+  it("has no Lanzador", () => {
+    expect(buildApexUrl("dev.portal.basket-app.com")).toBeNull();
+  });
+
+  it("links each app to its development copy", () => {
+    expect(buildAppUrlFromAnyHost("dev.portal.basket-app.com", "portal")).toBe(
+      "https://dev.portal.basket-app.com",
+    );
+    expect(buildAppUrlFromAnyHost("dev.portal.basket-app.com", "cashflow")).toBe(
+      "https://dev.cashflow.basket-app.com",
+    );
+    expect(buildAppUrlFromAnyHost("dev.portal.basket-app.localhost:3000", "cashflow")).toBe(
+      "http://dev.cashflow.basket-app.localhost:3000",
+    );
+  });
+
+  it("keeps the production links unchanged", () => {
+    expect(buildApexUrl("portal.basket-app.com")).toBe("https://basket-app.com");
+    expect(buildAppUrlFromAnyHost("portal.basket-app.com", "cashflow")).toBe(
+      "https://cashflow.basket-app.com",
+    );
+    expect(buildAppUrlFromAnyHost("dev.example.com", "cashflow")).toBeNull();
   });
 });

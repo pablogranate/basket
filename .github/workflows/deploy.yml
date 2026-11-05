@@ -14,11 +14,19 @@ jobs:
           host: 162.249.168.210
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          # Longer than the flock wait (30 min): the default 10 min would cut a deploy waiting for the lock.
+          command_timeout: 45m
           script: |
             # A failed step must not reach pm2 restart: a broken .next serves 502s.
             set -e
+            # One build at a time on the VPS, for every app and environment
+            # (cashflow's deploys take the same lock). A shared concurrency group
+            # would not do: a push to development would cancel a waiting production deploy.
+            exec 9>/var/lock/basket-vps-deploy.lock
+            flock -w 1800 9
             cd /opt/basket-app
             git pull
             npm install --no-save --no-package-lock
             npm run build
-            pm2 restart basket-app
+            # 9>&-: a pm2 daemon started here must not inherit the deploy lock.
+            pm2 restart basket-app 9>&-
