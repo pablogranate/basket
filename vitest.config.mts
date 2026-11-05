@@ -31,7 +31,7 @@ export default defineConfig({
     testTimeout: 20000,
     server: {
       deps: {
-        // Its Next entry imports `next/headers` without an extension, which
+        // Its Next entry imports `next/navigation` without an extension, which
         // only a bundler resolves: let Vite transform it like app code.
         inline: ["basket-tv-telemetry"],
       },
