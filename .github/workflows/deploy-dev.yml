@@ -2,11 +2,11 @@ name: Deploy to the Entorno de desarrollo
 
 on:
   push:
-    branches: [staging]
+    branches: [development]
   workflow_dispatch:
 
 concurrency:
-  group: deploy-staging
+  group: deploy-dev
   cancel-in-progress: false
 
 # The deploy does not use the GITHUB_TOKEN: it reaches the VPS over SSH.
@@ -30,12 +30,12 @@ jobs:
             set -e
             # One build at a time on the VPS, for every app and environment
             # (cashflow's deploys take the same lock). A shared concurrency group
-            # would not do: a staging push would cancel a waiting production deploy.
+            # would not do: a push to development would cancel a waiting production deploy.
             exec 9>/var/lock/basket-vps-deploy.lock
             flock -w 1800 9
             cd /opt/basket-app-dev
-            git fetch origin staging
-            git reset --hard origin/staging
+            git fetch origin development
+            git reset --hard origin/development
             npm install --no-save --no-package-lock
             npm run build
             # 9>&-: a pm2 daemon started here must not inherit the deploy lock.

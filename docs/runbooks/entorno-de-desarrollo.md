@@ -9,7 +9,7 @@ This runbook sets up `dev.portal.basket-app.com` and `dev.cashflow.basket-app.co
 | pm2 | `basket-app-dev` | `cashflow-bp-dev` |
 | Port (127.0.0.1) | 3012 | 3013 |
 | Databases (role = database) | `basket_portal_dev` in `basket-portal-db`, `basket_auth_dev` in `basket-auth-db` | `basket_cashflow_dev` in `basket_cashflow` |
-| Deploy | `deploy-staging.yml`, on push to `staging` | `deploy-dev.yml`, on push to `staging` |
+| Deploy | `deploy-dev.yml`, on push to `development` | `deploy-dev.yml`, on push to `development` |
 
 The apps refuse to start when a database does not match the environment: in development every database name ends in `_dev`, and in production none does.
 
@@ -20,11 +20,11 @@ The apps refuse to start when a database does not match the environment: in deve
    - Run `ss -ltn | grep -E ':301[23] '`. It must print nothing. If a port is taken, pick another one and change it here and in cashflow (`deploy-dev.yml`, `ecosystem.dev.config.cjs` and its nginx file).
 2. **Add the DNS records (DonWeb).** Two A records pointing to `162.249.168.210`: `dev.portal` and `dev.cashflow`.
 3. **Update Google OAuth.** In the portal's OAuth client, add the authorized origin `https://dev.portal.basket-app.com` and the redirect URI `https://dev.portal.basket-app.com/api/auth/callback/google`.
-4. **Create the `staging` branch in both repos.** Do it once the PRs that add the dev deploy are merged into `main`:
+4. **Create the `development` branch in both repos.** Do it once the PRs that add the dev deploy are merged into `main`:
    ```bash
-   git push origin origin/main:refs/heads/staging
+   git push origin origin/main:refs/heads/development
    ```
-   Protect `staging` the way `main` is protected: a PR with a review, and no direct pushes. Code on `staging` runs as root on this VPS (ADR 0015, Consequences).
+   Protect `development` the way `main` is protected: a PR with a review, and no direct pushes. Code on `development` runs as root on this VPS (ADR 0015, Consequences).
 
 ## 1. Databases
 
@@ -102,7 +102,7 @@ The source database names (`basket_auth`, `basket_portal`, `basket_cashflow`) ar
 
 ```bash
 git clone "$(git -C /opt/basket-app remote get-url origin)" /opt/basket-app-dev
-cd /opt/basket-app-dev && git checkout staging
+cd /opt/basket-app-dev && git checkout development
 cp /opt/basket-app/.env.local .env.local && chmod 600 .env.local
 ```
 
@@ -132,7 +132,7 @@ pm2 save
 
 ```bash
 git clone "$(git -C /opt/cashflow-bp remote get-url origin)" /opt/cashflow-bp-dev
-cd /opt/cashflow-bp-dev && git checkout staging
+cd /opt/cashflow-bp-dev && git checkout development
 cp /opt/cashflow-bp/.env .env && chmod 600 .env
 ```
 
@@ -185,7 +185,7 @@ nginx `sites-enabled/*` are links, so write the files in `sites-available`.
 
 ## Working with it
 
-- **Deploys:** merge or push a branch to `staging` and the dev deploy runs. Then merge to `main` as usual. A deploy waits while another app's deploy holds `/var/lock/basket-vps-deploy.lock`.
+- **Deploys:** merge or push a branch to `development` and the dev deploy runs. Then merge to `main` as usual. A deploy waits while another app's deploy holds `/var/lock/basket-vps-deploy.lock`.
 - **Domain DB migrations** are applied by hand. Run each one on development first:
   ```bash
   docker exec -i basket-portal-db psql -v ON_ERROR_STOP=1 -U basket_portal_dev -d basket_portal_dev < file.sql
