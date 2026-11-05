@@ -4,7 +4,8 @@ import { emptyFixture, htmlText } from "@/lib/fixtures/source-helpers";
 // febamba.com (Indalweb, like Gesdeportiva) renders a tournament's fixture as
 // an HTML fragment from /detalle-torneo?handler=CargarSubPagina&seccion=fixture
 // with a date range. Rows have no game id, round or status: the id is built
-// from the date and both crest ids, so a rescheduled game becomes a new row.
+// from the date and both crest ids, so a rescheduled game becomes a new row
+// (the sync moves its Partido over).
 // Dates are Buenos Aires wall-clock; unplayed games show 0-0.
 
 const ROW = /<tr class="fila-tabla-calendarios[^"]*">([\s\S]*?)<\/tr>/g;
