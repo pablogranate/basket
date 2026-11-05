@@ -12,8 +12,8 @@ importers:
   .:
     dependencies:
       basket-tv-telemetry:
-        specifier: git+https://github.com/WencesCapolo/basket-tv-telemetry.git#v0.1.0
-        version: https://codeload.github.com/WencesCapolo/basket-tv-telemetry/tar.gz/6b7294eeaa142da3660eba31605e57ca322e27aa(next@16.1.6(@babel/core@7.29.7)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))
+        specifier: git+https://github.com/WencesCapolo/basket-tv-telemetry.git#v0.1.1
+        version: https://codeload.github.com/WencesCapolo/basket-tv-telemetry/tar.gz/d861557bd086f6e3af0aa7b0031d00a6291af38c(next@16.1.6(@babel/core@7.29.7)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))
       basket-tv-ui:
         specifier: https://codeload.github.com/WencesCapolo/basket-tv-ui/tar.gz/refs/tags/v0.7.0
         version: https://codeload.github.com/WencesCapolo/basket-tv-ui/tar.gz/refs/tags/v0.7.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -1591,9 +1591,9 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
-  basket-tv-telemetry@https://codeload.github.com/WencesCapolo/basket-tv-telemetry/tar.gz/6b7294eeaa142da3660eba31605e57ca322e27aa:
-    resolution: {tarball: https://codeload.github.com/WencesCapolo/basket-tv-telemetry/tar.gz/6b7294eeaa142da3660eba31605e57ca322e27aa}
-    version: 0.1.0
+  basket-tv-telemetry@https://codeload.github.com/WencesCapolo/basket-tv-telemetry/tar.gz/d861557bd086f6e3af0aa7b0031d00a6291af38c:
+    resolution: {tarball: https://codeload.github.com/WencesCapolo/basket-tv-telemetry/tar.gz/d861557bd086f6e3af0aa7b0031d00a6291af38c}
+    version: 0.1.1
     engines: {node: '>=20'}
     peerDependencies:
       hono: '>=4.8'
@@ -4416,7 +4416,7 @@ snapshots:
 
   baseline-browser-mapping@2.10.33: {}
 
-  basket-tv-telemetry@https://codeload.github.com/WencesCapolo/basket-tv-telemetry/tar.gz/6b7294eeaa142da3660eba31605e57ca322e27aa(next@16.1.6(@babel/core@7.29.7)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)):
+  basket-tv-telemetry@https://codeload.github.com/WencesCapolo/basket-tv-telemetry/tar.gz/d861557bd086f6e3af0aa7b0031d00a6291af38c(next@16.1.6(@babel/core@7.29.7)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)):
     dependencies:
       next: 16.1.6(@babel/core@7.29.7)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
 
