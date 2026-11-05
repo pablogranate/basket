@@ -132,7 +132,7 @@ async function linkPartidos(tx: DbExecutor, { records, feeds }: { records: Fixtu
     : undefined;
 
   // A day of slack on both ends: fixture dates are Argentine, kickoff_at is UTC.
-  const rows = await tx
+  const candidates: LinkCandidate[] = await tx
     .select({
       id: matchesTable.id,
       productionCode: matchesTable.productionCode,
@@ -141,7 +141,6 @@ async function linkPartidos(tx: DbExecutor, { records, feeds }: { records: Fixtu
       homeTeam: matchesTable.homeTeam,
       awayTeam: matchesTable.awayTeam,
       kickoffAt: matchesTable.kickoffAt,
-      fixtureId: matchesTable.fixtureId,
     })
     .from(matchesTable)
     .leftJoin(leaguesTable, eq(leaguesTable.id, matchesTable.leagueId))
@@ -153,8 +152,6 @@ async function linkPartidos(tx: DbExecutor, { records, feeds }: { records: Fixtu
         lt(matchesTable.kickoffAt, `${addIsoDays(feeds.to, 2)}T00:00:00Z`),
       ),
     );
-  const currentFixture = new Map(rows.map((row) => [row.id, row.fixtureId]));
-  const candidates: LinkCandidate[] = rows;
 
   const plan = planFixtureLinks({
     fixtures: records.filter((record) => !alreadyLinked.has(record.id)),
@@ -163,16 +160,10 @@ async function linkPartidos(tx: DbExecutor, { records, feeds }: { records: Fixtu
 
   let linked = 0;
   for (const link of plan.links) {
-    const current = currentFixture.get(link.matchId);
     const updated = await tx
       .update(matchesTable)
       .set({ fixtureId: link.fixtureId })
-      .where(
-        and(
-          eq(matchesTable.id, link.matchId),
-          current ? eq(matchesTable.fixtureId, current) : isNull(matchesTable.fixtureId),
-        ),
-      )
+      .where(eq(matchesTable.id, link.matchId))
       .returning({ id: matchesTable.id });
     linked += updated.length;
   }

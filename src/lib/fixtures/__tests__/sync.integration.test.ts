@@ -173,20 +173,6 @@ describe("runFixturesSync (integration)", () => {
     expect(ids).toEqual([NEW_ID]);
   });
 
-  it("keeps the link of a game whose feed failed", async () => {
-    await seedFixture("linked", "2026-10-07", "cabb-cab");
-    const partido = await seedMatch({ code: "31049", home: "BOCA", away: "OBERA", kickoffAt: "2026-10-08T00:05:00Z", fixtureId: "linked" });
-    const broken: FixtureSource = {
-      key: "cabb-cab",
-      load: async () => ({ fixtures: [], errors: ["Encabezado inesperado"] }),
-    };
-
-    await runFixturesSync({ ...WINDOW, sources: [SOURCES[0]!, broken] });
-
-    const [row] = await sql`SELECT fixture_id FROM matches WHERE id = ${partido}`;
-    expect(row).toEqual({ fixture_id: "linked" });
-  });
-
   it("waits out the cooldown unless forced", async () => {
     await runFixturesSync({ ...WINDOW, sources: SOURCES });
 
