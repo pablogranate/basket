@@ -28,7 +28,7 @@
     "test:integration": "bash scripts/db/with-test-db.sh vitest run --config vitest.integration.config.mts"
   },
   "dependencies": {
-    "basket-tv-telemetry": "git+https://github.com/WencesCapolo/basket-tv-telemetry.git#v0.1.1",
+    "basket-tv-telemetry": "git+https://github.com/WencesCapolo/basket-tv-telemetry.git#v0.1.2",
     "basket-tv-ui": "https://codeload.github.com/WencesCapolo/basket-tv-ui/tar.gz/refs/tags/v0.7.0",
     "better-auth": "1.6.33",
     "clsx": "^2.1.1",
