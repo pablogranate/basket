@@ -68,9 +68,11 @@ function isoDate(value: string | undefined) {
   return match ? `${match[3]}-${match[2]}-${match[1]}` : null;
 }
 
+// CABB writes 00:00 until the time is set; no Argentine game starts at midnight.
 function time(value: string | undefined) {
   const match = (value ?? "").trim().match(/^(\d{1,2}):(\d{2})/);
-  return match ? `${match[1]!.padStart(2, "0")}:${match[2]}` : null;
+  const hhmm = match ? `${match[1]!.padStart(2, "0")}:${match[2]}` : null;
+  return hhmm === "00:00" ? null : hhmm;
 }
 
 // The export is ISO-8859-1. Venue names carry raw double quotes
