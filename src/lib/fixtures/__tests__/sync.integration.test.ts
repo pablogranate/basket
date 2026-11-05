@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { parseCabbCsv } from "@/lib/fixtures/parse";
+import { emptyFixture } from "@/lib/fixtures/source-helpers";
 import type { FixtureSource } from "@/lib/fixtures/sources";
 import { runFixturesSync } from "@/lib/fixtures/sync";
 import { testSql, truncateAll } from "@/test/integration/db";
@@ -43,10 +44,17 @@ describe("runFixturesSync (integration)", () => {
       VALUES (${id}, 'LIGA NACIONAL 2026/2027', 'A', 'B', ${matchDate}, '20:00', ${source}, ${OLD_SYNC})`;
   }
 
-  async function seedMatch(values: { code: string; home: string; away: string; kickoffAt: string; fixtureId?: string }) {
+  async function seedMatch(values: {
+    code: string;
+    home: string;
+    away: string;
+    kickoffAt: string;
+    fixtureId?: string;
+    competition?: string;
+  }) {
     const [row] = await sql<{ id: string }[]>`
       INSERT INTO matches (production_code, competition, home_team, away_team, kickoff_at, fixture_id)
-      VALUES (${values.code}, 'Liga Nacional', ${values.home}, ${values.away}, ${values.kickoffAt}, ${values.fixtureId ?? null})
+      VALUES (${values.code}, ${values.competition ?? "Liga Nacional"}, ${values.home}, ${values.away}, ${values.kickoffAt}, ${values.fixtureId ?? null})
       RETURNING id`;
     return row!.id;
   }
@@ -110,15 +118,73 @@ describe("runFixturesSync (integration)", () => {
     expect(rows).toEqual([{ id: "acb-1", source: "acb-liga-endesa" }]);
   });
 
-  it("never overwrites an existing link", async () => {
-    await seedFixture("manual", "2026-10-07");
-    const partido = await seedMatch({ code: "31049", home: "BOCA", away: "OBERA", kickoffAt: "2026-10-08T00:05:00Z", fixtureId: "manual" });
+  it("never overwrites a link to a game its feed still lists", async () => {
+    const boca = parseCabbCsv([HEADER, BOCA_OBERA].join("\r\n")).fixtures[0]!;
+    const twin: FixtureSource = {
+      key: "cabb-adc",
+      load: async () => ({ fixtures: [boca, { ...boca, id: "first" }], errors: [] }),
+    };
+    await seedFixture("first", "2026-10-07");
+    const partido = await seedMatch({ code: "31049", home: "BOCA", away: "OBERA", kickoffAt: "2026-10-08T00:05:00Z", fixtureId: "first" });
 
-    const result = await runFixturesSync({ ...WINDOW, sources: SOURCES });
+    const result = await runFixturesSync({ ...WINDOW, sources: [twin] });
 
     expect(result.linked).toBe(0);
     const [row] = await sql`SELECT fixture_id FROM matches WHERE id = ${partido}`;
-    expect(row).toEqual({ fixture_id: "manual" });
+    expect(row).toEqual({ fixture_id: "first" });
+  });
+
+  it("moves a rescheduled game's Partido to the feed's new row", async () => {
+    const OLD_ID = "febamba-2026-10-11-112660-112579";
+    const NEW_ID = "febamba-2026-10-16-112660-112579";
+    await sql`
+      INSERT INTO fixtures (id, competition, home_team, away_team, match_date, match_time, source, synced_at)
+      VALUES (${OLD_ID}, 'LIGA METROPOLITANA', 'INSTITUCION CULTURAL', 'GIMNASIA', '2026-10-11', '21:00', 'febamba-metropolitana', ${OLD_SYNC})`;
+    const partido = await seedMatch({
+      code: "31122",
+      competition: "Metropolitana",
+      home: "INSTITUCION CULTURAL",
+      away: "GIMNASIA",
+      kickoffAt: "2026-10-17T00:00:00Z",
+      fixtureId: OLD_ID,
+    });
+    const febamba: FixtureSource = {
+      key: "febamba-metropolitana",
+      load: async () => ({
+        fixtures: [
+          {
+            ...emptyFixture(NEW_ID, "LIGA METROPOLITANA"),
+            homeTeam: "INSTITUCION CULTURAL",
+            awayTeam: "GIMNASIA",
+            matchDate: "2026-10-16",
+            matchTime: "21:00",
+          },
+        ],
+        errors: [],
+      }),
+    };
+
+    const result = await runFixturesSync({ ...WINDOW, sources: [febamba] });
+
+    expect(result).toMatchObject({ linked: 1, deleted: 1, errors: [] });
+    const [row] = await sql`SELECT fixture_id FROM matches WHERE id = ${partido}`;
+    expect(row).toEqual({ fixture_id: NEW_ID });
+    const ids = (await sql<{ id: string }[]>`SELECT id FROM fixtures`).map((fixture) => fixture.id);
+    expect(ids).toEqual([NEW_ID]);
+  });
+
+  it("keeps the link of a game whose feed failed", async () => {
+    await seedFixture("linked", "2026-10-07", "cabb-cab");
+    const partido = await seedMatch({ code: "31049", home: "BOCA", away: "OBERA", kickoffAt: "2026-10-08T00:05:00Z", fixtureId: "linked" });
+    const broken: FixtureSource = {
+      key: "cabb-cab",
+      load: async () => ({ fixtures: [], errors: ["Encabezado inesperado"] }),
+    };
+
+    await runFixturesSync({ ...WINDOW, sources: [SOURCES[0]!, broken] });
+
+    const [row] = await sql`SELECT fixture_id FROM matches WHERE id = ${partido}`;
+    expect(row).toEqual({ fixture_id: "linked" });
   });
 
   it("waits out the cooldown unless forced", async () => {

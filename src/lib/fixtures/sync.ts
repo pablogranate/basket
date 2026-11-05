@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, gte, inArray, isNotNull, isNull, lt, lte, max, notInArray, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, isNull, lt, lte, max, notInArray, or, sql } from "drizzle-orm";
 
 import { db, type DbExecutor } from "@/lib/db/client";
 import { fixtures as fixturesTable, leagues as leaguesTable, matches as matchesTable } from "@/lib/db/schema";
@@ -84,12 +84,22 @@ async function upsertFixtures(tx: DbExecutor, records: SourcedFixture[], syncedA
   }
 }
 
-// Games a feed no longer lists inside the fetched window. A fixture a Partido
-// points at is kept: losing the link is worse than a stale row.
-async function deleteRemovedFixtures(
-  tx: DbExecutor,
-  { sources, from, to, syncedAt }: { sources: string[]; from: string; to: string; syncedAt: string },
-) {
+type FeedWindow = { sources: string[]; from: string; to: string; syncedAt: string };
+
+// Games a feed no longer lists inside the fetched window: rows of the fully
+// fetched feeds this run did not touch.
+function goneFromFeeds({ sources, from, to, syncedAt }: FeedWindow) {
+  return and(
+    inArray(fixturesTable.source, sources),
+    gte(fixturesTable.matchDate, from),
+    lte(fixturesTable.matchDate, to),
+    lt(fixturesTable.syncedAt, syncedAt),
+  );
+}
+
+// A fixture a Partido still points at is kept: losing the link is worse than a
+// stale row.
+async function deleteRemovedFixtures(tx: DbExecutor, feeds: FeedWindow) {
   const linked = tx
     .select({ id: matchesTable.fixtureId })
     .from(matchesTable)
@@ -97,21 +107,16 @@ async function deleteRemovedFixtures(
 
   const removed = await tx
     .delete(fixturesTable)
-    .where(
-      and(
-        inArray(fixturesTable.source, sources),
-        gte(fixturesTable.matchDate, from),
-        lte(fixturesTable.matchDate, to),
-        lt(fixturesTable.syncedAt, syncedAt),
-        notInArray(fixturesTable.id, linked),
-      ),
-    )
+    .where(and(goneFromFeeds(feeds), notInArray(fixturesTable.id, linked)))
     .returning({ id: fixturesTable.id });
 
   return removed.length;
 }
 
-async function linkPartidos(tx: DbExecutor, { records, from, to }: { records: FixtureRecord[]; from: string; to: string }) {
+// Partidos without a fixture, and Partidos whose fixture left its feed: a feed
+// that keys games by date (FeBAMBA) lists a rescheduled game as a new row, so
+// the Partido moves to it. With no new row the old link stays.
+async function linkPartidos(tx: DbExecutor, { records, feeds }: { records: FixtureRecord[]; feeds: FeedWindow }) {
   const alreadyLinked = new Set<string>();
   for (const ids of chunk(records.map((record) => record.id), WRITE_CHUNK)) {
     const rows = await tx
@@ -121,8 +126,13 @@ async function linkPartidos(tx: DbExecutor, { records, from, to }: { records: Fi
     rows.forEach((row) => row.id && alreadyLinked.add(row.id));
   }
 
+  const unlinked = isNull(matchesTable.fixtureId);
+  const linkedToGone = feeds.sources.length
+    ? inArray(matchesTable.fixtureId, tx.select({ id: fixturesTable.id }).from(fixturesTable).where(goneFromFeeds(feeds)))
+    : undefined;
+
   // A day of slack on both ends: fixture dates are Argentine, kickoff_at is UTC.
-  const candidates: LinkCandidate[] = await tx
+  const rows = await tx
     .select({
       id: matchesTable.id,
       productionCode: matchesTable.productionCode,
@@ -131,17 +141,20 @@ async function linkPartidos(tx: DbExecutor, { records, from, to }: { records: Fi
       homeTeam: matchesTable.homeTeam,
       awayTeam: matchesTable.awayTeam,
       kickoffAt: matchesTable.kickoffAt,
+      fixtureId: matchesTable.fixtureId,
     })
     .from(matchesTable)
     .leftJoin(leaguesTable, eq(leaguesTable.id, matchesTable.leagueId))
     .where(
       and(
         isNotNull(matchesTable.productionCode),
-        isNull(matchesTable.fixtureId),
-        gte(matchesTable.kickoffAt, `${addIsoDays(from, -1)}T00:00:00Z`),
-        lt(matchesTable.kickoffAt, `${addIsoDays(to, 2)}T00:00:00Z`),
+        linkedToGone ? or(unlinked, linkedToGone) : unlinked,
+        gte(matchesTable.kickoffAt, `${addIsoDays(feeds.from, -1)}T00:00:00Z`),
+        lt(matchesTable.kickoffAt, `${addIsoDays(feeds.to, 2)}T00:00:00Z`),
       ),
     );
+  const currentFixture = new Map(rows.map((row) => [row.id, row.fixtureId]));
+  const candidates: LinkCandidate[] = rows;
 
   const plan = planFixtureLinks({
     fixtures: records.filter((record) => !alreadyLinked.has(record.id)),
@@ -150,10 +163,16 @@ async function linkPartidos(tx: DbExecutor, { records, from, to }: { records: Fi
 
   let linked = 0;
   for (const link of plan.links) {
+    const current = currentFixture.get(link.matchId);
     const updated = await tx
       .update(matchesTable)
       .set({ fixtureId: link.fixtureId })
-      .where(and(eq(matchesTable.id, link.matchId), isNull(matchesTable.fixtureId)))
+      .where(
+        and(
+          eq(matchesTable.id, link.matchId),
+          current ? eq(matchesTable.fixtureId, current) : isNull(matchesTable.fixtureId),
+        ),
+      )
       .returning({ id: matchesTable.id });
     linked += updated.length;
   }
@@ -235,13 +254,17 @@ export async function runFixturesSync({
       result.upserted = fetched.length;
 
       // A failed feed says nothing about what left it.
-      if (complete.length) {
-        result.deleted = await deleteRemovedFixtures(tx, { sources: complete, from, to, syncedAt });
-      }
+      const feeds = { sources: complete, from, to, syncedAt };
 
-      const links = await linkPartidos(tx, { records: fetched, from, to });
+      // Linking first lets a rescheduled game's old row go once no Partido
+      // points at it.
+      const links = await linkPartidos(tx, { records: fetched, feeds });
       result.linked = links.linked;
       result.warnings.push(...links.warnings);
+
+      if (complete.length) {
+        result.deleted = await deleteRemovedFixtures(tx, feeds);
+      }
     });
 
     return result;
