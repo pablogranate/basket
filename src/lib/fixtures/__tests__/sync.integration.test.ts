@@ -173,6 +173,42 @@ describe("runFixturesSync (integration)", () => {
     expect(ids).toEqual([NEW_ID]);
   });
 
+  it("moves a link off a Partido the grid turned into another game", async () => {
+    const game = (id: string, homeTeam: string, awayTeam: string, matchDate: string) => ({
+      ...emptyFixture(id, "LIGA NACIONAL 2026/2027"),
+      homeTeam,
+      awayTeam,
+      matchDate,
+      matchTime: "21:00",
+    });
+    await seedFixture("ferro", "2026-10-20");
+    await seedFixture("moron", "2026-10-14");
+    // The grid reused 31805 (Ferro, 20/10) for Boca on 16/10, and 30922 for another Morón game.
+    const boca = await seedMatch({ code: "31805", home: "BOCA", away: "SAN MARTIN (C)", kickoffAt: "2026-10-17T00:00:00Z", fixtureId: "ferro" });
+    const ferro = await seedMatch({ code: "31900", home: "FERRO", away: "SAN MARTIN (C)", kickoffAt: "2026-10-21T00:00:00Z" });
+    const moron = await seedMatch({ code: "30922", home: "MORON", away: "BURZACO", kickoffAt: "2026-10-15T00:00:00Z", fixtureId: "moron" });
+    const feed: FixtureSource = {
+      key: "cabb-adc",
+      load: async () => ({
+        fixtures: [
+          game("ferro", "FERRO", "SAN MARTÍN (C)", "2026-10-20"),
+          game("boca", "BOCA", "SAN MARTÍN (C)", "2026-10-16"),
+          game("moron", "MORON", "SAN MIGUEL", "2026-10-14"),
+        ],
+        errors: [],
+      }),
+    };
+
+    await runFixturesSync({ ...WINDOW, sources: [feed] });
+
+    const links = await sql<{ id: string; fixture_id: string | null }[]>`SELECT id, fixture_id FROM matches`;
+    expect(Object.fromEntries(links.map((row) => [row.id, row.fixture_id]))).toEqual({
+      [boca]: "boca",
+      [ferro]: "ferro",
+      [moron]: null,
+    });
+  });
+
   it("waits out the cooldown unless forced", async () => {
     await runFixturesSync({ ...WINDOW, sources: SOURCES });
 

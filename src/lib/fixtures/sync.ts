@@ -1,10 +1,10 @@
 import "server-only";
 
-import { and, eq, gte, inArray, isNotNull, isNull, lt, lte, max, notInArray, or, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, lt, lte, max, notInArray, sql } from "drizzle-orm";
 
 import { db, type DbExecutor } from "@/lib/db/client";
 import { fixtures as fixturesTable, leagues as leaguesTable, matches as matchesTable } from "@/lib/db/schema";
-import { planFixtureLinks, type LinkCandidate } from "@/lib/fixtures/link-plan";
+import { isSameGame, planFixtureLinks, type LinkCandidate } from "@/lib/fixtures/link-plan";
 import type { FixtureRecord } from "@/lib/fixtures/parse";
 import { defaultFixtureSources, type FixtureSource } from "@/lib/fixtures/sources";
 import { addIsoDays } from "@/lib/fixtures/window";
@@ -113,26 +113,17 @@ async function deleteRemovedFixtures(tx: DbExecutor, feeds: FeedWindow) {
   return removed.length;
 }
 
-// Partidos without a fixture, and Partidos whose fixture left its feed: a feed
-// that keys games by date (FeBAMBA) lists a rescheduled game as a new row, so
-// the Partido moves to it. With no new row the old link stays.
+// Partidos to (re)link: those without a fixture; those whose fixture left its
+// feed (FeBAMBA lists a rescheduled game as a new row), which keep the old link
+// when no new row matches; and those whose fixture names other teams (the
+// Grilla reused the ID for another game), which lose a link that is wrong.
 async function linkPartidos(tx: DbExecutor, { records, feeds }: { records: FixtureRecord[]; feeds: FeedWindow }) {
-  const alreadyLinked = new Set<string>();
-  for (const ids of chunk(records.map((record) => record.id), WRITE_CHUNK)) {
-    const rows = await tx
-      .select({ id: matchesTable.fixtureId })
-      .from(matchesTable)
-      .where(inArray(matchesTable.fixtureId, ids));
-    rows.forEach((row) => row.id && alreadyLinked.add(row.id));
-  }
-
-  const unlinked = isNull(matchesTable.fixtureId);
-  const linkedToGone = feeds.sources.length
-    ? inArray(matchesTable.fixtureId, tx.select({ id: fixturesTable.id }).from(fixturesTable).where(goneFromFeeds(feeds)))
-    : undefined;
+  const fixtureGone = feeds.sources.length
+    ? sql<boolean>`coalesce(${goneFromFeeds(feeds)}, false)`
+    : sql<boolean>`false`;
 
   // A day of slack on both ends: fixture dates are Argentine, kickoff_at is UTC.
-  const candidates: LinkCandidate[] = await tx
+  const partidos = await tx
     .select({
       id: matchesTable.id,
       productionCode: matchesTable.productionCode,
@@ -141,22 +132,52 @@ async function linkPartidos(tx: DbExecutor, { records, feeds }: { records: Fixtu
       homeTeam: matchesTable.homeTeam,
       awayTeam: matchesTable.awayTeam,
       kickoffAt: matchesTable.kickoffAt,
+      fixtureId: matchesTable.fixtureId,
+      fixtureHomeTeam: fixturesTable.homeTeam,
+      fixtureAwayTeam: fixturesTable.awayTeam,
+      fixtureGone,
     })
     .from(matchesTable)
     .leftJoin(leaguesTable, eq(leaguesTable.id, matchesTable.leagueId))
+    .leftJoin(fixturesTable, eq(fixturesTable.id, matchesTable.fixtureId))
     .where(
       and(
         isNotNull(matchesTable.productionCode),
-        linkedToGone ? or(unlinked, linkedToGone) : unlinked,
         gte(matchesTable.kickoffAt, `${addIsoDays(feeds.from, -1)}T00:00:00Z`),
         lt(matchesTable.kickoffAt, `${addIsoDays(feeds.to, 2)}T00:00:00Z`),
       ),
     );
 
+  const isOtherGame = (partido: (typeof partidos)[number]) =>
+    partido.fixtureId !== null &&
+    !isSameGame({ homeTeam: partido.fixtureHomeTeam, awayTeam: partido.fixtureAwayTeam }, partido);
+  const otherGame = partidos.filter(isOtherGame);
+  const candidates: LinkCandidate[] = partidos.filter(
+    (partido) => partido.fixtureId === null || partido.fixtureGone || isOtherGame(partido),
+  );
+
+  const released = new Set(otherGame.map((partido) => partido.fixtureId));
+  const alreadyLinked = new Set<string>();
+  for (const ids of chunk(records.map((record) => record.id), WRITE_CHUNK)) {
+    const rows = await tx
+      .select({ id: matchesTable.fixtureId })
+      .from(matchesTable)
+      .where(inArray(matchesTable.fixtureId, ids));
+    rows.forEach((row) => row.id && !released.has(row.id) && alreadyLinked.add(row.id));
+  }
+
   const plan = planFixtureLinks({
     fixtures: records.filter((record) => !alreadyLinked.has(record.id)),
     candidates,
   });
+
+  // Freed first: the right Partido may take the fixture a wrong one held.
+  if (otherGame.length) {
+    await tx
+      .update(matchesTable)
+      .set({ fixtureId: null })
+      .where(inArray(matchesTable.id, otherGame.map((partido) => partido.id)));
+  }
 
   let linked = 0;
   for (const link of plan.links) {
@@ -168,7 +189,12 @@ async function linkPartidos(tx: DbExecutor, { records, feeds }: { records: Fixtu
     linked += updated.length;
   }
 
-  return { linked, warnings: plan.warnings };
+  const relinked = new Set(plan.links.map((link) => link.matchId));
+  const unlinkedWarnings = otherGame
+    .filter((partido) => !relinked.has(partido.id))
+    .map((partido) => `desvinculado ${partido.productionCode} ${partido.homeTeam} vs ${partido.awayTeam}: ${partido.fixtureId} es otro partido`);
+
+  return { linked, warnings: [...plan.warnings, ...unlinkedWarnings] };
 }
 
 export async function runFixturesSync({
