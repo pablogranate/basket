@@ -48,6 +48,85 @@ export function normalizeTeamName(value: string | null | undefined) {
     .replaceAll(/[^A-Z0-9]/g, "");
 }
 
+// Words that name a club's kind, not the club: "CLUB ATLETICO SAN MIGUEL" is
+// "SAN MIGUEL".
+const GENERIC_WORDS = new Set([
+  "CLUB",
+  "ATLETICO",
+  "ATLETICA",
+  "DEPORTIVO",
+  "DEPORTIVA",
+  "ASOCIACION",
+  "SOCIAL",
+  "Y",
+  "DE",
+  "DEL",
+  "LA",
+  "EL",
+  "LOS",
+  "LAS",
+]);
+
+function teamWords(value: string | null | undefined) {
+  return (value ?? "")
+    .normalize("NFD")
+    .replaceAll(/[̀-ͯ]/g, "")
+    .toUpperCase()
+    .replaceAll(NOTE_PARENTHETICAL, "")
+    .split(/[^A-Z0-9]+/)
+    .filter((word) => word && !GENERIC_WORDS.has(word));
+}
+
+// "D" for DEFENSOR, "U" for UNIVERSIDAD, "FSA" for FORMOSA.
+function isAbbreviation(short: string, long: string) {
+  if (long.startsWith(short)) {
+    return true;
+  }
+  if (short.length > 4 || short[0] !== long[0]) {
+    return false;
+  }
+  let at = 0;
+  for (const letter of long) {
+    if (letter === short[at]) {
+      at += 1;
+    }
+  }
+  return at === short.length;
+}
+
+function wordsMatch(a: string, b: string) {
+  return a.length <= b.length ? isAbbreviation(a, b) : isAbbreviation(b, a);
+}
+
+// The grid and the feeds name clubs differently ("Club Atlético Peñarol" and
+// "PEÑAROL", "Defensor Sporting" and "D SPORTING"): every word of the shorter
+// name matches one of the other, and at least one whole word is shared. City
+// codes count, so "SAN MARTIN (C)" is not "SAN MARTIN (SJ)".
+export function isSameTeam(a: string | null | undefined, b: string | null | undefined) {
+  if (normalizeTeamName(a) === normalizeTeamName(b)) {
+    return Boolean(normalizeTeamName(a));
+  }
+  const [fewer, more] = [teamWords(a), teamWords(b)].sort((x, y) => x.length - y.length) as [string[], string[]];
+  return (
+    fewer.length > 0 &&
+    fewer.every((word) => more.some((other) => wordsMatch(word, other))) &&
+    fewer.some((word) => word.length >= 3 && more.includes(word))
+  );
+}
+
+type Teams = { homeTeam: string | null; awayTeam: string | null };
+
+export function isSameGame(a: Teams, b: Teams) {
+  return isSameTeam(a.homeTeam, b.homeTeam) && isSameTeam(a.awayTeam, b.awayTeam);
+}
+
+function isExactGame(a: Teams, b: Teams) {
+  return (
+    normalizeTeamName(a.homeTeam) === normalizeTeamName(b.homeTeam) &&
+    normalizeTeamName(a.awayTeam) === normalizeTeamName(b.awayTeam)
+  );
+}
+
 // Leagues without their own row (Copa del Rey, Primera FEB…) are filed under
 // the catch-all "Exterior" league; their competition text names them.
 const CATCH_ALL_LEAGUES = new Set(["exterior"]);
@@ -71,17 +150,17 @@ export function planFixtureLinks({
   fixtures: LinkFixture[];
   candidates: LinkCandidate[];
 }): FixtureLinkPlan {
-  const fixturesByKey = new Map<string, LinkFixture[]>();
+  const fixturesByDay = new Map<string, LinkFixture[]>();
 
   for (const fixture of fixtures) {
     const league = resolveFixtureCompetition(fixture.competition).leagueSlug;
     if (!league || !fixture.matchDate) {
       continue;
     }
-    const key = [league, fixture.matchDate, normalizeTeamName(fixture.homeTeam), normalizeTeamName(fixture.awayTeam)].join("|");
-    const bucket = fixturesByKey.get(key) ?? [];
+    const key = [league, fixture.matchDate].join("|");
+    const bucket = fixturesByDay.get(key) ?? [];
     bucket.push(fixture);
-    fixturesByKey.set(key, bucket);
+    fixturesByDay.set(key, bucket);
   }
 
   const proposals = new Map<string, Array<{ candidate: LinkCandidate; fixture: LinkFixture }>>();
@@ -94,8 +173,10 @@ export function planFixtureLinks({
     }
 
     const { date } = argentineSchedule(candidate.kickoffAt);
-    const key = [league, date, normalizeTeamName(candidate.homeTeam), normalizeTeamName(candidate.awayTeam)].join("|");
-    const matches = fixturesByKey.get(key) ?? [];
+    // Same names first: a near name only counts when no game has the same ones.
+    const sameDay = fixturesByDay.get([league, date].join("|")) ?? [];
+    const exact = sameDay.filter((fixture) => isExactGame(fixture, candidate));
+    const matches = exact.length ? exact : sameDay.filter((fixture) => isSameGame(fixture, candidate));
 
     if (matches.length === 0) {
       warnings.push(`sin partido oficial para ${describe(candidate)} (${league}, ${date})`);

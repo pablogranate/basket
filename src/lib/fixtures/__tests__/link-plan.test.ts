@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizeTeamName, planFixtureLinks } from "@/lib/fixtures/link-plan";
+import { isSameTeam, normalizeTeamName, planFixtureLinks } from "@/lib/fixtures/link-plan";
 import type { LinkCandidate, LinkFixture } from "@/lib/fixtures/link-plan";
 
 function fixture(overrides: Partial<LinkFixture> & { id: string }): LinkFixture {
@@ -36,6 +36,27 @@ describe("normalizeTeamName", () => {
   });
 });
 
+describe("isSameTeam", () => {
+  it("matches the grid's and the feeds' names for one club", () => {
+    const pairs = [
+      ["SAN MIGUEL", "CLUB ATLETICO SAN MIGUEL"],
+      ["Club Atlético Peñarol", "PEÑAROL"],
+      ["Defensor Sporting", "D SPORTING"],
+      ["Universidad de Concepción", "U. De Concepcion"],
+      ["Club Deportivo ABA Ancud", "Ancud"],
+      ["Asociacion Hebraica Macabi", "HEBRAICA Y MACABI"],
+      ["La Unión Formosa", "LA UNION FSA"],
+    ];
+    pairs.forEach(([grid, feed]) => expect(isSameTeam(grid, feed), `${grid} / ${feed}`).toBe(true));
+  });
+
+  it("keeps clubs that only share a name apart", () => {
+    expect(isSameTeam("SAN MARTIN (C)", "SAN MARTIN (SJ)")).toBe(false);
+    expect(isSameTeam("INDEPENDIENTE (O)", "INDEPENDIENTE DE BURZACO")).toBe(false);
+    expect(isSameTeam("FERRO", "BOCA")).toBe(false);
+  });
+});
+
 describe("planFixtureLinks", () => {
   it("links on league, Argentine date and both teams", () => {
     const plan = planFixtureLinks({
@@ -45,6 +66,17 @@ describe("planFixtureLinks", () => {
 
     expect(plan.links).toEqual([{ matchId: "m1", fixtureId: "696086" }]);
     expect(plan.warnings).toEqual([]);
+  });
+
+  it("links a near name when no game has the same ones", () => {
+    const plan = planFixtureLinks({
+      fixtures: [fixture({ id: "fs-1", competition: "LUB", homeTeam: "PEÑAROL", awayTeam: "D SPORTING" })],
+      candidates: [
+        candidate({ id: "m1", competition: "LUB (Uruguay)", homeTeam: "Club Atlético Peñarol", awayTeam: "Defensor Sporting" }),
+      ],
+    });
+
+    expect(plan.links).toEqual([{ matchId: "m1", fixtureId: "fs-1" }]);
   });
 
   it("uses the Partido's league to tell Nacional and Desarrollo apart", () => {
