@@ -31,7 +31,10 @@ type GridPlanillaSheetProps = {
   year: number;
   timezone: string;
   onStatus: (status: PlanillaStatus) => void;
+  onControls: (controls: PlanillaControls) => void;
 };
+
+export type PlanillaControls = { confirmBulk: () => void; discardBulk: () => void };
 
 // Blank rows under the month's Partidos: where new Partidos are typed.
 const BLANK_ROWS = 40;
@@ -168,18 +171,20 @@ export function GridPlanillaSheet({
   year,
   timezone,
   onStatus,
+  onControls,
 }: GridPlanillaSheetProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   // Mount once: later renders (after a save revalidates) must not rebuild the
   // sheet under the user's cursor.
-  const initial = useRef({ rows, people, leagues, canEdit, year, timezone, onStatus });
+  const initial = useRef({ rows, people, leagues, canEdit, year, timezone, onStatus, onControls });
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) {
       return;
     }
-    const { rows, people, leagues, canEdit, year, timezone, onStatus } = initial.current;
+    const { rows, people, leagues, canEdit, year, timezone, onStatus, onControls } =
+      initial.current;
 
     const container = document.createElement("div");
     container.style.height = "100%";
@@ -197,6 +202,9 @@ export function GridPlanillaSheet({
           toolbar: false,
           footer: false,
           formulaBar: true,
+          // Fecha, Hora and ID are text on purpose: no "number stored as
+          // text" marks or prompts.
+          sheets: { disableForceStringMark: true, disableForceStringAlert: true },
         }),
         UniverSheetsDataValidationPreset({ showEditOnDropdown: false }),
       ],
@@ -224,6 +232,7 @@ export function GridPlanillaSheet({
         .requireValueInList(list, false, true)
         .setAllowBlank(true)
         .setAllowInvalid(false)
+        .setOptions({ renderMode: univerAPI.Enum.DataValidationRenderMode.ARROW })
         .build();
       sheet.getRange(1, index, bodyRows, 1).setDataValidation(rule);
     });
@@ -250,7 +259,8 @@ export function GridPlanillaSheet({
           return sheet.getRange(1, 0, maxRows - 1, columnCount).getDisplayValues();
         },
         writeCell(row, column, value) {
-          sheet.getRange(row + 1, column).setValue(value);
+          // Typed as text, or Univer would turn "21:00" into a time number.
+          sheet.getRange(row + 1, column).setValue({ v: value, t: 1 });
         },
         clearAttendance(row, column) {
           sheet.getRange(row + 1, column).setFontColor(palette.foreground).setFontWeight("normal");
@@ -258,14 +268,34 @@ export function GridPlanillaSheet({
       },
     });
 
+    onControls({ confirmBulk: sync.confirmBulk, discardBulk: sync.discardBulk });
+
+    // The header row is not data: a paste or Delete over it is undone.
+    const restoreHeader = () => {
+      const labels = sheet.getRange(0, 0, 1, columnCount).getDisplayValues()[0] ?? [];
+      PLANILLA_COLUMNS.forEach((column, index) => {
+        if (labels[index] !== column.label) {
+          sheet.getRange(0, index).setValue({ v: column.label, t: 1, s: "head" });
+        }
+      });
+    };
+
     let timer: ReturnType<typeof setTimeout> | undefined;
     const schedule = () => {
       clearTimeout(timer);
-      timer = setTimeout(sync.scan, 250);
+      timer = setTimeout(() => {
+        restoreHeader();
+        sync.scan();
+      }, 250);
     };
 
     const subscriptions = [
       univerAPI.addEvent(univerAPI.Event.SheetValueChanged, schedule),
+      univerAPI.addEvent(univerAPI.Event.BeforeSheetEditStart, (event) => {
+        if (event.row === 0) {
+          event.cancel = true;
+        }
+      }),
       univerAPI.addEvent(univerAPI.Event.BeforeCommandExecute, (event) => {
         if (BLOCKED_COMMAND.test(event.id)) {
           event.cancel = true;

@@ -42,15 +42,15 @@ export type PlanillaStatus = {
   saved: number;
   created: number;
   issues: PlanillaIssue[];
+  // A change this big waits for the user: one Delete on a selected column
+  // would otherwise clear a role on every Partido of the month.
+  bulk: { cells: number; partidos: number } | null;
 };
 
 const PENDING_PREFIX = "nuevo:";
 const MAX_ISSUES = 8;
 const ID_COLUMN = 0;
-
-function cellKey(matchId: string, columnKey: string) {
-  return `${matchId}|${columnKey}`;
-}
+export const PLANILLA_BULK_LIMIT = 25;
 
 function toValues(cells: string[]): PlanillaValues {
   const values: PlanillaValues = {};
@@ -82,6 +82,7 @@ export function createPlanillaSync(params: {
   );
   const failedNewRows = new Set<string>();
   let busy = false;
+  let bulkApproved = false;
   let issueId = 0;
   const status: PlanillaStatus = {
     saving: false,
@@ -89,6 +90,7 @@ export function createPlanillaSync(params: {
     saved: 0,
     created: 0,
     issues: [],
+    bulk: null,
   };
 
   function emit() {
@@ -111,6 +113,37 @@ export function createPlanillaSync(params: {
     if (row >= 0 && column >= 0) {
       port.writeCell(row, column, committed.get(matchId)?.[columnKey] ?? "");
     }
+  }
+
+  // What the sheet differs from the database by, without touching the sheet.
+  function pendingChanges() {
+    const rows = port.readRows();
+    const cells: Array<{ row: number; column: number; before: string }> = [];
+    const newRows: number[] = [];
+    const partidos = new Set<string>();
+
+    rows.forEach((rowCells, rowIndex) => {
+      const id = (rowCells[ID_COLUMN] ?? "").trim();
+      if (id.startsWith(PENDING_PREFIX)) {
+        return;
+      }
+      const saved = id ? committed.get(id) : undefined;
+      if (!saved) {
+        if (isPlanillaRowReadyToCreate(toValues(rowCells))) {
+          newRows.push(rowIndex);
+        }
+        return;
+      }
+      PLANILLA_COLUMNS.forEach((column, columnIndex) => {
+        const before = saved[column.key] ?? "";
+        if (column.kind !== "id" && (rowCells[columnIndex] ?? "").trim() !== before) {
+          cells.push({ row: rowIndex, column: columnIndex, before });
+          partidos.add(id);
+        }
+      });
+    });
+
+    return { cells, newRows, partidos: partidos.size + newRows.length };
   }
 
   type PendingCell = { matchId: string; columnKey: string; display: string };
@@ -249,6 +282,18 @@ export function createPlanillaSync(params: {
   }
 
   async function run() {
+    const approved = bulkApproved;
+    bulkApproved = false;
+    if (!approved) {
+      const pending = pendingChanges();
+      const size = pending.cells.length + pending.newRows.length;
+      if (size > PLANILLA_BULK_LIMIT) {
+        status.bulk = { cells: size, partidos: pending.partidos };
+        emit();
+        return;
+      }
+    }
+
     const work = collect();
     if (!work.edits.length && !work.creates.length) {
       if (status.issues.length) {
@@ -273,14 +318,31 @@ export function createPlanillaSync(params: {
   }
 
   function scan() {
-    // A scan during a save is dropped: the save rescans when it ends.
-    if (!busy) {
+    // A scan during a save is dropped: the save rescans when it ends. While a
+    // big change waits for confirmation nothing is saved.
+    if (!busy && !status.bulk) {
       void run();
     }
   }
 
   return {
     scan,
+    confirmBulk() {
+      status.bulk = null;
+      bulkApproved = true;
+      scan();
+    },
+    discardBulk() {
+      const pending = pendingChanges();
+      for (const cell of pending.cells) {
+        port.writeCell(cell.row, cell.column, cell.before);
+      }
+      for (const row of pending.newRows) {
+        PLANILLA_COLUMNS.forEach((_, column) => port.writeCell(row, column, ""));
+      }
+      status.bulk = null;
+      emit();
+    },
     report(message: string) {
       report(message);
       emit();

@@ -12,6 +12,7 @@ import {
 } from "@/lib/grid/planilla";
 import {
   createPlanillaSync,
+  PLANILLA_BULK_LIMIT,
   type PlanillaServer,
   type PlanillaStatus,
 } from "@/lib/grid/planilla-sync";
@@ -170,13 +171,16 @@ const savedRow: PlanillaRow = {
   dayBand: 0,
 };
 
-function setup(server: PlanillaServer) {
-  const sheet = fakeSheet([PLANILLA_COLUMNS.map((item) => savedRow.values[item.key]), rowCells({})]);
+function setup(server: PlanillaServer, rows: PlanillaRow[] = [savedRow]) {
+  const sheet = fakeSheet([
+    ...rows.map((row) => PLANILLA_COLUMNS.map((item) => row.values[item.key] ?? "")),
+    rowCells({}),
+  ]);
   const statuses: PlanillaStatus[] = [];
   const sync = createPlanillaSync({
     port: sheet.port,
     server,
-    rows: [savedRow],
+    rows,
     lookups,
     onStatus: (status) => statuses.push(status),
   });
@@ -263,5 +267,41 @@ describe("createPlanillaSync", () => {
     sync.scan();
     await settle();
     expect(createMatch).toHaveBeenCalledTimes(1);
+  });
+
+  it("holds a change bigger than the bulk limit until the user decides", async () => {
+    const rows = Array.from({ length: PLANILLA_BULK_LIMIT + 5 }, (_, index) => {
+      const id = `55555555-5555-4555-8555-${String(index).padStart(12, "0")}`;
+      return {
+        ...savedRow,
+        matchId: id,
+        values: { ...savedRow.values, matchId: id, "role:Realizador": "Ana Pérez" },
+      };
+    });
+    const saveEdits = vi.fn(async (edits: PlanillaEdit[]) => edits.map(() => ({ ok: true as const })));
+    const { sheet, sync, statuses, indexOf } = setup({ saveEdits, createMatch: vi.fn() }, rows);
+
+    rows.forEach((_, index) => {
+      sheet.cells[index][indexOf("role:Realizador")] = "";
+    });
+    sync.scan();
+    await settle();
+
+    expect(saveEdits).not.toHaveBeenCalled();
+    expect(statuses.at(-1)?.bulk).toEqual({ cells: rows.length, partidos: rows.length });
+
+    sync.discardBulk();
+    expect(sheet.cells.slice(0, rows.length).every((row) => row[indexOf("role:Realizador")] === "Ana Pérez")).toBe(true);
+
+    rows.forEach((_, index) => {
+      sheet.cells[index][indexOf("role:Realizador")] = "";
+    });
+    sync.scan();
+    await settle();
+    sync.confirmBulk();
+    await settle();
+
+    expect(saveEdits).toHaveBeenCalledTimes(1);
+    expect(saveEdits.mock.calls[0][0]).toHaveLength(rows.length);
   });
 });
