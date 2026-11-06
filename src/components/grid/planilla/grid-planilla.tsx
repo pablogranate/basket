@@ -77,7 +77,7 @@ function Issues({ status }: { status: PlanillaStatus | null }) {
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
-        className="flex min-w-0 items-center gap-1.5 text-[var(--warn)] hover:underline"
+        className="flex max-w-full min-w-0 items-center gap-1.5 overflow-hidden text-[var(--warn)] hover:underline"
       >
         <AlertCircle className="size-4 shrink-0" aria-hidden />
         <span className="truncate">{issues[0].message}</span>
@@ -105,11 +105,11 @@ export function GridPlanilla({ rows, people, leagues, canEdit, year, timezone }:
   return (
     <div className="space-y-3">
       <div className="flex h-6 items-center justify-between gap-4 text-sm text-[var(--muted)]">
-        <p className="shrink-0">
+        <p className="min-w-0 truncate">
           {rows.length} partidos.{" "}
           {canEdit ? "Para cargar uno nuevo, completá una fila vacía: Fecha, Hora, Local y Visitante." : null}
         </p>
-        <div className="flex min-w-0 items-center gap-4">
+        <div className="flex min-w-0 max-w-[60%] items-center justify-end gap-4">
           <Issues status={status} />
           <span className="shrink-0">
             <SaveState status={status} canEdit={canEdit} />
