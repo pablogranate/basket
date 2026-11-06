@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   columnOrderFromLabels,
+  dayStartRows,
   findTodayRowIndex,
   parseDateCell,
   parseTimeCell,
@@ -364,5 +365,20 @@ describe("createPlanillaSync", () => {
     expect(sync.matchesOnRows([1, 0, 0])).toEqual([
       { row: 0, matchId: MATCH, label: "12/11/2026 21:00 · Boca vs River" },
     ]);
+  });
+});
+
+describe("dayStartRows", () => {
+  it("marks each row whose Fecha differs from the row above", () => {
+    expect(dayStartRows(["06/11/2026", "06/11/2026", "07/11/2026", "08/11/2026"])).toEqual([2, 3]);
+  });
+
+  it("follows an edited date", () => {
+    expect(dayStartRows(["06/11/2026", "07/11/2026", "06/11/2026"])).toEqual([1, 2]);
+  });
+
+  it("puts no divider on blank rows or right after them", () => {
+    expect(dayStartRows(["06/11/2026", "", "07/11/2026", " "])).toEqual([]);
+    expect(dayStartRows([])).toEqual([]);
   });
 });

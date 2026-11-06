@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { UniverSheetsCorePreset } from "@univerjs/preset-sheets-core";
+import { SheetExtension, UniverSheetsCorePreset } from "@univerjs/preset-sheets-core";
 import sheetsCoreEsES from "@univerjs/preset-sheets-core/locales/es-ES";
 import { UniverSheetsDataValidationPreset } from "@univerjs/preset-sheets-data-validation";
 import dataValidationEsES from "@univerjs/preset-sheets-data-validation/locales/es-ES";
@@ -21,6 +21,7 @@ import {
 } from "@/app/actions/grid-planilla";
 import {
   columnOrderFromLabels,
+  dayStartRows,
   findTodayRowIndex,
   peopleForRole,
   PLANILLA_COLUMNS,
@@ -145,15 +146,59 @@ const TEXT_FORMAT = { n: { pattern: "@" } };
 const CLIP = 2;
 const WRAP = 3;
 const MIDDLE = 2;
-const THICK_BORDER = 13;
 const LIGA_COLUMN = PLANILLA_COLUMNS.findIndex((column) => column.key === "liga");
+const FECHA_COLUMN = PLANILLA_COLUMNS.findIndex((column) => column.key === "fecha");
+// Rows added, removed or moved: the days may now break elsewhere.
+const ROW_LAYOUT_MUTATION = /^sheet\.mutation\.(insert-row|remove-rows|move-rows)/;
 const ID_COLUMN = PLANILLA_COLUMNS.findIndex((column) => column.kind === "id");
 
 type CellLook = {
   attendance: AttendanceState;
-  dayStart: boolean;
   league: string | null;
 };
+
+// Univer's thickest border is 3 px. The day divider is drawn by this
+// extension instead, a little heavier, on whatever rows open a new day.
+const DIVIDER_PX = 4;
+type DrawArgs = Parameters<SheetExtension["draw"]>;
+
+class DayDividers extends SheetExtension {
+  override uKey = "planilla-day-dividers";
+  protected override Z_INDEX = 60;
+  // Sheet row indexes (the header is row 0).
+  rows = new Set<number>();
+  private readonly color: string;
+
+  constructor(color: string) {
+    super();
+    this.color = color;
+  }
+
+  override draw(
+    ctx: DrawArgs[0],
+    _scale: DrawArgs[1],
+    skeleton: DrawArgs[2],
+    _diff?: DrawArgs[3],
+    more?: DrawArgs[4],
+  ) {
+    const width = skeleton.columnTotalWidth;
+    if (!this.rows.size || !width) {
+      return;
+    }
+    ctx.save();
+    ctx.fillStyle = this.color;
+    for (const range of more?.viewRanges ?? []) {
+      for (let row = range.startRow; row <= range.endRow; row += 1) {
+        if (!this.rows.has(row)) {
+          continue;
+        }
+        const { startY } = skeleton.getCellWithCoordByIndex(row, 0, false);
+        ctx.fillRectByPrecision(0, startY - DIVIDER_PX / 2, width, DIVIDER_PX);
+      }
+    }
+    ctx.restore();
+  }
+}
 
 // Cells share style ids so a month of Partidos keeps a handful of style
 // objects instead of one per cell.
@@ -177,10 +222,10 @@ function createStyles(palette: Palette) {
     id: { ...TEXT_FORMAT, fs: 10, tb: CLIP },
   };
 
-  function idFor({ attendance, dayStart, league }: CellLook) {
+  function idFor({ attendance, league }: CellLook) {
     const state = attendance ?? "none";
     const leagueColor = getGridLeagueColor(league);
-    const id = `${dayStart ? "d" : "r"}-${state}-${leagueColor?.background ?? ""}`;
+    const id = `r-${state}-${leagueColor?.background ?? ""}`;
     styles[id] ??= {
       ...TEXT_FORMAT,
       fs: 10,
@@ -189,7 +234,6 @@ function createStyles(palette: Palette) {
       cl: { rgb: leagueColor?.text ?? attendanceColor[state] },
       bl: state === "none" && !leagueColor ? 0 : 1,
       ...(leagueColor ? { bg: { rgb: leagueColor.background } } : {}),
-      ...(dayStart ? { bd: { t: { s: THICK_BORDER, cl: { rgb: palette.divider } } } } : {}),
     };
     return id;
   }
@@ -220,7 +264,6 @@ function buildWorkbook(rows: PlanillaRow[], palette: Palette, order: string[]) {
             ? "id"
             : idFor({
                 attendance: row.attendance[column.key] ?? null,
-                dayStart: row.dayStart,
                 league: column.key === "liga" ? row.values.liga : null,
               }),
       };
@@ -233,7 +276,7 @@ function buildWorkbook(rows: PlanillaRow[], palette: Palette, order: string[]) {
     columnData[index] = {
       w: column.width,
       hd: column.kind === "id" ? 1 : 0,
-      s: column.kind === "id" ? "id" : idFor({ attendance: null, dayStart: false, league: null }),
+      s: column.kind === "id" ? "id" : idFor({ attendance: null, league: null }),
     };
   });
 
@@ -557,6 +600,28 @@ export function GridPlanillaSheet({
       });
     };
 
+    // The divider sits wherever the Fecha column changes day, read from the
+    // cells each time, so it follows an edited date.
+    const dividers = new DayDividers(palette.divider);
+    let dividerRegistration: { dispose(): void } | null = null;
+    let shownDividers = "";
+    const repaintDividers = () => {
+      const fechas = sheet
+        .getRange(1, physicalOf[FECHA_COLUMN], sheet.getMaxRows() - 1, 1)
+        .getDisplayValues()
+        .map(([fecha = ""]) => fecha);
+      const starts = dayStartRows(fechas).map((row) => row + 1);
+      const key = starts.join();
+      if (key === shownDividers) {
+        return;
+      }
+      shownDividers = key;
+      dividers.rows = new Set(starts);
+      if (dividerRegistration) {
+        sheet.refreshCanvas();
+      }
+    };
+
     let timer: ReturnType<typeof setTimeout> | undefined;
     const schedule = () => {
       clearTimeout(timer);
@@ -564,6 +629,7 @@ export function GridPlanillaSheet({
         restoreHeader();
         sync.scan();
         repaintLeagues();
+        repaintDividers();
       }, 250);
     };
 
@@ -577,6 +643,13 @@ export function GridPlanillaSheet({
       }
       settled = true;
       sheet.autoResizeRows(1, bodyRows);
+      try {
+        dividerRegistration = univerAPI.registerSheetMainExtension(workbook.getId(), dividers);
+        shownDividers = "";
+        repaintDividers();
+      } catch (error) {
+        console.warn("[planilla] day dividers unavailable", error);
+      }
       if (todayRow > 0) {
         sheet.scrollToCell(todayRow + 1, PLANILLA_FROZEN_COLUMNS);
       }
@@ -627,6 +700,9 @@ export function GridPlanillaSheet({
         if (event.id === MOVE_COLUMNS_MUTATION) {
           readColumnOrder();
         }
+        if (ROW_LAYOUT_MUTATION.test(event.id)) {
+          schedule();
+        }
       }),
     ];
 
@@ -671,6 +747,7 @@ export function GridPlanillaSheet({
       document.removeEventListener("keydown", onKeyDown, true);
       clearTimeout(timer);
       clearTimeout(activeTimer);
+      dividerRegistration?.dispose();
       subscriptions.forEach((subscription) => subscription.dispose());
       // Univer mounts its own React roots; disposing inside React's commit
       // would unmount them synchronously.

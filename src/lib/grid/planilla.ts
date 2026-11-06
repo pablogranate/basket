@@ -183,6 +183,21 @@ export function toPlanillaRows(matches: MatchListItem[]): PlanillaRow[] {
 
 // The row the sheet opens on: today's first Partido, or the next day with
 // Partidos when today has none. -1 when the whole list is in the past.
+// Rows (0-based below the header) that open a new day: their Fecha differs
+// from the row above. Read from the cells, so the divider follows a date edit.
+// Blank rows carry none, and neither does the row right after one.
+export function dayStartRows(fechas: string[]): number[] {
+  const starts: number[] = [];
+  for (let row = 1; row < fechas.length; row += 1) {
+    const current = (fechas[row] ?? "").trim();
+    const previous = (fechas[row - 1] ?? "").trim();
+    if (current && previous && current !== previous) {
+      starts.push(row);
+    }
+  }
+  return starts;
+}
+
 export function findTodayRowIndex(rows: PlanillaRow[], todayKey: string) {
   return rows.findIndex((row) => row.dayKey >= todayKey);
 }
