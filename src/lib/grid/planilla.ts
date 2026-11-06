@@ -35,7 +35,7 @@ export type PlanillaColumn =
   | (ColumnBase & {
       kind: "field";
       field: PlanillaMatchField;
-      input: "date" | "time" | "text" | "league" | "list";
+      input: "date" | "time" | "text" | "league" | "team" | "list";
       options?: readonly string[];
     })
   | (ColumnBase & { kind: "role"; roleName: StaffRoleName });
@@ -49,8 +49,8 @@ export const PLANILLA_COLUMNS: readonly PlanillaColumn[] = [
   { key: "fecha", label: "Fecha", width: 96, kind: "field", field: "kickoffDate", input: "date" },
   { key: "hora", label: "Hora", width: 64, kind: "field", field: "kickoffTime", input: "time" },
   { key: "liga", label: "Liga", width: 160, kind: "field", field: "competition", input: "league" },
-  { key: "local", label: "Local", width: 170, kind: "field", field: "homeTeam", input: "text" },
-  { key: "visitante", label: "Visitante", width: 170, kind: "field", field: "awayTeam", input: "text" },
+  { key: "local", label: "Local", width: 170, kind: "field", field: "homeTeam", input: "team" },
+  { key: "visitante", label: "Visitante", width: 170, kind: "field", field: "awayTeam", input: "team" },
   {
     key: "modo",
     label: "Producción",
@@ -97,8 +97,10 @@ export type PlanillaRow = {
   matchId: string;
   values: PlanillaValues;
   attendance: Record<string, AttendanceState>;
-  // Alternates per calendar day so the sheet can band days without divider rows.
-  dayBand: 0 | 1;
+  // yyyy-MM-dd in the Partido's timezone. The first row of each day carries the
+  // day divider, and the sheet opens on today's first row.
+  dayKey: string;
+  dayStart: boolean;
 };
 
 export type PlanillaPerson = {
@@ -112,15 +114,12 @@ function assignmentFor(match: MatchListItem, roleName: string) {
 }
 
 export function toPlanillaRows(matches: MatchListItem[]): PlanillaRow[] {
-  let band: 0 | 1 = 1;
-  let lastDay = "";
-
-  return matches.map((match) => {
+  return matches.map((match, index) => {
     const day = formatMatchDate(match.kickoff_at, match.timezone, "yyyy-MM-dd");
-    if (day !== lastDay) {
-      band = band === 0 ? 1 : 0;
-      lastDay = day;
-    }
+    const previous = matches[index - 1];
+    const dayStart =
+      index > 0 &&
+      formatMatchDate(previous.kickoff_at, previous.timezone, "yyyy-MM-dd") !== day;
 
     const values: PlanillaValues = {
       matchId: match.id,
@@ -152,8 +151,14 @@ export function toPlanillaRows(matches: MatchListItem[]): PlanillaRow[] {
         : null;
     }
 
-    return { matchId: match.id, values, attendance, dayBand: band };
+    return { matchId: match.id, values, attendance, dayKey: day, dayStart };
   });
+}
+
+// The row the sheet opens on: today's first Partido, or the next day with
+// Partidos when today has none. -1 when the whole list is in the past.
+export function findTodayRowIndex(rows: PlanillaRow[], todayKey: string) {
+  return rows.findIndex((row) => row.dayKey >= todayKey);
 }
 
 export function peopleForRole(
@@ -219,6 +224,7 @@ export type PlanillaEdit = PlanillaCellEdit & { matchId: string };
 export type PlanillaLookups = {
   people: PlanillaPerson[];
   leagues: string[];
+  teams: string[];
   year: number;
 };
 
@@ -306,12 +312,17 @@ export function readPlanillaCell(
         ? fieldEdit(league)
         : { ok: false, error: `La liga «${value}» no existe. Creala en Ligas.` };
     }
-    case "text": {
-      if (!value && (column.field === "homeTeam" || column.field === "awayTeam")) {
+    case "team": {
+      if (!value) {
         return { ok: false, error: `${column.label} no puede quedar vacío.` };
       }
-      return fieldEdit(value);
+      const team = findByName(lookups.teams, value, (item) => item);
+      return team
+        ? fieldEdit(team)
+        : { ok: false, error: `El equipo «${value}» no existe. Cargalo en Equipos.` };
     }
+    case "text":
+      return fieldEdit(value);
   }
 }
 

@@ -7,6 +7,7 @@ import { ToolbarSearchField } from "@/components/ui/toolbar-search-field";
 import {
   buildGridSearchHref,
   type GridSearchHrefFilters,
+  toPlanillaHref,
 } from "@/lib/grid/nav-hrefs";
 import { cn } from "@/lib/utils";
 
@@ -22,10 +23,12 @@ export function GridSearchField({
   filters,
   hasExplicitDisplay,
   className,
+  planilla = false,
 }: {
   filters: GridSearchHrefFilters & { q: string };
   hasExplicitDisplay: boolean;
   className?: string;
+  planilla?: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -34,7 +37,8 @@ export function GridSearchField({
     event.preventDefault();
 
     const query = String(new FormData(event.currentTarget).get("q") ?? "");
-    const href = buildGridSearchHref({ filters, hasExplicitDisplay, query });
+    const gridHref = buildGridSearchHref({ filters, hasExplicitDisplay, query });
+    const href = planilla ? toPlanillaHref(gridHref) : gridHref;
 
     startTransition(() => {
       router.push(href);
@@ -51,7 +55,7 @@ export function GridSearchField({
       aria-busy={isPending}
     >
       <ToolbarSearchField
-        action="/grid"
+        action={planilla ? "/grid/planilla" : "/grid"}
         onSubmit={handleSubmit}
         className="w-full"
         defaultValue={filters.q}

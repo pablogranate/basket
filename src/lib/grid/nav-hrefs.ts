@@ -1,6 +1,11 @@
 import { addDays, addMonths } from "date-fns";
 
-import { getDateInputValue, getMonthInputValue } from "@/lib/date";
+import {
+  buildKickoffAt,
+  formatMatchDate,
+  getDateInputValue,
+  getMonthInputValue,
+} from "@/lib/date";
 
 // URL building for the /grid toolbar. Lives here rather than in the page so the
 // server-rendered links and the client-side search submission construct targets
@@ -201,4 +206,33 @@ export function buildGridSearchHref(input: {
   }
 
   return toGridHref(search);
+}
+
+// The Planilla takes the same query as /grid, so its toolbar reuses these
+// builders and only swaps the path.
+export const PLANILLA_PATH = "/grid/planilla";
+
+export function toPlanillaHref(gridHref: string) {
+  return `${PLANILLA_PATH}${gridHref.slice("/grid".length)}`;
+}
+
+// "NOV 2026" for a month, "VIERNES, 6 DE NOV" for a day: the stepper's label.
+export function formatGridDateLabel(params: {
+  date: string;
+  view: GridView;
+  timezone: string;
+}) {
+  const referenceDate = params.view === "month" ? `${params.date}-01` : params.date;
+  const referenceKickoff = buildKickoffAt({
+    date: referenceDate,
+    time: "12:00",
+    timezone: params.timezone,
+  });
+  const label = formatMatchDate(
+    referenceKickoff,
+    params.timezone,
+    params.view === "month" ? "MMM yyyy" : "EEEE, d 'de' MMM",
+  );
+
+  return label.replaceAll(".", "").toUpperCase();
 }

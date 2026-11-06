@@ -5,7 +5,12 @@ import { UniverSheetsCorePreset } from "@univerjs/preset-sheets-core";
 import sheetsCoreEsES from "@univerjs/preset-sheets-core/locales/es-ES";
 import { UniverSheetsDataValidationPreset } from "@univerjs/preset-sheets-data-validation";
 import dataValidationEsES from "@univerjs/preset-sheets-data-validation/locales/es-ES";
-import { createUniver, LocaleType, mergeLocales } from "@univerjs/presets";
+import {
+  createUniver,
+  IUndoRedoService,
+  LocaleType,
+  mergeLocales,
+} from "@univerjs/presets";
 import "@univerjs/preset-sheets-core/lib/index.css";
 import "@univerjs/preset-sheets-data-validation/lib/index.css";
 
@@ -14,6 +19,7 @@ import {
   savePlanillaEditsAction,
 } from "@/app/actions/grid-planilla";
 import {
+  findTodayRowIndex,
   peopleForRole,
   PLANILLA_COLUMNS,
   PLANILLA_FROZEN_COLUMNS,
@@ -22,14 +28,17 @@ import {
 } from "@/lib/grid/planilla";
 import { createPlanillaSync, type PlanillaStatus } from "@/lib/grid/planilla-sync";
 import type { AttendanceState } from "@/lib/grid/attendance";
+import { getGridLeagueColor } from "@/lib/league-grid-colors";
 
 type GridPlanillaSheetProps = {
   rows: PlanillaRow[];
   people: PlanillaPerson[];
   leagues: string[];
+  teams: string[];
   canEdit: boolean;
   year: number;
   timezone: string;
+  todayKey: string;
   onStatus: (status: PlanillaStatus) => void;
   onControls: (controls: PlanillaControls) => void;
 };
@@ -49,7 +58,8 @@ type Palette = {
   foreground: string;
   muted: string;
   header: string;
-  band: string;
+  surface: string;
+  divider: string;
   border: string;
   ok: string;
   warn: string;
@@ -64,7 +74,8 @@ function readPalette(): Palette {
     foreground: token("--foreground"),
     muted: token("--muted"),
     header: token("--n-100"),
-    band: token("--n-50"),
+    surface: token("--surface"),
+    divider: token("--n-700"),
     border: token("--border"),
     ok: token("--ok"),
     warn: token("--warn"),
@@ -73,12 +84,21 @@ function readPalette(): Palette {
 }
 
 const TEXT_FORMAT = { n: { pattern: "@" } };
+const CLIP = 2;
+const WRAP = 3;
+const MIDDLE = 2;
+const THICK_BORDER = 13;
+const LIGA_COLUMN = PLANILLA_COLUMNS.findIndex((column) => column.key === "liga");
 
-function cellStyleId(band: 0 | 1, attendance: AttendanceState) {
-  return `b${band}-${attendance ?? "none"}`;
-}
+type CellLook = {
+  attendance: AttendanceState;
+  dayStart: boolean;
+  league: string | null;
+};
 
-function buildStyles(palette: Palette) {
+// Cells share style ids so a month of Partidos keeps a handful of style
+// objects instead of one per cell.
+function createStyles(palette: Palette) {
   const attendanceColor: Record<string, string> = {
     none: palette.foreground,
     attending: palette.ok,
@@ -92,24 +112,34 @@ function buildStyles(palette: Palette) {
       fs: 10,
       bg: { rgb: palette.header },
       cl: { rgb: palette.muted },
-      vt: 2,
+      vt: MIDDLE,
     },
+    // The hidden id column must not wrap, or its uuid sets every row's height.
+    id: { ...TEXT_FORMAT, fs: 10, tb: CLIP },
   };
-  for (const band of [0, 1] as const) {
-    for (const [state, color] of Object.entries(attendanceColor)) {
-      styles[`b${band}-${state}`] = {
-        ...TEXT_FORMAT,
-        fs: 10,
-        cl: { rgb: color },
-        bl: state === "none" ? 0 : 1,
-        ...(band === 1 ? { bg: { rgb: palette.band } } : {}),
-      };
-    }
+
+  function idFor({ attendance, dayStart, league }: CellLook) {
+    const state = attendance ?? "none";
+    const leagueColor = getGridLeagueColor(league);
+    const id = `${dayStart ? "d" : "r"}-${state}-${leagueColor?.background ?? ""}`;
+    styles[id] ??= {
+      ...TEXT_FORMAT,
+      fs: 10,
+      tb: WRAP,
+      vt: MIDDLE,
+      cl: { rgb: leagueColor?.text ?? attendanceColor[state] },
+      bl: state === "none" && !leagueColor ? 0 : 1,
+      ...(leagueColor ? { bg: { rgb: leagueColor.background } } : {}),
+      ...(dayStart ? { bd: { t: { s: THICK_BORDER, cl: { rgb: palette.divider } } } } : {}),
+    };
+    return id;
   }
-  return styles;
+
+  return { styles, idFor };
 }
 
 function buildWorkbook(rows: PlanillaRow[], palette: Palette) {
+  const { styles, idFor } = createStyles(palette);
   const rowCount = rows.length + 1 + BLANK_ROWS;
   const columnCount = PLANILLA_COLUMNS.length;
   const cellData: Record<number, Record<number, { v: string; t: 1; s: string }>> = {};
@@ -125,7 +155,14 @@ function buildWorkbook(rows: PlanillaRow[], palette: Palette) {
       cells[index] = {
         v: row.values[column.key] ?? "",
         t: 1,
-        s: cellStyleId(row.dayBand, row.attendance[column.key] ?? null),
+        s:
+          column.kind === "id"
+            ? "id"
+            : idFor({
+                attendance: row.attendance[column.key] ?? null,
+                dayStart: row.dayStart,
+                league: column.key === "liga" ? row.values.liga : null,
+              }),
       };
     });
     cellData[rowIndex + 1] = cells;
@@ -133,14 +170,18 @@ function buildWorkbook(rows: PlanillaRow[], palette: Palette) {
 
   const columnData: Record<number, { w: number; hd?: 0 | 1; s?: string }> = {};
   PLANILLA_COLUMNS.forEach((column, index) => {
-    columnData[index] = { w: column.width, hd: column.kind === "id" ? 1 : 0, s: "b0-none" };
+    columnData[index] = {
+      w: column.width,
+      hd: column.kind === "id" ? 1 : 0,
+      s: column.kind === "id" ? "id" : idFor({ attendance: null, dayStart: false, league: null }),
+    };
   });
 
   return {
     id: "planilla-workbook",
     name: "Planilla",
     sheetOrder: [SHEET_ID],
-    styles: buildStyles(palette),
+    styles,
     sheets: {
       [SHEET_ID]: {
         id: SHEET_ID,
@@ -167,23 +208,36 @@ export function GridPlanillaSheet({
   rows,
   people,
   leagues,
+  teams,
   canEdit,
   year,
   timezone,
+  todayKey,
   onStatus,
   onControls,
 }: GridPlanillaSheetProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   // Mount once: later renders (after a save revalidates) must not rebuild the
   // sheet under the user's cursor.
-  const initial = useRef({ rows, people, leagues, canEdit, year, timezone, onStatus, onControls });
+  const initial = useRef({
+    rows,
+    people,
+    leagues,
+    teams,
+    canEdit,
+    year,
+    timezone,
+    todayKey,
+    onStatus,
+    onControls,
+  });
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) {
       return;
     }
-    const { rows, people, leagues, canEdit, year, timezone, onStatus, onControls } =
+    const { rows, people, leagues, teams, canEdit, year, timezone, todayKey, onStatus, onControls } =
       initial.current;
 
     const container = document.createElement("div");
@@ -221,9 +275,11 @@ export function GridPlanillaSheet({
           ? peopleForRole(people, column.roleName).map((person) => person.name)
           : column.kind === "field" && column.input === "league"
             ? leagues
-            : column.kind === "field" && column.input === "list"
-              ? [...(column.options ?? [])]
-              : null;
+            : column.kind === "field" && column.input === "team"
+              ? teams
+              : column.kind === "field" && column.input === "list"
+                ? [...(column.options ?? [])]
+                : null;
       if (!list?.length) {
         return;
       }
@@ -244,7 +300,7 @@ export function GridPlanillaSheet({
     const columnCount = PLANILLA_COLUMNS.length;
     const sync = createPlanillaSync({
       rows,
-      lookups: { people, leagues, year },
+      lookups: { people, leagues, teams, year },
       onStatus,
       server: {
         saveEdits: (edits) => savePlanillaEditsAction(edits),
@@ -280,16 +336,58 @@ export function GridPlanillaSheet({
       });
     };
 
+    // Liga cells take their league's colour, so a typed or pasted league
+    // repaints its cell.
+    const shownLeagues = rows.map((row) => row.values.liga ?? "");
+    const repaintLeagues = () => {
+      const values = sheet.getRange(1, LIGA_COLUMN, sheet.getMaxRows() - 1, 1).getDisplayValues();
+      values.forEach(([league = ""], index) => {
+        if ((shownLeagues[index] ?? "") === league) {
+          return;
+        }
+        shownLeagues[index] = league;
+        const color = getGridLeagueColor(league);
+        sheet
+          .getRange(index + 1, LIGA_COLUMN)
+          .setBackground(color?.background ?? palette.surface)
+          .setFontColor(color?.text ?? palette.foreground)
+          .setFontWeight(color ? "bold" : "normal");
+      });
+    };
+
     let timer: ReturnType<typeof setTimeout> | undefined;
     const schedule = () => {
       clearTimeout(timer);
       timer = setTimeout(() => {
         restoreHeader();
         sync.scan();
+        repaintLeagues();
       }, 250);
     };
 
+    // Row heights fit their text, and the sheet opens on today. Both need the
+    // rendered sheet, and neither is something the user should be able to undo.
+    const todayRow = findTodayRowIndex(rows, todayKey);
+    let settled = false;
+    const settle = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      sheet.autoResizeRows(1, bodyRows);
+      if (todayRow > 0) {
+        sheet.scrollToCell(todayRow + 1, PLANILLA_FROZEN_COLUMNS);
+      }
+      univer.__getInjector().get(IUndoRedoService).clearUndoRedo(workbook.getId());
+    };
+    const RENDERED = univerAPI.Enum.LifecycleStages.Rendered;
+
     const subscriptions = [
+      univerAPI.addEvent(univerAPI.Event.LifeCycleChanged, ({ stage }) => {
+        if (stage >= RENDERED) {
+          settle();
+        }
+      }),
       univerAPI.addEvent(univerAPI.Event.SheetValueChanged, schedule),
       univerAPI.addEvent(univerAPI.Event.BeforeSheetEditStart, (event) => {
         if (event.row === 0) {
@@ -305,6 +403,10 @@ export function GridPlanillaSheet({
         }
       }),
     ];
+
+    if (univerAPI.getCurrentLifecycleStage() >= RENDERED) {
+      settle();
+    }
 
     return () => {
       clearTimeout(timer);

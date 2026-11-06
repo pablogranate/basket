@@ -1,72 +1,105 @@
-import Link from "next/link";
-import { addMonths, format, parse } from "date-fns";
-import { es } from "date-fns/locale";
-import { formatInTimeZone } from "date-fns-tz";
-
 import { GridDateStepper } from "@/components/grid/grid-date-stepper";
+import { GridDisplayToggle } from "@/components/grid/grid-display-toggle";
+import { GridSearchField } from "@/components/grid/grid-search-field";
+import { GridStatsButton } from "@/components/grid/grid-stats-button";
 import { GridPlanilla } from "@/components/grid/planilla/grid-planilla";
 import { SectionPageHeader } from "@/components/layout/section-page-header";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { requireUserContext } from "@/lib/auth";
-import { DEFAULT_TIMEZONE } from "@/lib/constants";
 import { getGridData } from "@/lib/data/dashboard";
+import { getTeamPickerCatalog } from "@/lib/data/teams";
+import { toDateKey } from "@/lib/date";
+import {
+  buildGridDateStepHrefs,
+  buildGridViewHrefs,
+  formatGridDateLabel,
+  toPlanillaHref,
+  toStringGridSearchParams,
+} from "@/lib/grid/nav-hrefs";
 import { toPlanillaRows } from "@/lib/grid/planilla";
 import { listLeagues } from "@/lib/leagues/leagues";
+import { parseGridSearchParams } from "@/lib/search-params";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-function resolveMonth(raw: string | string[] | undefined) {
-  const value = typeof raw === "string" ? raw : "";
-  return /^\d{4}-\d{2}$/.test(value)
-    ? value
-    : formatInTimeZone(new Date(), DEFAULT_TIMEZONE, "yyyy-MM");
-}
-
+// The Planilla reads the same query as /grid (view, date, q), so the toolbar
+// moves between the two without losing the day or the search.
 export default async function GridPlanillaPage({ searchParams }: PageProps) {
-  const month = resolveMonth((await searchParams).mes);
+  const rawParams = await searchParams;
   const user = await requireUserContext();
+  const filters = parseGridSearchParams(rawParams, { displayFallback: "table" });
 
-  const [{ dayGroups, owners }, leagues] = await Promise.all([
+  const [{ dayGroups, owners }, leagues, teamCatalog] = await Promise.all([
     getGridData(user, {
-      view: "month",
-      date: `${month}-01`,
-      q: "",
+      view: filters.view,
+      date: filters.date,
+      q: filters.q,
       league: "",
       mode: "",
       status: "",
       owner: "",
-      timezone: DEFAULT_TIMEZONE,
+      timezone: filters.timezone,
     }),
     listLeagues(),
+    getTeamPickerCatalog(user),
   ]);
 
-  const monthDate = parse(`${month}-01`, "yyyy-MM-dd", new Date());
-  const monthLabel = format(monthDate, "MMMM yyyy", { locale: es }).toUpperCase();
-  const prevHref = `/grid/planilla?mes=${format(addMonths(monthDate, -1), "yyyy-MM")}`;
-  const nextHref = `/grid/planilla?mes=${format(addMonths(monthDate, 1), "yyyy-MM")}`;
-
+  const { todayHref, monthHref } = buildGridViewHrefs(rawParams);
+  const { previousDateHref, nextDateHref } = buildGridDateStepHrefs(rawParams, filters);
   const rows = toPlanillaRows(dayGroups.flatMap((group) => group.items));
+  const teams = [...new Set(teamCatalog.teams.map((team) => team.name))];
 
   return (
     <div className="min-w-0 space-y-6">
       <SectionPageHeader
         title="Planilla"
         description="La grilla como planilla: escribí, pegá y elegí de las listas. Cada cambio se guarda solo."
+        descriptionClassName="hidden sm:block"
         actions={
-          <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href="/grid?display=table&view=month"
-              className="text-sm font-semibold text-[var(--muted)] hover:text-[var(--foreground)]"
-            >
-              Volver a la grilla
-            </Link>
-            <GridDateStepper prevHref={prevHref} nextHref={nextHref} dateLabel={monthLabel} />
-          </div>
+          <span className="hidden sm:inline-flex">
+            <GridStatsButton timezone={filters.timezone} />
+          </span>
         }
       />
+
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        <GridSearchField
+          planilla
+          filters={filters}
+          hasExplicitDisplay={false}
+          className="min-w-[16rem] max-w-md"
+        />
+        <GridDisplayToggle
+          display="planilla"
+          baseSearchParams={toStringGridSearchParams(rawParams)}
+        />
+        <SegmentedControl
+          items={[
+            {
+              key: "day",
+              label: "Hoy",
+              href: toPlanillaHref(todayHref),
+              active: filters.view === "day",
+            },
+            {
+              key: "month",
+              label: "Mes",
+              href: toPlanillaHref(monthHref),
+              active: filters.view === "month",
+            },
+          ]}
+        />
+        <GridDateStepper
+          prevHref={toPlanillaHref(previousDateHref)}
+          nextHref={toPlanillaHref(nextDateHref)}
+          dateLabel={formatGridDateLabel(filters)}
+        />
+      </div>
+
       <GridPlanilla
-        key={month}
+        key={`${filters.view}:${filters.date}:${filters.q}`}
         rows={rows}
         people={owners.map((owner) => ({
           id: owner.id,
@@ -74,9 +107,11 @@ export default async function GridPlanillaPage({ searchParams }: PageProps) {
           functions: owner.functions,
         }))}
         leagues={leagues.map((league) => league.name)}
+        teams={teams}
         canEdit={user.canEdit}
-        year={monthDate.getFullYear()}
-        timezone={DEFAULT_TIMEZONE}
+        year={Number(filters.date.slice(0, 4))}
+        timezone={filters.timezone}
+        todayKey={toDateKey(new Date().toISOString(), filters.timezone)}
       />
     </div>
   );

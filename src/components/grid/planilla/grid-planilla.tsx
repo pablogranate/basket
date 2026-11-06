@@ -27,9 +27,11 @@ type GridPlanillaProps = {
   rows: PlanillaRow[];
   people: PlanillaPerson[];
   leagues: string[];
+  teams: string[];
   canEdit: boolean;
   year: number;
   timezone: string;
+  todayKey: string;
 };
 
 const timeFormat = new Intl.DateTimeFormat("es-AR", {
@@ -97,7 +99,16 @@ function Issues({ status }: { status: PlanillaStatus | null }) {
   );
 }
 
-export function GridPlanilla({ rows, people, leagues, canEdit, year, timezone }: GridPlanillaProps) {
+export function GridPlanilla({
+  rows,
+  people,
+  leagues,
+  teams,
+  canEdit,
+  year,
+  timezone,
+  todayKey,
+}: GridPlanillaProps) {
   const [status, setStatus] = useState<PlanillaStatus | null>(null);
   const controls = useRef<PlanillaControls | null>(null);
   const bulk = status?.bulk ?? null;
@@ -117,14 +128,16 @@ export function GridPlanilla({ rows, people, leagues, canEdit, year, timezone }:
         </div>
       </div>
 
-      <div className="relative h-[calc(100vh-15rem)] min-h-[28rem] overflow-hidden rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)]">
+      <div className="relative h-[calc(100vh-19rem)] min-h-[28rem] overflow-hidden rounded-[var(--panel-radius)] border border-[var(--border)] bg-[var(--surface)]">
         <GridPlanillaSheet
           rows={rows}
           people={people}
           leagues={leagues}
+          teams={teams}
           canEdit={canEdit}
           year={year}
           timezone={timezone}
+          todayKey={todayKey}
           onStatus={setStatus}
           onControls={(value) => {
             controls.current = value;

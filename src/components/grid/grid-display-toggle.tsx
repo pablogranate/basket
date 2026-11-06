@@ -1,15 +1,16 @@
 "use client";
 
 import { useTransition } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { toPlanillaHref } from "@/lib/grid/nav-hrefs";
 import { GRID_DISPLAY_COOKIE, type GridDisplay } from "@/lib/search-params";
 
 const DISPLAY_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
 type GridDisplayToggleProps = {
-  display: GridDisplay;
+  display: GridDisplay | "planilla";
   baseSearchParams: Record<string, string>;
 };
 
@@ -21,24 +22,33 @@ export function GridDisplayToggle({
   display,
   baseSearchParams,
 }: GridDisplayToggleProps) {
-  const pathname = usePathname();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  function buildHref(nextDisplay: GridDisplay) {
+  function buildHref(nextDisplay: GridDisplay | null) {
     const params = new URLSearchParams(baseSearchParams);
-    params.set("display", nextDisplay);
+    if (nextDisplay) {
+      params.set("display", nextDisplay);
+    } else {
+      params.delete("display");
+    }
     params.delete("intent");
     params.delete("notice");
 
     const query = params.toString();
-    return query ? `${pathname}?${query}` : pathname;
+    return query ? `/grid?${query}` : "/grid";
   }
 
   function handleSelect(nextDisplay: GridDisplay) {
     document.cookie = `${GRID_DISPLAY_COOKIE}=${nextDisplay}; path=/; max-age=${DISPLAY_COOKIE_MAX_AGE}; samesite=lax`;
     startTransition(() => {
       router.push(buildHref(nextDisplay));
+    });
+  }
+
+  function openPlanilla() {
+    startTransition(() => {
+      router.push(toPlanillaHref(buildHref(null)));
     });
   }
 
@@ -60,6 +70,12 @@ export function GridDisplayToggle({
           label: "Grilla",
           active: display === "table",
           onClick: () => handleSelect("table"),
+        },
+        {
+          key: "planilla",
+          label: "Planilla",
+          active: display === "planilla",
+          onClick: openPlanilla,
         },
       ]}
     />

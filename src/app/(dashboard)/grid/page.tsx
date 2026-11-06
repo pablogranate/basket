@@ -24,12 +24,12 @@ import { SectionPageHeader } from "@/components/layout/section-page-header";
 import { PageMessage } from "@/components/ui/page-message";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { SECTION_COPY } from "@/lib/copy";
-import { buildKickoffAt, formatMatchDate } from "@/lib/date";
 import {
   buildGridDateOrderHref,
   buildGridDateStepHrefs,
   buildGridPastDaysHref,
   buildGridViewHrefs,
+  formatGridDateLabel,
   serializeGridSearchParams,
   toStringGridSearchParams,
 } from "@/lib/grid/nav-hrefs";
@@ -44,27 +44,6 @@ import {
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
-
-function formatSummaryDateLabel(params: {
-  date: string;
-  view: "day" | "month";
-  timezone: string;
-}) {
-  const referenceDate =
-    params.view === "month" ? `${params.date}-01` : params.date;
-  const referenceKickoff = buildKickoffAt({
-    date: referenceDate,
-    time: "12:00",
-    timezone: params.timezone,
-  });
-  const label = formatMatchDate(
-    referenceKickoff,
-    params.timezone,
-    params.view === "month" ? "MMM yyyy" : "EEEE, d 'de' MMM",
-  );
-
-  return label.replaceAll(".", "").toUpperCase();
-}
 
 export default async function GridPage({ searchParams }: PageProps) {
   const resolvedSearchParams = await searchParams;
@@ -84,7 +63,7 @@ export default async function GridPage({ searchParams }: PageProps) {
     resolvedSearchParams,
     filters,
   );
-  const summaryDateLabel = formatSummaryDateLabel({
+  const summaryDateLabel = formatGridDateLabel({
     date: filters.date,
     view: filters.view,
     timezone: filters.timezone,

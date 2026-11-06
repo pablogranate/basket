@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  findTodayRowIndex,
   parseDateCell,
   parseTimeCell,
   PLANILLA_COLUMNS,
@@ -27,6 +28,7 @@ const lookups: PlanillaLookups = {
     { id: LUIS, name: "Luis Gómez", functions: ["Relator"] },
   ],
   leagues: ["Liga Nacional", "Liga Argentina"],
+  teams: ["Boca", "River", "Racing", "Quimsa", "Olímpico"],
   year: 2026,
 };
 
@@ -48,6 +50,17 @@ describe("parseDateCell", () => {
   it("rejects impossible dates", () => {
     expect(parseDateCell("31/11/2026", 2026)).toBeNull();
     expect(parseDateCell("mañana", 2026)).toBeNull();
+  });
+});
+
+describe("findTodayRowIndex", () => {
+  const day = (dayKey: string): PlanillaRow => ({ ...savedRow, dayKey });
+
+  it("opens on today, or on the next day with Partidos", () => {
+    const rows = [day("2026-11-04"), day("2026-11-06"), day("2026-11-06"), day("2026-11-09")];
+    expect(findTodayRowIndex(rows, "2026-11-06")).toBe(1);
+    expect(findTodayRowIndex(rows, "2026-11-07")).toBe(3);
+    expect(findTodayRowIndex(rows, "2026-11-10")).toBe(-1);
   });
 });
 
@@ -98,6 +111,15 @@ describe("readPlanillaCell", () => {
   it("does not let Local go blank", () => {
     expect(readPlanillaCell(column("local"), " ", lookups).ok).toBe(false);
   });
+
+  it("only takes teams from Equipos, written as the catalog spells them", () => {
+    expect(readPlanillaCell(column("visitante"), "QUIMSA", lookups)).toMatchObject({
+      ok: true,
+      display: "Quimsa",
+      edit: { kind: "field", field: "awayTeam", value: "Quimsa" },
+    });
+    expect(readPlanillaCell(column("local"), "Equipo Inventado", lookups).ok).toBe(false);
+  });
 });
 
 describe("readPlanillaNewRow", () => {
@@ -124,6 +146,14 @@ describe("readPlanillaNewRow", () => {
         staff: [{ roleName: "Realizador", personId: ANA }],
       },
     });
+  });
+
+  it("rejects a row whose team is not in Equipos", () => {
+    const result = readPlanillaNewRow(
+      { fecha: "12/11", hora: "21", local: "Boca", visitante: "Nadie FC" },
+      lookups,
+    );
+    expect(result.ok).toBe(false);
   });
 
   it("rejects the row when any cell is invalid", () => {
@@ -168,7 +198,8 @@ const savedRow: PlanillaRow = {
     return values;
   }, {}),
   attendance: {},
-  dayBand: 0,
+  dayKey: "2026-11-12",
+  dayStart: false,
 };
 
 function setup(server: PlanillaServer, rows: PlanillaRow[] = [savedRow]) {
