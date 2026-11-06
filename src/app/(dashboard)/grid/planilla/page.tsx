@@ -1,5 +1,8 @@
+import { Suspense } from "react";
+
 import { GridDateStepper } from "@/components/grid/grid-date-stepper";
 import { GridDisplayToggle } from "@/components/grid/grid-display-toggle";
+import { GridReturnRecorder } from "@/components/grid/grid-return-link";
 import { GridSearchField } from "@/components/grid/grid-search-field";
 import { GridStatsButton } from "@/components/grid/grid-stats-button";
 import { GridPlanilla } from "@/components/grid/planilla/grid-planilla";
@@ -53,6 +56,10 @@ export default async function GridPlanillaPage({ searchParams }: PageProps) {
 
   return (
     <div className="min-w-0 space-y-6">
+      {/* The ficha opened from a row links back here, not to bare /grid. */}
+      <Suspense fallback={null}>
+        <GridReturnRecorder />
+      </Suspense>
       <SectionPageHeader
         title="Planilla"
         description="La grilla como planilla: escribí, pegá y elegí de las listas. Cada cambio se guarda solo."

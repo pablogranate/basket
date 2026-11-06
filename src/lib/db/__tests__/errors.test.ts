@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isUniqueViolation } from "@/lib/db/errors";
+import { foreignKeyViolation, isUniqueViolation } from "@/lib/db/errors";
 
 describe("isUniqueViolation", () => {
   it("reads the SQLSTATE off a bare driver error", () => {
@@ -17,5 +17,19 @@ describe("isUniqueViolation", () => {
     expect(isUniqueViolation(null)).toBe(false);
     expect(isUniqueViolation(undefined)).toBe(false);
     expect(isUniqueViolation(new Error("boom"))).toBe(false);
+  });
+});
+
+describe("foreignKeyViolation", () => {
+  it("names the constraint behind drizzle's wrapper", () => {
+    const wrapped = new Error("Failed query", {
+      cause: { code: "23503", constraint_name: "incidencias_match_id_fkey" },
+    });
+    expect(foreignKeyViolation(wrapped)).toEqual({ constraint: "incidencias_match_id_fkey" });
+  });
+
+  it("is null for other errors", () => {
+    expect(foreignKeyViolation({ code: "23505" })).toBeNull();
+    expect(foreignKeyViolation(new Error("boom"))).toBeNull();
   });
 });

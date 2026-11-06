@@ -18,7 +18,7 @@ import { normalizeCommentaryPlan } from "@/lib/constants";
 import type { Database } from "@/lib/database.types";
 import { buildKickoffAt, formatMatchDate } from "@/lib/date";
 import { db } from "@/lib/db/client";
-import { isUniqueViolation } from "@/lib/db/errors";
+import { foreignKeyViolation, isUniqueViolation } from "@/lib/db/errors";
 import {
   assignments as assignmentsTable,
   matches as matchesTable,
@@ -529,8 +529,22 @@ export async function upsertMatchAssignment(
 }
 
 // Assignments go with the Partido (FK cascade); the audit keeps its id.
+// Incidencias reference the Partido with ON DELETE RESTRICT: a Partido that
+// has them is refused, so the report keeps its match.
 export async function deleteMatchRecord(ctx: UserContext, matchId: string) {
-  await db.delete(matchesTable).where(eq(matchesTable.id, matchId));
+  try {
+    await db.delete(matchesTable).where(eq(matchesTable.id, matchId));
+  } catch (error) {
+    const violation = foreignKeyViolation(error);
+    if (!violation) {
+      throw error;
+    }
+    throw new DomainError(
+      violation.constraint.startsWith("incidencias")
+        ? "Tiene incidencias cargadas: no se puede borrar."
+        : "Tiene datos vinculados: no se puede borrar.",
+    );
+  }
   await writeAudit(ctx, {
     table: "matches",
     recordId: matchId,

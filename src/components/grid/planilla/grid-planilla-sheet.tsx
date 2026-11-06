@@ -52,12 +52,20 @@ type GridPlanillaSheetProps = {
   onControls: (controls: PlanillaControls) => void;
   onDeleteRequest: (matches: PlanillaRowMatch[]) => void;
   onColumnsCustomized: (customized: boolean) => void;
+  // The saved Partido under the cursor, or null on a blank or new row.
+  onActiveMatch: (match: PlanillaRowMatch | null) => void;
+};
+
+// What could not be deleted, and why. Empty when every Partido went.
+export type PlanillaDeleteOutcome = {
+  failed: { match: PlanillaRowMatch; error: string }[];
+  error?: string;
 };
 
 export type PlanillaControls = {
   confirmBulk: () => void;
   discardBulk: () => void;
-  deleteMatches: (matches: PlanillaRowMatch[]) => Promise<{ ok: boolean; error?: string }>;
+  deleteMatches: (matches: PlanillaRowMatch[]) => Promise<PlanillaDeleteOutcome>;
 };
 
 // Blank rows under the month's Partidos: where new Partidos are typed.
@@ -270,6 +278,7 @@ export function GridPlanillaSheet({
   onControls,
   onDeleteRequest,
   onColumnsCustomized,
+  onActiveMatch,
 }: GridPlanillaSheetProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   // Mount once: later renders (after a save revalidates) must not rebuild the
@@ -288,6 +297,7 @@ export function GridPlanillaSheet({
     onControls,
     onDeleteRequest,
     onColumnsCustomized,
+    onActiveMatch,
   });
 
   useEffect(() => {
@@ -309,6 +319,7 @@ export function GridPlanillaSheet({
       onControls,
       onDeleteRequest,
       onColumnsCustomized,
+      onActiveMatch,
     } = initial.current;
 
     const container = document.createElement("div");
@@ -328,7 +339,10 @@ export function GridPlanillaSheet({
           footer: false,
           formulaBar: true,
           // Fecha, Hora and ID are text on purpose: no "number stored as
-          // text" marks or prompts.
+          // text" marks or prompts. The text-format ones come from the numfmt
+          // plugin, which reads the preset's top-level options.
+          disableTextFormatMark: true,
+          disableTextFormatAlert: true,
           sheets: { disableForceStringMark: true, disableForceStringAlert: true },
         }),
         UniverSheetsDataValidationPreset({ showEditOnDropdown: false }),
@@ -452,8 +466,14 @@ export function GridPlanillaSheet({
     };
 
     let removingRows = false;
-    const deleteMatches = async (targets: PlanillaRowMatch[]) => {
-      const result = await deletePlanillaMatchesAction(targets.map((target) => target.matchId));
+    let activeMatchId: string | null = null;
+    const deleteMatches = async (targets: PlanillaRowMatch[]): Promise<PlanillaDeleteOutcome> => {
+      let result: Awaited<ReturnType<typeof deletePlanillaMatchesAction>>;
+      try {
+        result = await deletePlanillaMatchesAction(targets.map((target) => target.matchId));
+      } catch {
+        return { failed: [], error: "No se pudo conectar. Probá de nuevo." };
+      }
       const deleted = new Set(result.deleted);
 
       if (deleted.size) {
@@ -477,12 +497,38 @@ export function GridPlanillaSheet({
         // Undo would bring back rows whose Partidos no longer exist.
         clearUndo();
         sync.forget([...deleted]);
+        activeMatchId = null;
+        onActiveMatch(null);
       }
 
-      if (!result.ok) {
-        sync.report(`No se pudieron borrar todos los partidos: ${result.error}`);
+      if (result.error) {
+        return { failed: [], error: result.error };
       }
-      return result.ok ? { ok: true } : { ok: false, error: result.error };
+      const byId = new Map(targets.map((target) => [target.matchId, target]));
+      const failed = result.failed.flatMap(({ matchId, error }) => {
+        const match = byId.get(matchId);
+        return match ? [{ match, error }] : [];
+      });
+      failed.forEach(({ match, error }) => sync.report(`${match.label}: ${error}`));
+      return { failed };
+    };
+
+    // The row under the cursor names its Partido, so the page can link to its
+    // ficha (Notificar, GRUPO, the full detail). Only the id cell is read until
+    // the cursor reaches another Partido.
+    let activeTimer: ReturnType<typeof setTimeout> | undefined;
+    const reportActiveMatch = () => {
+      clearTimeout(activeTimer);
+      activeTimer = setTimeout(() => {
+        const row = sheet.getSelection()?.getActiveRange()?.getRow() ?? 0;
+        const id = row > 0 ? sheet.getRange(row, physicalOf[ID_COLUMN]).getDisplayValue().trim() : "";
+        if (id === (activeMatchId ?? "")) {
+          return;
+        }
+        const match = id ? (sync.matchesOnRows([row - 1])[0] ?? null) : null;
+        activeMatchId = match?.matchId ?? null;
+        onActiveMatch(match);
+      }, 120);
     };
 
     onControls({
@@ -545,6 +591,7 @@ export function GridPlanillaSheet({
         }
       }),
       univerAPI.addEvent(univerAPI.Event.SheetValueChanged, schedule),
+      univerAPI.addEvent(univerAPI.Event.SelectionChanged, reportActiveMatch),
       univerAPI.addEvent(univerAPI.Event.BeforeSheetEditStart, (event) => {
         if (event.row === 0) {
           event.cancel = true;
@@ -623,6 +670,7 @@ export function GridPlanillaSheet({
       document.removeEventListener("pointerdown", onPointerDown, true);
       document.removeEventListener("keydown", onKeyDown, true);
       clearTimeout(timer);
+      clearTimeout(activeTimer);
       subscriptions.forEach((subscription) => subscription.dispose());
       // Univer mounts its own React roots; disposing inside React's commit
       // would unmount them synchronously.

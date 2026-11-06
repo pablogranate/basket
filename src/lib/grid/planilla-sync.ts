@@ -29,9 +29,12 @@ export type PlanillaCreateResult =
   | { ok: true; matchId: string; newAssignments: number }
   | { ok: false; error: string };
 
-export type PlanillaDeleteResult =
-  | { ok: true; deleted: string[] }
-  | { ok: false; deleted: string[]; error: string };
+export type PlanillaDeleteResult = {
+  deleted: string[];
+  failed: { matchId: string; error: string }[];
+  // The whole request was refused.
+  error?: string;
+};
 
 export type PlanillaRowMatch = { row: number; matchId: string; label: string };
 

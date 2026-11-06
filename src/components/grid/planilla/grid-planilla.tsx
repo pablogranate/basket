@@ -1,12 +1,16 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
-import { AlertCircle, Check, Loader2 } from "lucide-react";
+import { AlertCircle, ArrowUpRight, Check, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import type { PlanillaControls } from "@/components/grid/planilla/grid-planilla-sheet";
+import type {
+  PlanillaControls,
+  PlanillaDeleteOutcome,
+} from "@/components/grid/planilla/grid-planilla-sheet";
 import type { PlanillaPerson, PlanillaRow } from "@/lib/grid/planilla";
 import type { PlanillaRowMatch, PlanillaStatus } from "@/lib/grid/planilla-sync";
 
@@ -108,12 +112,15 @@ function DeleteDialog({
 }: {
   matches: PlanillaRowMatch[];
   onCancel: () => void;
-  onConfirm: () => Promise<{ ok: boolean; error?: string }>;
+  onConfirm: () => Promise<PlanillaDeleteOutcome>;
 }) {
   const [error, setError] = useState("");
+  const [failed, setFailed] = useState<PlanillaDeleteOutcome["failed"]>([]);
   const [isDeleting, startDeleting] = useTransition();
   const count = matches.length;
   const shown = matches.slice(0, 8);
+  const done = failed.length > 0;
+  const deletedCount = count - failed.length;
 
   function cancel() {
     if (!isDeleting) {
@@ -123,10 +130,9 @@ function DeleteDialog({
 
   function confirm() {
     startDeleting(async () => {
-      const result = await onConfirm();
-      if (!result.ok) {
-        setError(result.error ?? "No se pudieron borrar.");
-      }
+      const outcome = await onConfirm();
+      setError(outcome.error ?? "");
+      setFailed(outcome.failed);
     });
   }
 
@@ -148,32 +154,60 @@ function DeleteDialog({
         }}
         className="panel-surface relative flex w-full max-w-md flex-col gap-3 border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-lift)]"
       >
-        <p className="text-base font-semibold text-[var(--foreground)]">
-          ¿Borrar {count === 1 ? "este partido" : `estos ${count} partidos`}?
-        </p>
-        <p className="text-sm text-[var(--muted)]">
-          Se borran de verdad, con sus asignaciones, en la grilla y en todo el portal. No se puede
-          deshacer.
-        </p>
-        <ul className="max-h-48 space-y-1 overflow-y-auto text-sm text-[var(--foreground)]">
-          {shown.map((match) => (
-            <li key={match.matchId} className="truncate">
-              {match.label}
-            </li>
-          ))}
-          {count > shown.length ? (
-            <li className="text-[var(--muted)]">y {count - shown.length} más</li>
-          ) : null}
-        </ul>
-        {error ? <p className="text-sm text-[var(--accent)]">{error}</p> : null}
-        <div className="mt-2 flex justify-end gap-2">
-          <Button variant="secondary" onClick={cancel} disabled={isDeleting}>
-            Cancelar
-          </Button>
-          <Button onClick={confirm} disabled={isDeleting} autoFocus>
-            {isDeleting ? "Borrando…" : count === 1 ? "Borrar partido" : `Borrar ${count} partidos`}
-          </Button>
-        </div>
+        {done ? (
+          <>
+            <p className="text-base font-semibold text-[var(--foreground)]">
+              {failed.length === 1 ? "Un partido no se borró" : `${failed.length} partidos no se borraron`}
+            </p>
+            {deletedCount > 0 ? (
+              <p className="text-sm text-[var(--muted)]">
+                {deletedCount === 1 ? "El otro se borró." : `Los otros ${deletedCount} se borraron.`}
+              </p>
+            ) : null}
+            <ul className="max-h-60 space-y-2 overflow-y-auto text-sm">
+              {failed.map(({ match, error: reason }) => (
+                <li key={match.matchId}>
+                  <span className="block truncate text-[var(--foreground)]">{match.label}</span>
+                  <span className="text-[var(--accent)]">{reason}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-2 flex justify-end">
+              <Button onClick={onCancel} autoFocus>
+                Cerrar
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-base font-semibold text-[var(--foreground)]">
+              ¿Borrar {count === 1 ? "este partido" : `estos ${count} partidos`}?
+            </p>
+            <p className="text-sm text-[var(--muted)]">
+              Se borran de verdad, con sus asignaciones, en la grilla y en todo el portal. No se
+              puede deshacer. Los que tienen incidencias cargadas no se borran.
+            </p>
+            <ul className="max-h-48 space-y-1 overflow-y-auto text-sm text-[var(--foreground)]">
+              {shown.map((match) => (
+                <li key={match.matchId} className="truncate">
+                  {match.label}
+                </li>
+              ))}
+              {count > shown.length ? (
+                <li className="text-[var(--muted)]">y {count - shown.length} más</li>
+              ) : null}
+            </ul>
+            {error ? <p className="text-sm text-[var(--accent)]">{error}</p> : null}
+            <div className="mt-2 flex justify-end gap-2">
+              <Button variant="secondary" onClick={cancel} disabled={isDeleting}>
+                Cancelar
+              </Button>
+              <Button onClick={confirm} disabled={isDeleting} autoFocus>
+                {isDeleting ? "Borrando…" : count === 1 ? "Borrar partido" : `Borrar ${count} partidos`}
+              </Button>
+            </div>
+          </>
+        )}
       </div>
     </div>,
     document.body,
@@ -203,18 +237,29 @@ export function GridPlanilla({
   const [status, setStatus] = useState<PlanillaStatus | null>(null);
   const [toDelete, setToDelete] = useState<PlanillaRowMatch[] | null>(null);
   const [columnsCustomized, setColumnsCustomized] = useState(false);
+  const [activeMatch, setActiveMatch] = useState<PlanillaRowMatch | null>(null);
   const controls = useRef<PlanillaControls | null>(null);
   const bulk = status?.bulk ?? null;
 
   return (
     <div className="space-y-3">
       <div className="flex h-6 items-center justify-between gap-4 text-sm text-[var(--muted)]">
-        <p className="min-w-0 truncate">
-          {rows.length} partidos.{" "}
-          {canEdit
-            ? "Para cargar uno nuevo, completá una fila vacía. Para borrar, seleccioná las filas y apretá Supr."
-            : null}
-        </p>
+        {activeMatch ? (
+          <Link
+            href={`/match/${activeMatch.matchId}`}
+            className="inline-flex min-w-0 items-center gap-1.5 font-semibold text-[var(--foreground)] hover:text-[var(--accent)]"
+          >
+            <span className="truncate">Abrir ficha · {activeMatch.label}</span>
+            <ArrowUpRight className="size-4 shrink-0" aria-hidden />
+          </Link>
+        ) : (
+          <p className="min-w-0 truncate">
+            {rows.length} partidos.{" "}
+            {canEdit
+              ? "Para cargar uno nuevo, completá una fila vacía. Para borrar, seleccioná las filas y apretá Supr."
+              : null}
+          </p>
+        )}
         <div className="flex min-w-0 max-w-[60%] items-center justify-end gap-4">
           <Issues status={status} />
           {columnsCustomized ? (
@@ -246,6 +291,7 @@ export function GridPlanilla({
           onStatus={setStatus}
           onDeleteRequest={setToDelete}
           onColumnsCustomized={setColumnsCustomized}
+          onActiveMatch={setActiveMatch}
           onControls={(value) => {
             controls.current = value;
           }}
@@ -275,14 +321,14 @@ export function GridPlanilla({
           matches={toDelete}
           onCancel={() => setToDelete(null)}
           onConfirm={async () => {
-            const result = (await controls.current?.deleteMatches(toDelete)) ?? {
-              ok: false,
+            const outcome = (await controls.current?.deleteMatches(toDelete)) ?? {
+              failed: [],
               error: "La planilla no está lista.",
             };
-            if (result.ok) {
+            if (!outcome.error && !outcome.failed.length) {
               setToDelete(null);
             }
-            return result;
+            return outcome;
           }}
         />
       ) : null}
