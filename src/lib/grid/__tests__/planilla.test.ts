@@ -1,12 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  columnOrderFromLabels,
   findTodayRowIndex,
   parseDateCell,
   parseTimeCell,
   PLANILLA_COLUMNS,
   readPlanillaCell,
   readPlanillaNewRow,
+  resolveColumnOrder,
   type PlanillaEdit,
   type PlanillaLookups,
   type PlanillaRow,
@@ -61,6 +63,27 @@ describe("findTodayRowIndex", () => {
     expect(findTodayRowIndex(rows, "2026-11-06")).toBe(1);
     expect(findTodayRowIndex(rows, "2026-11-07")).toBe(3);
     expect(findTodayRowIndex(rows, "2026-11-10")).toBe(-1);
+  });
+});
+
+describe("column order", () => {
+  const keys = PLANILLA_COLUMNS.map((item) => item.key);
+
+  it("keeps a stored order that is a full permutation of the columns", () => {
+    const moved = [...keys.slice(1), keys[0]];
+    expect(resolveColumnOrder(moved)).toEqual(moved);
+  });
+
+  it("falls back to the default order when the stored one is stale", () => {
+    expect(resolveColumnOrder(null)).toEqual(keys);
+    expect(resolveColumnOrder(keys.slice(1))).toEqual(keys);
+    expect(resolveColumnOrder([...keys.slice(1), "borrada"])).toEqual(keys);
+  });
+
+  it("reads the order from the header labels", () => {
+    const labels = PLANILLA_COLUMNS.map((item) => item.label).reverse();
+    expect(columnOrderFromLabels(labels)).toEqual([...keys].reverse());
+    expect(columnOrderFromLabels(["pegado", ...labels.slice(1)])).toBeNull();
   });
 });
 
@@ -334,5 +357,12 @@ describe("createPlanillaSync", () => {
 
     expect(saveEdits).toHaveBeenCalledTimes(1);
     expect(saveEdits.mock.calls[0][0]).toHaveLength(rows.length);
+  });
+
+  it("names the saved Partidos on the selected rows and skips blank ones", () => {
+    const { sync } = setup({ saveEdits: vi.fn(), createMatch: vi.fn() });
+    expect(sync.matchesOnRows([1, 0, 0])).toEqual([
+      { row: 0, matchId: MATCH, label: "12/11/2026 21:00 · Boca vs River" },
+    ]);
   });
 });

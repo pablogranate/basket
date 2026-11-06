@@ -1,13 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useRef, useState } from "react";
+import { useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { AlertCircle, Check, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { PlanillaControls } from "@/components/grid/planilla/grid-planilla-sheet";
 import type { PlanillaPerson, PlanillaRow } from "@/lib/grid/planilla";
-import type { PlanillaStatus } from "@/lib/grid/planilla-sync";
+import type { PlanillaRowMatch, PlanillaStatus } from "@/lib/grid/planilla-sync";
 
 // Univer draws on a canvas and weighs ~2 MB gzip: load it only here, only in
 // the browser.
@@ -32,6 +33,7 @@ type GridPlanillaProps = {
   year: number;
   timezone: string;
   todayKey: string;
+  columnOrderKey: string;
 };
 
 const timeFormat = new Intl.DateTimeFormat("es-AR", {
@@ -99,6 +101,94 @@ function Issues({ status }: { status: PlanillaStatus | null }) {
   );
 }
 
+function DeleteDialog({
+  matches,
+  onCancel,
+  onConfirm,
+}: {
+  matches: PlanillaRowMatch[];
+  onCancel: () => void;
+  onConfirm: () => Promise<{ ok: boolean; error?: string }>;
+}) {
+  const [error, setError] = useState("");
+  const [isDeleting, startDeleting] = useTransition();
+  const count = matches.length;
+  const shown = matches.slice(0, 8);
+
+  function cancel() {
+    if (!isDeleting) {
+      onCancel();
+    }
+  }
+
+  function confirm() {
+    startDeleting(async () => {
+      const result = await onConfirm();
+      if (!result.ok) {
+        setError(result.error ?? "No se pudieron borrar.");
+      }
+    });
+  }
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[300] flex items-center justify-center bg-[var(--n-900)]/60 p-4 backdrop-blur-sm"
+      onClick={cancel}
+    >
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-label="Borrar partidos"
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.stopPropagation();
+            cancel();
+          }
+        }}
+        className="panel-surface relative flex w-full max-w-md flex-col gap-3 border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-lift)]"
+      >
+        <p className="text-base font-semibold text-[var(--foreground)]">
+          ¿Borrar {count === 1 ? "este partido" : `estos ${count} partidos`}?
+        </p>
+        <p className="text-sm text-[var(--muted)]">
+          Se borran de verdad, con sus asignaciones, en la grilla y en todo el portal. No se puede
+          deshacer.
+        </p>
+        <ul className="max-h-48 space-y-1 overflow-y-auto text-sm text-[var(--foreground)]">
+          {shown.map((match) => (
+            <li key={match.matchId} className="truncate">
+              {match.label}
+            </li>
+          ))}
+          {count > shown.length ? (
+            <li className="text-[var(--muted)]">y {count - shown.length} más</li>
+          ) : null}
+        </ul>
+        {error ? <p className="text-sm text-[var(--accent)]">{error}</p> : null}
+        <div className="mt-2 flex justify-end gap-2">
+          <Button variant="secondary" onClick={cancel} disabled={isDeleting}>
+            Cancelar
+          </Button>
+          <Button onClick={confirm} disabled={isDeleting} autoFocus>
+            {isDeleting ? "Borrando…" : count === 1 ? "Borrar partido" : `Borrar ${count} partidos`}
+          </Button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function resetColumns(key: string) {
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Nothing stored.
+  }
+  window.location.reload();
+}
+
 export function GridPlanilla({
   rows,
   people,
@@ -108,8 +198,11 @@ export function GridPlanilla({
   year,
   timezone,
   todayKey,
+  columnOrderKey,
 }: GridPlanillaProps) {
   const [status, setStatus] = useState<PlanillaStatus | null>(null);
+  const [toDelete, setToDelete] = useState<PlanillaRowMatch[] | null>(null);
+  const [columnsCustomized, setColumnsCustomized] = useState(false);
   const controls = useRef<PlanillaControls | null>(null);
   const bulk = status?.bulk ?? null;
 
@@ -118,10 +211,21 @@ export function GridPlanilla({
       <div className="flex h-6 items-center justify-between gap-4 text-sm text-[var(--muted)]">
         <p className="min-w-0 truncate">
           {rows.length} partidos.{" "}
-          {canEdit ? "Para cargar uno nuevo, completá una fila vacía: Fecha, Hora, Local y Visitante." : null}
+          {canEdit
+            ? "Para cargar uno nuevo, completá una fila vacía. Para borrar, seleccioná las filas y apretá Supr."
+            : null}
         </p>
         <div className="flex min-w-0 max-w-[60%] items-center justify-end gap-4">
           <Issues status={status} />
+          {columnsCustomized ? (
+            <button
+              type="button"
+              onClick={() => resetColumns(columnOrderKey)}
+              className="shrink-0 font-semibold hover:text-[var(--foreground)]"
+            >
+              Orden original
+            </button>
+          ) : null}
           <span className="shrink-0">
             <SaveState status={status} canEdit={canEdit} />
           </span>
@@ -138,7 +242,10 @@ export function GridPlanilla({
           year={year}
           timezone={timezone}
           todayKey={todayKey}
+          columnOrderKey={columnOrderKey}
           onStatus={setStatus}
+          onDeleteRequest={setToDelete}
+          onColumnsCustomized={setColumnsCustomized}
           onControls={(value) => {
             controls.current = value;
           }}
@@ -162,6 +269,23 @@ export function GridPlanilla({
           </div>
         ) : null}
       </div>
+
+      {toDelete ? (
+        <DeleteDialog
+          matches={toDelete}
+          onCancel={() => setToDelete(null)}
+          onConfirm={async () => {
+            const result = (await controls.current?.deleteMatches(toDelete)) ?? {
+              ok: false,
+              error: "La planilla no está lista.",
+            };
+            if (result.ok) {
+              setToDelete(null);
+            }
+            return result;
+          }}
+        />
+      ) : null}
     </div>
   );
 }

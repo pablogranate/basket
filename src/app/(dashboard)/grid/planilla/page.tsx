@@ -112,6 +112,7 @@ export default async function GridPlanillaPage({ searchParams }: PageProps) {
         year={Number(filters.date.slice(0, 4))}
         timezone={filters.timezone}
         todayKey={toDateKey(new Date().toISOString(), filters.timezone)}
+        columnOrderKey={`basket-production.planilla.columns.v1:${user.userId ?? "anon"}`}
       />
     </div>
   );

@@ -16,17 +16,24 @@ import "@univerjs/preset-sheets-data-validation/lib/index.css";
 
 import {
   createPlanillaMatchAction,
+  deletePlanillaMatchesAction,
   savePlanillaEditsAction,
 } from "@/app/actions/grid-planilla";
 import {
+  columnOrderFromLabels,
   findTodayRowIndex,
   peopleForRole,
   PLANILLA_COLUMNS,
   PLANILLA_FROZEN_COLUMNS,
   type PlanillaPerson,
   type PlanillaRow,
+  resolveColumnOrder,
 } from "@/lib/grid/planilla";
-import { createPlanillaSync, type PlanillaStatus } from "@/lib/grid/planilla-sync";
+import {
+  createPlanillaSync,
+  type PlanillaRowMatch,
+  type PlanillaStatus,
+} from "@/lib/grid/planilla-sync";
 import type { AttendanceState } from "@/lib/grid/attendance";
 import { getGridLeagueColor } from "@/lib/league-grid-colors";
 
@@ -39,20 +46,63 @@ type GridPlanillaSheetProps = {
   year: number;
   timezone: string;
   todayKey: string;
+  // localStorage key for this user's column order.
+  columnOrderKey: string;
   onStatus: (status: PlanillaStatus) => void;
   onControls: (controls: PlanillaControls) => void;
+  onDeleteRequest: (matches: PlanillaRowMatch[]) => void;
+  onColumnsCustomized: (customized: boolean) => void;
 };
 
-export type PlanillaControls = { confirmBulk: () => void; discardBulk: () => void };
+export type PlanillaControls = {
+  confirmBulk: () => void;
+  discardBulk: () => void;
+  deleteMatches: (matches: PlanillaRowMatch[]) => Promise<{ ok: boolean; error?: string }>;
+};
 
 // Blank rows under the month's Partidos: where new Partidos are typed.
 const BLANK_ROWS = 40;
 const SHEET_ID = "planilla";
 
-// Commands that delete rows or shift columns. Rows map to Partidos and
-// columns to fields, so the Planilla only lets cells change.
+// Columns map to fields: they can be reordered, never added or removed, and
+// cells never shift between them.
 const BLOCKED_COMMAND =
-  /^sheet\.command\.(remove-row|remove-col|insert-col|insert-multi-cols|move-cols|delete-range-move|insert-range-move)/;
+  /^sheet\.command\.(remove-col|insert-col|insert-multi-cols|delete-range-move|insert-range-move)/;
+
+// What deletes a Partido: removing its row, or clearing whole rows (Delete,
+// or right click > Borrar > Borrar todo with the rows selected).
+const REMOVE_ROW_COMMANDS = new Set(["sheet.command.remove-row", "sheet.command.remove-row-by-range"]);
+const CLEAR_COMMANDS = new Set([
+  "sheet.command.clear-selection-content",
+  "sheet.command.clear-selection-all",
+]);
+const MOVE_COLUMNS_MUTATION = "sheet.mutation.move-columns";
+const ROW_RANGE = 1;
+
+function readStoredOrder(key: string): string[] {
+  try {
+    const raw = window.localStorage.getItem(key);
+    return resolveColumnOrder(raw ? JSON.parse(raw) : null);
+  } catch {
+    return resolveColumnOrder(null);
+  }
+}
+
+function storeOrder(key: string, order: string[]) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(order));
+  } catch {
+    // Private mode: the order lasts until the page reloads.
+  }
+}
+
+const DEFAULT_ORDER = PLANILLA_COLUMNS.map((column) => column.key);
+const COLUMN_BY_KEY = new Map(PLANILLA_COLUMNS.map((column) => [column.key, column]));
+
+// physicalOf[i] is where PLANILLA_COLUMNS[i] sits in the sheet.
+function toPhysical(order: string[]) {
+  return PLANILLA_COLUMNS.map((column) => order.indexOf(column.key));
+}
 
 type Palette = {
   foreground: string;
@@ -89,6 +139,7 @@ const WRAP = 3;
 const MIDDLE = 2;
 const THICK_BORDER = 13;
 const LIGA_COLUMN = PLANILLA_COLUMNS.findIndex((column) => column.key === "liga");
+const ID_COLUMN = PLANILLA_COLUMNS.findIndex((column) => column.kind === "id");
 
 type CellLook = {
   attendance: AttendanceState;
@@ -138,20 +189,21 @@ function createStyles(palette: Palette) {
   return { styles, idFor };
 }
 
-function buildWorkbook(rows: PlanillaRow[], palette: Palette) {
+function buildWorkbook(rows: PlanillaRow[], palette: Palette, order: string[]) {
+  const columns = order.map((key) => COLUMN_BY_KEY.get(key)!);
   const { styles, idFor } = createStyles(palette);
   const rowCount = rows.length + 1 + BLANK_ROWS;
   const columnCount = PLANILLA_COLUMNS.length;
   const cellData: Record<number, Record<number, { v: string; t: 1; s: string }>> = {};
 
   cellData[0] = {};
-  PLANILLA_COLUMNS.forEach((column, index) => {
+  columns.forEach((column, index) => {
     cellData[0][index] = { v: column.label, t: 1, s: "head" };
   });
 
   rows.forEach((row, rowIndex) => {
     const cells: Record<number, { v: string; t: 1; s: string }> = {};
-    PLANILLA_COLUMNS.forEach((column, index) => {
+    columns.forEach((column, index) => {
       cells[index] = {
         v: row.values[column.key] ?? "",
         t: 1,
@@ -169,7 +221,7 @@ function buildWorkbook(rows: PlanillaRow[], palette: Palette) {
   });
 
   const columnData: Record<number, { w: number; hd?: 0 | 1; s?: string }> = {};
-  PLANILLA_COLUMNS.forEach((column, index) => {
+  columns.forEach((column, index) => {
     columnData[index] = {
       w: column.width,
       hd: column.kind === "id" ? 1 : 0,
@@ -213,8 +265,11 @@ export function GridPlanillaSheet({
   year,
   timezone,
   todayKey,
+  columnOrderKey,
   onStatus,
   onControls,
+  onDeleteRequest,
+  onColumnsCustomized,
 }: GridPlanillaSheetProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   // Mount once: later renders (after a save revalidates) must not rebuild the
@@ -228,8 +283,11 @@ export function GridPlanillaSheet({
     year,
     timezone,
     todayKey,
+    columnOrderKey,
     onStatus,
     onControls,
+    onDeleteRequest,
+    onColumnsCustomized,
   });
 
   useEffect(() => {
@@ -237,8 +295,21 @@ export function GridPlanillaSheet({
     if (!host) {
       return;
     }
-    const { rows, people, leagues, teams, canEdit, year, timezone, todayKey, onStatus, onControls } =
-      initial.current;
+    const {
+      rows,
+      people,
+      leagues,
+      teams,
+      canEdit,
+      year,
+      timezone,
+      todayKey,
+      columnOrderKey,
+      onStatus,
+      onControls,
+      onDeleteRequest,
+      onColumnsCustomized,
+    } = initial.current;
 
     const container = document.createElement("div");
     container.style.height = "100%";
@@ -265,7 +336,10 @@ export function GridPlanillaSheet({
     });
 
     const palette = readPalette();
-    const workbook = univerAPI.createWorkbook(buildWorkbook(rows, palette));
+    let order = readStoredOrder(columnOrderKey);
+    let physicalOf = toPhysical(order);
+    onColumnsCustomized(order.join() !== DEFAULT_ORDER.join());
+    const workbook = univerAPI.createWorkbook(buildWorkbook(rows, palette, order));
     const sheet = workbook.getActiveSheet();
     const bodyRows = rows.length + BLANK_ROWS;
 
@@ -290,7 +364,7 @@ export function GridPlanillaSheet({
         .setAllowInvalid(false)
         .setOptions({ renderMode: univerAPI.Enum.DataValidationRenderMode.ARROW })
         .build();
-      sheet.getRange(1, index, bodyRows, 1).setDataValidation(rule);
+      sheet.getRange(1, physicalOf[index], bodyRows, 1).setDataValidation(rule);
     });
 
     if (!canEdit) {
@@ -312,35 +386,117 @@ export function GridPlanillaSheet({
           if (maxRows <= 1) {
             return [];
           }
-          return sheet.getRange(1, 0, maxRows - 1, columnCount).getDisplayValues();
+          // Back to PLANILLA_COLUMNS order, whatever order the user sees.
+          return sheet
+            .getRange(1, 0, maxRows - 1, columnCount)
+            .getDisplayValues()
+            .map((cells) => physicalOf.map((physical) => cells[physical] ?? ""));
         },
         writeCell(row, column, value) {
           // Typed as text, or Univer would turn "21:00" into a time number.
-          sheet.getRange(row + 1, column).setValue({ v: value, t: 1 });
+          sheet.getRange(row + 1, physicalOf[column]).setValue({ v: value, t: 1 });
         },
         clearAttendance(row, column) {
-          sheet.getRange(row + 1, column).setFontColor(palette.foreground).setFontWeight("normal");
+          sheet
+            .getRange(row + 1, physicalOf[column])
+            .setFontColor(palette.foreground)
+            .setFontWeight("normal");
         },
       },
     });
 
-    onControls({ confirmBulk: sync.confirmBulk, discardBulk: sync.discardBulk });
+    const clearUndo = () =>
+      univer.__getInjector().get(IUndoRedoService).clearUndoRedo(workbook.getId());
 
     // The header row is not data: a paste or Delete over it is undone.
     const restoreHeader = () => {
       const labels = sheet.getRange(0, 0, 1, columnCount).getDisplayValues()[0] ?? [];
       PLANILLA_COLUMNS.forEach((column, index) => {
-        if (labels[index] !== column.label) {
-          sheet.getRange(0, index).setValue({ v: column.label, t: 1, s: "head" });
+        if (labels[physicalOf[index]] !== column.label) {
+          sheet.getRange(0, physicalOf[index]).setValue({ v: column.label, t: 1, s: "head" });
         }
       });
     };
+
+    // A dragged column changes this user's view only: the new order is read
+    // from the header and kept in their browser.
+    const readColumnOrder = () => {
+      const labels = sheet.getRange(0, 0, 1, columnCount).getDisplayValues()[0] ?? [];
+      const next = columnOrderFromLabels(labels);
+      if (!next || next.join() === order.join()) {
+        return;
+      }
+      order = next;
+      physicalOf = toPhysical(order);
+      storeOrder(columnOrderKey, order);
+      onColumnsCustomized(order.join() !== DEFAULT_ORDER.join());
+    };
+
+    // Whole rows the selection covers, 0-based below the header. Clearing
+    // only some cells of a row is an edit, not a deletion: that returns null.
+    const selectedRows = (wholeRowsOnly: boolean) => {
+      const ranges = sheet.getSelection()?.getActiveRangeList() ?? [];
+      const picked: number[] = [];
+      for (const range of ranges) {
+        const { startRow, endRow, startColumn, endColumn, rangeType } = range.getRange();
+        const wholeRow =
+          Number(rangeType) === ROW_RANGE || (startColumn <= 0 && endColumn >= columnCount - 1);
+        if (wholeRowsOnly && !wholeRow) {
+          return null;
+        }
+        for (let row = Math.max(startRow, 1); row <= endRow; row += 1) {
+          picked.push(row - 1);
+        }
+      }
+      return picked;
+    };
+
+    let removingRows = false;
+    const deleteMatches = async (targets: PlanillaRowMatch[]) => {
+      const result = await deletePlanillaMatchesAction(targets.map((target) => target.matchId));
+      const deleted = new Set(result.deleted);
+
+      if (deleted.size) {
+        // Find the rows again: they may have moved while the dialog was open.
+        const ids = sheet
+          .getRange(1, physicalOf[ID_COLUMN], sheet.getMaxRows() - 1, 1)
+          .getDisplayValues()
+          .map(([id = ""]) => id.trim());
+        const doomed = ids
+          .flatMap((id, row) => (deleted.has(id) ? [row] : []))
+          .sort((a, b) => b - a);
+        removingRows = true;
+        try {
+          for (const row of doomed) {
+            sheet.deleteRows(row + 1, 1);
+            shownLeagues.splice(row, 1);
+          }
+        } finally {
+          removingRows = false;
+        }
+        // Undo would bring back rows whose Partidos no longer exist.
+        clearUndo();
+        sync.forget([...deleted]);
+      }
+
+      if (!result.ok) {
+        sync.report(`No se pudieron borrar todos los partidos: ${result.error}`);
+      }
+      return result.ok ? { ok: true } : { ok: false, error: result.error };
+    };
+
+    onControls({
+      confirmBulk: sync.confirmBulk,
+      discardBulk: sync.discardBulk,
+      deleteMatches,
+    });
 
     // Liga cells take their league's colour, so a typed or pasted league
     // repaints its cell.
     const shownLeagues = rows.map((row) => row.values.liga ?? "");
     const repaintLeagues = () => {
-      const values = sheet.getRange(1, LIGA_COLUMN, sheet.getMaxRows() - 1, 1).getDisplayValues();
+      const ligaColumn = physicalOf[LIGA_COLUMN];
+      const values = sheet.getRange(1, ligaColumn, sheet.getMaxRows() - 1, 1).getDisplayValues();
       values.forEach(([league = ""], index) => {
         if ((shownLeagues[index] ?? "") === league) {
           return;
@@ -348,7 +504,7 @@ export function GridPlanillaSheet({
         shownLeagues[index] = league;
         const color = getGridLeagueColor(league);
         sheet
-          .getRange(index + 1, LIGA_COLUMN)
+          .getRange(index + 1, ligaColumn)
           .setBackground(color?.background ?? palette.surface)
           .setFontColor(color?.text ?? palette.foreground)
           .setFontWeight(color ? "bold" : "normal");
@@ -378,7 +534,7 @@ export function GridPlanillaSheet({
       if (todayRow > 0) {
         sheet.scrollToCell(todayRow + 1, PLANILLA_FROZEN_COLUMNS);
       }
-      univer.__getInjector().get(IUndoRedoService).clearUndoRedo(workbook.getId());
+      clearUndo();
     };
     const RENDERED = univerAPI.Enum.LifecycleStages.Rendered;
 
@@ -397,9 +553,32 @@ export function GridPlanillaSheet({
       univerAPI.addEvent(univerAPI.Event.BeforeCommandExecute, (event) => {
         if (BLOCKED_COMMAND.test(event.id)) {
           event.cancel = true;
-          sync.report(
-            "En la planilla no se borran filas ni se mueven columnas. Para borrar un partido, usá su ficha.",
-          );
+          sync.report("En la planilla no se agregan ni se quitan columnas.");
+          return;
+        }
+        if (removingRows || !canEdit) {
+          return;
+        }
+        const removing = REMOVE_ROW_COMMANDS.has(event.id);
+        if (!removing && !CLEAR_COMMANDS.has(event.id)) {
+          return;
+        }
+        const rowsPicked = selectedRows(!removing);
+        if (!rowsPicked) {
+          return;
+        }
+        const matches = sync.matchesOnRows(rowsPicked);
+        if (matches.length) {
+          event.cancel = true;
+          onDeleteRequest(matches);
+        } else if (removing) {
+          // Blank rows stay: they are where new Partidos are typed.
+          event.cancel = true;
+        }
+      }),
+      univerAPI.addEvent(univerAPI.Event.CommandExecuted, (event) => {
+        if (event.id === MOVE_COLUMNS_MUTATION) {
+          readColumnOrder();
         }
       }),
     ];

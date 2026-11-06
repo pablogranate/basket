@@ -89,6 +89,32 @@ export const PLANILLA_COLUMNS: readonly PlanillaColumn[] = [
 
 export const PLANILLA_FROZEN_COLUMNS = 6;
 
+// Each user may drag columns into their own order. Only the view changes: the
+// sheet maps its columns back to PLANILLA_COLUMNS before anything is read or
+// saved. A stored order that no longer matches the columns is ignored.
+export function resolveColumnOrder(stored: unknown): string[] {
+  const keys = PLANILLA_COLUMNS.map((column) => column.key);
+  if (
+    !Array.isArray(stored) ||
+    stored.length !== keys.length ||
+    new Set(stored).size !== keys.length ||
+    !stored.every((key) => typeof key === "string" && keys.includes(key))
+  ) {
+    return keys;
+  }
+  return stored as string[];
+}
+
+// The order the header row shows, or null when a header cell is not a column
+// label (the sheet puts the labels back right after).
+export function columnOrderFromLabels(labels: string[]): string[] | null {
+  const order = labels.map(
+    (label) => PLANILLA_COLUMNS.find((column) => column.label === label)?.key ?? "",
+  );
+  const resolved = resolveColumnOrder(order);
+  return resolved === order ? order : null;
+}
+
 export const PLANILLA_REQUIRED_FOR_NEW = ["fecha", "hora", "local", "visitante"] as const;
 
 export type PlanillaValues = Record<string, string>;

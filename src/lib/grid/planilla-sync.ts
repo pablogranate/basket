@@ -29,6 +29,12 @@ export type PlanillaCreateResult =
   | { ok: true; matchId: string; newAssignments: number }
   | { ok: false; error: string };
 
+export type PlanillaDeleteResult =
+  | { ok: true; deleted: string[] }
+  | { ok: false; deleted: string[]; error: string };
+
+export type PlanillaRowMatch = { row: number; matchId: string; label: string };
+
 export type PlanillaServer = {
   saveEdits(edits: PlanillaEdit[]): Promise<PlanillaSaveResult[]>;
   createMatch(match: PlanillaNewMatch): Promise<PlanillaCreateResult>;
@@ -345,6 +351,26 @@ export function createPlanillaSync(params: {
     },
     report(message: string) {
       report(message);
+      emit();
+    },
+    // The saved Partidos on these rows (0-based, below the header). Blank and
+    // still-unsaved rows have none.
+    matchesOnRows(rowIndexes: number[]): PlanillaRowMatch[] {
+      const rows = port.readRows();
+      return [...new Set(rowIndexes)].sort((a, b) => a - b).flatMap((row) => {
+        const matchId = (rows[row]?.[ID_COLUMN] ?? "").trim();
+        const saved = committed.get(matchId);
+        if (!saved) {
+          return [];
+        }
+        const when = [saved.fecha, saved.hora].filter(Boolean).join(" ");
+        return [{ row, matchId, label: `${when} · ${matchLabel(saved)}` }];
+      });
+    },
+    // Partidos the database no longer has: their rows are gone from the sheet.
+    forget(matchIds: string[]) {
+      matchIds.forEach((matchId) => committed.delete(matchId));
+      status.savedAt = new Date();
       emit();
     },
   };

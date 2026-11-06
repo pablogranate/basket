@@ -527,3 +527,15 @@ export async function upsertMatchAssignment(
     notify: incomingPersonId && incomingPersonId !== priorPersonId ? [row.id] : [],
   };
 }
+
+// Assignments go with the Partido (FK cascade); the audit keeps its id.
+export async function deleteMatchRecord(ctx: UserContext, matchId: string) {
+  await db.delete(matchesTable).where(eq(matchesTable.id, matchId));
+  await writeAudit(ctx, {
+    table: "matches",
+    recordId: matchId,
+    action: "DELETE",
+    before: { id: matchId },
+    after: null,
+  });
+}

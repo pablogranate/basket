@@ -29,6 +29,7 @@ import {
 } from "@/lib/data/attendance";
 import { isUniqueViolation } from "@/lib/db/errors";
 import {
+  deleteMatchRecord,
   buildStaffAssignments,
   createMatchRecord,
   duplicateProductionCodeMessage,
@@ -300,16 +301,8 @@ const deleteMatch = defineAction({
   parse: parseDeleteMatch,
   revalidate: ["/grid"],
   async run(ctx, { matchId }) {
-    await db.delete(matchesTable).where(eq(matchesTable.id, matchId));
+    await deleteMatchRecord(ctx, matchId);
     addFields({ match: { id: matchId } });
-
-    await writeAudit(ctx, {
-      table: "matches",
-      recordId: matchId,
-      action: "DELETE",
-      before: { id: matchId },
-      after: null,
-    });
 
     return { notice: "Partido eliminado." };
   },

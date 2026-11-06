@@ -14,10 +14,15 @@ import {
 import { db } from "@/lib/db/client";
 import { assignments as assignmentsTable } from "@/lib/db/schema";
 import { userErrorMessage } from "@/lib/errors";
-import type { PlanillaCreateResult, PlanillaSaveResult } from "@/lib/grid/planilla-sync";
+import type {
+  PlanillaCreateResult,
+  PlanillaDeleteResult,
+  PlanillaSaveResult,
+} from "@/lib/grid/planilla-sync";
 import { reportError } from "@/lib/log";
 import {
   createMatchRecord,
+  deleteMatchRecord,
   loadStaffRoleIdsByName,
   updateMatchField,
   upsertMatchAssignment,
@@ -194,4 +199,33 @@ export async function createPlanillaMatchAction(
   } catch (error) {
     return failure(error, "createPlanillaMatchAction");
   }
+}
+
+const deleteIdsSchema = z.array(z.uuid()).min(1).max(200);
+
+export async function deletePlanillaMatchesAction(
+  rawIds: unknown,
+): Promise<PlanillaDeleteResult> {
+  const ctx = await requireEditor();
+  const parsed = deleteIdsSchema.safeParse(rawIds);
+
+  if (!parsed.success) {
+    return { ok: false, deleted: [], error: "Partidos inválidos." };
+  }
+
+  const deleted: string[] = [];
+  try {
+    for (const matchId of new Set(parsed.data)) {
+      await deleteMatchRecord(ctx, matchId);
+      deleted.push(matchId);
+    }
+  } catch (error) {
+    return { ...failure(error, "deletePlanillaMatchesAction"), deleted };
+  } finally {
+    if (deleted.length) {
+      revalidatePath("/grid");
+    }
+  }
+
+  return { ok: true, deleted };
 }
