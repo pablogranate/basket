@@ -19,12 +19,12 @@ The apps refuse to start when a database does not match the environment: in deve
    - Run `free -h`. The two apps take about 1 GB more, and a build briefly takes more on top of that.
    - Run `ss -ltn | grep -E ':301[23] '`. It must print nothing. If a port is taken, pick another one and change it here and in cashflow (`deploy-dev.yml`, `ecosystem.dev.config.cjs` and its nginx file).
 2. **Add the DNS records (DonWeb).** Two A records pointing to `162.249.168.210`: `dev.portal` and `dev.cashflow`.
-3. **Update Google OAuth.** In the portal's OAuth client, add the authorized origin `https://dev.portal.basket-app.com` and the redirect URI `https://dev.portal.basket-app.com/api/auth/callback/google`.
+3. **Create the dev Google OAuth client (ADR 0015).** Never add dev URIs to production's client. In Google Cloud, project **Dashboards** (`dashboards-496312`, organization basquetpass.tv): APIs & Services → Credentials → Create credentials → OAuth client ID → Web application, named `Portal dev`. Authorized origin `https://dev.portal.basket-app.com`, redirect URI `https://dev.portal.basket-app.com/api/auth/callback/google`. If the project asks for a consent screen first, make it **Internal**. Keep the client ID and secret for §2. Google takes a few minutes to accept a new client.
 4. **Create the `development` branch in both repos.** Do it once the PRs that add the dev deploy are merged into `main`:
    ```bash
    git push origin origin/main:refs/heads/development
    ```
-   Protect `development` the way `main` is protected: a PR with a review, and no direct pushes. Code on `development` runs as root on this VPS (ADR 0015, Consequences).
+   It is not protected, like `main` (ADR 0015, Consequences).
 
 ## 1. Databases
 
@@ -114,6 +114,7 @@ Edit `.env.local`:
 | `AUTH_DATABASE_URL` | `postgres://basket_auth_dev:<password>@127.0.0.1:5433/basket_auth_dev` |
 | `BETTER_AUTH_SECRET` | a new one from `openssl rand -base64 32`. Never production's. |
 | `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL` | `https://dev.portal.basket-app.com` |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | the dev client's (§0.3). Never production's. They are read at runtime: after changing them, `pm2 restart basket-app-dev --update-env` is enough. |
 | `GRID_SYNC_ENABLED`, `FIXTURES_SYNC_ENABLED`, `NOTIFICATIONS_ENABLED`, `OPENWA_NOTIFY_ENABLED` | delete them. On a dev host they are off unless set to `true`. |
 | `OPENWA_API_URL`, `OPENWA_API_KEY`, `TELEMETRY_TOKEN` | empty |
 | `CABB_USER_*`, `CABB_PASS*` | empty, so a manual fixtures sync can't log into the real Gesdeportiva accounts |
@@ -171,16 +172,74 @@ nginx `sites-enabled/*` are links, so write the files in `sites-available`.
    }
    ```
    Do the same for `dev.cashflow.basket-app.com` with port 3013. Link both, then run `nginx -t && systemctl reload nginx`.
-2. **Get the certificates.** Run `certbot --nginx --redirect -d dev.portal.basket-app.com` and `certbot --nginx --redirect -d dev.cashflow.basket-app.com`. Certbot adds a 443 block to each file.
-3. **Finish the portal block.** Copy the headers and limits of the production portal's server block into the 443 block of `dev.portal`. Leave out the apex and generator blocks, and keep port 3012. Add `add_header X-Robots-Tag "noindex, nofollow" always;`.
-4. **Replace the cashflow file.** Use the repo's `deploy/nginx/dev.cashflow.basket-app.com.conf`. Its certificate paths are the ones certbot just created.
-5. Run `nginx -t && systemctl reload nginx`.
+2. **Get the certificates.** `certonly` only fetches them and leaves the nginx files alone:
+   ```bash
+   certbot certonly --nginx --non-interactive --agree-tos --keep-until-expiring -d dev.portal.basket-app.com
+   certbot certonly --nginx --non-interactive --agree-tos --keep-until-expiring -d dev.cashflow.basket-app.com
+   ```
+   They renew with certbot's timer, like production's.
+3. **Back up the two port-80 files**, so a bad edit can be undone:
+   ```bash
+   B=/root/nginx-backup-dev-$(date +%Y%m%d-%H%M%S) && mkdir -p "$B"
+   cp -a /etc/nginx/sites-available/dev.portal.basket-app.com /etc/nginx/sites-available/dev.cashflow.basket-app.com "$B/"
+   ```
+4. **Replace the portal file** (`/etc/nginx/sites-available/dev.portal.basket-app.com`). It is production's `portal.conf` with `/opt/basket-app-dev` and port 3012, without the telemetry and PostHog includes, and out of search engines:
+   ```nginx
+   server {
+       listen 80;
+       server_name dev.portal.basket-app.com;
+       return 301 https://$host$request_uri;
+   }
+
+   server {
+       listen 443 ssl;
+       server_name dev.portal.basket-app.com;
+
+       ssl_certificate /etc/letsencrypt/live/dev.portal.basket-app.com/fullchain.pem;
+       ssl_certificate_key /etc/letsencrypt/live/dev.portal.basket-app.com/privkey.pem;
+       include /etc/letsencrypt/options-ssl-nginx.conf;
+       ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+       # An add_header inside a location drops the server's, so it is repeated.
+       add_header X-Robots-Tag "noindex, nofollow" always;
+
+       location /_next/static/ {
+           alias /opt/basket-app-dev/.next/static/;
+           access_log off;
+           add_header Cache-Control "public, max-age=31536000, immutable";
+           add_header X-Robots-Tag "noindex, nofollow" always;
+       }
+
+       location ~ ^/(Logos|LogosPNG)/ {
+           root /opt/basket-app-dev/public;
+           access_log off;
+           add_header Cache-Control "public, max-age=2592000";
+           add_header X-Robots-Tag "noindex, nofollow" always;
+       }
+
+       location / {
+           proxy_pass http://127.0.0.1:3012;
+           proxy_http_version 1.1;
+           proxy_set_header Host $host;
+           proxy_set_header X-Forwarded-Host $host;
+           proxy_set_header X-Forwarded-Proto $scheme;
+           proxy_set_header X-Real-IP $remote_addr;
+       }
+   }
+   ```
+5. **Replace the cashflow file** with the repo's: `cp /opt/cashflow-bp-dev/deploy/nginx/dev.cashflow.basket-app.com.conf /etc/nginx/sites-available/dev.cashflow.basket-app.com`.
+6. Run `nginx -t && systemctl reload nginx`. If `nginx -t` fails, copy the files in `$B` back and don't reload.
 
 ## 5. Check
 
 - **Login:** open `https://dev.portal.basket-app.com/login` and log in with Google.
 - **Cookies:** the browser has `__Secure-basket-dev.session_token`. Production's `__Secure-better-auth.session_token` is still there, and `portal.basket-app.com` is still logged in.
 - **Shared login:** `https://dev.cashflow.basket-app.com` opens without asking you to log in again.
+- **Cashflow Clave:** the copy has no Claves de Cashflow, so nobody gets past "Ingresar" yet. Create the first one for an admin, then give the rest from Accesos:
+  ```bash
+  cd /opt/cashflow-bp-dev && pnpm seed:clave <email> "<name>"
+  ```
+  It prints a temporary password once; on first entry the app asks for a new one.
 - **Schedulers:** `pm2 logs basket-app-dev --lines 50 --nostream` shows them as disabled.
 
 ## Working with it
@@ -197,4 +256,5 @@ nginx `sites-enabled/*` are links, so write the files in `sites-available`.
   `npm run db:auth:migrate` does not read `.env.local`.
 - **Cashflow migrations:** its deploy migrates on its own.
 - **No apex:** `/usuarios` and the Solicitudes of sibling apps live on the apex only, so they are not available in development. Accesos come from the copy. Links to apps without a dev copy (analytics, incidencias, ops) lead nowhere, or to production in the case of the Incidencias item.
-- **Backups:** off-site backups list their databases by name. Check that basket-tv-infra does not pick up the `_dev` ones.
+- **Refreshing the data:** rerun `/root/copy-dev-dbs.sh` (§1). It replaces everything done in development, Cashflow Claves included, so run `pnpm seed:clave` again afterwards. Cashflow dev reads the same Drive Excel as production (read-only); its Sincronización only writes to the dev database.
+- **Backups:** none. basket-tv-infra lists databases and `.env` files by name, so nothing of development is backed up; it is rebuilt from production. Only the dev Google client's secret would need to be fetched again from Google Cloud.
