@@ -587,7 +587,41 @@ export function GridPlanillaSheet({
       settle();
     }
 
+    // Supr (or Backspace) on whole selected rows deletes their Partidos. It is
+    // caught here, before Univer's own shortcut, which only fires when its
+    // hidden editor holds the focus and is not reliable after a row header
+    // click.
+    let sheetActive = false;
+    const onPointerDown = (event: PointerEvent) => {
+      sheetActive = host.contains(event.target as Node);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        !sheetActive ||
+        !canEdit ||
+        (event.key !== "Delete" && event.key !== "Backspace") ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        workbook.isCellEditing()
+      ) {
+        return;
+      }
+      const rowsPicked = selectedRows(true);
+      const matches = rowsPicked ? sync.matchesOnRows(rowsPicked) : [];
+      if (!matches.length) {
+        return;
+      }
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      onDeleteRequest(matches);
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("keydown", onKeyDown, true);
+
     return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("keydown", onKeyDown, true);
       clearTimeout(timer);
       subscriptions.forEach((subscription) => subscription.dispose());
       // Univer mounts its own React roots; disposing inside React's commit
