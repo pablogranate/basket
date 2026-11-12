@@ -71,6 +71,7 @@ export const GET = withAuth(
           home_team: matchesTable.homeTeam,
           away_team: matchesTable.awayTeam,
           production_mode: matchesTable.productionMode,
+          status: matchesTable.status,
         })
         .from(matchesTable)
         .where(
@@ -122,6 +123,7 @@ export const GET = withAuth(
         homeTeam: row.home_team,
         awayTeam: row.away_team,
         productionMode: row.production_mode,
+        status: row.status,
         assignments: (assignmentsByMatch.get(row.id) ?? [])
           .filter((slot) => slot.role)
           .map((slot) => ({
