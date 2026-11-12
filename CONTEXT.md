@@ -104,6 +104,12 @@ _Avoid_: slot (when the filled sense is meant)
 **Veces asignada**:
 How many distinct matches a person appears in within a period — not how many slot rows. A person holding two roles in one match was assigned once.
 
+**Ficha por persona**:
+The statistics export block that lists, for every person in the filtered range, each match they were assigned to and the roles they covered there, headed by their Veces asignada and Asignación contada totals. People follow the on-screen Personas order.
+
+**Planilla por partido**:
+The statistics export block with one row per match in the filtered range and one column per role filled in that range, holding who covered it. A role filter narrows the columns.
+
 ### Grid sync
 
 **Local**:
