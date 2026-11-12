@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildFacetCounts,
   buildGridReportSummary,
+  buildMatchStaffing,
   buildPersonDetail,
   EMPTY_REPORT_FILTERS,
   filterMatches,
@@ -34,6 +35,7 @@ function match(
     homeTeam: "Boca Juniors",
     awayTeam: "River Plate",
     productionMode: "DeporTV",
+    status: "Realizado",
     assignments,
     ...overrides,
   } satisfies ReportMatchRow;
@@ -503,5 +505,71 @@ describe("buildFacetCounts", () => {
     // but stays present.
     const nacional = facets.ligas.find((o) => o.value === "Liga Nacional");
     expect(nacional).toEqual({ value: "Liga Nacional", count: 0 });
+  });
+});
+
+describe("buildMatchStaffing", () => {
+  it("lists matches by kickoff with who filled each role", () => {
+    const staffing = buildMatchStaffing([
+      match(
+        "m2",
+        [assignment({ personId: "p2", personName: "Beto Paz", roleName: "Camara 1" })],
+        { kickoffAt: "2026-07-15T20:00:00.000Z" },
+      ),
+      match("m1", [
+        assignment({ personId: "p1", personName: "Ana García", roleName: "Camara 1" }),
+        assignment({
+          personId: "p3",
+          personName: "Caro Díaz",
+          roleName: "Relator",
+          roleCategory: "Talento",
+          roleSortOrder: 60,
+        }),
+      ]),
+    ]);
+
+    expect(staffing.matches.map((entry) => entry.id)).toEqual(["m1", "m2"]);
+    expect(staffing.matches[0].staff).toEqual({
+      "Camara 1": ["Ana García"],
+      Relator: ["Caro Díaz"],
+    });
+    expect(staffing.matches[1].staff).toEqual({ "Camara 1": ["Beto Paz"] });
+  });
+
+  it("keeps only the roles some match filled, in canonical order", () => {
+    const staffing = buildMatchStaffing([
+      match("m1", [
+        assignment({ roleName: "Camara 2", roleSortOrder: 130 }),
+        assignment({ personId: null, personName: null, roleName: "Encoder", roleSortOrder: 100 }),
+        assignment({
+          personId: "p2",
+          roleName: "Responsable",
+          roleCategory: "Coordinacion",
+          roleSortOrder: 10,
+        }),
+      ]),
+    ]);
+
+    expect(staffing.roles).toEqual(["Responsable", "Camara 2"]);
+  });
+
+  it("follows a role filter, so only the filtered roles become columns", () => {
+    const rows = [
+      match("m1", [
+        assignment({ roleName: "Camara 1", roleSortOrder: 120 }),
+        assignment({
+          personId: "p2",
+          roleName: "Relator",
+          roleCategory: "Talento",
+          roleSortOrder: 60,
+        }),
+      ]),
+    ];
+
+    const staffing = buildMatchStaffing(
+      filterMatches(rows, filters({ roles: ["Camara 1"] })),
+    );
+
+    expect(staffing.roles).toEqual(["Camara 1"]);
   });
 });

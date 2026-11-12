@@ -17,17 +17,15 @@ import {
 } from "lucide-react";
 
 import {
-  ALL_STATS_TABS,
-  buildAllStatsFileBaseName,
   buildPersonDetailExportTable,
   buildPersonDetailFileBaseName,
-  buildStatsCsv,
-  buildStatsExportTable,
+  buildStatsDocumentTitle,
+  buildStatsExportTables,
   buildStatsFileBaseName,
-  downloadStatsBlob,
-  exportAllStatsPdf,
   exportStatsPdf,
+  exportStatsXlsx,
 } from "@/components/grid/grid-stats-export";
+import type { StatsExportSelection } from "@/components/grid/grid-stats-export";
 import { formatMatchDateTime } from "@/lib/date";
 import {
   buildFacetCounts,
@@ -72,6 +70,14 @@ const FILTER_GROUPS: ReadonlyArray<{
 ];
 
 type SortOption = "count" | "alpha";
+type ExportFormat = "xlsx" | "pdf";
+
+const DEFAULT_EXPORT_SELECTION: StatsExportSelection = {
+  resumen: true,
+  resumenScope: "current",
+  ficha: true,
+  planilla: false,
+};
 type MetricOption = "partidos" | "asignaciones";
 
 type DisplayOptions = {
@@ -607,33 +613,28 @@ function PersonDetailPanel({
 }) {
   const canExport = Boolean(detail && detail.matches.length);
 
-  function handleCsvExport() {
+  async function handleExport(format: ExportFormat) {
     if (!detail) {
       return;
     }
 
-    const table = buildPersonDetailExportTable(detail, timezone);
-    downloadStatsBlob(
-      new Blob([buildStatsCsv(table)], { type: "text/csv;charset=utf-8" }),
-      `${buildPersonDetailFileBaseName({ fullName: detail.fullName, from, to })}.csv`,
-    );
-  }
-
-  async function handlePdfExport() {
-    if (!detail) {
-      return;
-    }
-
-    const table = buildPersonDetailExportTable(detail, timezone);
-    await exportStatsPdf({
-      table,
-      rangeLabel,
-      fileBaseName: buildPersonDetailFileBaseName({
-        fullName: detail.fullName,
-        from,
-        to,
-      }),
+    const tables = [buildPersonDetailExportTable(detail, timezone)];
+    const fileBaseName = buildPersonDetailFileBaseName({
+      fullName: detail.fullName,
+      from,
+      to,
     });
+
+    if (format === "xlsx") {
+      await exportStatsXlsx({ tables, fileBaseName });
+    } else {
+      await exportStatsPdf({
+        tables,
+        title: buildStatsDocumentTitle(tables),
+        rangeLabel,
+        fileBaseName,
+      });
+    }
   }
 
   return (
@@ -661,17 +662,17 @@ function PersonDetailPanel({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={handleCsvExport}
+            onClick={() => void handleExport("xlsx")}
             disabled={!canExport}
-            aria-label="Exportar CSV"
-            title="Exportar CSV"
+            aria-label="Exportar Excel"
+            title="Exportar Excel"
             className={iconButtonClass}
           >
             <Download className="size-4" />
           </button>
           <button
             type="button"
-            onClick={() => void handlePdfExport()}
+            onClick={() => void handleExport("pdf")}
             disabled={!canExport}
             aria-label="Exportar PDF"
             title="Exportar PDF"
@@ -863,39 +864,104 @@ function OpcionesMenu({
   );
 }
 
+function ExportCheckbox({
+  label,
+  description,
+  checked,
+  onToggle,
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      onClick={onToggle}
+      className="flex w-full items-start gap-2.5 rounded-md px-1.5 py-1.5 text-left transition hover:bg-[var(--background-soft)]"
+    >
+      <span
+        className={cn(
+          "mt-0.5 grid size-[15px] flex-none place-items-center rounded-[5px] border",
+          checked
+            ? "border-[var(--accent)] bg-[var(--accent)]"
+            : "border-[var(--n-300)] bg-[var(--surface)]",
+        )}
+      >
+        {checked ? (
+          <Check className="size-2.5 text-white" strokeWidth={3.5} />
+        ) : null}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-[13px] font-bold text-[var(--n-800)]">
+          {label}
+        </span>
+        <span className="block text-[11.5px] font-semibold text-[var(--n-500)]">
+          {description}
+        </span>
+      </span>
+    </button>
+  );
+}
+
 function ExportMenu({
-  scope,
+  selection,
   format,
-  onScope,
+  onSelection,
   onFormat,
   onDownload,
 }: {
-  scope: "current" | "all";
-  format: "csv" | "pdf";
-  onScope: (scope: "current" | "all") => void;
-  onFormat: (format: "csv" | "pdf") => void;
+  selection: StatsExportSelection;
+  format: ExportFormat;
+  onSelection: (next: Partial<StatsExportSelection>) => void;
+  onFormat: (format: ExportFormat) => void;
   onDownload: () => void;
 }) {
-  // CSV is one table by nature — "Todas las pestañas" applies to PDF only.
-  const effectiveScope = format === "csv" ? "current" : scope;
+  const canDownload =
+    selection.resumen || selection.ficha || selection.planilla;
 
   return (
-    <div className={menuClass}>
-      <h4 className={menuHeadingClass}>Alcance</h4>
-      <SegmentedControl
-        value={effectiveScope}
-        options={[
-          { value: "current", label: "Pestaña actual" },
-          { value: "all", label: "Todas", disabled: format === "csv" },
-        ]}
-        onChange={onScope}
+    <div className={cn(menuClass, "min-w-[280px]")}>
+      <h4 className={menuHeadingClass}>Incluir</h4>
+      <ExportCheckbox
+        label="Resumen"
+        description="Los totales de las pestañas"
+        checked={selection.resumen}
+        onToggle={() => onSelection({ resumen: !selection.resumen })}
+      />
+      {selection.resumen ? (
+        <div className="mb-1 ml-7 mt-1">
+          <SegmentedControl
+            value={selection.resumenScope}
+            options={[
+              { value: "current", label: "Pestaña actual" },
+              { value: "all", label: "Todas" },
+            ]}
+            onChange={(resumenScope) => onSelection({ resumenScope })}
+          />
+        </div>
+      ) : null}
+      <ExportCheckbox
+        label="Ficha por persona"
+        description="Los partidos de cada persona y su función"
+        checked={selection.ficha}
+        onToggle={() => onSelection({ ficha: !selection.ficha })}
+      />
+      <ExportCheckbox
+        label="Planilla por partido"
+        description="Quién cubrió cada función en cada partido"
+        checked={selection.planilla}
+        onToggle={() => onSelection({ planilla: !selection.planilla })}
       />
 
       <h4 className={menuHeadingClass}>Formato</h4>
       <SegmentedControl
         value={format}
         options={[
-          { value: "csv", label: "CSV" },
+          { value: "xlsx", label: "Excel" },
           { value: "pdf", label: "PDF" },
         ]}
         onChange={onFormat}
@@ -904,7 +970,8 @@ function ExportMenu({
       <button
         type="button"
         onClick={onDownload}
-        className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-[var(--accent)] bg-[var(--accent)] px-3.5 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white transition hover:bg-[var(--accent-strong)]"
+        disabled={!canDownload}
+        className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-[var(--accent)] bg-[var(--accent)] px-3.5 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Download className="size-3.5" />
         Descargar
@@ -936,8 +1003,10 @@ export function GridStatsModal({
   >({ ligas: false, teams: false, modes: false, roles: false });
   const [teamSearch, setTeamSearch] = useState("");
   const [openMenu, setOpenMenu] = useState<"gear" | "exp" | null>(null);
-  const [exportScope, setExportScope] = useState<"current" | "all">("current");
-  const [exportFormat, setExportFormat] = useState<"csv" | "pdf">("csv");
+  const [exportSelection, setExportSelection] = useState<StatsExportSelection>(
+    DEFAULT_EXPORT_SELECTION,
+  );
+  const [exportFormat, setExportFormat] = useState<ExportFormat>("xlsx");
   const [retryCount, setRetryCount] = useState(0);
   const toolsRef = useRef<HTMLDivElement | null>(null);
 
@@ -1059,31 +1128,26 @@ export function GridStatsModal({
       return;
     }
 
-    if (exportFormat === "csv") {
-      const table = buildStatsExportTable(displaySummary, activeTab);
-      downloadStatsBlob(
-        new Blob([buildStatsCsv(table)], { type: "text/csv;charset=utf-8" }),
-        `${buildStatsFileBaseName({ tabLabel: table.tabLabel, from, to })}.csv`,
-      );
-    } else if (exportScope === "all") {
-      const tables = ALL_STATS_TABS.map((tab) =>
-        buildStatsExportTable(displaySummary, tab),
-      );
-      void exportAllStatsPdf({
-        tables,
-        rangeLabel,
-        fileBaseName: buildAllStatsFileBaseName({ from, to }),
-      });
+    const tables = buildStatsExportTables({
+      selection: exportSelection,
+      summary: displaySummary,
+      activeTab,
+      matches: filtered,
+      timezone,
+    });
+    if (!tables.length) {
+      return;
+    }
+
+    const fileBaseName = buildStatsFileBaseName({ tables, from, to });
+    if (exportFormat === "xlsx") {
+      void exportStatsXlsx({ tables, fileBaseName });
     } else {
-      const table = buildStatsExportTable(displaySummary, activeTab);
       void exportStatsPdf({
-        table,
+        tables,
+        title: buildStatsDocumentTitle(tables),
         rangeLabel,
-        fileBaseName: buildStatsFileBaseName({
-          tabLabel: table.tabLabel,
-          from,
-          to,
-        }),
+        fileBaseName,
       });
     }
 
@@ -1273,15 +1337,15 @@ export function GridStatsModal({
                   ) : null}
                   {openMenu === "exp" ? (
                     <ExportMenu
-                      scope={exportScope}
+                      selection={exportSelection}
                       format={exportFormat}
-                      onScope={setExportScope}
-                      onFormat={(next) => {
-                        setExportFormat(next);
-                        if (next === "csv") {
-                          setExportScope("current");
-                        }
-                      }}
+                      onSelection={(next) =>
+                        setExportSelection((current) => ({
+                          ...current,
+                          ...next,
+                        }))
+                      }
+                      onFormat={setExportFormat}
                       onDownload={handleExport}
                     />
                   ) : null}

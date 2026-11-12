@@ -25,6 +25,7 @@ export type ReportMatchRow = {
   homeTeam: string;
   awayTeam: string;
   productionMode: string | null;
+  status: string;
   assignments: ReportAssignmentRow[];
 };
 
@@ -62,9 +63,11 @@ export type ReportProductionCount = {
 export type ReportPersonMatch = {
   id: string;
   kickoffAt: string;
+  competition: string | null;
   homeTeam: string;
   awayTeam: string;
   productionMode: string | null;
+  status: string;
   roles: string[];
 };
 
@@ -74,6 +77,22 @@ export type ReportPersonDetail = {
   matchCount: number;
   assignmentCount: number;
   matches: ReportPersonMatch[];
+};
+
+export type ReportStaffedMatch = {
+  id: string;
+  kickoffAt: string;
+  competition: string | null;
+  homeTeam: string;
+  awayTeam: string;
+  productionMode: string | null;
+  status: string;
+  staff: Record<string, string[]>;
+};
+
+export type ReportMatchStaffing = {
+  roles: string[];
+  matches: ReportStaffedMatch[];
 };
 
 export const UNSPECIFIED_PRODUCTION_MODE = "Sin especificar";
@@ -337,9 +356,11 @@ export function buildPersonDetail(
     personMatches.push({
       id: match.id,
       kickoffAt: match.kickoffAt,
+      competition: match.competition,
       homeTeam: match.homeTeam,
       awayTeam: match.awayTeam,
       productionMode: match.productionMode,
+      status: match.status,
       roles,
     });
   });
@@ -359,6 +380,45 @@ export function buildPersonDetail(
     assignmentCount,
     matches: personMatches,
   };
+}
+
+// Planilla por partido: one row per match, one column per role that some match
+// in the set filled. Columns follow the canonical role order; a role filter
+// narrows the columns too, because filterMatches narrows the assignments.
+export function buildMatchStaffing(
+  matches: ReportMatchRow[],
+): ReportMatchStaffing {
+  const roleSortOrders = new Map<string, number>();
+
+  const rows = matches
+    .map((match) => {
+      const staff: Record<string, string[]> = {};
+      countedAssignments(match).forEach((slot) => {
+        roleSortOrders.set(slot.roleName, slot.roleSortOrder);
+        (staff[slot.roleName] ??= []).push(slot.personName ?? "Sin nombre");
+      });
+
+      return {
+        id: match.id,
+        kickoffAt: match.kickoffAt,
+        competition: match.competition,
+        homeTeam: match.homeTeam,
+        awayTeam: match.awayTeam,
+        productionMode: match.productionMode,
+        status: match.status,
+        staff,
+      };
+    })
+    .sort((left, right) => left.kickoffAt.localeCompare(right.kickoffAt));
+
+  const roles = [...roleSortOrders.entries()]
+    .sort(
+      (left, right) =>
+        left[1] - right[1] || left[0].localeCompare(right[0], "es"),
+    )
+    .map(([name]) => name);
+
+  return { roles, matches: rows };
 }
 
 export function buildGridReportSummary(
