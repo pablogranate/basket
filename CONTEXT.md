@@ -79,8 +79,12 @@ _Avoid_: merge, dedupe, borrar duplicado
 ### Data ownership
 
 **Domain DB**:
-The database holding portal's own data — matches, people, teams, grid, reports. Portal is its only reader and writer; no sibling app, bot, or workflow touches it. Distinct from the Auth DB.
+The database holding portal's own data — matches, people, teams, grid, reports. Portal is its only writer. Siblings read only the Catálogo publicado, never its tables (ADR 0012). Distinct from the Auth DB.
 _Avoid_: "the database" (ambiguous), portal DB (when the Auth DB might be meant)
+
+**Catálogo publicado**:
+The read-only part of the Domain DB that siblings may see: Partidos, Partidos de fixture, Clubs, Equipos, Ligas, Ediciones. It is a contract — the portal may reshape its tables, not what the catalog shows.
+_Avoid_: API, shared tables, export
 
 **Auth DB**:
 The shared identity store: users, sessions and every Acceso. Domain data never lives here. Its availability gates login for all siblings, so it changes rarely and deliberately, unlike the weekly-churning Domain DB.
@@ -128,7 +132,7 @@ _Avoid_: sync range, sync horizon
 The pure, computed outcome of a grid sync before anything is written: matches to create/update/delete, assignment changes, people to create or resurrect, plus errors and warnings. What the manual sync previews and what the apply step executes. A warning (e.g. a person assigned a función they don't hold in the portal) never blocks; an error (duplicate production code) excludes its rows and cancels the delete pass.
 _Avoid_: dry-run (the plan is also the real input to apply), diff (too generic)
 
-**Partido** (retired):
+**Columna Partido** (retired):
 The legacy single sheet column that held both teams as `"Local vs Visitante"`, split apart at parse time. Retired as of the Julio 26 tab — the sheet now ships `Local` and `Visitante` as separate columns. No longer read by the sync, and tabs before Julio 26 are never fetched.
 
 ### Clubs and teams
@@ -153,14 +157,36 @@ _Avoid_: sinónimo, nombre alternativo
 The tab of the production spreadsheet holding the two controlled vocabularies the contacts sheet validates against: `Funciones` in column A and `Clubes` in column B. Column B is the source of truth for which clubs exist — a name there that the portal does not know is a team to create, not an error.
 _Avoid_: ClubesValidos (that is the named range inside the tab, not the tab)
 
-**Liga terminada**:
-A Liga whose season is over on `/fixtures`, marked by dragging its chip into the "Terminadas" folder. One list everyone shares, keyed by the chip label; it only takes the chip out of the row and its partidos out of "Todas", and every change is recorded in the audit log.
-_Avoid_: liga archivada (the folder's "desarchivar" is the gesture, not the state)
+**Contacto de club**:
+A person on a club's side we deal with — manager, press, venue staff. Belongs to one Club, never works for us, and is not a ficha.
+_Avoid_: contacto (bare), contact
 
 **Equipo incompleto**:
 An equipo created from `Listas` with nothing but its name: no league membership, no crest, no stadium. It is a real equipo people can be linked to, but it shows in `/teams` only with no league filter applied, until an editor fills it in.
 _Avoid_: equipo provisorio, borrador
 
+### Leagues and games
+
+**Partido**:
+A game we cover, identified by the Grilla's ID column (its production code). Every app refers to a Partido by that id. A game without one is not a Partido.
+_Avoid_: match (in Spanish-facing copy), producción, contenido
+
+**Partido de fixture**:
+A game on an Edición's schedule, covered or not. When we cover it, its Partido points back to it; until then it is just a fixture entry.
+_Avoid_: fixture (bare, means the whole schedule), partido (when coverage is not implied)
+
 **Liga**:
 A competition we cover, across seasons — Liga Nacional, Liga Argentina, Liga Metropolitana. A Liga is identified by its slug, which never changes; its name is only what people read, and an editor can rename it from `/teams`. Anything that matches a Liga by name (the Grilla's "Liga" text, a tab's colour) falls back to the slug, so a rename does not break it. A Liga has a tab in `/teams` when it is marked for the directory (`in_team_directory`) or has equipos.
 _Avoid_: torneo, competición, tournament
+
+**Liga terminada**:
+A Liga whose season is over on `/fixtures`, marked by dragging its chip into the "Terminadas" folder. One list everyone shares, keyed by the chip label; it only takes the chip out of the row and its partidos out of "Todas", and every change is recorded in the audit log.
+_Avoid_: liga archivada (the folder's "desarchivar" is the gesture, not the state)
+
+**Temporada**:
+A season label shared by every Liga that plays in it, such as `2026` or `25/26`.
+_Avoid_: season (in Spanish-facing copy), año
+
+**Edición**:
+One Liga in one Temporada — what equipos enter, what a fixture belongs to, and what carries per-season terms such as coverage requirements and broadcast authorization.
+_Avoid_: competition season, torneo
